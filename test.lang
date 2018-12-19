@@ -1,0 +1,12 @@
+toto: Int -> 
+    2
+    3
+
+    4
+    5
+
+tata(a: Int): Int -> a
+
+titi: Int -> toto()
+
+main: Int -> titi()

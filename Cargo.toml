@@ -1,0 +1,9 @@
+[package]
+name = "lang"
+version = "0.1.0"
+authors = ["champii <contact@champii>"]
+edition = "2018"
+
+[dependencies]
+llvm-sys = "70"
+lazy_static = "1.2.0"

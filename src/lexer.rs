@@ -1,0 +1,526 @@
+use super::{Token, TokenType};
+
+pub struct Lexer {
+    pub input: Vec<char>,
+    cur_idx: usize,
+    last_char: char,
+    cur_line: usize,
+    end: bool,
+}
+
+impl Lexer {
+    pub fn new(input: Vec<char>) -> Lexer {
+        Lexer {
+            last_char: input[0],
+            input,
+            cur_idx: 0,
+            cur_line: 1,
+            end: false,
+        }
+    }
+
+    pub fn set_line(&mut self) {
+        let lines: Vec<_> = self.input[..self.cur_idx].split(|c| *c == '\n').collect();
+
+        self.cur_line = lines.len();
+    }
+
+    pub fn all(&mut self) -> Vec<Token> {
+        let mut res = vec![];
+
+        loop {
+            let tok = self.next();
+
+            res.push(tok.clone());
+
+            if tok.t == TokenType::EOF {
+                break;
+            }
+        }
+
+        res
+    }
+
+    pub fn seek(&mut self) -> Token {
+        let saved = self.cur_idx;
+
+        let tok = self.next();
+
+        self.cur_idx = saved;
+
+        tok
+    }
+
+    pub fn restore(&mut self, token: Token) {
+        self.cur_idx = token.end + 1;
+
+        if self.cur_idx >= self.input.len() {
+            self.end = true;
+
+            self.cur_idx = self.input.len() - 1;
+
+            self.last_char = '\0';
+        } else {
+            self.end = false;
+
+            self.last_char = self.input[self.cur_idx];
+        }
+
+        self.set_line();
+    }
+
+    pub fn next(&mut self) -> Token {
+        if self.end {
+            return Token {
+                t: TokenType::EOF,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "".to_string(),
+            };
+        }
+
+        if let Some(t) = self.try_indent() {
+            return t;
+        }
+
+        while self.last_char == ' ' {
+            self.forward();
+        }
+
+        if let Some(t) = self.try_fn_keyword() {
+            return t;
+        }
+
+        if let Some(t) = self.try_extern_keyword() {
+            return t;
+        }
+
+        if let Some(t) = self.try_parens() {
+            return t;
+        }
+
+        if let Some(t) = self.try_type() {
+            return t;
+        }
+
+        if let Some(t) = self.try_array_decl() {
+            return t;
+        }
+
+        if let Some(t) = self.try_ident() {
+            return t;
+        }
+
+        if let Some(t) = self.try_arrow() {
+            return t;
+        }
+
+        if let Some(t) = self.try_digit() {
+            return t;
+        }
+
+        if let Some(t) = self.try_coma() {
+            return t;
+        }
+
+        if let Some(t) = self.try_semi_colon() {
+            return t;
+        }
+
+        if let Some(t) = self.try_equal() {
+            return t;
+        }
+
+        if let Some(t) = self.try_operator() {
+            return t;
+        }
+
+        if let Some(t) = self.try_string() {
+            return t;
+        }
+
+        if let Some(t) = self.try_end_of() {
+            return t;
+        }
+
+        if self.cur_idx >= self.input.len() - 1 {
+            return Token {
+                t: TokenType::EOF,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "".to_string(),
+            };
+        }
+
+        panic!("Unknown token: {}", self.last_char);
+    }
+
+    fn try_arrow(&mut self) -> Option<Token> {
+        if self.last_char == '-' && self.input[self.cur_idx + 1] == '>' {
+            let start = self.cur_idx;
+
+            self.forward();
+            self.forward();
+
+            return Some(Token {
+                t: TokenType::Arrow,
+                line: self.cur_line,
+                start,
+                end: self.cur_idx - 1,
+                txt: "->".to_string(),
+            });
+        }
+
+        None
+    }
+
+    fn try_fn_keyword(&mut self) -> Option<Token> {
+        if self.last_char == 'f'
+            && self.input[self.cur_idx + 1] == 'n'
+            && self.input[self.cur_idx + 2] == ' '
+        {
+            let start = self.cur_idx;
+
+            self.forward();
+            self.forward();
+
+            return Some(Token {
+                t: TokenType::FnKeyword,
+                line: self.cur_line,
+                start,
+                end: self.cur_idx - 1,
+                txt: "fn".to_string(),
+            });
+        }
+
+        None
+    }
+    fn try_extern_keyword(&mut self) -> Option<Token> {
+        if self.last_char == 'e' {
+            let word: String = self.input[self.cur_idx..self.cur_idx + 6].iter().collect();
+
+            if word == "extern".to_string() && self.input[self.cur_idx + 6] == ' ' {
+                let start = self.cur_idx;
+
+                self.forward();
+                self.forward();
+                self.forward();
+                self.forward();
+                self.forward();
+                self.forward();
+
+                return Some(Token {
+                    t: TokenType::ExternKeyword,
+                    line: self.cur_line,
+                    start,
+                    end: self.cur_idx - 1,
+                    txt: "extern".to_string(),
+                });
+            }
+        }
+
+        None
+    }
+
+    fn try_ident(&mut self) -> Option<Token> {
+        let start = self.cur_idx;
+
+        if self.last_char.is_alphabetic() || self.last_char == '_' {
+            let mut identifier = vec![];
+
+            while self.last_char.is_alphanumeric() || self.last_char == '_' {
+                identifier.push(self.last_char);
+
+                self.forward();
+            }
+
+            // if is_keyword, return None
+
+            return Some(Token {
+                t: TokenType::Identifier(identifier.iter().collect()),
+                line: self.cur_line,
+                start: start,
+                end: self.cur_idx - 1,
+                txt: identifier.iter().collect(),
+            });
+        }
+
+        None
+    }
+
+    fn try_parens(&mut self) -> Option<Token> {
+        if self.last_char == '(' {
+            let res = Some(Token {
+                t: TokenType::OpenParens,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "(".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        } else if self.last_char == ')' {
+            let res = Some(Token {
+                t: TokenType::CloseParens,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: ")".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_array_decl(&mut self) -> Option<Token> {
+        if self.last_char == '[' && self.input[self.cur_idx + 1] == ']' {
+            let res = Some(Token {
+                t: TokenType::ArrayType,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx + 1,
+                txt: "[]".to_string(),
+            });
+
+            self.forward();
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_coma(&mut self) -> Option<Token> {
+        if self.last_char == ',' {
+            let res = Some(Token {
+                t: TokenType::Coma,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: ",".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_semi_colon(&mut self) -> Option<Token> {
+        if self.last_char == ':' {
+            let res = Some(Token {
+                t: TokenType::SemiColon,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: ":".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_equal(&mut self) -> Option<Token> {
+        if self.last_char == '=' {
+            let res = Some(Token {
+                t: TokenType::Equal,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "=".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_operator(&mut self) -> Option<Token> {
+        if self.last_char == '+' {
+            let res = Some(Token {
+                t: TokenType::Operator(self.last_char.to_string()),
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "+".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_digit(&mut self) -> Option<Token> {
+        let start = self.cur_idx;
+
+        if self.last_char.is_digit(10) {
+            let mut number = vec![];
+
+            while self.last_char.is_digit(10) {
+                number.push(self.last_char);
+
+                self.forward();
+            }
+
+            let nb_str: String = number.iter().collect();
+            let nb: u64 = nb_str.parse().unwrap();
+
+            // if is_keyword, return None
+
+            return Some(Token {
+                t: TokenType::Number(nb),
+                line: self.cur_line,
+                start: start,
+                end: self.cur_idx - 1,
+                txt: nb_str,
+            });
+        }
+
+        None
+    }
+
+    fn try_end_of(&mut self) -> Option<Token> {
+        if self.last_char == '\n' {
+            let res = Some(Token {
+                t: TokenType::EOL,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "\n".to_string(),
+            });
+
+            self.forward();
+
+            self.cur_line += 1;
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_indent(&mut self) -> Option<Token> {
+        let save = self.cur_idx;
+
+        if self.cur_idx > 0 && self.input[self.cur_idx - 1] == '\n' {
+            let mut indent = 0;
+
+            while self.input[self.cur_idx] == ' ' {
+                let mut count = 0;
+                while self.input[self.cur_idx] == ' ' && count < 4 {
+                    self.forward();
+
+                    count += 1;
+                }
+                if count == 4 {
+                    indent += 1;
+                }
+            }
+
+            if indent > 0 {
+                return Some(Token {
+                    t: TokenType::Indent(indent),
+                    line: self.cur_line,
+                    start: save,
+                    end: self.cur_idx,
+                    txt: " ".to_string(),
+                });
+            }
+
+            self.cur_idx = save;
+        }
+
+        None
+    }
+
+    fn try_string(&mut self) -> Option<Token> {
+        let start = self.cur_idx;
+
+        if self.last_char == '"' {
+            let mut s = vec![];
+
+            self.forward();
+
+            while self.last_char != '"' {
+                s.push(self.last_char);
+
+                self.forward();
+            }
+
+            self.forward();
+
+            let res: String = s.iter().collect();
+
+            return Some(Token {
+                t: TokenType::String(res.clone()),
+                line: self.cur_line,
+                start: start,
+                end: self.cur_idx - 1,
+                txt: res,
+            });
+        }
+
+        None
+    }
+
+    fn try_type(&mut self) -> Option<Token> {
+        let start = self.cur_idx;
+
+        if self.last_char.is_alphabetic() && self.last_char.is_uppercase() {
+            let mut identifier = vec![];
+
+            while self.last_char.is_alphanumeric() {
+                identifier.push(self.last_char);
+
+                self.forward();
+            }
+
+            // if is_keyword, return None
+
+            return Some(Token {
+                t: TokenType::Type(identifier.iter().collect()),
+                line: self.cur_line,
+                start: start,
+                end: self.cur_idx - 1,
+                txt: identifier.iter().collect(),
+            });
+        }
+
+        None
+    }
+
+    fn forward(&mut self) {
+        self.cur_idx += 1;
+
+        if self.cur_idx >= self.input.len() {
+            self.end = true;
+
+            self.cur_idx = self.input.len() - 1;
+
+            self.last_char = '\0';
+        } else {
+            self.last_char = self.input[self.cur_idx];
+        }
+    }
+}
