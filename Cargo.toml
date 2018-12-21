@@ -5,5 +5,14 @@ authors = ["champii <contact@champii>"]
 edition = "2018"
 
 [dependencies]
+clap = "2.32.0"
 llvm-sys = "70"
 lazy_static = "1.2.0"
+
+[lib]
+name = "lang"
+path = "src/lib/lang.rs"
+
+[[bin]]
+name = "lang"
+path = "src/bin/main.rs"

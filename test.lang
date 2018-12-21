@@ -1,12 +1,9 @@
-toto: Int -> 
-    2
-    3
+extern puts(String)
 
-    4
-    5
+toto(a: Int): Int -> a
 
-tata(a: Int): Int -> a
+haha -> puts("haha")
 
-titi: Int -> toto()
-
-main: Int -> titi()
+main: Int ->
+    haha()
+    toto(1)
