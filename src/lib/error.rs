@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::token::Token;
+use super::token::{Token, TokenType};
 
 pub struct Error {
     pub input: Vec<char>,
@@ -11,6 +11,20 @@ pub struct Error {
 impl Error {
     pub fn new(input: Vec<char>, token: Token, msg: String) -> Error {
         Error { input, token, msg }
+    }
+
+    pub fn new_empty() -> Error {
+        Error {
+            input: vec![],
+            token: Token {
+                t: TokenType::EOF,
+                line: 1,
+                start: 0,
+                end: 0,
+                txt: "".to_string(),
+            },
+            msg: "".to_string(),
+        }
     }
 
     pub fn print(&self, f: &mut fmt::Formatter) -> fmt::Result {

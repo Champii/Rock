@@ -15,9 +15,9 @@ use super::ast::*;
 use super::scope::Scopes;
 
 pub struct Context {
-    pub scopes: Scopes,
-    pub functions: Scopes,
-    pub arguments: Scopes,
+    pub scopes: Scopes<*mut LLVMValue>,
+    pub functions: Scopes<*mut LLVMValue>,
+    pub arguments: Scopes<*mut LLVMValue>,
     pub module: *mut LLVMModule,
     pub context: *mut LLVMContext,
     pub builder: *mut LLVMBuilder,
@@ -261,7 +261,7 @@ impl IrBuilder for Prototype {
 
 impl IrBuilder for FunctionDecl {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
-        let name_orig = self.name.clone().unwrap_or("nop".to_string());
+        let name_orig = self.name.clone();
 
         let mut name = name_orig.clone();
 
@@ -273,13 +273,13 @@ impl IrBuilder for FunctionDecl {
             let mut argts = vec![];
 
             for arg in &self.arguments {
-                let t = get_type(Box::new(arg.t.clone()));
+                let t = get_type(Box::new(arg.t.clone().unwrap()));
 
                 argts.push(t);
             }
 
             let function_type = llvm::core::LLVMFunctionType(
-                get_type(Box::new(self.t.clone())),
+                get_type(Box::new(self.t.clone().unwrap())),
                 argts.as_mut_ptr(),
                 argts.len() as u32,
                 0,
@@ -321,7 +321,7 @@ impl IrBuilder for FunctionDecl {
             let res = self.body.build(context);
 
             match &self.t {
-                Type::Name(t) => {
+                Some(Type::Name(t)) => {
                     if *t == "Void".to_string() {
                         llvm::core::LLVMBuildRetVoid(context.builder)
                     } else {

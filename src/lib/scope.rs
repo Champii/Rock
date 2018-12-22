@@ -2,18 +2,18 @@ use llvm::LLVMValue;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
-pub struct Scopes {
-    pub scopes: Vec<Scope>,
+pub struct Scopes<T: Clone> {
+    pub scopes: Vec<Scope<T>>,
 }
 
-impl Scopes {
-    pub fn new() -> Scopes {
+impl<T: Clone> Scopes<T> {
+    pub fn new() -> Scopes<T> {
         Scopes {
             scopes: vec![Scope::new()],
         }
     }
 
-    pub fn get(&self, s: String) -> Option<*mut LLVMValue> {
+    pub fn get(&self, s: String) -> Option<T> {
         let mut test = self.scopes.clone();
         test.reverse();
         // Here need reverse scopes
@@ -27,7 +27,7 @@ impl Scopes {
         // self.scopes.last().unwrap()
     }
 
-    pub fn add(&mut self, s: String, val: *mut LLVMValue) {
+    pub fn add(&mut self, s: String, val: T) {
         // Here need reverse scopes
         let scope = self.scopes.last_mut().unwrap();
 
@@ -44,12 +44,12 @@ impl Scopes {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scope {
-    pub items: HashMap<String, *mut LLVMValue>,
+pub struct Scope<T: Clone> {
+    pub items: HashMap<String, T>,
 }
 
-impl Scope {
-    pub fn new() -> Scope {
+impl<T: Clone> Scope<T> {
+    pub fn new() -> Scope<T> {
         Scope {
             items: HashMap::new(),
         }

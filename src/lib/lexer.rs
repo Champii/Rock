@@ -144,6 +144,10 @@ impl Lexer {
             return t;
         }
 
+        if let Some(t) = self.try_double_semi_colon() {
+            return t;
+        }
+
         if let Some(t) = self.try_semi_colon() {
             return t;
         }
@@ -476,6 +480,25 @@ impl Lexer {
                 txt: ",".to_string(),
             });
 
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_double_semi_colon(&mut self) -> Option<Token> {
+        if self.last_char == ':' && self.input[self.cur_idx + 1] == ':' {
+            let res = Some(Token {
+                t: TokenType::DoubleSemiColon,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx + 1,
+                txt: "::".to_string(),
+            });
+
+            self.forward();
             self.forward();
 
             return res;

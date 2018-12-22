@@ -24,9 +24,13 @@ macro_rules! expect_or_restore {
             $self.restore();
 
             error_expect!($tok, $self);
-        }
+        } else {
+            let cur_tok = $self.cur_tok.clone();
 
-        $self.consume();
+            $self.consume();
+
+            cur_tok
+        }
     };
 }
 
@@ -194,13 +198,15 @@ impl Parser {
             self.consume();
         }
 
-        if let TokenType::OpenParens = &self.cur_tok.t {
+        if TokenType::OpenParens == self.cur_tok.t
+            || TokenType::Identifier(self.cur_tok.txt.clone()) == self.cur_tok.t
+        {
             // manage error and restore here
             arguments = self.arguments_decl_type()?;
         }
 
-        let t = if self.cur_tok.t == TokenType::SemiColon {
-            expect_or_restore!(TokenType::SemiColon, self);
+        let t = if self.cur_tok.t == TokenType::DoubleSemiColon {
+            expect_or_restore!(TokenType::DoubleSemiColon, self);
 
             try_or_restore_expect!(
                 self.type_(),
@@ -215,31 +221,29 @@ impl Parser {
     }
 
     fn function_decl(&mut self) -> Result<FunctionDecl, Error> {
-        let mut name = None;
         let mut arguments = vec![];
 
         self.save();
 
-        if let TokenType::Identifier(ident) = &self.cur_tok.t {
-            name = Some(ident.clone());
+        let name = try_or_restore!(self.identifier(), self);
 
-            self.consume();
+        if TokenType::OpenParens == self.cur_tok.t
+            || TokenType::Identifier(self.cur_tok.txt.clone()) == self.cur_tok.t
+        {
+            // manage error and restore here
+            arguments = self.arguments_decl()?;
         }
 
-        if let TokenType::OpenParens = &self.cur_tok.t {
-            arguments = self.arguments_decl().unwrap_or(arguments);
-        }
+        let t = if self.cur_tok.t == TokenType::DoubleSemiColon {
+            expect_or_restore!(TokenType::DoubleSemiColon, self);
 
-        let t = if self.cur_tok.t == TokenType::SemiColon {
-            expect_or_restore!(TokenType::SemiColon, self);
-
-            try_or_restore_expect!(
+            Some(try_or_restore_expect!(
                 self.type_(),
                 TokenType::Type(self.cur_tok.txt.clone()),
                 self
-            )
+            ))
         } else {
-            Type::Name("Void".to_string())
+            None
         };
 
         expect_or_restore!(TokenType::Arrow, self);
@@ -261,9 +265,15 @@ impl Parser {
 
         self.save();
 
-        self.consume();
+        let mut has_parens = false;
 
-        if let TokenType::CloseParens = &self.cur_tok.t {
+        if TokenType::OpenParens == self.cur_tok.t {
+            self.consume();
+
+            has_parens = true;
+        }
+
+        if has_parens && TokenType::CloseParens == self.cur_tok.t {
             self.consume();
 
             self.save_pop();
@@ -283,7 +293,9 @@ impl Parser {
             self.consume();
         }
 
-        self.consume();
+        if has_parens {
+            expect_or_restore!(TokenType::CloseParens, self);
+        }
 
         self.save_pop();
 
@@ -321,13 +333,17 @@ impl Parser {
 
         self.save();
 
-        expect_or_restore!(TokenType::SemiColon, self);
+        let t = if self.cur_tok.t == TokenType::SemiColon {
+            expect_or_restore!(TokenType::SemiColon, self);
 
-        let t = try_or_restore_expect!(
-            self.type_(),
-            TokenType::Type(self.cur_tok.txt.clone()),
-            self
-        );
+            Some(try_or_restore_expect!(
+                self.type_(),
+                TokenType::Type(self.cur_tok.txt.clone()),
+                self
+            ))
+        } else {
+            None
+        };
 
         self.save_pop();
 
@@ -339,9 +355,15 @@ impl Parser {
 
         self.save();
 
-        expect!(TokenType::OpenParens, self);
+        let has_parens = if TokenType::OpenParens == self.cur_tok.t {
+            expect!(TokenType::OpenParens, self);
 
-        if let TokenType::CloseParens = &self.cur_tok.t {
+            true
+        } else {
+            false
+        };
+
+        if has_parens && TokenType::CloseParens == self.cur_tok.t {
             self.consume();
 
             self.save_pop();
@@ -361,7 +383,9 @@ impl Parser {
             self.consume();
         }
 
-        expect_or_restore!(TokenType::CloseParens, self);
+        if has_parens {
+            expect_or_restore!(TokenType::CloseParens, self);
+        }
 
         self.save_pop();
 
@@ -556,6 +580,10 @@ impl Parser {
         let operand = self.operand()?;
 
         let mut secondarys = vec![];
+
+        if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone()) {
+            return Ok(PrimaryExpr::PrimaryExpr(operand, secondarys));
+        }
 
         while let Ok(second) = self.secondary_expr() {
             secondarys.push(second);

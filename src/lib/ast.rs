@@ -1,3 +1,5 @@
+// use super::type_checker::Context;
+
 #[derive(Debug, Clone)]
 pub struct SourceFile {
     pub top_levels: Vec<TopLevel>,
@@ -12,8 +14,8 @@ pub enum TopLevel {
 
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
-    pub name: Option<String>,
-    pub t: Type,
+    pub name: String,
+    pub t: Option<Type>,
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
 }
@@ -33,7 +35,7 @@ pub struct ArgumentType {
 #[derive(Debug, Clone)]
 pub struct ArgumentDecl {
     pub name: String,
-    pub t: Type,
+    pub t: Option<Type>,
 }
 
 #[derive(Debug, Clone)]

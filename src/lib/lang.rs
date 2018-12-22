@@ -4,18 +4,22 @@ use std::fs;
 
 mod ast;
 mod codegen;
+mod context;
 mod error;
 mod lexer;
 mod parser;
 mod scope;
 mod tests;
 mod token;
+mod type_checker;
 
+use self::ast::*;
 use self::codegen::Builder;
 use self::error::Error;
 use self::lexer::Lexer;
 use self::parser::Parser;
 use self::token::{Token, TokenType};
+use self::type_checker::{TypeChecker, TypeInferer};
 
 pub fn parse_file(in_name: String) -> Result<Builder, Error> {
     let file = fs::read_to_string(in_name).expect("Woot");
@@ -28,11 +32,11 @@ pub fn parse_str(input: String) -> Result<Builder, Error> {
 
     // println!("LEX {:#?}", lexer.all());
 
-    let mut parser = Parser::new(lexer);
+    let ast = Parser::new(lexer).run()?;
 
-    let ast = parser.run()?;
+    let ast = TypeChecker::new(ast).infer();
 
-    // println!("AST {:#?}", ast);
+    println!("AST {:#?}", ast);
 
     let mut builder = Builder::new("STDIN\0", ast);
 

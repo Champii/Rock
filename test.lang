@@ -1,9 +1,2 @@
-extern puts(String)
-
-toto(a: Int): Int -> a
-
-haha -> puts("haha")
-
-main: Int ->
-    haha()
-    toto(1)
+id a -> a + a
+main -> id 1

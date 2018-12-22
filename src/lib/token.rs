@@ -11,6 +11,7 @@ pub enum TokenType {
     Arrow,
     Coma,
     SemiColon,
+    DoubleSemiColon,
     Equal,
     ArrayType,
     EqualEqual, // ==
