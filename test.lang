@@ -5,5 +5,5 @@ id a -> a
 toto -> id 1
 
 main ->
-    puts id "lol"
+    puts id id id id "lol"
     toto()

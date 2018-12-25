@@ -73,7 +73,7 @@ impl Builder {
 
         unsafe {
             LLVMDisposeBuilder(self.context.builder);
-            // LLVMDumpModule(self.context.module);
+            LLVMDumpModule(self.context.module);
 
             // let mut err = ptr::null_mut();
 
@@ -279,7 +279,7 @@ impl IrBuilder for FunctionDecl {
             }
 
             let function_type = llvm::core::LLVMFunctionType(
-                get_type(Box::new(self.t.clone().unwrap())),
+                get_type(Box::new(self.ret.clone().unwrap())),
                 argts.as_mut_ptr(),
                 argts.len() as u32,
                 0,
@@ -320,7 +320,7 @@ impl IrBuilder for FunctionDecl {
 
             let res = self.body.build(context);
 
-            match &self.t {
+            match &self.ret {
                 Some(Type::Name(t)) => {
                     if *t == "Void".to_string() {
                         llvm::core::LLVMBuildRetVoid(context.builder)

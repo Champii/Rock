@@ -208,7 +208,7 @@ impl Parser {
             arguments = self.arguments_decl_type()?;
         }
 
-        let t = if self.cur_tok.t == TokenType::DoubleSemiColon {
+        let ret = if self.cur_tok.t == TokenType::DoubleSemiColon {
             expect_or_restore!(TokenType::DoubleSemiColon, self);
 
             try_or_restore_expect!(
@@ -220,7 +220,11 @@ impl Parser {
             Type::Name("Void".to_string())
         };
 
-        return Ok(Prototype { name, t, arguments });
+        return Ok(Prototype {
+            name,
+            ret,
+            arguments,
+        });
     }
 
     fn function_decl(&mut self) -> Result<FunctionDecl, Error> {
@@ -237,7 +241,7 @@ impl Parser {
             arguments = self.arguments_decl()?;
         }
 
-        let t = if self.cur_tok.t == TokenType::DoubleSemiColon {
+        let ret = if self.cur_tok.t == TokenType::DoubleSemiColon {
             expect_or_restore!(TokenType::DoubleSemiColon, self);
 
             Some(try_or_restore_expect!(
@@ -257,7 +261,7 @@ impl Parser {
 
         Ok(FunctionDecl {
             name,
-            t,
+            ret,
             arguments,
             body,
         })

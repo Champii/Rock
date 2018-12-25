@@ -6,6 +6,7 @@ mod ast;
 mod codegen;
 mod context;
 mod error;
+mod generator;
 mod lexer;
 mod parser;
 mod scope;
@@ -16,6 +17,7 @@ mod type_checker;
 use self::ast::*;
 use self::codegen::Builder;
 use self::error::Error;
+use self::generator::Generator;
 use self::lexer::Lexer;
 use self::parser::Parser;
 use self::token::{Token, TokenType};
@@ -34,7 +36,11 @@ pub fn parse_str(input: String) -> Result<Builder, Error> {
 
     let ast = Parser::new(lexer).run()?;
 
-    let ast = TypeChecker::new(ast).infer();
+    let mut tc = TypeChecker::new(ast);
+
+    let ast = tc.infer();
+
+    let ast = Generator::new(ast, tc.ctx).generate();
 
     println!("AST {:#?}", ast);
 

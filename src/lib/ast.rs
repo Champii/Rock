@@ -15,18 +15,34 @@ pub enum TopLevel {
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
     pub name: String,
-    pub t: Option<Type>,
+    pub ret: Option<Type>,
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
 }
 
 impl FunctionDecl {
-    // pub fn get_args_types(&self) -> Vec<Option<Type>> {
-    //     //
-    // }
+    pub fn is_solved(&self) -> bool {
+        self.arguments.iter().all(|arg| arg.t.is_some()) && self.ret.is_some()
+    }
+
+    pub fn apply_name(&mut self, t: Vec<TypeInfer>, ret: Option<Type>) {
+        let mut name = String::new();
+
+        for ty in t {
+            name = name + &ty.get_ret().unwrap().get_name();
+        }
+
+        if let Some(t) = self.ret.clone() {
+            name = name + &t.get_name();
+        }
+
+        self.name = self.name.clone() + &name;
+    }
 
     pub fn apply_types(&mut self, ret: Option<Type>, t: Vec<TypeInfer>) {
-        self.t = ret;
+        self.apply_name(t.clone(), ret.clone());
+
+        self.ret = ret;
 
         let mut i = 0;
 
@@ -45,8 +61,22 @@ impl FunctionDecl {
 #[derive(Debug, Clone)]
 pub struct Prototype {
     pub name: Option<String>,
-    pub t: Type,
+    pub ret: Type,
     pub arguments: Vec<Type>,
+}
+
+impl Prototype {
+    pub fn apply_name(&mut self) {
+        let mut name = String::new();
+
+        for ty in &self.arguments {
+            name = name + &ty.get_name();
+        }
+
+        // name = name + &self.ret.get_name();
+
+        self.name = Some(self.name.clone().unwrap() + &name);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -159,4 +189,13 @@ pub enum Operator {
 pub enum Type {
     Name(String),
     Array(Box<Type>),
+}
+
+impl Type {
+    pub fn get_name(&self) -> String {
+        match self {
+            Type::Name(s) => s.clone(),
+            Type::Array(a) => "[]".to_string() + &a.get_name(),
+        }
+    }
 }

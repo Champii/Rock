@@ -1,9 +1,10 @@
 use super::ast::*;
 use super::context::*;
 use super::error::Error;
+use std::collections::HashMap;
 
 pub struct TypeChecker {
-    ctx: Context,
+    pub ctx: Context,
     ast: SourceFile,
 }
 
@@ -17,44 +18,6 @@ impl TypeChecker {
 
     pub fn infer(&mut self) -> SourceFile {
         self.ast.infer(&mut self.ctx).unwrap();
-
-        let main_scope = self.ctx.scopes.scopes.first().unwrap();
-
-        for (_, func) in &main_scope.items {
-            if let TypeInfer::FuncType(f) = func {
-                println!("SOLVED {}", f.solved);
-                if !f.solved {
-                    self.ast.top_levels = self
-                        .ast
-                        .top_levels
-                        .iter()
-                        .filter(|top| {
-                            if let TopLevel::Function(fu) = top {
-                                fu.name != f.func.name
-                            } else {
-                                true
-                            }
-                        })
-                        .cloned()
-                        .collect();
-
-                    println!("CALLS {:?}", self.ctx.calls);
-                    let mut ctx_save = self.ctx.clone();
-
-                    for (_, calls) in &self.ctx.calls {
-                        for call in calls {
-                            let mut new_f = f.func.clone();
-
-                            new_f.apply_types(f.ret.clone(), call.clone());
-
-                            new_f.infer(&mut ctx_save);
-
-                            self.ast.top_levels.insert(0, TopLevel::Function(new_f));
-                        }
-                    }
-                }
-            }
-        }
 
         self.ast.clone()
     }
@@ -88,10 +51,11 @@ impl TypeInferer for TopLevel {
 
 impl TypeInferer for Prototype {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        ctx.scopes.add(
-            self.name.clone().unwrap(),
-            TypeInfer::FuncType(FuncType::new_from_proto(self.clone())),
-        );
+        ctx.externs
+            .insert(self.name.clone().unwrap(), self.name.clone().unwrap());
+
+        ctx.scopes
+            .add(self.name.clone().unwrap(), TypeInfer::Proto(self.clone()));
 
         Ok(TypeInfer::Type(Some(Type::Name("Void".to_string()))))
     }
@@ -107,8 +71,8 @@ impl TypeInferer for FunctionDecl {
 
         let last = self.body.infer(ctx)?;
 
-        if self.t.is_none() {
-            self.t = last.get_ret();
+        if self.ret.is_none() {
+            self.ret = last.get_ret();
         }
 
         for arg in &mut self.arguments {
@@ -117,10 +81,8 @@ impl TypeInferer for FunctionDecl {
 
         ctx.scopes.pop();
 
-        ctx.scopes.add(
-            self.name.clone(),
-            TypeInfer::FuncType(FuncType::new(self.clone())),
-        );
+        ctx.scopes
+            .add(self.name.clone(), TypeInfer::FuncType(self.clone()));
 
         Ok(last)
     }
@@ -176,8 +138,10 @@ impl TypeInferer for Expression {
 
                 ctx.cur_type = t.clone();
 
-                unary.infer(ctx)?;
-                expr.infer(ctx)?;
+                let left = unary.infer(ctx)?;
+                let right = expr.infer(ctx)?;
+
+                // check left == right
 
                 ctx.cur_type = TypeInfer::Type(None);
 
@@ -226,12 +190,22 @@ impl TypeInferer for PrimaryExpr {
                         SecondaryExpr::Arguments(args) => {
                             if let Operand::Identifier(id) = operand {
                                 let mut res = vec![];
+                                let mut name = id.clone();
 
                                 for arg in args {
-                                    res.push(arg.infer(ctx)?);
+                                    let t = arg.infer(ctx)?;
+
+                                    res.push(t.clone());
+
+                                    name = name + &t.get_ret().unwrap().get_name();
                                 }
 
-                                ctx.calls.entry(id.clone()).or_insert(vec![]).push(res);
+                                println!("CALLS {:?} {:?}", name, res);
+
+                                ctx.calls
+                                    .entry(id.clone())
+                                    .or_insert(HashMap::new())
+                                    .insert(name, res);
                             }
                         }
                         _ => (),
