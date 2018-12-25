@@ -18,6 +18,44 @@ impl TypeChecker {
     pub fn infer(&mut self) -> SourceFile {
         self.ast.infer(&mut self.ctx).unwrap();
 
+        let main_scope = self.ctx.scopes.scopes.first().unwrap();
+
+        for (_, func) in &main_scope.items {
+            if let TypeInfer::FuncType(f) = func {
+                println!("SOLVED {}", f.solved);
+                if !f.solved {
+                    self.ast.top_levels = self
+                        .ast
+                        .top_levels
+                        .iter()
+                        .filter(|top| {
+                            if let TopLevel::Function(fu) = top {
+                                fu.name != f.func.name
+                            } else {
+                                true
+                            }
+                        })
+                        .cloned()
+                        .collect();
+
+                    println!("CALLS {:?}", self.ctx.calls);
+                    let mut ctx_save = self.ctx.clone();
+
+                    for (_, calls) in &self.ctx.calls {
+                        for call in calls {
+                            let mut new_f = f.func.clone();
+
+                            new_f.apply_types(f.ret.clone(), call.clone());
+
+                            new_f.infer(&mut ctx_save);
+
+                            self.ast.top_levels.insert(0, TopLevel::Function(new_f));
+                        }
+                    }
+                }
+            }
+        }
+
         self.ast.clone()
     }
 }
@@ -42,9 +80,20 @@ impl TypeInferer for TopLevel {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
             TopLevel::Function(fun) => fun.infer(ctx),
-            TopLevel::Prototype(fun) => Err(Error::new_empty()),
+            TopLevel::Prototype(fun) => fun.infer(ctx),
             TopLevel::Mod(_) => Err(Error::new_empty()),
         }
+    }
+}
+
+impl TypeInferer for Prototype {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        ctx.scopes.add(
+            self.name.clone().unwrap(),
+            TypeInfer::FuncType(FuncType::new_from_proto(self.clone())),
+        );
+
+        Ok(TypeInfer::Type(Some(Type::Name("Void".to_string()))))
     }
 }
 
@@ -101,7 +150,6 @@ impl TypeInferer for Body {
 impl TypeInferer for Statement {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
-            // Statement::If(if_) => if_.infer(ctx),
             Statement::If(if_) => if_.infer(ctx),
             Statement::Expression(expr) => expr.infer(ctx),
             Statement::Assignation(assign) => assign.infer(ctx),
@@ -174,6 +222,20 @@ impl TypeInferer for PrimaryExpr {
                 ctx.cur_type = operand.infer(ctx)?;
 
                 for second in vec {
+                    match second {
+                        SecondaryExpr::Arguments(args) => {
+                            if let Operand::Identifier(id) = operand {
+                                let mut res = vec![];
+
+                                for arg in args {
+                                    res.push(arg.infer(ctx)?);
+                                }
+
+                                ctx.calls.entry(id.clone()).or_insert(vec![]).push(res);
+                            }
+                        }
+                        _ => (),
+                    };
                     // second.infer(ctx)?;
                 }
 
@@ -191,6 +253,12 @@ impl TypeInferer for SecondaryExpr {
             // }
             _ => Err(Error::new_empty()),
         }
+    }
+}
+
+impl TypeInferer for Argument {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        self.arg.infer(ctx)
     }
 }
 impl TypeInferer for Operand {

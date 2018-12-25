@@ -1,4 +1,4 @@
-// use super::type_checker::Context;
+use super::context::*;
 
 #[derive(Debug, Clone)]
 pub struct SourceFile {
@@ -18,6 +18,28 @@ pub struct FunctionDecl {
     pub t: Option<Type>,
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
+}
+
+impl FunctionDecl {
+    // pub fn get_args_types(&self) -> Vec<Option<Type>> {
+    //     //
+    // }
+
+    pub fn apply_types(&mut self, ret: Option<Type>, t: Vec<TypeInfer>) {
+        self.t = ret;
+
+        let mut i = 0;
+
+        for arg in &mut self.arguments {
+            if i >= t.len() {
+                break;
+            }
+
+            arg.t = t[i].get_ret();
+
+            i += 1;
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

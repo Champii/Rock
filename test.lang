@@ -1,2 +1,9 @@
-id a -> a + a
-main -> id 1
+extern puts(String)
+
+id a -> a
+
+toto -> id 1
+
+main ->
+    puts id "lol"
+    toto()

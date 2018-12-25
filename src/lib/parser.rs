@@ -1,4 +1,5 @@
 use super::ast::*;
+use super::context::*;
 use super::error::Error;
 use super::Lexer;
 use super::{Token, TokenType};
@@ -95,6 +96,7 @@ pub struct Parser {
     lexer: Lexer,
     cur_tok: Token,
     save: Vec<Token>,
+    ctx: Context,
     block_indent: u8,
 }
 
@@ -107,6 +109,7 @@ impl Parser {
             save: vec![cur_tok.clone()],
             cur_tok,
             lexer,
+            ctx: Context::new(),
             block_indent: 0,
         }
     }
