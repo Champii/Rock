@@ -1,5 +1,5 @@
 [package]
-name = "lang"
+name = "plasma"
 version = "0.1.0"
 authors = ["champii <contact@champii>"]
 edition = "2018"
@@ -10,9 +10,9 @@ llvm-sys = "70"
 lazy_static = "1.2.0"
 
 [lib]
-name = "lang"
-path = "src/lib/lang.rs"
+name = "plasma"
+path = "src/lib/plasma.rs"
 
 [[bin]]
-name = "lang"
+name = "plasma"
 path = "src/bin/main.rs"

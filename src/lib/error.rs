@@ -70,7 +70,7 @@ impl TypeError {
         };
         // let line_end = self.token.end - count;
 
-        let line_ind = format!("file.lang({}:{}) => ", self.token.line, line_start);
+        let line_ind = format!("file.plasma({}:{}) => ", self.token.line, line_start);
 
         let mut arrow = String::new();
 
@@ -156,7 +156,7 @@ impl ParseError {
         };
         // let line_end = self.token.end - count;
 
-        let line_ind = format!("file.lang({}:{}) => ", self.token.line, line_start);
+        let line_ind = format!("file.plasma({}:{}) => ", self.token.line, line_start);
 
         let mut arrow = String::new();
 

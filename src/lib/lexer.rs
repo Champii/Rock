@@ -152,14 +152,6 @@ impl Lexer {
             return t;
         }
 
-        // if let Some(t) = self.try_equal_equal() {
-        //     return t;
-        // }
-
-        // if let Some(t) = self.try_dash_equal() {
-        //     return t;
-        // }
-
         if let Some(t) = self.try_operator() {
             return t;
         }

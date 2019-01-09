@@ -1,19 +1,19 @@
 extern crate clap;
-extern crate lang;
+extern crate plasma;
 
 use clap::{App, Arg, SubCommand};
 
 use std::process::{Command, ExitStatus};
 
 fn build() -> bool {
-    if let Err(e) = lang::file_to_file("./test.lang".to_string(), "./test.o\0".to_string()) {
+    if let Err(e) = plasma::file_to_file("./main.pm".to_string(), "./main.o\0".to_string()) {
         println!("{}", e);
 
         return false;
     }
 
     Command::new("clang")
-        .arg("test.o")
+        .arg("main.o")
         .output()
         .expect("failed to execute process");
 
@@ -35,7 +35,7 @@ fn run() {
 }
 
 fn main() {
-    let matches = App::new("Lang")
+    let matches = App::new("plasma")
         .version("0.0.1")
         .author("Champii <contact@champii.io>")
         .about("Simple toy language")
