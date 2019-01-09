@@ -1,6 +1,6 @@
 use super::ast::*;
 use super::context::*;
-use super::error::Error;
+use super::error::*;
 use std::collections::HashMap;
 
 pub struct TypeChecker {
@@ -29,7 +29,7 @@ pub trait TypeInferer {
 
 impl TypeInferer for SourceFile {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        let mut last = Err(Error::new_empty());
+        let mut last = Err(Error::ParseError(ParseError::new_empty()));
 
         for top in &mut self.top_levels {
             last = Ok(top.infer(ctx)?);
@@ -44,7 +44,7 @@ impl TypeInferer for TopLevel {
         match self {
             TopLevel::Function(fun) => fun.infer(ctx),
             TopLevel::Prototype(fun) => fun.infer(ctx),
-            TopLevel::Mod(_) => Err(Error::new_empty()),
+            TopLevel::Mod(_) => Err(Error::ParseError(ParseError::new_empty())),
         }
     }
 }
@@ -99,7 +99,7 @@ impl TypeInferer for ArgumentDecl {
 
 impl TypeInferer for Body {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        let mut last = Err(Error::new_empty());
+        let mut last = Err(Error::ParseError(ParseError::new_empty()));
 
         for stmt in &mut self.stmts {
             last = Ok(stmt.infer(ctx)?);
@@ -141,6 +141,10 @@ impl TypeInferer for Expression {
                 let left = unary.infer(ctx)?;
                 let right = expr.infer(ctx)?;
 
+                // if left != right {
+                //     return Err(TypeError::new());
+                // }
+
                 // check left == right
 
                 ctx.cur_type = TypeInfer::Type(None);
@@ -158,9 +162,13 @@ impl TypeInferer for Assignation {
         let res = ctx.scopes.get(self.name.clone());
 
         if let Some(t) = res {
+            self.t = t.clone().get_ret();
+
             Ok(t)
         } else {
             let t = self.value.infer(ctx)?;
+
+            self.t = t.clone().get_ret();
 
             ctx.scopes.add(self.name.clone(), t.clone());
 
@@ -182,7 +190,6 @@ impl TypeInferer for PrimaryExpr {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
             PrimaryExpr::PrimaryExpr(operand, vec) => {
-                //
                 ctx.cur_type = operand.infer(ctx)?;
 
                 for second in vec {
@@ -200,8 +207,6 @@ impl TypeInferer for PrimaryExpr {
                                     name = name + &t.get_ret().unwrap().get_name();
                                 }
 
-                                println!("CALLS {:?} {:?}", name, res);
-
                                 ctx.calls
                                     .entry(id.clone())
                                     .or_insert(HashMap::new())
@@ -210,7 +215,6 @@ impl TypeInferer for PrimaryExpr {
                         }
                         _ => (),
                     };
-                    // second.infer(ctx)?;
                 }
 
                 Ok(ctx.cur_type.clone())
@@ -225,7 +229,7 @@ impl TypeInferer for SecondaryExpr {
             // SecondaryExpr::Arguments(args) => {
             //     //
             // }
-            _ => Err(Error::new_empty()),
+            _ => Err(Error::ParseError(ParseError::new_empty())),
         }
     }
 }
@@ -240,6 +244,7 @@ impl TypeInferer for Operand {
         match self {
             Operand::Literal(lit) => lit.infer(ctx),
             Operand::Identifier(ident) => {
+                // println!("LOL {} {:#?}", ident, ctx.scopes);
                 let res = ctx.scopes.get(ident.clone()).unwrap();
 
                 if let TypeInfer::Type(None) = res {
@@ -250,6 +255,7 @@ impl TypeInferer for Operand {
                     Ok(res)
                 }
             }
+
             Operand::Expression(expr) => expr.infer(ctx),
         }
     }

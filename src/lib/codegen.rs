@@ -33,7 +33,6 @@ pub fn get_type(t: Box<Type>) -> *mut LLVMType {
                 "Int32" => LLVMInt32Type(),
                 "Int8" => LLVMInt8Type(),
                 "String" => LLVMPointerType(LLVMInt8Type(), 0),
-                // "String" => LLVMInt32Type(),
                 _ => LLVMInt32Type(),
             },
             Type::Array(t) => LLVMPointerType(get_type(t.clone()), 0),
@@ -73,7 +72,7 @@ impl Builder {
 
         unsafe {
             LLVMDisposeBuilder(self.context.builder);
-            LLVMDumpModule(self.context.module);
+            // LLVMDumpModule(self.context.module);
 
             // let mut err = ptr::null_mut();
 
@@ -490,12 +489,6 @@ impl IrBuilder for Assignation {
                     get_type(Box::new(self.t.clone().unwrap())),
                     alloc_name.as_ptr() as *const _,
                 );
-
-                // let mut name = self.name.clone();
-
-                // name.push('\0');
-
-                // let res = LLVMBuildLoad(context.builder, alloc, name.as_ptr() as *const _);
 
                 context.scopes.add(self.name.clone(), alloc);
 

@@ -4,6 +4,11 @@ id a -> a
 
 toto -> id 1
 
+add a, b -> a + b
+
 main ->
     puts id id id id "lol"
     toto()
+    a = 1
+    b = 2
+    add a, b

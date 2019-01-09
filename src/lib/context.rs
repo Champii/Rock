@@ -42,6 +42,12 @@ pub enum TypeInfer {
     Type(Option<Type>),
 }
 
+impl PartialEq for TypeInfer {
+    fn eq(&self, other: &TypeInfer) -> bool {
+        self.get_ret() == other.get_ret()
+    }
+}
+
 impl TypeInfer {
     pub fn get_ret(&self) -> Option<Type> {
         match self.clone() {

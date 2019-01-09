@@ -73,8 +73,6 @@ impl Prototype {
             name = name + &ty.get_name();
         }
 
-        // name = name + &self.ret.get_name();
-
         self.name = Some(self.name.clone().unwrap() + &name);
     }
 }
@@ -185,7 +183,7 @@ pub enum Operator {
     DashEqual,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Name(String),
     Array(Box<Type>),

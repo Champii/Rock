@@ -46,7 +46,7 @@ macro_rules! error_expect {
 
 macro_rules! error {
     ($msg:expr, $self:expr) => {
-        return Err(Error::new(
+        return Err(Error::new_parse_error(
             $self.lexer.input.clone(),
             $self.cur_tok.clone(),
             $msg,
