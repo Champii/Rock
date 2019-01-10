@@ -480,20 +480,24 @@ impl Parser {
 
         let expr = try_or_restore!(self.expression(), self);
 
+        let mut is_multi = true;
+
         if self.cur_tok.t == TokenType::ThenKeyword {
+            is_multi = false;
+
             self.consume();
         }
 
         let body = try_or_restore!(self.body(), self);
 
         // in case of single line body
-        if self.cur_tok.t == TokenType::EOL {
-            self.consume();
+        if !is_multi || self.cur_tok.t == TokenType::EOL {
+            expect!(TokenType::EOL, self);
         }
 
-        expect_or_restore!(TokenType::Indent(self.block_indent), self);
+        let next = self.lexer.seek(1);
 
-        if self.cur_tok.t != TokenType::ElseKeyword {
+        if next.t != TokenType::ElseKeyword {
             self.save_pop();
 
             return Ok(If {
@@ -503,7 +507,9 @@ impl Parser {
             });
         }
 
-        self.consume();
+        expect_or_restore!(TokenType::Indent(self.block_indent), self);
+
+        expect_or_restore!(TokenType::ElseKeyword, self);
 
         let else_ = try_or_restore!(self.else_(), self);
 
@@ -530,7 +536,7 @@ impl Parser {
 
         let t = if self.cur_tok.t == TokenType::SemiColon {
             self.consume();
-            // expect_or_restore!(TokenType::SemiColon, self);
+
             Some(try_or_restore_expect!(
                 self.type_(),
                 TokenType::Type(self.cur_tok.txt.clone()),

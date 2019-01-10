@@ -31,8 +31,7 @@ main ->
 
 ## TODO (by order):
 
-- reassign
-- elseif
+- returnable statement
 - operator precedence
 - sub, mul div and mod
 - while/for
@@ -50,7 +49,7 @@ main ->
 
 # Done
 - Functions
-- If/else
+- If/ElseIf/Else
 - Assignation
 - Type inference
 - Parametric Polymophism

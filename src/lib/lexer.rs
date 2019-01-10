@@ -45,12 +45,26 @@ impl Lexer {
         res
     }
 
-    pub fn seek(&mut self) -> Token {
-        let saved = self.cur_idx;
+    pub fn seek(&mut self, n: u32) -> Token {
+        let mut n = n;
 
-        let tok = self.next();
+        let saved = self.cur_idx;
+        let lines = self.cur_line;
+        let last_char = self.last_char;
+
+        let mut tok = self.next();
+
+        n -= 1;
+
+        while n > 0 {
+            tok = self.next();
+
+            n -= 1
+        }
 
         self.cur_idx = saved;
+        self.cur_line = lines;
+        self.last_char = last_char;
 
         tok
     }
@@ -178,7 +192,7 @@ impl Lexer {
             };
         }
 
-        panic!("Unknown token: {}", self.last_char);
+        panic!("Unknown token: '{}'", self.last_char);
     }
 
     fn try_arrow(&mut self) -> Option<Token> {

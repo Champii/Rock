@@ -119,13 +119,21 @@ pub fn if_else() {
     let expected = vec![
         (
             "main :: Int ->
+    if true
+        1
+    1
+",
+            1,
+        ),
+        (
+            "main :: Int ->
     if false
         1
     else
         2
-    3
+    2
 ",
-            3,
+            2,
         ),
         (
             "main :: Int ->
@@ -138,11 +146,20 @@ pub fn if_else() {
         (
             "main :: Int ->
     a: Int = 0
-    if true => a = 1
-    else a = 2
+    if true => a = 4
+    else a = 5
     a
 ",
-            1,
+            4,
+        ),
+        (
+            "main ->
+    a = 0
+    if a == 1 => a = 2
+    else if a == 2 => a = 3
+    a
+",
+            0,
         ),
     ];
 
