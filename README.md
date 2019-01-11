@@ -32,14 +32,12 @@ main: ->
 ## TODO (by order):
 
 - v0.1.0
-    - comments
     - unmutable by default
     - mut keywork
     - returnable statement
     - operator precedence
     - floats
     - sub, mul div and mod
-    - arrays
     - while/for
     - structs
     - methods
@@ -58,6 +56,7 @@ main: ->
 # Done
 - Functions
 - If/ElseIf/Else
+- Arrays
 - Assignation
 - Type inference
 - Parametric Polymophism

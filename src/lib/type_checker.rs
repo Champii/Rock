@@ -218,8 +218,13 @@ impl TypeInferer for PrimaryExpr {
                             if let TypeInfer::Type(t) = ctx.cur_type.clone() {
                                 let t = t.clone().unwrap();
 
-                                if let Type::Array(a, n) = t {
+                                if let Type::Array(a, n) = t.clone() {
                                     ctx.cur_type = TypeInfer::Type(Some(a.get_inner()));
+                                }
+
+                                if let Type::Name(n) = t {
+                                    ctx.cur_type =
+                                        TypeInfer::Type(Some(Type::Name("Int8".to_string())));
                                 }
                             }
                         }

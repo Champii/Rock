@@ -71,15 +71,15 @@ impl Builder {
 
         unsafe {
             LLVMDisposeBuilder(self.context.builder);
-            LLVMDumpModule(self.context.module);
+            // LLVMDumpModule(self.context.module);
 
-            let mut err = ptr::null_mut();
+            // let mut err = ptr::null_mut();
 
-            LLVMVerifyModule(
-                self.context.module,
-                LLVMVerifierFailureAction::LLVMPrintMessageAction,
-                &mut err,
-            );
+            // LLVMVerifyModule(
+            //     self.context.module,
+            //     LLVMVerifierFailureAction::LLVMPrintMessageAction,
+            //     &mut err,
+            // );
         }
     }
 
@@ -149,11 +149,33 @@ impl Builder {
             // each of these calls is necessary to setup an execution engine which compiles to native
             // code
             LLVMLinkInMCJIT();
-            LLVM_InitializeNativeTarget();
-            LLVM_InitializeNativeAsmPrinter();
 
-            // takes ownership of the module
-            LLVMCreateExecutionEngineForModule(&mut ee, self.context.module, &mut out);
+            if LLVM_InitializeNativeTarget() == 1 {
+                panic!("WOOT1");
+            }
+            if LLVM_InitializeNativeAsmPrinter() == 1 {
+                panic!("WOOT2");
+            }
+
+            let mut opts: LLVMMCJITCompilerOptions = mem::uninitialized();
+
+            LLVMInitializeMCJITCompilerOptions(
+                &mut opts,
+                mem::size_of::<LLVMMCJITCompilerOptions>(),
+            );
+
+            opts.CodeModel = LLVMCodeModel::LLVMCodeModelDefault;
+
+            if LLVMCreateMCJITCompilerForModule(
+                &mut ee,
+                self.context.module,
+                &mut opts,
+                mem::size_of::<LLVMMCJITCompilerOptions>(),
+                &mut out,
+            ) == 1
+            {
+                panic!("WOOT3");
+            };
 
             let addr = LLVMGetFunctionAddress(ee, func_name.as_ptr() as *const _);
 
@@ -558,7 +580,6 @@ impl SecondaryExpr {
                 let idx = expr.build(context).unwrap();
 
                 unsafe {
-                    let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
                     let mut indices = [idx];
 
                     let ptr_elem = LLVMBuildGEP(
@@ -644,13 +665,13 @@ impl IrBuilder for Array {
             );
 
             let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
-            let mut indices = [zero];
+            let mut indices = [zero, zero];
 
             let ptr_elem = LLVMBuildGEP(
                 context.builder,
                 pointer,
                 indices.as_mut_ptr(),
-                1,
+                2,
                 b"\0".as_ptr() as *const _,
             );
 
@@ -696,13 +717,13 @@ impl IrBuilder for String {
             );
 
             let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
-            let mut indices = [zero];
+            let mut indices = [zero, zero];
 
             let ptr_elem = LLVMBuildGEP(
                 context.builder,
                 pointer,
                 indices.as_mut_ptr(),
-                1,
+                2,
                 b"\0".as_ptr() as *const _,
             );
 

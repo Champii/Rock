@@ -4,22 +4,29 @@ pub fn simple() {
         ("main :: Int -> 1", 1),
         ("main :: Int -> 1 + 2", 3),
         (
-            "main :: Int -> 
+            "main :: Int ->
     1",
             1,
         ),
         (
-            "main :: Int -> 
+            "main :: Int ->
     1
 ",
             1,
+        ),
+        (
+            "main ->
+    a = \"hello\"
+    a[0]
+",
+            104,
         ),
     ];
 
     for exp in expected {
         let res = super::run_str(exp.0.to_string(), "main\0".to_string()).unwrap();
 
-        assert_eq!(res, exp.1);
+        assert_eq!(res as u8, exp.1);
     }
 }
 
@@ -116,6 +123,13 @@ main ->
 ",
             2,
         ),
+        (
+            "main ->
+    a = [1, 2, 3]
+    a[1]
+",
+            2,
+        ),
     ];
 
     for exp in expected {
@@ -193,7 +207,7 @@ main -> add 1, 2",
         ),
         (
             "add a, b -> a + b
-main -> 
+main ->
     a = 1
     b = 2
     add a, b",
