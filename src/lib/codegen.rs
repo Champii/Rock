@@ -29,13 +29,12 @@ pub fn get_type(t: Box<Type>) -> *mut LLVMType {
             Type::Name(t) => match t.as_ref() {
                 "Void" => LLVMVoidType(),
                 "Bool" => LLVMInt1Type(),
-                "Int" => LLVMInt32Type(),
-                "Int32" => LLVMInt32Type(),
+                "Int" | "Int32" => LLVMInt32Type(),
                 "Int8" => LLVMInt8Type(),
                 "String" => LLVMPointerType(LLVMInt8Type(), 0),
                 _ => LLVMInt32Type(),
             },
-            Type::Array(t) => LLVMPointerType(get_type(t.clone()), 0),
+            Type::Array(t, n) => LLVMPointerType(get_type(t.clone()), 0),
         }
     }
 }
@@ -72,15 +71,15 @@ impl Builder {
 
         unsafe {
             LLVMDisposeBuilder(self.context.builder);
-            // LLVMDumpModule(self.context.module);
+            LLVMDumpModule(self.context.module);
 
-            // let mut err = ptr::null_mut();
+            let mut err = ptr::null_mut();
 
-            // LLVMVerifyModule(
-            //     self.context.module,
-            //     LLVMVerifierFailureAction::LLVMPrintMessageAction,
-            //     &mut err,
-            // );
+            LLVMVerifyModule(
+                self.context.module,
+                LLVMVerifierFailureAction::LLVMPrintMessageAction,
+                &mut err,
+            );
         }
     }
 
@@ -525,6 +524,7 @@ impl IrBuilder for PrimaryExpr {
 
                 let op = op.unwrap();
 
+                // TODO: OTHER SECONDARYs
                 let second = vec.first().unwrap();
 
                 second.build_with(context, op)
@@ -551,6 +551,27 @@ impl SecondaryExpr {
                         res.len() as u32,
                         b"\0".as_ptr() as *const _,
                     ))
+                }
+            }
+
+            SecondaryExpr::Index(expr) => {
+                let idx = expr.build(context).unwrap();
+
+                unsafe {
+                    let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
+                    let mut indices = [idx];
+
+                    let ptr_elem = LLVMBuildGEP(
+                        context.builder,
+                        op,
+                        indices.as_mut_ptr(),
+                        1,
+                        b"\0".as_ptr() as *const _,
+                    );
+
+                    let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
+
+                    Some(res)
                 }
             }
             _ => None,
@@ -588,6 +609,7 @@ impl IrBuilder for Operand {
                     // None
                 }
             }
+            Operand::Array(arr) => arr.build(context),
             Operand::Expression(expr) => expr.build(context),
         }
     }
@@ -600,6 +622,60 @@ impl IrBuilder for Literal {
             Literal::String(s) => s.build(context),
             Literal::Bool(b) => unsafe { Some(LLVMConstInt(LLVMInt1Type(), b.clone(), 0)) },
             _ => None,
+        }
+    }
+}
+
+impl IrBuilder for Array {
+    fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        let mut res = vec![];
+
+        for item in &self.items {
+            res.push(item.build(context).unwrap());
+        }
+
+        let t = get_type(Box::new(self.t.clone().unwrap()));
+
+        unsafe {
+            let pointer = LLVMBuildAlloca(
+                context.builder,
+                LLVMArrayType(LLVMGetElementType(t), res.len() as u32),
+                b"\0".as_ptr() as *const _,
+            );
+
+            let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
+            let mut indices = [zero];
+
+            let ptr_elem = LLVMBuildGEP(
+                context.builder,
+                pointer,
+                indices.as_mut_ptr(),
+                1,
+                b"\0".as_ptr() as *const _,
+            );
+
+            let mut i = 0;
+
+            for item in res {
+                let idx = LLVMConstInt(LLVMInt32Type(), i, 0);
+                let mut indices = [zero, idx];
+
+                let ptr_elem = LLVMBuildGEP(
+                    context.builder,
+                    pointer,
+                    indices.as_mut_ptr(),
+                    2,
+                    b"\0".as_ptr() as *const _,
+                );
+
+                LLVMBuildStore(context.builder, item, ptr_elem);
+
+                i += 1;
+            }
+
+            let ptr8 = LLVMBuildBitCast(context.builder, ptr_elem, t, b"\0".as_ptr() as *const _);
+
+            Some(ptr8)
         }
     }
 }

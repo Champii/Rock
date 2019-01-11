@@ -106,6 +106,8 @@ impl Lexer {
             self.forward();
         }
 
+        self.discard_comment();
+
         if let Some(t) = self.try_fn_keyword() {
             return t;
         }
@@ -126,7 +128,15 @@ impl Lexer {
             return t;
         }
 
+        if let Some(t) = self.try_for_keyword() {
+            return t;
+        }
+
         if let Some(t) = self.try_parens() {
+            return t;
+        }
+
+        if let Some(t) = self.try_array() {
             return t;
         }
 
@@ -193,6 +203,14 @@ impl Lexer {
         }
 
         panic!("Unknown token: '{}'", self.last_char);
+    }
+
+    fn discard_comment(&mut self) {
+        if self.last_char == '#' {
+            while self.last_char != '\n' && self.last_char != '\0' {
+                self.forward();
+            }
+        }
     }
 
     fn try_arrow(&mut self) -> Option<Token> {
@@ -305,6 +323,30 @@ impl Lexer {
                 start,
                 end: self.cur_idx - 1,
                 txt: "else".to_string(),
+            });
+        }
+
+        None
+    }
+
+    fn try_for_keyword(&mut self) -> Option<Token> {
+        if self.last_char == 'f'
+            && self.input[self.cur_idx + 1] == 'o'
+            && self.input[self.cur_idx + 2] == 'r'
+            && (self.input[self.cur_idx + 3] == ' ' || self.input[self.cur_idx + 3] == '\n')
+        {
+            let start = self.cur_idx;
+
+            self.forward();
+            self.forward();
+            self.forward();
+
+            return Some(Token {
+                t: TokenType::ForKeyword,
+                line: self.cur_line,
+                start,
+                end: self.cur_idx - 1,
+                txt: "for".to_string(),
             });
         }
 
@@ -447,6 +489,36 @@ impl Lexer {
                 start: self.cur_idx,
                 end: self.cur_idx,
                 txt: ")".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_array(&mut self) -> Option<Token> {
+        if self.last_char == '[' {
+            let res = Some(Token {
+                t: TokenType::OpenArray,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "[".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        } else if self.last_char == ']' {
+            let res = Some(Token {
+                t: TokenType::CloseArray,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "]".to_string(),
             });
 
             self.forward();

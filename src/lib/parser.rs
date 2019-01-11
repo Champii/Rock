@@ -4,6 +4,14 @@ use super::error::Error;
 use super::Lexer;
 use super::{Token, TokenType};
 
+macro_rules! maybe {
+    ($tok:expr, $self:expr) => {
+        if $tok == $self.cur_tok.t {
+            $self.consume();
+        }
+    };
+}
+
 macro_rules! expect {
     ($tok:expr, $self:expr) => {
         if $tok != $self.cur_tok.t {
@@ -159,7 +167,7 @@ impl Parser {
 
             self.save_pop();
 
-            Ok(Type::Array(Box::new(t)))
+            Ok(Type::Array(Box::new(t), 0))
         } else {
             Ok(Type::Name(
                 expect!(TokenType::Type(self.cur_tok.txt.clone()), self).txt,
@@ -430,10 +438,12 @@ impl Parser {
         }
 
         loop {
-            match self.statement() {
-                Ok(stmt) => stmts.push(stmt),
-                Err(e) => break,
-            };
+            if self.cur_tok.t != TokenType::EOL && self.cur_tok.t != TokenType::EOF {
+                match self.statement() {
+                    Ok(stmt) => stmts.push(stmt),
+                    Err(e) => break,
+                };
+            }
 
             if self.cur_tok.t != TokenType::EOF && is_multi {
                 while self.cur_tok.t == TokenType::EOL {
@@ -451,6 +461,8 @@ impl Parser {
                 } else {
                     break;
                 }
+            } else {
+                break;
             }
         }
 
@@ -606,11 +618,29 @@ impl Parser {
     }
 
     fn secondary_expr(&mut self) -> Result<SecondaryExpr, Error> {
+        if let Ok(idx) = self.index() {
+            return Ok(SecondaryExpr::Index(idx));
+        }
+
         if let Ok(args) = self.arguments() {
             return Ok(SecondaryExpr::Arguments(args));
         }
 
         error!("Expected secondary".to_string(), self);
+    }
+
+    fn index(&mut self) -> Result<Box<Expression>, Error> {
+        self.save();
+
+        expect_or_restore!(TokenType::OpenArray, self);
+
+        let expr = try_or_restore!(self.expression(), self);
+
+        expect_or_restore!(TokenType::CloseArray, self);
+
+        self.save_pop();
+
+        return Ok(Box::new(expr));
     }
 
     fn operand(&mut self) -> Result<Operand, Error> {
@@ -620,6 +650,10 @@ impl Parser {
 
         if let Ok(ident) = self.identifier() {
             return Ok(Operand::Identifier(ident));
+        }
+
+        if let Ok(array) = self.array() {
+            return Ok(Operand::Array(array));
         }
 
         if let Ok(expr) = self.parens_expr() {
@@ -686,5 +720,33 @@ impl Parser {
         }
 
         error!("Expected literal".to_string(), self);
+    }
+
+    fn array(&mut self) -> Result<Array, Error> {
+        self.save();
+
+        expect_or_restore!(TokenType::OpenArray, self);
+
+        let mut items = vec![];
+
+        while self.cur_tok.t != TokenType::CloseArray {
+            let item = try_or_restore!(self.expression(), self);
+
+            items.push(item);
+
+            if self.cur_tok.t != TokenType::Coma && self.cur_tok.t != TokenType::CloseArray {
+                self.restore();
+            }
+
+            if self.cur_tok.t == TokenType::Coma {
+                self.consume();
+            }
+        }
+
+        expect_or_restore!(TokenType::CloseArray, self);
+
+        self.save_pop();
+
+        Ok(Array { items, t: None })
     }
 }

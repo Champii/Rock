@@ -213,6 +213,16 @@ impl TypeInferer for PrimaryExpr {
                                     .insert(name, res);
                             }
                         }
+
+                        SecondaryExpr::Index(args) => {
+                            if let TypeInfer::Type(t) = ctx.cur_type.clone() {
+                                let t = t.clone().unwrap();
+
+                                if let Type::Array(a, n) = t {
+                                    ctx.cur_type = TypeInfer::Type(Some(a.get_inner()));
+                                }
+                            }
+                        }
                         _ => (),
                     };
                 }
@@ -239,6 +249,7 @@ impl TypeInferer for Argument {
         self.arg.infer(ctx)
     }
 }
+
 impl TypeInferer for Operand {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
@@ -256,6 +267,7 @@ impl TypeInferer for Operand {
                 }
             }
 
+            Operand::Array(arr) => arr.infer(ctx),
             Operand::Expression(expr) => expr.infer(ctx),
         }
     }
@@ -268,5 +280,32 @@ impl TypeInferer for Literal {
             Literal::String(_) => Ok(TypeInfer::Type(Some(Type::Name("String".to_string())))),
             Literal::Bool(_) => Ok(TypeInfer::Type(Some(Type::Name("Bool".to_string())))),
         }
+    }
+}
+
+impl TypeInferer for Array {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        let mut last = TypeInfer::Type(None);
+
+        for item in &mut self.items {
+            let t = item.infer(ctx)?;
+
+            if let TypeInfer::Type(None) = last {
+                last = t.clone();
+            }
+
+            if last != t {
+                // TODO: type error
+                return Err(Error::ParseError(ParseError::new_empty()));
+            }
+        }
+
+        self.t = Some(Type::Array(
+            Box::new(last.get_ret().unwrap()),
+            self.items.len(),
+        ));
+
+        Ok(TypeInfer::Type(self.t.clone()))
+        // Ok(TypeInfer::Type(last.get_ret()))
     }
 }

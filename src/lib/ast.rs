@@ -154,14 +154,8 @@ pub enum Operand {
     Literal(Literal),
     Identifier(String),
     // PrimaryExpr(Box<PrimaryExpr>, SecondaryExpr),
+    Array(Array),
     Expression(Box<Expression>), // parenthesis
-}
-
-#[derive(Debug, Clone)]
-pub struct Operation {
-    pub left: Box<Expression>,
-    pub op: Operator,
-    pub right: Box<Operation>,
 }
 
 #[derive(Debug, Clone)]
@@ -169,6 +163,12 @@ pub enum Literal {
     Number(u64),
     String(String),
     Bool(u64),
+}
+
+#[derive(Debug, Clone)]
+pub struct Array {
+    pub items: Vec<Expression>,
+    pub t: Option<Type>,
 }
 
 #[derive(Debug, Clone)]
@@ -186,14 +186,21 @@ pub enum Operator {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Name(String),
-    Array(Box<Type>),
+    Array(Box<Type>, usize),
 }
 
 impl Type {
     pub fn get_name(&self) -> String {
         match self {
             Type::Name(s) => s.clone(),
-            Type::Array(a) => "[]".to_string() + &a.get_name(),
+            Type::Array(a, n) => "[]".to_string() + &a.get_name(),
+        }
+    }
+
+    pub fn get_inner(&self) -> Type {
+        match self {
+            r @ Type::Name(_) => r.clone(),
+            Type::Array(a, n) => a.get_inner(),
         }
     }
 }

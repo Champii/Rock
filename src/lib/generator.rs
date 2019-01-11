@@ -173,7 +173,6 @@ impl Generate for PrimaryExpr {
                                 let mut res = (*id).to_string();
 
                                 for arg in args {
-                                    // HERE !!! Need ctx.scopes populated with variables
                                     let t = arg.infer(ctx).unwrap();
 
                                     arg.generate(ctx)?;

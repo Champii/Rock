@@ -97,14 +97,25 @@ main :: Int ->
 ",
             3,
         ),
-        //         (
-        //             "main :: Int ->
-        //     a: Int = 1
-        //     a = 2
-        //     a
-        // ",
-        //             2,
-        //         ),
+        (
+            "add(a, b) -> a + b
+main ->
+    a = 1
+    b = 2
+    b = 3
+    c = add(a, b)
+    c
+",
+            4,
+        ),
+        (
+            "main :: Int ->
+    a: Int = 1
+    a = 2
+    a
+",
+            2,
+        ),
     ];
 
     for exp in expected {

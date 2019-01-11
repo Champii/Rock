@@ -6,6 +6,7 @@ pub enum TokenType {
     IfKeyword,
     ThenKeyword,
     ElseKeyword,
+    ForKeyword,
 
     // punct
     Arrow,
@@ -16,12 +17,13 @@ pub enum TokenType {
     ArrayType,
     EqualEqual, // ==
     DashEqual,  // !=
+    OpenParens,
+    CloseParens,
+    OpenArray,
+    CloseArray,
 
     //Operator
     Operator(String),
-
-    OpenParens,
-    CloseParens,
 
     // primitives
     Identifier(String),
