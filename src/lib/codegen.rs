@@ -687,16 +687,11 @@ impl IrBuilder for String {
         me.push('\0');
 
         unsafe {
-            let s = LLVMBuildGlobalStringPtr(
-                context.builder,
-                me.as_ptr() as *const i8,
-                b"\0".as_ptr() as *const _,
-            );
+            let t = LLVMPointerType(LLVMInt8Type(), 0);
 
-            let pointer = LLVMBuildArrayAlloca(
+            let pointer = LLVMBuildAlloca(
                 context.builder,
-                LLVMInt8Type(),
-                s,
+                LLVMArrayType(LLVMGetElementType(t), me.len() as u32),
                 b"\0".as_ptr() as *const _,
             );
 
@@ -711,36 +706,85 @@ impl IrBuilder for String {
                 b"\0".as_ptr() as *const _,
             );
 
-            let ptr8 = LLVMBuildBitCast(
-                context.builder,
-                ptr_elem,
-                LLVMPointerType(LLVMInt8Type(), 0),
-                b"\0".as_ptr() as *const _,
-            );
-            let gptr8 = LLVMBuildBitCast(
-                context.builder,
-                s,
-                LLVMPointerType(LLVMInt8Type(), 0),
-                b"\0".as_ptr() as *const _,
-            );
+            let mut i = 0;
 
-            let mut args = [
-                ptr8,
-                gptr8,
-                LLVMConstInt(LLVMInt32Type(), me.len() as u64, 0),
-                LLVMConstInt(LLVMIntType(32), 1, 0),
-                LLVMConstInt(LLVMIntType(1), 1, 0),
-            ];
+            for item in me.bytes() {
+                let idx = LLVMConstInt(LLVMInt32Type(), i, 0);
+                let mut indices = [zero, idx];
 
-            LLVMBuildCall(
-                context.builder,
-                context.scopes.get("memcpy".to_string()).unwrap(),
-                args.as_mut_ptr(),
-                5,
-                b"\0".as_ptr() as *const _,
-            );
+                let ptr_elem = LLVMBuildGEP(
+                    context.builder,
+                    pointer,
+                    indices.as_mut_ptr(),
+                    2,
+                    b"\0".as_ptr() as *const _,
+                );
+
+                let idx = LLVMConstInt(LLVMInt8Type(), item as u64, 0);
+
+                LLVMBuildStore(context.builder, idx, ptr_elem);
+
+                i += 1;
+            }
+
+            let ptr8 = LLVMBuildBitCast(context.builder, ptr_elem, t, b"\0".as_ptr() as *const _);
 
             Some(ptr8)
+
+            // let s = LLVMBuildGlobalStringPtr(
+            //     context.builder,
+            //     me.as_ptr() as *const i8,
+            //     b"\0".as_ptr() as *const _,
+            // );
+
+            // let pointer = LLVMBuildArrayAlloca(
+            //     context.builder,
+            //     LLVMInt8Type(),
+            //     s,
+            //     b"\0".as_ptr() as *const _,
+            // );
+
+            // let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
+            // let mut indices = [zero];
+
+            // let ptr_elem = LLVMBuildGEP(
+            //     context.builder,
+            //     pointer,
+            //     indices.as_mut_ptr(),
+            //     1,
+            //     b"\0".as_ptr() as *const _,
+            // );
+
+            // let ptr8 = LLVMBuildBitCast(
+            //     context.builder,
+            //     ptr_elem,
+            //     LLVMPointerType(LLVMInt8Type(), 0),
+            //     b"\0".as_ptr() as *const _,
+            // );
+            // let gptr8 = LLVMBuildBitCast(
+            //     context.builder,
+            //     s,
+            //     LLVMPointerType(LLVMInt8Type(), 0),
+            //     b"\0".as_ptr() as *const _,
+            // );
+
+            // let mut args = [
+            //     ptr8,
+            //     gptr8,
+            //     LLVMConstInt(LLVMInt32Type(), me.len() as u64, 0),
+            //     LLVMConstInt(LLVMIntType(32), 1, 0),
+            //     LLVMConstInt(LLVMIntType(1), 1, 0),
+            // ];
+
+            // LLVMBuildCall(
+            //     context.builder,
+            //     context.scopes.get("memcpy".to_string()).unwrap(),
+            //     args.as_mut_ptr(),
+            //     5,
+            //     b"\0".as_ptr() as *const _,
+            // );
+
+            // Some(ptr8)
         }
     }
 }
