@@ -476,6 +476,8 @@ impl Parser {
     fn statement(&mut self) -> Result<Statement, Error> {
         if let Ok(if_) = self.if_() {
             Ok(Statement::If(if_))
+        } else if let Ok(for_) = self.for_() {
+            Ok(Statement::For(for_))
         } else if let Ok(assign) = self.assignation() {
             Ok(Statement::Assignation(assign))
         } else if let Ok(expr) = self.expression() {
@@ -539,6 +541,54 @@ impl Parser {
             TokenType::IfKeyword => Else::If(self.if_()?),
             _ => Else::Body(self.body()?),
         })
+    }
+
+    fn for_(&mut self) -> Result<For, Error> {
+        expect!(TokenType::ForKeyword, self);
+
+        self.save();
+
+        let res = if let Ok(forin) = self.forin() {
+            For::In(forin)
+        } else if let Ok(while_) = self.while_() {
+            For::While(while_)
+        } else {
+            self.restore();
+
+            return error!("Bad for".to_string(), self);
+        };
+
+        self.save_pop();
+
+        Ok(res)
+    }
+
+    fn forin(&mut self) -> Result<ForIn, Error> {
+        self.save();
+
+        let value = try_or_restore!(self.identifier(), self);
+
+        expect_or_restore!(TokenType::InKeyword, self);
+
+        let expr = try_or_restore!(self.expression(), self);
+
+        let body = try_or_restore!(self.body(), self);
+
+        self.save_pop();
+
+        Ok(ForIn { value, expr, body })
+    }
+
+    fn while_(&mut self) -> Result<While, Error> {
+        self.save();
+
+        let predicat = try_or_restore!(self.expression(), self);
+
+        let body = try_or_restore!(self.body(), self);
+
+        self.save_pop();
+
+        Ok(While { predicat, body })
     }
 
     fn assignation(&mut self) -> Result<Assignation, Error> {
@@ -690,6 +740,7 @@ impl Parser {
         let op = match op.as_ref() {
             "+" => Operator::Add,
             "==" => Operator::EqualEqual,
+            "!=" => Operator::DashEqual,
             _ => Operator::Add,
         };
 

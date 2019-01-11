@@ -7,6 +7,7 @@ pub enum TokenType {
     ThenKeyword,
     ElseKeyword,
     ForKeyword,
+    InKeyword,
 
     // punct
     Arrow,

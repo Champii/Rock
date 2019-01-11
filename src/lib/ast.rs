@@ -101,6 +101,7 @@ pub struct Body {
 #[derive(Debug, Clone)]
 pub enum Statement {
     If(If),
+    For(For),
     Expression(Expression),
     Assignation(Assignation),
 }
@@ -116,6 +117,25 @@ pub struct If {
 pub enum Else {
     If(If),
     Body(Body),
+}
+
+#[derive(Debug, Clone)]
+pub enum For {
+    In(ForIn),
+    While(While),
+}
+
+#[derive(Debug, Clone)]
+pub struct ForIn {
+    pub value: String,
+    pub expr: Expression,
+    pub body: Body,
+}
+
+#[derive(Debug, Clone)]
+pub struct While {
+    pub predicat: Expression,
+    pub body: Body,
 }
 
 #[derive(Debug, Clone)]

@@ -60,7 +60,7 @@ impl Builder {
                 arguments: Scopes::new(),
             };
 
-            add_memcpy(&mut context);
+            // add_memcpy(&mut context);
 
             Builder { source, context }
         }
@@ -71,15 +71,15 @@ impl Builder {
 
         unsafe {
             LLVMDisposeBuilder(self.context.builder);
-            // LLVMDumpModule(self.context.module);
+            LLVMDumpModule(self.context.module);
 
-            // let mut err = ptr::null_mut();
+            let mut err = ptr::null_mut();
 
-            // LLVMVerifyModule(
-            //     self.context.module,
-            //     LLVMVerifierFailureAction::LLVMPrintMessageAction,
-            //     &mut err,
-            // );
+            LLVMVerifyModule(
+                self.context.module,
+                LLVMVerifierFailureAction::LLVMPrintMessageAction,
+                &mut err,
+            );
         }
     }
 
@@ -382,8 +382,80 @@ impl IrBuilder for Statement {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         match self {
             Statement::If(if_) => if_.build(context),
+            Statement::For(for_) => for_.build(context),
             Statement::Expression(expr) => expr.build(context),
             Statement::Assignation(assign) => assign.build(context),
+        }
+    }
+}
+
+impl IrBuilder for For {
+    fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        match self {
+            For::In(in_) => in_.build(context),
+            For::While(while_) => while_.build(context),
+        }
+    }
+}
+
+impl IrBuilder for ForIn {
+    fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        self.body.build(context)
+    }
+}
+
+impl IrBuilder for While {
+    fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        unsafe {
+            let func = LLVMGetLastFunction(context.module);
+
+            let base_block = LLVMGetLastBasicBlock(func);
+
+            let predicat = self.predicat.build(context).unwrap();
+
+            let icmp = LLVMBuildICmp(
+                context.builder,
+                LLVMIntPredicate::LLVMIntNE,
+                predicat,
+                LLVMConstInt(LLVMTypeOf(predicat), 0, 0),
+                "\0".as_ptr() as *const _,
+            );
+
+            let for_body = LLVMAppendBasicBlockInContext(
+                context.context,
+                func,
+                b"then\0".as_ptr() as *const _,
+            );
+
+            LLVMPositionBuilderAtEnd(context.builder, for_body);
+
+            let body = self.body.build(context).unwrap();
+
+            let res_block = LLVMAppendBasicBlockInContext(
+                context.context,
+                func,
+                "final\0".as_ptr() as *const _,
+            );
+
+            let predicat2 = self.predicat.build(context).unwrap();
+
+            let icmp2 = LLVMBuildICmp(
+                context.builder,
+                LLVMIntPredicate::LLVMIntNE,
+                predicat2,
+                LLVMConstInt(LLVMTypeOf(predicat), 0, 0),
+                "\0".as_ptr() as *const _,
+            );
+
+            LLVMBuildCondBr(context.builder, icmp2, for_body, res_block);
+
+            LLVMPositionBuilderAtEnd(context.builder, base_block);
+
+            LLVMBuildCondBr(context.builder, icmp, for_body, res_block);
+
+            LLVMPositionBuilderAtEnd(context.builder, res_block);
+
+            Some(body)
         }
     }
 }
@@ -480,6 +552,15 @@ impl IrBuilder for Expression {
                         LLVMBuildICmp(
                             context.builder,
                             LLVMIntPredicate::LLVMIntEQ,
+                            left,
+                            right,
+                            "\0".as_ptr() as *const _,
+                        )
+                    },
+                    Operator::DashEqual => unsafe {
+                        LLVMBuildICmp(
+                            context.builder,
+                            LLVMIntPredicate::LLVMIntNE,
                             left,
                             right,
                             "\0".as_ptr() as *const _,

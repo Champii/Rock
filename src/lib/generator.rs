@@ -118,6 +118,7 @@ impl Generate for Statement {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
         match self {
             Statement::If(if_) => if_.generate(ctx),
+            Statement::For(for_) => for_.generate(ctx),
             Statement::Expression(expr) => expr.generate(ctx),
             Statement::Assignation(assign) => assign.generate(ctx),
         }
@@ -127,7 +128,27 @@ impl Generate for Statement {
 impl Generate for If {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
         self.body.generate(ctx)
-        //TODO: infer else
+    }
+}
+
+impl Generate for For {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        match self {
+            For::In(in_) => in_.generate(ctx),
+            For::While(while_) => while_.generate(ctx),
+        }
+    }
+}
+
+impl Generate for ForIn {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        self.body.generate(ctx)
+    }
+}
+
+impl Generate for While {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        self.body.generate(ctx)
     }
 }
 

@@ -34,7 +34,7 @@ pub fn parse_str(input: String) -> Result<Builder, Error> {
 
     let ast = Parser::new(lexer).run()?;
 
-    // println!("AST {:#?}", ast);
+    println!("AST {:#?}", ast);
     let mut tc = TypeChecker::new(ast);
 
     let ast = tc.infer();

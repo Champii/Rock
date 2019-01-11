@@ -113,16 +113,37 @@ impl TypeInferer for Statement {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
             Statement::If(if_) => if_.infer(ctx),
+            Statement::For(for_) => for_.infer(ctx),
             Statement::Expression(expr) => expr.infer(ctx),
             Statement::Assignation(assign) => assign.infer(ctx),
         }
     }
 }
 
+impl TypeInferer for For {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        match self {
+            For::In(in_) => in_.infer(ctx),
+            For::While(while_) => while_.infer(ctx),
+        }
+    }
+}
+
+impl TypeInferer for ForIn {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        self.body.infer(ctx)
+    }
+}
+
+impl TypeInferer for While {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        self.body.infer(ctx)
+    }
+}
+
 impl TypeInferer for If {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         self.body.infer(ctx)
-        //TODO: infer else
     }
 }
 
