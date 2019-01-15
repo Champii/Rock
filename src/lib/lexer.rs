@@ -704,6 +704,64 @@ impl Lexer {
             return res;
         }
 
+        if self.last_char == '<' && self.input[self.cur_idx + 1] == '=' {
+            let res = Some(Token {
+                t: TokenType::Operator("<=".to_string()),
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx + 1,
+                txt: "<=".to_string(),
+            });
+
+            self.forward();
+            self.forward();
+
+            return res;
+        }
+
+        if self.last_char == '<' {
+            let res = Some(Token {
+                t: TokenType::Operator(self.last_char.to_string()),
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "<".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        if self.last_char == '>' && self.input[self.cur_idx + 1] == '=' {
+            let res = Some(Token {
+                t: TokenType::Operator(">=".to_string()),
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx + 1,
+                txt: ">=".to_string(),
+            });
+
+            self.forward();
+            self.forward();
+
+            return res;
+        }
+
+        if self.last_char == '>' {
+            let res = Some(Token {
+                t: TokenType::Operator(self.last_char.to_string()),
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: ">".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
         None
     }
 

@@ -199,6 +199,11 @@ pub enum Operator {
     Div,
     Mod,
 
+    Less,
+    LessOrEqual,
+    More,
+    MoreOrEqual,
+
     EqualEqual,
     DashEqual,
 }

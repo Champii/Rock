@@ -221,3 +221,25 @@ main ->
         assert_eq!(res, exp.1);
     }
 }
+
+#[test]
+pub fn for_() {
+    let expected = vec![(
+        "main ->
+    a = [1, 2, 3, 4]
+    i = 0
+    r = 0
+    for i < 4
+        r = a[i]
+        i = i + 1
+    r
+",
+        4,
+    )];
+
+    for exp in expected {
+        let res = super::run_str(exp.0.to_string(), "main\0".to_string()).unwrap();
+
+        assert_eq!(res, exp.1);
+    }
+}

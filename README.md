@@ -32,6 +32,7 @@ main: ->
 ## TODO (by order):
 
 - v0.1.0
+    - escaped chars
     - unmutable by default
     - mut keywork
     - returnable statement
@@ -72,16 +73,34 @@ class Foo
     bar: -> 1
 
 trait Num
-    +: a -> a -> a
-    -: a -> a -> a
-    *: a -> a -> a
-    /: a -> a -> a
+    +: a -> a
+    -: a -> a
+    *: a -> a
+    /: a -> a
 
 impl Num for Int
-    +: (&self, other) -> ~#compiler_add self, other
+    +: -> ~#compiler_add @, it
 
 impl Num for Foo
-    +: (&self, other) -> self.val + other.val
+    +: -> Foo @val + it.val
+
+class Iterator
+    collec: [a]
+    item: a
+    idx = 0
+
+    @collec ->
+
+    next: -> 
+        @item = @collec[@idx]
+        @idx++
+        @item
+
+trait IntoIterator
+    iter: Iterator
+
+impl IntoIterator for Foo
+    iter: -> Iterator @
 
 main ->
   a = Foo 1

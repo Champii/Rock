@@ -741,6 +741,10 @@ impl Parser {
             "+" => Operator::Add,
             "==" => Operator::EqualEqual,
             "!=" => Operator::DashEqual,
+            "<" => Operator::Less,
+            "<=" => Operator::LessOrEqual,
+            ">" => Operator::More,
+            ">=" => Operator::MoreOrEqual,
             _ => Operator::Add,
         };
 

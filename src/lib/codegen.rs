@@ -71,15 +71,15 @@ impl Builder {
 
         unsafe {
             LLVMDisposeBuilder(self.context.builder);
-            LLVMDumpModule(self.context.module);
+            // LLVMDumpModule(self.context.module);
 
-            let mut err = ptr::null_mut();
+            // let mut err = ptr::null_mut();
 
-            LLVMVerifyModule(
-                self.context.module,
-                LLVMVerifierFailureAction::LLVMPrintMessageAction,
-                &mut err,
-            );
+            // LLVMVerifyModule(
+            //     self.context.module,
+            //     LLVMVerifierFailureAction::LLVMPrintMessageAction,
+            //     &mut err,
+            // );
         }
     }
 
@@ -400,7 +400,9 @@ impl IrBuilder for For {
 
 impl IrBuilder for ForIn {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
-        self.body.build(context)
+        panic!("ForIn: Uninplemented");
+
+        None
     }
 }
 
@@ -561,6 +563,42 @@ impl IrBuilder for Expression {
                         LLVMBuildICmp(
                             context.builder,
                             LLVMIntPredicate::LLVMIntNE,
+                            left,
+                            right,
+                            "\0".as_ptr() as *const _,
+                        )
+                    },
+                    Operator::Less => unsafe {
+                        LLVMBuildICmp(
+                            context.builder,
+                            LLVMIntPredicate::LLVMIntSLT,
+                            left,
+                            right,
+                            "\0".as_ptr() as *const _,
+                        )
+                    },
+                    Operator::LessOrEqual => unsafe {
+                        LLVMBuildICmp(
+                            context.builder,
+                            LLVMIntPredicate::LLVMIntSLE,
+                            left,
+                            right,
+                            "\0".as_ptr() as *const _,
+                        )
+                    },
+                    Operator::More => unsafe {
+                        LLVMBuildICmp(
+                            context.builder,
+                            LLVMIntPredicate::LLVMIntSGT,
+                            left,
+                            right,
+                            "\0".as_ptr() as *const _,
+                        )
+                    },
+                    Operator::MoreOrEqual => unsafe {
+                        LLVMBuildICmp(
+                            context.builder,
+                            LLVMIntPredicate::LLVMIntSGE,
                             left,
                             right,
                             "\0".as_ptr() as *const _,
