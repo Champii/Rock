@@ -19,6 +19,7 @@ use super::scope::Scopes;
 #[derive(Clone, Debug)]
 pub struct Context {
     pub calls: HashMap<String, HashMap<String, Vec<TypeInfer>>>,
+    pub classes: HashMap<String, Class>,
     pub scopes: Scopes<TypeInfer>,
     pub externs: HashMap<String, String>,
     pub cur_type: TypeInfer,
@@ -28,6 +29,7 @@ impl Context {
     pub fn new() -> Context {
         Context {
             externs: HashMap::new(),
+            classes: HashMap::new(),
             calls: HashMap::new(),
             scopes: Scopes::new(),
             cur_type: TypeInfer::Type(None),

@@ -73,10 +73,17 @@ impl Generate for SourceFile {
 impl Generate for TopLevel {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
         match self {
+            TopLevel::Class(class) => class.generate(ctx),
             TopLevel::Function(fun) => fun.generate(ctx),
             TopLevel::Prototype(fun) => fun.generate(ctx),
             TopLevel::Mod(_) => Err(Error::ParseError(ParseError::new_empty())),
         }
+    }
+}
+
+impl Generate for Class {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        Ok(())
     }
 }
 

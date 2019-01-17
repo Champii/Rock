@@ -7,6 +7,7 @@ use llvm::transforms::ipo::*;
 use llvm::transforms::scalar::*;
 use llvm::*;
 
+use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::mem;
 use std::ptr;
@@ -17,24 +18,28 @@ use super::scope::Scopes;
 pub struct Context {
     pub scopes: Scopes<*mut LLVMValue>,
     pub functions: Scopes<*mut LLVMValue>,
+    pub classes: HashMap<String, (*mut LLVMType, Class)>, // type -> (...)
+    // pub classes_inst: Scopes<(*mut LLVMValue, Class)>,    // ident -> (...)
     pub arguments: Scopes<*mut LLVMValue>,
     pub module: *mut LLVMModule,
     pub context: *mut LLVMContext,
     pub builder: *mut LLVMBuilder,
 }
 
-pub fn get_type(t: Box<Type>) -> *mut LLVMType {
+pub fn get_type(t: Box<Type>, context: &mut Context) -> *mut LLVMType {
     unsafe {
         match t.as_ref() {
             Type::Name(t) => match t.as_ref() {
                 "Void" => LLVMVoidType(),
                 "Bool" => LLVMInt1Type(),
-                "Int" | "Int32" => LLVMInt32Type(),
                 "Int8" => LLVMInt8Type(),
+                "Int16" => LLVMInt16Type(),
+                "Int" | "Int32" => LLVMInt32Type(),
+                "Int64" => LLVMInt64Type(),
                 "String" => LLVMPointerType(LLVMInt8Type(), 0),
-                _ => LLVMInt32Type(),
+                _ => context.classes.get(t).unwrap().clone().0,
             },
-            Type::Array(t, n) => LLVMPointerType(get_type(t.clone()), 0),
+            Type::Array(t, n) => LLVMPointerType(get_type(t.clone(), context), 0),
         }
     }
 }
@@ -57,6 +62,8 @@ impl Builder {
                 builder,
                 scopes: Scopes::new(),
                 functions: Scopes::new(),
+                classes: HashMap::new(),
+                // classes_inst: Scopes::new(),
                 arguments: Scopes::new(),
             };
 
@@ -71,15 +78,15 @@ impl Builder {
 
         unsafe {
             LLVMDisposeBuilder(self.context.builder);
-            // LLVMDumpModule(self.context.module);
+            LLVMDumpModule(self.context.module);
 
-            // let mut err = ptr::null_mut();
+            let mut err = ptr::null_mut();
 
-            // LLVMVerifyModule(
-            //     self.context.module,
-            //     LLVMVerifierFailureAction::LLVMPrintMessageAction,
-            //     &mut err,
-            // );
+            LLVMVerifyModule(
+                self.context.module,
+                LLVMVerifierFailureAction::LLVMPrintMessageAction,
+                &mut err,
+            );
         }
     }
 
@@ -194,27 +201,27 @@ impl Builder {
     }
 }
 
-fn add_memcpy(context: &mut Context) {
-    unsafe {
-        let mut args = [
-            LLVMPointerType(LLVMIntType(8), 0),
-            LLVMPointerType(LLVMIntType(8), 0),
-            LLVMIntType(32),
-            LLVMIntType(32),
-            LLVMIntType(1),
-        ];
+// fn add_memcpy(context: &mut Context) {
+//     unsafe {
+//         let mut args = [
+//             LLVMPointerType(LLVMIntType(8), 0),
+//             LLVMPointerType(LLVMIntType(8), 0),
+//             LLVMIntType(32),
+//             LLVMIntType(32),
+//             LLVMIntType(1),
+//         ];
 
-        let ftMemcpy = LLVMFunctionType(LLVMVoidType(), args.as_mut_ptr(), 5, 0);
+//         let ftMemcpy = LLVMFunctionType(LLVMVoidType(), args.as_mut_ptr(), 5, 0);
 
-        let memcpy = LLVMAddFunction(
-            context.module,
-            "llvm.memcpy.p0i8.p0i8.i32".as_ptr() as *const _,
-            ftMemcpy,
-        );
+//         let memcpy = LLVMAddFunction(
+//             context.module,
+//             "llvm.memcpy.p0i8.p0i8.i32".as_ptr() as *const _,
+//             ftMemcpy,
+//         );
 
-        context.scopes.add("memcpy".to_string(), memcpy);
-    }
-}
+//         context.scopes.add("memcpy".to_string(), memcpy);
+//     }
+// }
 
 pub trait IrBuilder {
     fn build(&self, ctx: &mut Context) -> Option<*mut LLVMValue>;
@@ -233,10 +240,29 @@ impl IrBuilder for SourceFile {
 impl IrBuilder for TopLevel {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         match self {
+            TopLevel::Class(class) => class.build(context),
             TopLevel::Function(fun) => fun.build(context),
             TopLevel::Prototype(fun) => fun.build(context),
             TopLevel::Mod(_) => None,
         };
+
+        None
+    }
+}
+
+impl IrBuilder for Class {
+    fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        let mut attrs_types = vec![];
+
+        for attr in self.attributes.clone() {
+            attrs_types.push(get_type(Box::new(attr.t.clone().unwrap()), context));
+        }
+
+        unsafe {
+            let t = LLVMStructType(attrs_types.as_ptr() as *mut _, attrs_types.len() as u32, 0);
+
+            context.classes.insert(self.name.clone(), (t, self.clone()));
+        }
 
         None
     }
@@ -257,7 +283,7 @@ impl IrBuilder for Prototype {
             let mut argts = vec![];
 
             for arg in &self.arguments {
-                let t = get_type(Box::new(arg.clone()));
+                let t = get_type(Box::new(arg.clone()), context);
 
                 argts.push(t);
             }
@@ -293,13 +319,13 @@ impl IrBuilder for FunctionDecl {
             let mut argts = vec![];
 
             for arg in &self.arguments {
-                let t = get_type(Box::new(arg.t.clone().unwrap()));
+                let t = get_type(Box::new(arg.t.clone().unwrap()), context);
 
                 argts.push(t);
             }
 
             let function_type = llvm::core::LLVMFunctionType(
-                get_type(Box::new(self.ret.clone().unwrap())),
+                get_type(Box::new(self.ret.clone().unwrap()), context),
                 argts.as_mut_ptr(),
                 argts.len() as u32,
                 0,
@@ -626,7 +652,7 @@ impl IrBuilder for Assignation {
 
                 let alloc = LLVMBuildAlloca(
                     context.builder,
-                    get_type(Box::new(self.t.clone().unwrap())),
+                    get_type(Box::new(self.t.clone().unwrap()), context),
                     alloc_name.as_ptr() as *const _,
                 );
 
@@ -714,6 +740,29 @@ impl SecondaryExpr {
                     Some(res)
                 }
             }
+
+            SecondaryExpr::Selector(sel) => unsafe {
+                let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
+                let idx = LLVMConstInt(LLVMInt32Type(), sel.1 as u64, 0);
+
+                let mut indices = [zero, zero];
+
+                // let lol = LLVMBuildLoad(context.builder, op, "\0".as_ptr() as *const _);
+
+                // let ptr_elem = LLVMBuildGEP(
+                //     context.builder,
+                //     op,
+                //     indices.as_mut_ptr(),
+                //     2,
+                //     b"\0".as_ptr() as *const _,
+                // );
+
+                // let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
+
+                // Some(res)
+
+                None
+            },
             _ => None,
         }
     }
@@ -724,8 +773,17 @@ impl IrBuilder for Operand {
         match self {
             Operand::Literal(lit) => lit.build(context),
             Operand::Identifier(ident) => {
-                if let Some(func) = context.arguments.get(ident.clone()) {
-                    return Some(func);
+                if let Some(ty) = context.scopes.get(ident.clone()) {
+                    ty.get_ret().get_name();
+                }
+                // if let Some((ty, class)) = context.classes.get(&ident.clone()) {
+                //     if let Some(ptr) = context.scopes.get(ident.clone()) {
+                //         return Some(ptr);
+                //     }
+                // }
+
+                if let Some(args) = context.arguments.get(ident.clone()) {
+                    return Some(args);
                 }
 
                 if let Some(func) = context.functions.get(ident.clone()) {
@@ -746,6 +804,65 @@ impl IrBuilder for Operand {
                     }
                 } else {
                     panic!("Unknown identifier {}", ident);
+                    // None
+                }
+            }
+            Operand::ClassInstance(ci) => {
+                if let Some(class_ty) = context.classes.get(&ci.name.clone()) {
+                    // return Some(type_);
+                    unsafe {
+                        let res = LLVMBuildAlloca(
+                            context.builder,
+                            class_ty.0.clone(),
+                            "\0".as_ptr() as *const _,
+                        );
+
+                        //TODO: setup values and default
+
+                        let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
+                        // let mut indices = [zero, zero];
+
+                        // let ptr_elem = LLVMBuildGEP(
+                        //     context.builder,
+                        //     res,
+                        //     indices.as_mut_ptr(),
+                        //     2,
+                        //     b"\0".as_ptr() as *const _,
+                        // );
+
+                        for attr in ci.class.attributes.clone() {
+                            let class_attr = ci.class.get_attribute(attr.name.clone()).unwrap();
+
+                            let (val, i) = match ci.get_attribute(attr.name.clone()) {
+                                None => (class_attr.0.default.unwrap(), class_attr.1),
+                                Some((attr, i)) => (attr.default.unwrap(), class_attr.1),
+                            };
+
+                            // let i = ci.get_attribute(attr.name.clone()).unwrap().1;
+
+                            let idx = LLVMConstInt(LLVMInt32Type(), i as u64, 0);
+                            let mut indices = [zero, idx];
+
+                            let ptr_elem = LLVMBuildGEP(
+                                context.builder,
+                                res,
+                                indices.as_mut_ptr(),
+                                2,
+                                b"\0".as_ptr() as *const _,
+                            );
+
+                            LLVMBuildStore(context.builder, val.build(context).unwrap(), ptr_elem);
+                        }
+
+                        // Some(LLVMBuildLoad(
+                        //     context.builder,
+                        //     res,
+                        //     "\0".as_ptr() as *const _,
+                        // ))
+                        Some(res)
+                    }
+                } else {
+                    panic!("Unknown class {}", ci.name);
                     // None
                 }
             }
@@ -774,7 +891,7 @@ impl IrBuilder for Array {
             res.push(item.build(context).unwrap());
         }
 
-        let t = get_type(Box::new(self.t.clone().unwrap()));
+        let t = get_type(Box::new(self.t.clone().unwrap()), context);
 
         unsafe {
             let pointer = LLVMBuildAlloca(

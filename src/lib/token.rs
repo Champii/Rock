@@ -8,10 +8,12 @@ pub enum TokenType {
     ElseKeyword,
     ForKeyword,
     InKeyword,
+    ClassKeyword,
 
     // punct
     Arrow,
     Coma,
+    Dot,
     SemiColon,
     DoubleSemiColon,
     Equal,

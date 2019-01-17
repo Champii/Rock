@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::context::*;
 
 #[derive(Debug, Clone)]
@@ -8,8 +10,41 @@ pub struct SourceFile {
 #[derive(Debug, Clone)]
 pub enum TopLevel {
     Mod(String),
+    Class(Class),
     Function(FunctionDecl),
     Prototype(Prototype),
+}
+
+#[derive(Debug, Clone)]
+pub struct Class {
+    pub name: String,
+    pub attributes: Vec<Attribute>,
+    pub class_attributes: Vec<Attribute>, // [(name, type, default)]
+    pub methods: Vec<FunctionDecl>,
+    pub class_methods: Vec<FunctionDecl>,
+}
+
+impl Class {
+    pub fn get_attribute(&self, name: String) -> Option<(Attribute, usize)> {
+        let mut i: usize = 0;
+
+        for attr in self.attributes.clone() {
+            if name == attr.name {
+                return Some((attr.clone(), i));
+            }
+
+            i += 1;
+        }
+
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Attribute {
+    pub name: String,
+    pub t: Option<Type>,
+    pub default: Option<Expression>,
 }
 
 #[derive(Debug, Clone)]
@@ -139,16 +174,16 @@ pub struct While {
 }
 
 #[derive(Debug, Clone)]
-pub enum Expression {
-    BinopExpr(UnaryExpr, Operator, Box<Expression>),
-    UnaryExpr(UnaryExpr),
-}
-
-#[derive(Debug, Clone)]
 pub struct Assignation {
     pub name: String,
     pub t: Option<Type>,
     pub value: Box<Statement>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Expression {
+    BinopExpr(UnaryExpr, Operator, Box<Expression>),
+    UnaryExpr(UnaryExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -164,7 +199,7 @@ pub enum PrimaryExpr {
 
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
-    Selector(String),         // . Identifier
+    Selector((String, u8)),   // . Identifier
     Arguments(Vec<Argument>), // (Expr, Expr, ...)
     Index(Box<Expression>),   // [Expr]
 }
@@ -173,9 +208,33 @@ pub enum SecondaryExpr {
 pub enum Operand {
     Literal(Literal),
     Identifier(String),
+    ClassInstance(ClassInstance),
     // PrimaryExpr(Box<PrimaryExpr>, SecondaryExpr),
     Array(Array),
     Expression(Box<Expression>), // parenthesis
+}
+
+#[derive(Debug, Clone)]
+pub struct ClassInstance {
+    pub name: String,
+    pub class: Class,
+    pub attributes: HashMap<String, Attribute>,
+}
+
+impl ClassInstance {
+    pub fn get_attribute(&self, name: String) -> Option<(Attribute, usize)> {
+        let mut i: usize = 0;
+
+        for (_, attr) in self.attributes.clone() {
+            if name == attr.name {
+                return Some((attr.clone(), i));
+            }
+
+            i += 1;
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::ast::*;
 use super::context::*;
 use super::error::Error;
@@ -186,6 +188,16 @@ impl Parser {
             self.save_pop();
 
             Ok(TopLevel::Prototype(proto))
+        } else if self.cur_tok.t == TokenType::ClassKeyword {
+            self.save();
+
+            self.consume();
+
+            let class = try_or_restore!(self.class(), self);
+
+            self.save_pop();
+
+            Ok(TopLevel::Class(class))
         } else {
             Ok(TopLevel::Function(self.function_decl()?))
         };
@@ -233,6 +245,97 @@ impl Parser {
             ret,
             arguments,
         });
+    }
+
+    fn class(&mut self) -> Result<Class, Error> {
+        let tok_name = expect!(TokenType::Type(self.cur_tok.txt.clone()), self);
+
+        self.save();
+
+        expect!(TokenType::EOL, self);
+
+        let mut attributes = vec![];
+        let mut class_attributes = vec![];
+        let mut methods = vec![];
+        let mut class_methods = vec![];
+
+        self.block_indent += 1;
+
+        loop {
+            if let TokenType::Indent(nb) = self.cur_tok.t {
+                if nb != self.block_indent {
+                    self.block_indent -= 1;
+
+                    self.save_pop();
+
+                    return Ok(Class {
+                        name: tok_name.txt,
+                        attributes,
+                        class_attributes,
+                        methods,
+                        class_methods,
+                    });
+                }
+
+                self.consume();
+
+                if let TokenType::Identifier(id) = self.cur_tok.t.clone() {
+                    self.consume();
+
+                    let ret = if self.cur_tok.t == TokenType::DoubleSemiColon {
+                        expect_or_restore!(TokenType::DoubleSemiColon, self);
+
+                        Some(try_or_restore_expect!(
+                            self.type_(),
+                            TokenType::Type(self.cur_tok.txt.clone()),
+                            self
+                        ))
+                    } else {
+                        None
+                    };
+
+                    let default = if self.cur_tok.t == TokenType::Equal {
+                        expect_or_restore!(TokenType::Equal, self);
+
+                        Some(try_or_restore!(self.expression(), self))
+                    } else {
+                        None
+                    };
+
+                    attributes.push(Attribute {
+                        name: id,
+                        t: ret,
+                        default,
+                    });
+
+                    expect!(TokenType::EOL, self);
+
+                    // if let Ok(fun) = self.function_decl() {
+                    //     methods.push(fun);
+                    // }
+                }
+
+            // property
+            } else {
+                break;
+            }
+        }
+
+        self.block_indent -= 1;
+
+        self.save_pop();
+
+        let class = Class {
+            name: tok_name.txt,
+            attributes,
+            class_attributes,
+            methods,
+            class_methods,
+        };
+
+        self.ctx.classes.insert(class.name.clone(), class.clone());
+
+        Ok(class)
     }
 
     fn function_decl(&mut self) -> Result<FunctionDecl, Error> {
@@ -676,7 +779,23 @@ impl Parser {
             return Ok(SecondaryExpr::Arguments(args));
         }
 
+        if let Ok(sel) = self.selector() {
+            return Ok(SecondaryExpr::Selector(sel));
+        }
+
         error!("Expected secondary".to_string(), self);
+    }
+
+    fn selector(&mut self) -> Result<(String, u8), Error> {
+        self.save();
+
+        expect_or_restore!(TokenType::Dot, self);
+
+        let expr = try_or_restore!(self.identifier(), self);
+
+        self.save_pop();
+
+        return Ok((expr, 0));
     }
 
     fn index(&mut self) -> Result<Box<Expression>, Error> {
@@ -702,6 +821,10 @@ impl Parser {
             return Ok(Operand::Identifier(ident));
         }
 
+        if let Ok(c) = self.class_instance() {
+            return Ok(Operand::ClassInstance(c));
+        }
+
         if let Ok(array) = self.array() {
             return Ok(Operand::Array(array));
         }
@@ -711,6 +834,75 @@ impl Parser {
         }
 
         error!("Expected operand".to_string(), self);
+    }
+
+    fn class_instance(&mut self) -> Result<ClassInstance, Error> {
+        self.save();
+
+        let name = try_or_restore!(self.type_(), self).get_name();
+
+        let mut attributes = HashMap::new();
+
+        expect_or_restore!(TokenType::EOL, self);
+
+        self.block_indent += 1;
+
+        loop {
+            self.save();
+
+            if let TokenType::Indent(nb) = self.cur_tok.t {
+                if nb != self.block_indent {
+                    self.restore();
+
+                    break;
+                }
+
+                self.consume();
+            } else {
+                self.restore();
+
+                break;
+            }
+
+            if let TokenType::Identifier(id) = self.cur_tok.t.clone() {
+                self.consume();
+
+                expect!(TokenType::SemiColon, self);
+
+                if let Ok(expr) = self.expression() {
+                    attributes.insert(
+                        id.clone(),
+                        Attribute {
+                            name: id,
+                            t: None,
+                            default: Some(expr),
+                        },
+                    );
+                } else {
+                    self.restore();
+
+                    break;
+                }
+            } else {
+                self.restore();
+
+                break;
+            }
+
+            self.save_pop();
+        }
+
+        // let
+
+        self.save_pop();
+
+        self.block_indent -= 1;
+
+        Ok(ClassInstance {
+            attributes,
+            class: self.ctx.classes.get(&name.clone()).unwrap().clone(),
+            name,
+        })
     }
 
     fn parens_expr(&mut self) -> Result<Expression, Error> {

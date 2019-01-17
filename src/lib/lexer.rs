@@ -132,6 +132,10 @@ impl Lexer {
             return t;
         }
 
+        if let Some(t) = self.try_class_keyword() {
+            return t;
+        }
+
         if let Some(t) = self.try_parens() {
             return t;
         }
@@ -165,6 +169,10 @@ impl Lexer {
         }
 
         if let Some(t) = self.try_coma() {
+            return t;
+        }
+
+        if let Some(t) = self.try_dot() {
             return t;
         }
 
@@ -347,6 +355,34 @@ impl Lexer {
                 start,
                 end: self.cur_idx - 1,
                 txt: "for".to_string(),
+            });
+        }
+
+        None
+    }
+
+    fn try_class_keyword(&mut self) -> Option<Token> {
+        if self.last_char == 'c'
+            && self.input[self.cur_idx + 1] == 'l'
+            && self.input[self.cur_idx + 2] == 'a'
+            && self.input[self.cur_idx + 3] == 's'
+            && self.input[self.cur_idx + 4] == 's'
+            && (self.input[self.cur_idx + 5] == ' ')
+        {
+            let start = self.cur_idx;
+
+            self.forward();
+            self.forward();
+            self.forward();
+            self.forward();
+            self.forward();
+
+            return Some(Token {
+                t: TokenType::ClassKeyword,
+                line: self.cur_line,
+                start,
+                end: self.cur_idx - 1,
+                txt: "class".to_string(),
             });
         }
 
@@ -556,6 +592,24 @@ impl Lexer {
                 start: self.cur_idx,
                 end: self.cur_idx,
                 txt: ",".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_dot(&mut self) -> Option<Token> {
+        if self.last_char == '.' {
+            let res = Some(Token {
+                t: TokenType::Dot,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: ".".to_string(),
             });
 
             self.forward();

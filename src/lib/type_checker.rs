@@ -42,9 +42,47 @@ impl TypeInferer for SourceFile {
 impl TypeInferer for TopLevel {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
+            TopLevel::Class(class) => class.infer(ctx),
             TopLevel::Function(fun) => fun.infer(ctx),
             TopLevel::Prototype(fun) => fun.infer(ctx),
             TopLevel::Mod(_) => Err(Error::ParseError(ParseError::new_empty())),
+        }
+    }
+}
+
+impl TypeInferer for Class {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        for attr in &mut self.attributes {
+            attr.infer(ctx)?;
+        }
+
+        let t = TypeInfer::Type(Some(Type::Name(self.name.clone())));
+
+        ctx.scopes.add(self.name.clone(), t.clone());
+        ctx.classes.insert(self.name.clone(), self.clone());
+
+        Ok(t)
+    }
+}
+
+impl TypeInferer for Attribute {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        if let Some(mut default) = self.default.clone() {
+            let t = default.infer(ctx)?;
+
+            if let Some(t2) = self.t.clone() {
+                if t2 != t.get_ret().unwrap() {
+                    return Err(Error::ParseError(ParseError::new_empty()));
+                }
+            }
+
+            self.t = t.get_ret();
+
+            Ok(t)
+        } else if let Some(t) = self.t.clone() {
+            Ok(TypeInfer::Type(Some(t)))
+        } else {
+            Err(Error::ParseError(ParseError::new_empty()))
         }
     }
 }
@@ -249,6 +287,33 @@ impl TypeInferer for PrimaryExpr {
                                 }
                             }
                         }
+                        SecondaryExpr::Selector(ref mut sel) => {
+                            if let Operand::Identifier(id) = operand {
+                                let typename = ctx.scopes.get(id.clone()).unwrap();
+
+                                if let TypeInfer::Type(name) = typename {
+                                    let class = ctx.classes.get(&name.clone().unwrap().get_name());
+
+                                    if class.is_none() {
+                                        panic!("Unknown class {}", id);
+                                    }
+
+                                    let class = class.unwrap();
+
+                                    let attr = class.get_attribute(sel.0.clone());
+
+                                    if let None = attr {
+                                        panic!("Unknown property {}", sel.0);
+                                    }
+
+                                    let (attr, i) = attr.unwrap();
+
+                                    sel.1 = i as u8;
+
+                                    ctx.cur_type = TypeInfer::Type(attr.t);
+                                }
+                            }
+                        }
                         _ => (),
                     };
                 }
@@ -292,10 +357,17 @@ impl TypeInferer for Operand {
                     Ok(res)
                 }
             }
-
+            Operand::ClassInstance(ci) => ci.infer(ctx),
             Operand::Array(arr) => arr.infer(ctx),
             Operand::Expression(expr) => expr.infer(ctx),
         }
+    }
+}
+
+impl TypeInferer for ClassInstance {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        // TODO: check types of fields
+        Ok(ctx.scopes.get(self.name.clone()).unwrap())
     }
 }
 
