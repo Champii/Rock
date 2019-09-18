@@ -646,6 +646,16 @@ impl IrBuilder for Assignation {
             let ptr = if let Some(val) = context.scopes.get(self.name.clone()) {
                 val
             } else {
+                if let Some(t) = &self.t {
+                    if let Some(_) = context.classes.get(&t.get_name()) {
+                        let val = self.value.build(context).unwrap();
+
+                        context.scopes.add(self.name.clone(), val);
+
+                        return Some(val);
+                    }
+                }
+
                 let mut alloc_name = "alloc_".to_string() + &self.name.clone();
 
                 alloc_name.push('\0');
@@ -835,15 +845,6 @@ impl IrBuilder for Operand {
                         //TODO: setup values and default
 
                         let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
-                        // let mut indices = [zero, zero];
-
-                        // let ptr_elem = LLVMBuildGEP(
-                        //     context.builder,
-                        //     res,
-                        //     indices.as_mut_ptr(),
-                        //     2,
-                        //     b"\0".as_ptr() as *const _,
-                        // );
 
                         for attr in ci.class.attributes.clone() {
                             let class_attr = ci.class.get_attribute(attr.name.clone()).unwrap();
@@ -869,11 +870,6 @@ impl IrBuilder for Operand {
                             LLVMBuildStore(context.builder, val.build(context).unwrap(), ptr_elem);
                         }
 
-                        // Some(LLVMBuildLoad(
-                        //     context.builder,
-                        //     res,
-                        //     "\0".as_ptr() as *const _,
-                        // ))
                         Some(res)
                     }
                 } else {
