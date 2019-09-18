@@ -889,6 +889,8 @@ impl Parser {
                 break;
             }
 
+            expect_or_restore!(TokenType::EOL, self);
+
             self.save_pop();
         }
 
