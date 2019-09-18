@@ -310,6 +310,8 @@ impl TypeInferer for PrimaryExpr {
 
                                     sel.1 = i as u8;
 
+                                    sel.2 = name;
+
                                     ctx.cur_type = TypeInfer::Type(attr.t);
                                 }
                             }

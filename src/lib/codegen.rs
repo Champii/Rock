@@ -239,6 +239,7 @@ impl IrBuilder for SourceFile {
 
 impl IrBuilder for TopLevel {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        println!("Top");
         match self {
             TopLevel::Class(class) => class.build(context),
             TopLevel::Function(fun) => fun.build(context),
@@ -252,6 +253,8 @@ impl IrBuilder for TopLevel {
 
 impl IrBuilder for Class {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        println!("ClassDef");
+
         let mut attrs_types = vec![];
 
         for attr in self.attributes.clone() {
@@ -406,6 +409,7 @@ impl IrBuilder for Body {
 
 impl IrBuilder for Statement {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        println!("STATM {:?}", self);
         match self {
             Statement::If(if_) => if_.build(context),
             Statement::For(for_) => for_.build(context),
@@ -672,6 +676,8 @@ impl IrBuilder for Assignation {
 
 impl IrBuilder for UnaryExpr {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        println!("UNARY");
+
         match self {
             UnaryExpr::PrimaryExpr(primary) => primary.build(context),
             UnaryExpr::UnaryExpr(op, unary) => unary.build(context),
@@ -681,6 +687,8 @@ impl IrBuilder for UnaryExpr {
 
 impl IrBuilder for PrimaryExpr {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        println!("PRIMARY");
+
         match self {
             PrimaryExpr::PrimaryExpr(operand, vec) => {
                 let op = operand.build(context);
@@ -691,8 +699,22 @@ impl IrBuilder for PrimaryExpr {
 
                 let op = op.unwrap();
 
-                // TODO: OTHER SECONDARYs
+                // TODO: OTHER SECONDARY
                 let second = vec.first().unwrap();
+
+                // HACK for class instances
+                if let Operand::Identifier(ident) = operand {
+                    if let SecondaryExpr::Selector((_, _, class_name)) = second {
+                        if let Some(Type::Name(name)) = class_name {
+                            if let Some(_) = context.classes.get(&name.clone()) {
+                                if let Some(ptr) = context.scopes.get(ident.clone()) {
+                                    return second.build_with(context, ptr);
+                                    // return Some(ptr);
+                                }
+                            }
+                        }
+                    }
+                }
 
                 second.build_with(context, op)
             }
@@ -702,11 +724,15 @@ impl IrBuilder for PrimaryExpr {
 
 impl SecondaryExpr {
     pub fn build_with(&self, context: &mut Context, op: *mut LLVMValue) -> Option<*mut LLVMValue> {
+        println!("SECONDARY");
+
         match self {
             SecondaryExpr::Arguments(args) => {
                 let mut res = vec![];
 
+                println!("HERE1");
                 for arg in args {
+                    println!("HERE2 {:?}", arg);
                     res.push(arg.build(context).unwrap());
                 }
 
@@ -745,23 +771,28 @@ impl SecondaryExpr {
                 let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
                 let idx = LLVMConstInt(LLVMInt32Type(), sel.1 as u64, 0);
 
-                let mut indices = [zero, zero];
+                let mut indices = [zero, idx];
 
+                println!("HERE3");
                 // let lol = LLVMBuildLoad(context.builder, op, "\0".as_ptr() as *const _);
 
-                // let ptr_elem = LLVMBuildGEP(
-                //     context.builder,
-                //     op,
-                //     indices.as_mut_ptr(),
-                //     2,
-                //     b"\0".as_ptr() as *const _,
-                // );
+                LLVMDumpModule(context.module);
 
-                // let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
+                let ptr_elem = LLVMBuildGEP(
+                    context.builder,
+                    op,
+                    indices.as_mut_ptr(),
+                    2,
+                    b"\0".as_ptr() as *const _,
+                );
 
-                // Some(res)
+                println!("HERE4");
+                let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
+                println!("HERE5");
 
-                None
+                Some(res)
+
+                // None
             },
             _ => None,
         }
@@ -774,13 +805,16 @@ impl IrBuilder for Operand {
             Operand::Literal(lit) => lit.build(context),
             Operand::Identifier(ident) => {
                 if let Some(ty) = context.scopes.get(ident.clone()) {
-                    ty.get_ret().get_name();
+                    // let lol = get_type(ty, context);
+                    // println!("DEBUG IDENT {}", lol);
+                    // if let Some((ty, class)) = context.classes.get(&ident.clone()) {
+                    //     if let Some(ptr) = context.scopes.get(ident.clone()) {
+                    //         return Some(ptr);
+                    //     }
+                    // }
+
+                    //     return Some(ty);
                 }
-                // if let Some((ty, class)) = context.classes.get(&ident.clone()) {
-                //     if let Some(ptr) = context.scopes.get(ident.clone()) {
-                //         return Some(ptr);
-                //     }
-                // }
 
                 if let Some(args) = context.arguments.get(ident.clone()) {
                     return Some(args);
