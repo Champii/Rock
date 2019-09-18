@@ -199,9 +199,9 @@ pub enum PrimaryExpr {
 
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
-    Selector((String, u8)),   // . Identifier
-    Arguments(Vec<Argument>), // (Expr, Expr, ...)
-    Index(Box<Expression>),   // [Expr]
+    Selector((String, u8, Option<Type>)), // . Identifier  // u8 is the attribute index in struct // option<Type> is the class type if needed
+    Arguments(Vec<Argument>),             // (Expr, Expr, ...)
+    Index(Box<Expression>),               // [Expr]
 }
 
 #[derive(Debug, Clone)]

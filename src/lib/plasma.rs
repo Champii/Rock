@@ -37,9 +37,10 @@ pub fn parse_str(input: String) -> Result<Builder, Error> {
     let mut tc = TypeChecker::new(ast);
 
     let ast = tc.infer();
-    println!("AST {:#?}", ast);
 
     let ast = Generator::new(ast, tc.ctx).generate();
+
+    println!("AST {:#?}", ast);
 
     let mut builder = Builder::new("STDIN\0", ast);
 
