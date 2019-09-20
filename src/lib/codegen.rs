@@ -742,6 +742,12 @@ impl IrBuilder for PrimaryExpr {
                     op = second.build_with(context, op.clone().unwrap());
                 }
 
+                let last_second = vec.last().unwrap();
+
+                if let SecondaryExpr::Arguments(_) = last_second {
+                    return op;
+                }
+
                 unsafe {
                     let op = LLVMBuildLoad(
                         context.builder,
@@ -790,9 +796,9 @@ impl SecondaryExpr {
                         b"\0".as_ptr() as *const _,
                     );
 
-                    let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
+                    // let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
 
-                    Some(res)
+                    Some(ptr_elem)
                 }
             }
 
@@ -803,8 +809,6 @@ impl SecondaryExpr {
                 let mut indices = [zero, idx];
                 // let lol = LLVMBuildLoad(context.builder, op, "\0".as_ptr() as *const _);
 
-                println!("DEBUG1");
-
                 LLVMDumpModule(context.module);
 
                 let ptr_elem = LLVMBuildGEP(
@@ -814,8 +818,6 @@ impl SecondaryExpr {
                     2,
                     b"\0".as_ptr() as *const _,
                 );
-
-                println!("DEBUG2");
 
                 // let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
 
