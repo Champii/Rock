@@ -297,7 +297,7 @@ impl IrBuilder for Prototype {
         let name = name.as_str();
 
         unsafe {
-            let i32t = LLVMInt32TypeInContext(context.context);
+            let i32t = LLVMInt32Type();
             let mut argts = vec![];
 
             for arg in &self.arguments {
@@ -924,21 +924,9 @@ impl IrBuilder for Operand {
 impl IrBuilder for Literal {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         match self {
-            Literal::Number(num) => unsafe {
-                Some(LLVMConstInt(
-                    LLVMInt32TypeInContext(context.context),
-                    *num,
-                    0,
-                ))
-            },
+            Literal::Number(num) => unsafe { Some(LLVMConstInt(LLVMInt32Type(), *num, 0)) },
             Literal::String(s) => s.build(context),
-            Literal::Bool(b) => unsafe {
-                Some(LLVMConstInt(
-                    LLVMInt1TypeInContext(context.context),
-                    b.clone(),
-                    0,
-                ))
-            },
+            Literal::Bool(b) => unsafe { Some(LLVMConstInt(LLVMInt1Type(), b.clone(), 0)) },
             _ => None,
         }
     }
@@ -961,7 +949,7 @@ impl IrBuilder for Array {
                 b"\0".as_ptr() as *const _,
             );
 
-            let zero = LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, 0);
+            let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
             let mut indices = [zero, zero];
 
             let ptr_elem = LLVMBuildGEP(
@@ -975,7 +963,7 @@ impl IrBuilder for Array {
             let mut i = 0;
 
             for item in res {
-                let idx = LLVMConstInt(LLVMInt32TypeInContext(context.context), i, 0);
+                let idx = LLVMConstInt(LLVMInt32Type(), i, 0);
                 let mut indices = [zero, idx];
 
                 let ptr_elem = LLVMBuildGEP(
@@ -1005,7 +993,7 @@ impl IrBuilder for String {
         me.push('\0');
 
         unsafe {
-            let t = LLVMPointerType(LLVMInt8TypeInContext(context.context), 0);
+            let t = LLVMPointerType(LLVMInt8Type(), 0);
 
             let pointer = LLVMBuildAlloca(
                 context.builder,
@@ -1013,7 +1001,7 @@ impl IrBuilder for String {
                 b"\0".as_ptr() as *const _,
             );
 
-            let zero = LLVMConstInt(LLVMInt32TypeInContext(context.context), 0, 0);
+            let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
             let mut indices = [zero, zero];
 
             let ptr_elem = LLVMBuildGEP(
@@ -1027,7 +1015,7 @@ impl IrBuilder for String {
             let mut i = 0;
 
             for item in me.bytes() {
-                let idx = LLVMConstInt(LLVMInt32TypeInContext(context.context), i, 0);
+                let idx = LLVMConstInt(LLVMInt32Type(), i, 0);
                 let mut indices = [zero, idx];
 
                 let ptr_elem = LLVMBuildGEP(
@@ -1038,7 +1026,7 @@ impl IrBuilder for String {
                     b"\0".as_ptr() as *const _,
                 );
 
-                let idx = LLVMConstInt(LLVMInt8TypeInContext(context.context), item as u64, 0);
+                let idx = LLVMConstInt(LLVMInt8Type(), item as u64, 0);
 
                 LLVMBuildStore(context.builder, idx, ptr_elem);
 
