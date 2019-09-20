@@ -33,7 +33,7 @@ main: ->
 
 - v0.1.0
     - escaped chars
-    - unmutable by default
+    - immutable by default
     - mut keywork
     - returnable statement
     - operator precedence
@@ -61,6 +61,7 @@ main: ->
 - Assignation
 - Type inference
 - Parametric Polymophism
+- Class (attributes only)
 
 # Goal
 

@@ -26,6 +26,24 @@ pub struct Context {
     pub builder: *mut LLVMBuilder,
 }
 
+pub fn get_type_context(t: Box<Type>, context: &mut Context) -> *mut LLVMType {
+    unsafe {
+        match t.as_ref() {
+            Type::Name(t) => match t.as_ref() {
+                "Void" => LLVMVoidTypeInContext(context.context),
+                "Bool" => LLVMInt1TypeInContext(context.context),
+                "Int8" => LLVMInt8TypeInContext(context.context),
+                "Int16" => LLVMInt16TypeInContext(context.context),
+                "Int" | "Int32" => LLVMInt32TypeInContext(context.context),
+                "Int64" => LLVMInt64TypeInContext(context.context),
+                "String" => LLVMPointerType(LLVMInt8TypeInContext(context.context), 0),
+                _ => context.classes.get(t).unwrap().clone().0,
+            },
+            Type::Array(t, n) => LLVMPointerType(get_type(t.clone(), context), 0),
+        }
+    }
+}
+
 pub fn get_type(t: Box<Type>, context: &mut Context) -> *mut LLVMType {
     unsafe {
         match t.as_ref() {
@@ -366,6 +384,7 @@ impl IrBuilder for FunctionDecl {
 
             let res = self.body.build(context);
 
+            // let ret_type = get_type_context(Box::new(self.ret.clone()), context);
             match &self.ret {
                 Some(Type::Name(t)) => {
                     if *t == "Void".to_string() {
@@ -693,16 +712,18 @@ impl IrBuilder for PrimaryExpr {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         match self {
             PrimaryExpr::PrimaryExpr(operand, vec) => {
-                let op = operand.build(context);
+                let mut op = operand.build(context);
 
                 if vec.len() == 0 {
                     return op;
                 }
 
-                let op = op.unwrap();
+                // let mut op = op;
 
                 // TODO: OTHER SECONDARY
                 let second = vec.first().unwrap();
+
+                // let mut res = None;
 
                 // HACK for class instances
                 if let Operand::Identifier(ident) = operand {
@@ -710,14 +731,25 @@ impl IrBuilder for PrimaryExpr {
                         if let Some(Type::Name(name)) = class_name {
                             if let Some(_) = context.classes.get(&name.clone()) {
                                 if let Some(ptr) = context.scopes.get(ident.clone()) {
-                                    return second.build_with(context, ptr);
+                                    op = Some(ptr)
                                 }
                             }
                         }
                     }
                 }
 
-                second.build_with(context, op)
+                for second in vec {
+                    op = second.build_with(context, op.clone().unwrap());
+                }
+
+                unsafe {
+                    let op = LLVMBuildLoad(
+                        context.builder,
+                        op.clone().unwrap(),
+                        b"\0".as_ptr() as *const _,
+                    );
+                    Some(op)
+                }
             }
         }
     }
@@ -771,6 +803,10 @@ impl SecondaryExpr {
                 let mut indices = [zero, idx];
                 // let lol = LLVMBuildLoad(context.builder, op, "\0".as_ptr() as *const _);
 
+                println!("DEBUG1");
+
+                LLVMDumpModule(context.module);
+
                 let ptr_elem = LLVMBuildGEP(
                     context.builder,
                     op,
@@ -779,9 +815,11 @@ impl SecondaryExpr {
                     b"\0".as_ptr() as *const _,
                 );
 
-                let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
+                println!("DEBUG2");
 
-                Some(res)
+                // let res = LLVMBuildLoad(context.builder, ptr_elem, b"\0".as_ptr() as *const _);
+
+                Some(ptr_elem)
 
                 // None
             },

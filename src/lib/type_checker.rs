@@ -288,32 +288,31 @@ impl TypeInferer for PrimaryExpr {
                             }
                         }
                         SecondaryExpr::Selector(ref mut sel) => {
-                            if let Operand::Identifier(id) = operand {
-                                let typename = ctx.scopes.get(id.clone()).unwrap();
+                            if let TypeInfer::Type(name) = ctx.cur_type.clone() {
+                                let classname = name.clone().unwrap().get_name();
+                                let class = ctx.classes.get(&classname);
 
-                                if let TypeInfer::Type(name) = typename {
-                                    let class = ctx.classes.get(&name.clone().unwrap().get_name());
-
-                                    if class.is_none() {
-                                        panic!("Unknown class {}", id);
-                                    }
-
-                                    let class = class.unwrap();
-
-                                    let attr = class.get_attribute(sel.0.clone());
-
-                                    if let None = attr {
-                                        panic!("Unknown property {}", sel.0);
-                                    }
-
-                                    let (attr, i) = attr.unwrap();
-
-                                    sel.1 = i as u8;
-
-                                    sel.2 = name;
-
-                                    ctx.cur_type = TypeInfer::Type(attr.t);
+                                if class.is_none() {
+                                    panic!("Unknown class {}", classname);
                                 }
+
+                                let class = class.unwrap();
+
+                                let attr = class.get_attribute(sel.0.clone());
+
+                                if let None = attr {
+                                    panic!("Unknown property {}", sel.0);
+                                }
+
+                                let (attr, i) = attr.unwrap();
+
+                                sel.1 = i as u8; // attribute index
+
+                                sel.2 = name; // classname
+
+                                ctx.cur_type = TypeInfer::Type(attr.t);
+
+                                println!("SELECTOR TYPE {:?}", ctx.cur_type);
                             }
                         }
                         _ => (),
