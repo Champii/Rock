@@ -38,6 +38,16 @@ impl Class {
 
         None
     }
+
+    pub fn get_method(&self, name: String) -> Option<FunctionDecl> {
+        for method in self.methods.clone() {
+            if name == method.name {
+                return Some(method.clone());
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -53,9 +63,22 @@ pub struct FunctionDecl {
     pub ret: Option<Type>,
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
+    pub class_name: Option<String>,
 }
 
 impl FunctionDecl {
+    pub fn add_this_arg(&mut self) {
+        let names: Vec<&str> = self.name.split("_").collect();
+
+        self.arguments.insert(
+            0,
+            ArgumentDecl {
+                name: "this".to_string(),
+                t: Some(Type::Name(names[0].to_string())),
+            },
+        )
+    }
+
     pub fn is_solved(&self) -> bool {
         self.arguments.iter().all(|arg| arg.t.is_some()) && self.ret.is_some()
     }

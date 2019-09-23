@@ -279,40 +279,52 @@ impl Parser {
 
                 self.consume();
 
-                if let TokenType::Identifier(id) = self.cur_tok.t.clone() {
-                    self.consume();
+                if let Ok(f) = self.function_decl() {
+                    let mut f = f;
 
-                    let ret = if self.cur_tok.t == TokenType::DoubleSemiColon {
-                        expect_or_restore!(TokenType::DoubleSemiColon, self);
+                    // f.name = tok_name.txt.clone() + "_" + &f.name;
 
-                        Some(try_or_restore_expect!(
-                            self.type_(),
-                            TokenType::Type(self.cur_tok.txt.clone()),
-                            self
-                        ))
-                    } else {
-                        None
-                    };
+                    f.class_name = Some(tok_name.txt.clone());
 
-                    let default = if self.cur_tok.t == TokenType::Equal {
-                        expect_or_restore!(TokenType::Equal, self);
+                    // f.add_this_arg();
 
-                        Some(try_or_restore!(self.expression(), self))
-                    } else {
-                        None
-                    };
+                    methods.push(f);
+                } else {
+                    if let TokenType::Identifier(id) = self.cur_tok.t.clone() {
+                        self.consume();
 
-                    attributes.push(Attribute {
-                        name: id,
-                        t: ret,
-                        default,
-                    });
+                        let ret = if self.cur_tok.t == TokenType::DoubleSemiColon {
+                            expect_or_restore!(TokenType::DoubleSemiColon, self);
 
-                    expect!(TokenType::EOL, self);
+                            Some(try_or_restore_expect!(
+                                self.type_(),
+                                TokenType::Type(self.cur_tok.txt.clone()),
+                                self
+                            ))
+                        } else {
+                            None
+                        };
 
-                    // if let Ok(fun) = self.function_decl() {
-                    //     methods.push(fun);
-                    // }
+                        let default = if self.cur_tok.t == TokenType::SemiColon {
+                            expect_or_restore!(TokenType::SemiColon, self);
+
+                            Some(try_or_restore!(self.expression(), self))
+                        } else {
+                            None
+                        };
+
+                        attributes.push(Attribute {
+                            name: id,
+                            t: ret,
+                            default,
+                        });
+
+                        expect!(TokenType::EOL, self);
+
+                        // if let Ok(fun) = self.function_decl() {
+                        //     methods.push(fun);
+                        // }
+                    }
                 }
 
             // property
@@ -345,6 +357,10 @@ impl Parser {
 
         let name = try_or_restore!(self.identifier(), self);
 
+        if let TokenType::SemiColon = self.cur_tok.t {
+            self.consume();
+        }
+
         if TokenType::OpenParens == self.cur_tok.t
             || TokenType::Identifier(self.cur_tok.txt.clone()) == self.cur_tok.t
         {
@@ -375,6 +391,7 @@ impl Parser {
             ret,
             arguments,
             body,
+            class: None,
         })
     }
 

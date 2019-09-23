@@ -83,6 +83,10 @@ impl Generate for TopLevel {
 
 impl Generate for Class {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        for method in &mut self.methods {
+            method.generate(ctx)?;
+        }
+
         Ok(())
     }
 }

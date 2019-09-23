@@ -56,6 +56,10 @@ impl TypeInferer for Class {
             attr.infer(ctx)?;
         }
 
+        for method in &mut self.methods {
+            method.infer(ctx)?;
+        }
+
         let t = TypeInfer::Type(Some(Type::Name(self.name.clone())));
 
         ctx.scopes.add(self.name.clone(), t.clone());
@@ -251,9 +255,19 @@ impl TypeInferer for PrimaryExpr {
             PrimaryExpr::PrimaryExpr(operand, vec) => {
                 ctx.cur_type = operand.infer(ctx)?;
 
+                if vec.len() == 0 {
+                    return Ok(ctx.cur_type.clone());
+                }
+                let mut prec = vec![vec.first().unwrap().clone()];
+
                 for second in vec {
                     match second {
                         SecondaryExpr::Arguments(args) => {
+                            if let Some(f) = ctx.cur_type.get_fn_type() {
+                                println!("CLASSNAME FN {}", f.name);
+                                if let Some(classdef) = ctx.classes.get(&f.name) {}
+                            }
+
                             if let Operand::Identifier(id) = operand {
                                 let mut res = vec![];
                                 let mut name = id.clone();
@@ -287,6 +301,7 @@ impl TypeInferer for PrimaryExpr {
                                 }
                             }
                         }
+
                         SecondaryExpr::Selector(ref mut sel) => {
                             if let TypeInfer::Type(name) = ctx.cur_type.clone() {
                                 let classname = name.clone().unwrap().get_name();
@@ -297,6 +312,17 @@ impl TypeInferer for PrimaryExpr {
                                 }
 
                                 let class = class.unwrap();
+
+                                let f = class.get_method(sel.0.clone());
+
+                                println!("WESH0 {}", sel.0);
+                                if let Some(f) = f {
+                                    println!("WESH {}", f.name);
+
+                                    ctx.cur_type = TypeInfer::FuncType(f);
+
+                                    continue;
+                                }
 
                                 let attr = class.get_attribute(sel.0.clone());
 
@@ -317,6 +343,8 @@ impl TypeInferer for PrimaryExpr {
                         }
                         _ => (),
                     };
+
+                    prec.push(second.clone());
                 }
 
                 Ok(ctx.cur_type.clone())

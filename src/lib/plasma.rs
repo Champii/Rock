@@ -5,6 +5,7 @@ use std::fs;
 mod ast;
 mod codegen;
 mod context;
+// mod desugar;
 mod error;
 mod generator;
 mod lexer;

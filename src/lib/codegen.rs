@@ -282,6 +282,10 @@ impl IrBuilder for Class {
             context.classes.insert(self.name.clone(), (t, self.clone()));
         }
 
+        for method in self.methods.clone() {
+            method.build(context);
+        }
+
         None
     }
 }
