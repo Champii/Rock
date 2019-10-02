@@ -282,11 +282,11 @@ impl Parser {
                 if let Ok(f) = self.function_decl() {
                     let mut f = f;
 
-                    // f.name = tok_name.txt.clone() + "_" + &f.name;
+                    f.name = tok_name.txt.clone() + "_" + &f.name;
 
                     f.class_name = Some(tok_name.txt.clone());
 
-                    // f.add_this_arg();
+                    f.add_this_arg();
 
                     methods.push(f);
                 } else {

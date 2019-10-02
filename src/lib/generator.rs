@@ -205,26 +205,37 @@ impl Generate for PrimaryExpr {
                     &mut s
                 };
 
+                let mut last_method = None;
+
                 for second in vec {
                     match second {
-                        SecondaryExpr::Selector((name, _, _)) => {
+                        SecondaryExpr::Selector((name, _, classname_opt)) => {
+                            last_method = classname_opt.clone();
+
                             res = name;
                         },
                         SecondaryExpr::Arguments(args) => {
                             // if let Operand::Identifier(ref mut id) = operand {
                                 // let mut res = (*id).to_string();
+                                let mut name = res.clone();
+
+                                if let Some(classname) = last_method.clone() {
+                                    name = classname.get_name() + "_" + &name;
+                                }
+
+                                let orig_name = res.clone();
 
                                 for arg in args {
                                     let t = arg.infer(ctx).unwrap();
 
                                     arg.generate(ctx)?;
 
-                                    // res = res + &t.get_ret().unwrap().get_name();
+                                    name = name.to_owned() + &t.get_ret().unwrap().get_name();
                                 }
 
                                 let funcs = ctx.scopes.scopes.first().unwrap().items.clone();
 
-                                let that = funcs.get(res).unwrap();
+                                let that = funcs.get(&orig_name).unwrap();
 
                                 let solved = if let TypeInfer::FuncType(f) = that {
                                     f.is_solved()

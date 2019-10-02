@@ -52,17 +52,20 @@ impl TypeInferer for TopLevel {
 
 impl TypeInferer for Class {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        let t = TypeInfer::Type(Some(Type::Name(self.name.clone())));
+
+        ctx.scopes.add(self.name.clone(), t.clone());
+
         for attr in &mut self.attributes {
             attr.infer(ctx)?;
         }
+
+        ctx.classes.insert(self.name.clone(), self.clone());
 
         for method in &mut self.methods {
             method.infer(ctx)?;
         }
 
-        let t = TypeInfer::Type(Some(Type::Name(self.name.clone())));
-
-        ctx.scopes.add(self.name.clone(), t.clone());
         ctx.classes.insert(self.name.clone(), self.clone());
 
         Ok(t)
@@ -257,21 +260,35 @@ impl TypeInferer for PrimaryExpr {
                 if vec.len() == 0 {
                     return Ok(ctx.cur_type.clone());
                 }
-                let mut prec = vec![vec.first().unwrap().clone()];
+                let mut prec = vec![];
 
                 for second in vec {
                     match second {
-                        SecondaryExpr::Arguments(args) => {
+                        SecondaryExpr::Arguments(ref mut args) => {
+                            // let mut args = args.clone();
+                            let mut name = String::new();
+
+                            let mut res = vec![];
+
                             if let Some(f) = ctx.cur_type.get_fn_type() {
                                 println!("CLASSNAME FN {}", f.name);
-                                if let Some(classdef) = ctx.classes.get(&f.name) {}
-                            }
 
-                            if let Operand::Identifier(id) = operand {
-                                let mut res = vec![];
-                                let mut name = id.clone();
+                                name = f.name.clone();
+                                let ret = TypeInfer::Type(f.ret.clone());
+                                if let Some(_) = &f.class_name {
+                                    // name = classdef.name.clone() + "_" + &f.name.clone();
+                                    args.insert(0, Argument {arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone())))});
+                                }
 
-                                for arg in args {
+                                let orig_name = name.clone();
+
+                            // if let Operand::Identifier(id) = operand {
+
+                                // if vec.len() > 1 {
+                                //     operand = Operand::Identifier(name.clone());
+                                // }
+
+                                for mut arg in args {
                                     let t = arg.infer(ctx)?;
 
                                     res.push(t.clone());
@@ -279,12 +296,17 @@ impl TypeInferer for PrimaryExpr {
                                     name = name + &t.get_ret().unwrap().get_name();
                                 }
 
+                                println!("F NAME {}", name);
+
+                                ctx.cur_type = ret;
+
                                 ctx.calls
-                                    .entry(id.clone())
+                                    .entry(orig_name.clone())
                                     .or_insert(HashMap::new())
-                                    .insert(name, res);
+                                    .insert(orig_name, res);
                             }
                         }
+                        // }
 
                         SecondaryExpr::Index(args) => {
                             if let TypeInfer::Type(t) = ctx.cur_type.clone() {
@@ -312,11 +334,17 @@ impl TypeInferer for PrimaryExpr {
 
                                 let class = class.unwrap();
 
-                                let f = class.get_method(sel.0.clone());
+                                let method_name = class.name.clone() + "_" + &sel.0.clone();
+
+                                    println!("SEL0 {}", method_name);
+                                let f = class.get_method(method_name.clone());
 
                                 println!("WESH0 {}", sel.0);
                                 if let Some(f) = f {
                                     println!("WESH {}", f.name);
+
+                                    sel.0 = method_name.clone();
+
 
                                     ctx.cur_type = TypeInfer::FuncType(f);
 
