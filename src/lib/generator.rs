@@ -198,23 +198,33 @@ impl Generate for PrimaryExpr {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
         match self {
             PrimaryExpr::PrimaryExpr(ref mut operand, vec) => {
+                let mut s = String::new();
+                let mut res = if let Operand::Identifier(ref mut id) = operand {
+                    id
+                } else {
+                    &mut s
+                };
+
                 for second in vec {
                     match second {
+                        SecondaryExpr::Selector((name, _, _)) => {
+                            res = name;
+                        },
                         SecondaryExpr::Arguments(args) => {
-                            if let Operand::Identifier(ref mut id) = operand {
-                                let mut res = (*id).to_string();
+                            // if let Operand::Identifier(ref mut id) = operand {
+                                // let mut res = (*id).to_string();
 
                                 for arg in args {
                                     let t = arg.infer(ctx).unwrap();
 
                                     arg.generate(ctx)?;
 
-                                    res = res + &t.get_ret().unwrap().get_name();
+                                    // res = res + &t.get_ret().unwrap().get_name();
                                 }
 
                                 let funcs = ctx.scopes.scopes.first().unwrap().items.clone();
 
-                                let that = funcs.get(id).unwrap();
+                                let that = funcs.get(res).unwrap();
 
                                 let solved = if let TypeInfer::FuncType(f) = that {
                                     f.is_solved()
@@ -222,10 +232,11 @@ impl Generate for PrimaryExpr {
                                     true
                                 };
 
-                                if ctx.externs.get(id).is_none() && !solved {
-                                    *id = res;
-                                }
-                            }
+                                // Check if commenting this broke the whole 
+                                // if ctx.externs.get(res).is_none() && !solved {
+                                //     *id = res;
+                                // }
+                            // }
                         }
                         _ => (),
                     };

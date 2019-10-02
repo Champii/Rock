@@ -815,6 +815,10 @@ impl SecondaryExpr {
 
                 LLVMDumpModule(context.module);
 
+                if let Some(f) = context.functions.get(sel.0.clone()) {
+                    return Some(f);
+                }
+
                 let ptr_elem = LLVMBuildGEP(
                     context.builder,
                     op,

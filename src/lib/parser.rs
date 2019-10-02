@@ -391,7 +391,7 @@ impl Parser {
             ret,
             arguments,
             body,
-            class: None,
+            class_name: None,
         })
     }
 

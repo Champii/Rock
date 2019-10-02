@@ -123,8 +123,7 @@ impl TypeInferer for FunctionDecl {
 
         ctx.scopes.pop();
 
-        ctx.scopes
-            .add(self.name.clone(), TypeInfer::FuncType(self.clone()));
+        ctx.scopes.add(self.name.clone(), TypeInfer::FuncType(self.clone()));
 
         Ok(last)
     }
