@@ -803,7 +803,7 @@ impl Parser {
         error!("Expected secondary".to_string(), self);
     }
 
-    fn selector(&mut self) -> Result<(String, u8, Option<Type>), Error> {
+    fn selector(&mut self) -> Result<Selector, Error> {
         self.save();
 
         expect_or_restore!(TokenType::Dot, self);
@@ -812,7 +812,14 @@ impl Parser {
 
         self.save_pop();
 
-        return Ok((expr, 0, None));
+        let sel = Selector {
+            name: expr.clone(),
+            class_offset: 0,
+            class_name: None,
+            full_name: expr,
+        };
+
+        return Ok(sel);
     }
 
     fn index(&mut self) -> Result<Box<Expression>, Error> {

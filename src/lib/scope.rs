@@ -31,7 +31,14 @@ impl<T: Clone> Scopes<T> {
         // Here need reverse scopes
         let scope = self.scopes.last_mut().unwrap();
 
-        scope.items.insert(s, val);
+        scope.insert(s, val);
+    }
+
+    pub fn remove(&mut self, s: String) {
+        // Here need reverse scopes
+        let scope = self.scopes.last_mut().unwrap();
+
+        scope.remove(s);
     }
 
     pub fn push(&mut self) {
@@ -45,13 +52,35 @@ impl<T: Clone> Scopes<T> {
 
 #[derive(Clone, Debug)]
 pub struct Scope<T: Clone> {
+    pub ordering: Vec<String>,
     pub items: HashMap<String, T>,
 }
 
 impl<T: Clone> Scope<T> {
     pub fn new() -> Scope<T> {
         Scope {
+            ordering: vec![],
             items: HashMap::new(),
         }
+    }
+
+    pub fn insert(&mut self, s: String, v: T) {
+        self.items.insert(s.clone(), v);
+        self.ordering.push(s);
+    }
+
+    pub fn remove(&mut self, s: String) {
+        self.items.remove(&s);
+        self.ordering.remove_item(&s);
+    }
+
+    pub fn get_ordered(&self) -> Vec<T> {
+        let mut res = vec![];
+
+        for key in &self.ordering {
+            res.push(self.items.get(key).unwrap().clone());
+        }
+
+        res
     }
 }

@@ -1,3 +1,4 @@
+#![feature(vec_remove_item)]
 extern crate llvm_sys as llvm;
 
 use std::fs;

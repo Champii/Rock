@@ -83,22 +83,36 @@ impl FunctionDecl {
         self.arguments.iter().all(|arg| arg.t.is_some()) && self.ret.is_some()
     }
 
-    pub fn apply_name(&mut self, t: Vec<TypeInfer>, ret: Option<Type>) {
+    pub fn apply_name(&mut self, ret: Option<Type>, t: Vec<TypeInfer>) {
         let mut name = String::new();
 
         for ty in t {
             name = name + &ty.get_ret().unwrap().get_name();
         }
 
-        if let Some(t) = self.ret.clone() {
-            name = name + &t.get_name();
+        // if let Some(t) = self.ret.clone() {
+        //     name = name + &t.get_name();
+        // }
+
+        self.name = self.name.clone() + &name;
+    }
+
+    pub fn apply_name_self(&mut self) {
+        let mut name = String::new();
+
+        for arg in &self.arguments {
+            name = name + &arg.t.clone().unwrap().get_name();
         }
+
+        // if let Some(t) = self.ret.clone() {
+        //     name = name + &t.get_name();
+        // }
 
         self.name = self.name.clone() + &name;
     }
 
     pub fn apply_types(&mut self, ret: Option<Type>, t: Vec<TypeInfer>) {
-        self.apply_name(t.clone(), ret.clone());
+        // self.apply_name(t.clone(), ret.clone());
 
         self.ret = ret;
 
@@ -113,6 +127,14 @@ impl FunctionDecl {
 
             i += 1;
         }
+    }
+
+    pub fn get_solved_name(&self) -> String {
+        let orig_name = self.name.clone();
+
+        // self.apply_name()
+
+        orig_name
     }
 }
 
@@ -220,9 +242,17 @@ pub enum PrimaryExpr {
     PrimaryExpr(Operand, Vec<SecondaryExpr>),
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Selector {
+    pub name: String, 
+    pub class_offset: u8, 
+    pub class_name: Option<Type>,
+    pub full_name: String, // after generation and type infer
+}
+
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
-    Selector((String, u8, Option<Type>)), // . Identifier  // u8 is the attribute index in struct // option<Type> is the class type if needed
+    Selector(Selector), // . Identifier  // u8 is the attribute index in struct // option<Type> is the class type if needed // RealFullName
     Arguments(Vec<Argument>),             // (Expr, Expr, ...)
     Index(Box<Expression>),               // [Expr]
 }

@@ -208,8 +208,6 @@ impl Builder {
 
             let res = f();
 
-            println!("{}", res);
-
             // Clean up the rest.
             LLVMDisposeExecutionEngine(ee);
             LLVMContextDispose(self.context.context);
@@ -282,8 +280,10 @@ impl IrBuilder for Class {
             context.classes.insert(self.name.clone(), (t, self.clone()));
         }
 
-        for method in self.methods.clone() {
-            method.build(context);
+        for method in &self.methods {
+            // if method.is_solved() {
+            //     method.build(context);
+            // }
         }
 
         None
@@ -336,6 +336,10 @@ impl IrBuilder for FunctionDecl {
         name.push('\0');
 
         let name = name.as_str();
+
+        if !self.is_solved() {
+            panic!("CODEGEN: FuncDecl is not solved {}", self.name);
+        }
 
         unsafe {
             let mut argts = vec![];
@@ -731,8 +735,8 @@ impl IrBuilder for PrimaryExpr {
 
                 // HACK for class instances
                 if let Operand::Identifier(ident) = operand {
-                    if let SecondaryExpr::Selector((_, _, class_name)) = second {
-                        if let Some(Type::Name(name)) = class_name {
+                    if let SecondaryExpr::Selector(sel) = second {
+                        if let Some(Type::Name(name)) = &sel.class_name {
                             if let Some(_) = context.classes.get(&name.clone()) {
                                 if let Some(ptr) = context.scopes.get(ident.clone()) {
                                     op = Some(ptr)
@@ -767,6 +771,7 @@ impl IrBuilder for PrimaryExpr {
 
 impl SecondaryExpr {
     pub fn build_with(&self, context: &mut Context, op: *mut LLVMValue) -> Option<*mut LLVMValue> {
+        println!("BUILD SECONDARY EXPR");
         match self {
             SecondaryExpr::Arguments(args) => {
                 let mut res = vec![];
@@ -808,14 +813,14 @@ impl SecondaryExpr {
 
             SecondaryExpr::Selector(sel) => unsafe {
                 let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
-                let idx = LLVMConstInt(LLVMInt32Type(), sel.1 as u64, 0);
+                let idx = LLVMConstInt(LLVMInt32Type(), sel.class_offset as u64, 0);
 
                 let mut indices = [zero, idx];
                 // let lol = LLVMBuildLoad(context.builder, op, "\0".as_ptr() as *const _);
 
-                LLVMDumpModule(context.module);
+                // LLVMDumpModule(context.module);
 
-                if let Some(f) = context.functions.get(sel.0.clone()) {
+                if let Some(f) = context.functions.get(sel.full_name.clone()) {
                     return Some(f);
                 }
 

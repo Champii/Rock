@@ -31,8 +31,22 @@ impl TypeInferer for SourceFile {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         let mut last = Err(Error::ParseError(ParseError::new_empty()));
 
+        let mut top_level_methods = vec![];
+
         for top in &mut self.top_levels {
             last = Ok(top.infer(ctx)?);
+            match top {
+                TopLevel::Class(class) => {
+                    for method in &class.methods {
+                        top_level_methods.push(method.clone());
+                    }
+                },
+                _ => (),
+            }
+        }
+
+        for method in top_level_methods {
+            self.top_levels.push(TopLevel::Function(method));
         }
 
         last
@@ -110,8 +124,13 @@ impl TypeInferer for FunctionDecl {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         ctx.scopes.push();
 
+        let mut types = vec![];
+
         for arg in &mut self.arguments {
-            arg.infer(ctx)?;
+            let t = arg.infer(ctx)?;
+            arg.t = t.get_type();
+
+            types.push(arg.t.clone());
         }
 
         let last = self.body.infer(ctx)?;
@@ -120,8 +139,14 @@ impl TypeInferer for FunctionDecl {
             self.ret = last.get_ret();
         }
 
+        println!("FUNDECL ARGS {:?}", self.arguments);
+
+        let mut i = 0;
+
         for arg in &mut self.arguments {
-            arg.t = ctx.scopes.get(arg.name.clone()).unwrap().get_ret();
+            arg.t = types[i].clone();
+            // arg.t = ctx.scopes.get(arg.name.clone()).unwrap().get_ret();
+            i += 1;
         }
 
         ctx.scopes.pop();
@@ -134,6 +159,7 @@ impl TypeInferer for FunctionDecl {
 
 impl TypeInferer for ArgumentDecl {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        println!("ARGUMENTDECLLLLL {:?}", self);
         ctx.scopes
             .add(self.name.clone(), TypeInfer::Type(self.t.clone()));
 
@@ -254,7 +280,7 @@ impl TypeInferer for UnaryExpr {
 impl TypeInferer for PrimaryExpr {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
-            PrimaryExpr::PrimaryExpr(operand, vec) => {
+            PrimaryExpr::PrimaryExpr(operand, ref mut vec) => {
                 ctx.cur_type = operand.infer(ctx)?;
 
                 if vec.len() == 0 {
@@ -275,18 +301,17 @@ impl TypeInferer for PrimaryExpr {
 
                                 name = f.name.clone();
                                 let ret = TypeInfer::Type(f.ret.clone());
-                                if let Some(_) = &f.class_name {
-                                    // name = classdef.name.clone() + "_" + &f.name.clone();
-                                    args.insert(0, Argument {arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone())))});
+                                
+                                if args.len() < f.arguments.len() {
+                                    if let Some(_) = &f.class_name {
+                                        // name = classdef.name.clone() + "_" + &f.name.clone();
+                                        let this = Argument {arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone())))};
+
+                                        args.insert(0, this);
+                                    }
                                 }
 
                                 let orig_name = name.clone();
-
-                            // if let Operand::Identifier(id) = operand {
-
-                                // if vec.len() > 1 {
-                                //     operand = Operand::Identifier(name.clone());
-                                // }
 
                                 for mut arg in args {
                                     let t = arg.infer(ctx)?;
@@ -303,7 +328,9 @@ impl TypeInferer for PrimaryExpr {
                                 ctx.calls
                                     .entry(orig_name.clone())
                                     .or_insert(HashMap::new())
-                                    .insert(orig_name, res);
+                                    .insert(name, res);
+                            } else {
+                                panic!("WOUAT ?!");
                             }
                         }
                         // }
@@ -334,34 +361,33 @@ impl TypeInferer for PrimaryExpr {
 
                                 let class = class.unwrap();
 
-                                let method_name = class.name.clone() + "_" + &sel.0.clone();
+                                let method_name = class.name.clone() + "_" + &sel.name.clone();
 
-                                    println!("SEL0 {}", method_name);
+                                println!("SEL0 {}", method_name);
                                 let f = class.get_method(method_name.clone());
 
-                                println!("WESH0 {}", sel.0);
+                                println!("WESH0 {}", sel.name);
                                 if let Some(f) = f {
                                     println!("WESH {}", f.name);
 
-                                    sel.0 = method_name.clone();
-
-
+                                    // sel.0 = method_name.clone();
+                                    sel.class_name = name.clone(); // classname
                                     ctx.cur_type = TypeInfer::FuncType(f);
 
                                     continue;
                                 }
 
-                                let attr = class.get_attribute(sel.0.clone());
+                                let attr = class.get_attribute(sel.name.clone());
 
                                 if let None = attr {
-                                    panic!("Unknown property {}", sel.0);
+                                    panic!("Unknown property {}", sel.name);
                                 }
 
                                 let (attr, i) = attr.unwrap();
 
-                                sel.1 = i as u8; // attribute index
+                                sel.class_offset = i as u8; // attribute index
 
-                                sel.2 = name; // classname
+                                sel.class_name = name.clone(); // classname
 
                                 ctx.cur_type = TypeInfer::Type(attr.t);
 

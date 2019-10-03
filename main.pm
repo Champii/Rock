@@ -1,6 +1,6 @@
 class Tata
     lol :: Int
-    f -> 2
+    f a -> a
 
 class Toto
     mdr :: Tata
@@ -12,4 +12,4 @@ main ->
     b = Toto
         mdr: a
 
-    b.mdr.f()
+    b.mdr.f 2

@@ -66,6 +66,13 @@ impl TypeInfer {
         }
     }
 
+    pub fn get_type(&self) -> Option<Type> {
+        match self {
+            TypeInfer::Type(t) => t.clone(),
+            _ => panic!("TypeInfer: Is not a type"),
+        }
+    }
+
     pub fn get_fn_type(&self) -> Option<FunctionDecl> {
         match self {
             TypeInfer::FuncType(f) => Some(f.clone()),

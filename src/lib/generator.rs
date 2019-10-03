@@ -15,42 +15,78 @@ impl Generator {
 
     pub fn generate(&mut self) -> SourceFile {
         let main_scope = self.ctx.scopes.scopes.first().unwrap();
+    
+        let mut i = 0;
+        let mut items = &mut main_scope.get_ordered().clone();
 
-        for (_, func) in &main_scope.items {
-            if let TypeInfer::FuncType(f) = func {
+
+        for mut func in items {
+        // for top in self.ast.top_levels {
+            // let (_, func) = items.get(top);
+
+            if let TypeInfer::FuncType(ref mut f) = func {
+                self.ast.top_levels = self
+                    .ast
+                    .top_levels
+                    .iter()
+                    .filter(|top| {
+                        if let TopLevel::Function(fu) = top {
+                            fu.name != f.name
+                        } else {
+                            true
+                        }
+                    })
+                    .cloned()
+                    .collect();
+
                 if !f.is_solved() {
-                    self.ast.top_levels = self
-                        .ast
-                        .top_levels
-                        .iter()
-                        .filter(|top| {
-                            if let TopLevel::Function(fu) = top {
-                                fu.name != f.name
-                            } else {
-                                true
-                            }
-                        })
-                        .cloned()
-                        .collect();
-
                     let mut ctx_save = self.ctx.clone();
 
-                    for (_, call) in &self.ctx.calls[&f.name] {
-                        let mut new_f = f.clone();
+                    println!("GENERATE {} {:?}", f.name, self.ctx.calls);
 
-                        new_f.apply_types(f.ret.clone(), call.clone());
+                    if let Some(calls) = self.ctx.calls.get(&f.name) {
+                        for (_, call) in calls {
+                            let mut new_f = f.clone();
 
-                        new_f.infer(&mut ctx_save).unwrap();
+                            new_f.apply_types(f.ret.clone(), call.clone());
+                            new_f.infer(&mut ctx_save).unwrap();
+                            // new_f.generate(&mut ctx_save).unwrap();
+                            new_f.apply_name(f.ret.clone(), call.clone());
 
-                        // new_f.generate(&mut ctx_save);
+                            self.ast.top_levels.insert(i, TopLevel::Function(new_f.clone()));
 
-                        self.ast.top_levels.insert(0, TopLevel::Function(new_f));
+                            self.ctx.scopes.add(new_f.name.clone(), TypeInfer::FuncType(new_f));
+                        } 
+                    } else {
+                        f.infer(&mut self.ctx).unwrap();
+
+                        // f.generate(&mut self.ctx);
+                        f.apply_name_self();
+
+                        // f.infer(&mut self.ctx).unwrap();
+
+                        self.ctx.scopes.add(f.name.clone(), TypeInfer::FuncType(f.clone()));
+                        self.ast.top_levels.insert(i, TopLevel::Function(f.clone()));
                     }
+
+                    // self.ctx.scopes.remove(f.name.clone());
+                } else {
+                    f.infer(&mut self.ctx);
+                    // f.generate(&mut self.ctx);
+                    // f.infer(&mut self.ctx);
+                    f.apply_name_self();
+                    self.ctx.scopes.add(f.name.clone(), TypeInfer::FuncType(f.clone()));
+                    self.ast.top_levels.insert(i, TopLevel::Function(f.clone()));
                 }
             }
+            i += 1;
         }
 
+
+        println!("GEN AST BEFORE {:#?}", self.ast);
+
         self.ast.generate(&mut self.ctx).unwrap();
+        // self.ast.infer(&mut self.ctx).unwrap();
 
         self.ast.clone()
     }
@@ -83,9 +119,9 @@ impl Generate for TopLevel {
 
 impl Generate for Class {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        for method in &mut self.methods {
-            method.generate(ctx)?;
-        }
+        // for method in &mut self.methods {
+        //     method.generate(ctx)?;
+        // }
 
         Ok(())
     }
@@ -206,47 +242,72 @@ impl Generate for PrimaryExpr {
                 };
 
                 let mut last_method = None;
+                let mut already_mangled = false;
 
                 for second in vec {
                     match second {
-                        SecondaryExpr::Selector((name, _, classname_opt)) => {
-                            last_method = classname_opt.clone();
+                        SecondaryExpr::Selector(sel) => {
+                            println!("SELECTOR ?!?! {:?}", sel.class_name);
+                            last_method = sel.class_name.clone();
 
-                            res = name;
+                            if sel.full_name != sel.name {
+                                already_mangled = true;
+                            }
+
+                            res = &mut sel.full_name;
                         },
                         SecondaryExpr::Arguments(args) => {
                             // if let Operand::Identifier(ref mut id) = operand {
                                 // let mut res = (*id).to_string();
                                 let mut name = res.clone();
 
+                                if already_mangled {
+                                    continue;
+                                }
+
+                                println!("LAST_METHOD? {:#?}", last_method);
+
                                 if let Some(classname) = last_method.clone() {
                                     name = classname.get_name() + "_" + &name;
                                 }
 
-                                let orig_name = res.clone();
+                                // let orig_name = res.clone();
+                                let orig_name = name.clone();
+                                println!("GEN ARG BEFORE?! {:?}", args);
 
+                                let mut ctx_save = ctx.clone();
                                 for arg in args {
-                                    let t = arg.infer(ctx).unwrap();
-
-                                    arg.generate(ctx)?;
+                                    let t = arg.infer(&mut ctx_save).unwrap();
+                                
+                                    arg.generate(&mut ctx_save)?;
 
                                     name = name.to_owned() + &t.get_ret().unwrap().get_name();
+
+                                    println!("GEN ARG ?! {:?}", name);
                                 }
 
-                                let funcs = ctx.scopes.scopes.first().unwrap().items.clone();
+                                let mut funcs = &mut ctx.scopes.scopes.first_mut().unwrap().items;
 
-                                let that = funcs.get(&orig_name).unwrap();
+                                println!("FUNCSSSS {} {:#?}", name, funcs);
 
-                                let solved = if let TypeInfer::FuncType(f) = that {
-                                    f.is_solved()
+                                let that = funcs.get_mut(&name).unwrap();
+
+                                let solved = if let TypeInfer::FuncType(ref mut f) = that {
+                                    // name = name + &f.ret.clone().unwrap().get_name();
+                                    if f.ret.is_none() {
+                                        // f.ret = 
+                                        // f.ret = f.infer(&mut ctx_save).unwrap().get_type();
+                                    }
+                                    true
                                 } else {
                                     true
                                 };
 
-                                // Check if commenting this broke the whole 
-                                // if ctx.externs.get(res).is_none() && !solved {
-                                //     *id = res;
-                                // }
+                                if ctx.externs.get(res).is_none() && !already_mangled {
+                                    *res = name;
+                                }
+
+                                println!("GEN ARGS TYPE {}", res);
                             // }
                         }
                         _ => (),
