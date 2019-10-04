@@ -135,7 +135,10 @@ impl TypeInferer for FunctionDecl {
 
         let last = self.body.infer(ctx)?;
 
+        println!("LAST {:?}", last);
+
         if self.ret.is_none() {
+            println!("SET RET {:?}", last.get_ret());
             self.ret = last.get_ret();
         }
 
@@ -159,7 +162,6 @@ impl TypeInferer for FunctionDecl {
 
 impl TypeInferer for ArgumentDecl {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        println!("ARGUMENTDECLLLLL {:?}", self);
         ctx.scopes
             .add(self.name.clone(), TypeInfer::Type(self.t.clone()));
 
@@ -297,7 +299,6 @@ impl TypeInferer for PrimaryExpr {
                             let mut res = vec![];
 
                             if let Some(f) = ctx.cur_type.get_fn_type() {
-                                println!("CLASSNAME FN {}", f.name);
 
                                 name = f.name.clone();
                                 let ret = TypeInfer::Type(f.ret.clone());
@@ -321,7 +322,7 @@ impl TypeInferer for PrimaryExpr {
                                     name = name + &t.get_ret().unwrap().get_name();
                                 }
 
-                                println!("F NAME {}", name);
+                                println!("CUR_TYPE RET {:?}", ret);
 
                                 ctx.cur_type = ret;
 
@@ -363,16 +364,20 @@ impl TypeInferer for PrimaryExpr {
 
                                 let method_name = class.name.clone() + "_" + &sel.name.clone();
 
-                                println!("SEL0 {}", method_name);
                                 let f = class.get_method(method_name.clone());
 
-                                println!("WESH0 {}", sel.name);
                                 if let Some(f) = f {
-                                    println!("WESH {}", f.name);
-
                                     // sel.0 = method_name.clone();
-                                    sel.class_name = name.clone(); // classname
+                                    let mut scope_f = ctx.scopes.get(f.name.clone()).clone().unwrap();
+                                    println!("SCOPE F {:?}", scope_f);
+                                    
                                     ctx.cur_type = TypeInfer::FuncType(f);
+
+                                    if let TypeInfer::FuncType(scope_f2) = scope_f.clone() {
+                                        ctx.cur_type = scope_f.clone();
+                                    }
+
+                                    sel.class_name = name.clone(); // classname
 
                                     continue;
                                 }
@@ -390,8 +395,6 @@ impl TypeInferer for PrimaryExpr {
                                 sel.class_name = name.clone(); // classname
 
                                 ctx.cur_type = TypeInfer::Type(attr.t);
-
-                                println!("SELECTOR TYPE {:?}", ctx.cur_type);
                             }
                         }
                         _ => (),
