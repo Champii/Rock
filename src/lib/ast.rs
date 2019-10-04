@@ -285,8 +285,13 @@ impl UnaryExpr {
     pub fn get_identifier(&self) -> Option<String> {
         match self {
             UnaryExpr::PrimaryExpr(p) => match p {
-                PrimaryExpr::PrimaryExpr(operand, _) => match operand {
-                    Operand::Identifier(i) => Some(i.clone()),
+                PrimaryExpr::PrimaryExpr(operand, vec) => match operand {
+                    Operand::Identifier(i) => 
+                        if vec.len() == 0 {
+                            Some(i.clone())
+                        } else {
+                            None
+                        }
                     _ => None,
                 },
             }
