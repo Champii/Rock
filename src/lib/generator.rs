@@ -69,7 +69,7 @@ impl Generator {
                         self.ast.top_levels.insert(i, TopLevel::Function(f.clone()));
                     }
 
-                    // self.ctx.scopes.remove(f.name.clone());
+                    self.ctx.scopes.remove(f.name.clone());
                 } else {
                     f.infer(&mut self.ctx);
                     // f.generate(&mut self.ctx);
@@ -86,7 +86,7 @@ impl Generator {
         println!("GEN AST BEFORE {:#?}", self.ast);
 
         self.ast.generate(&mut self.ctx).unwrap();
-        // self.ast.infer(&mut self.ctx).unwrap();
+        self.ast.infer(&mut self.ctx).unwrap();
 
         self.ast.clone()
     }
