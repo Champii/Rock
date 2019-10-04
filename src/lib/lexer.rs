@@ -29,22 +29,6 @@ impl Lexer {
         self.cur_line = lines.len();
     }
 
-    pub fn all(&mut self) -> Vec<Token> {
-        let mut res = vec![];
-
-        loop {
-            let tok = self.next();
-
-            res.push(tok.clone());
-
-            if tok.t == TokenType::EOF {
-                break;
-            }
-        }
-
-        res
-    }
-
     pub fn seek(&mut self, n: u32) -> Token {
         let mut n = n;
 

@@ -83,16 +83,12 @@ impl FunctionDecl {
         self.arguments.iter().all(|arg| arg.t.is_some()) && self.ret.is_some()
     }
 
-    pub fn apply_name(&mut self, ret: Option<Type>, t: Vec<TypeInfer>) {
+    pub fn apply_name(&mut self, t: Vec<TypeInfer>) {
         let mut name = String::new();
 
         for ty in t {
             name = name + &ty.get_ret().unwrap().get_name();
         }
-
-        // if let Some(t) = self.ret.clone() {
-        //     name = name + &t.get_name();
-        // }
 
         self.name = self.name.clone() + &name;
     }
@@ -262,7 +258,6 @@ pub enum Operand {
     Literal(Literal),
     Identifier(String),
     ClassInstance(ClassInstance),
-    // PrimaryExpr(Box<PrimaryExpr>, SecondaryExpr),
     Array(Array),
     Expression(Box<Expression>), // parenthesis
 }
@@ -330,14 +325,14 @@ impl Type {
     pub fn get_name(&self) -> String {
         match self {
             Type::Name(s) => s.clone(),
-            Type::Array(a, n) => "[]".to_string() + &a.get_name(),
+            Type::Array(a, _) => "[]".to_string() + &a.get_name(),
         }
     }
 
     pub fn get_inner(&self) -> Type {
         match self {
             r @ Type::Name(_) => r.clone(),
-            Type::Array(a, n) => a.get_inner(),
+            Type::Array(a, _) => a.get_inner(),
         }
     }
 }

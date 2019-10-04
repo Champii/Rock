@@ -6,14 +6,6 @@ use super::error::Error;
 use super::Lexer;
 use super::{Token, TokenType};
 
-macro_rules! maybe {
-    ($tok:expr, $self:expr) => {
-        if $tok == $self.cur_tok.t {
-            $self.consume();
-        }
-    };
-}
-
 macro_rules! expect {
     ($tok:expr, $self:expr) => {
         if $tok != $self.cur_tok.t {
@@ -79,7 +71,7 @@ macro_rules! try_or_restore {
 
 macro_rules! try_or_restore_expect {
     ($expr:expr, $expected:expr, $self:expr) => {
-        try_or_restore_and!($expr, (error_expect!($expected, $self)), $self);
+        try_or_restore_and!($expr, error_expect!($expected, $self), $self);
     };
 }
 
@@ -87,20 +79,15 @@ macro_rules! try_or_restore_and {
     ($expr:expr, $and:expr, $self:expr) => {
         match $expr {
             Ok(t) => t,
-            Err(e) => {
+            Err(_e) => {
                 $self.restore();
 
+                #[allow(unreachable_code)]
                 return $and;
             }
         }
     };
 }
-
-// macro_rules! error_expect {
-//     ($expected:expr, $got:expr) => {
-//         return Err(format!("Expected {:?} but got {:?}", $expected, $got));
-//     };
-// }
 
 pub struct Parser {
     lexer: Lexer,
@@ -255,9 +242,9 @@ impl Parser {
         expect!(TokenType::EOL, self);
 
         let mut attributes = vec![];
-        let mut class_attributes = vec![];
+        let class_attributes = vec![];
         let mut methods = vec![];
-        let mut class_methods = vec![];
+        let class_methods = vec![];
 
         self.block_indent += 1;
 
@@ -561,7 +548,7 @@ impl Parser {
             if self.cur_tok.t != TokenType::EOL && self.cur_tok.t != TokenType::EOF {
                 match self.statement() {
                     Ok(stmt) => stmts.push(stmt),
-                    Err(e) => break,
+                    Err(_) => break,
                 };
             }
 
@@ -675,7 +662,7 @@ impl Parser {
         } else {
             self.restore();
 
-            return error!("Bad for".to_string(), self);
+            error!("Bad for".to_string(), self);
         };
 
         self.save_pop();

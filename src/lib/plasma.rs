@@ -32,7 +32,7 @@ pub fn parse_file(in_name: String) -> Result<Builder, Error> {
 }
 
 pub fn parse_str(input: String) -> Result<Builder, Error> {
-    let mut lexer = Lexer::new(input.chars().collect());
+    let lexer = Lexer::new(input.chars().collect());
 
     let ast = Parser::new(lexer).run()?;
 

@@ -128,6 +128,7 @@ impl TypeInferer for FunctionDecl {
 
         for arg in &mut self.arguments {
             let t = arg.infer(ctx)?;
+
             arg.t = t.get_type();
 
             types.push(arg.t.clone());
@@ -135,20 +136,15 @@ impl TypeInferer for FunctionDecl {
 
         let last = self.body.infer(ctx)?;
 
-        println!("LAST {:?}", last);
-
         if self.ret.is_none() {
-            println!("SET RET {:?}", last.get_ret());
             self.ret = last.get_ret();
         }
-
-        println!("FUNDECL ARGS {:?}", self.arguments);
 
         let mut i = 0;
 
         for arg in &mut self.arguments {
             arg.t = types[i].clone();
-            // arg.t = ctx.scopes.get(arg.name.clone()).unwrap().get_ret();
+
             i += 1;
         }
 
@@ -231,8 +227,8 @@ impl TypeInferer for Expression {
 
                 ctx.cur_type = t.clone();
 
-                let left = unary.infer(ctx)?;
-                let right = expr.infer(ctx)?;
+                let _left = unary.infer(ctx)?;
+                let _right = expr.infer(ctx)?;
 
                 // if left != right {
                 //     return Err(TypeError::new());
@@ -274,7 +270,7 @@ impl TypeInferer for UnaryExpr {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
             UnaryExpr::PrimaryExpr(primary) => primary.infer(ctx),
-            UnaryExpr::UnaryExpr(op, unary) => unary.infer(ctx),
+            UnaryExpr::UnaryExpr(_op, unary) => unary.infer(ctx),
         }
     }
 }
@@ -293,19 +289,14 @@ impl TypeInferer for PrimaryExpr {
                 for second in vec {
                     match second {
                         SecondaryExpr::Arguments(ref mut args) => {
-                            // let mut args = args.clone();
-                            let mut name = String::new();
-
                             let mut res = vec![];
 
                             if let Some(f) = ctx.cur_type.get_fn_type() {
-
-                                name = f.name.clone();
+                                let mut name = f.name.clone();
                                 let ret = TypeInfer::Type(f.ret.clone());
                                 
                                 if args.len() < f.arguments.len() {
                                     if let Some(_) = &f.class_name {
-                                        // name = classdef.name.clone() + "_" + &f.name.clone();
                                         let this = Argument {arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone())))};
 
                                         args.insert(0, this);
@@ -314,15 +305,13 @@ impl TypeInferer for PrimaryExpr {
 
                                 let orig_name = name.clone();
 
-                                for mut arg in args {
+                                for arg in args {
                                     let t = arg.infer(ctx)?;
 
                                     res.push(t.clone());
 
                                     name = name + &t.get_ret().unwrap().get_name();
                                 }
-
-                                println!("CUR_TYPE RET {:?}", ret);
 
                                 ctx.cur_type = ret;
 
@@ -336,15 +325,15 @@ impl TypeInferer for PrimaryExpr {
                         }
                         // }
 
-                        SecondaryExpr::Index(args) => {
+                        SecondaryExpr::Index(_args) => {
                             if let TypeInfer::Type(t) = ctx.cur_type.clone() {
                                 let t = t.clone().unwrap();
 
-                                if let Type::Array(a, n) = t.clone() {
+                                if let Type::Array(a, _n) = t.clone() {
                                     ctx.cur_type = TypeInfer::Type(Some(a.get_inner()));
                                 }
 
-                                if let Type::Name(n) = t {
+                                if let Type::Name(_n) = t {
                                     ctx.cur_type =
                                         TypeInfer::Type(Some(Type::Name("Int8".to_string())));
                                 }
@@ -367,13 +356,11 @@ impl TypeInferer for PrimaryExpr {
                                 let f = class.get_method(method_name.clone());
 
                                 if let Some(f) = f {
-                                    // sel.0 = method_name.clone();
-                                    let mut scope_f = ctx.scopes.get(f.name.clone()).clone().unwrap();
-                                    println!("SCOPE F {:?}", scope_f);
+                                    let scope_f = ctx.scopes.get(f.name.clone()).clone().unwrap();
                                     
                                     ctx.cur_type = TypeInfer::FuncType(f);
 
-                                    if let TypeInfer::FuncType(scope_f2) = scope_f.clone() {
+                                    if let TypeInfer::FuncType(_) = scope_f.clone() {
                                         ctx.cur_type = scope_f.clone();
                                     }
 
@@ -397,7 +384,6 @@ impl TypeInferer for PrimaryExpr {
                                 ctx.cur_type = TypeInfer::Type(attr.t);
                             }
                         }
-                        _ => (),
                     };
 
                     prec.push(second.clone());
@@ -410,11 +396,8 @@ impl TypeInferer for PrimaryExpr {
 }
 
 impl TypeInferer for SecondaryExpr {
-    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+    fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
-            // SecondaryExpr::Arguments(args) => {
-            //     //
-            // }
             _ => Err(Error::ParseError(ParseError::new_empty())),
         }
     }
@@ -431,7 +414,6 @@ impl TypeInferer for Operand {
         match self {
             Operand::Literal(lit) => lit.infer(ctx),
             Operand::Identifier(ident) => {
-                // println!("LOL {} {:#?}", ident, ctx.scopes);
                 let res = ctx.scopes.get(ident.clone()).unwrap();
 
                 if let TypeInfer::Type(None) = res {
@@ -457,7 +439,7 @@ impl TypeInferer for ClassInstance {
 }
 
 impl TypeInferer for Literal {
-    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+    fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {
         match &self {
             Literal::Number(_) => Ok(TypeInfer::Type(Some(Type::Name("Int".to_string())))),
             Literal::String(_) => Ok(TypeInfer::Type(Some(Type::Name("String".to_string())))),
@@ -489,6 +471,5 @@ impl TypeInferer for Array {
         ));
 
         Ok(TypeInfer::Type(self.t.clone()))
-        // Ok(TypeInfer::Type(last.get_ret()))
     }
 }

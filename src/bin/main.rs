@@ -1,9 +1,9 @@
 extern crate clap;
 extern crate plasma;
 
-use clap::{App, Arg, SubCommand};
+use clap::{App, SubCommand};
 
-use std::process::{Command, ExitStatus};
+use std::process::Command;
 
 fn build() -> bool {
     if let Err(e) = plasma::file_to_file("./main.pm".to_string(), "./main.o\0".to_string()) {
@@ -14,7 +14,7 @@ fn build() -> bool {
 
     Command::new("clang")
         .arg("main.o")
-        .output()
+        .output() 
         .expect("failed to execute process");
 
     true
@@ -53,11 +53,11 @@ fn main() {
         )
         .get_matches();
 
-    if let Some(matches) = matches.subcommand_matches("build") {
+    if let Some(_matches) = matches.subcommand_matches("build") {
         build();
     }
 
-    if let Some(matches) = matches.subcommand_matches("run") {
+    if let Some(_matches) = matches.subcommand_matches("run") {
         run();
     }
 }

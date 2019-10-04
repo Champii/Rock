@@ -3,10 +3,6 @@ use std::fmt;
 use super::context::*;
 use super::token::{Token, TokenType};
 
-macro_rules! parse_error {
-    () => {};
-}
-
 pub enum Error {
     ParseError(ParseError),
     TypeError(TypeError),
@@ -57,18 +53,13 @@ impl TypeError {
             .map(|v| v.len())
             .sum();
 
-        // if self.token.line == 1 {}
-
         let count = count + self.token.line;
-
-        // println!("COUNT {} START {}", count, self.token.start);
 
         let line_start = if count > self.token.start {
             0
         } else {
             self.token.start - count
         };
-        // let line_end = self.token.end - count;
 
         let line_ind = format!("file.plasma({}:{}) => ", self.token.line, line_start);
 
@@ -143,18 +134,13 @@ impl ParseError {
             .map(|v| v.len())
             .sum();
 
-        // if self.token.line == 1 {}
-
         let count = count + self.token.line;
-
-        // println!("COUNT {} START {}", count, self.token.start);
 
         let line_start = if count > self.token.start {
             0
         } else {
             self.token.start - count
         };
-        // let line_end = self.token.end - count;
 
         let line_ind = format!("file.plasma({}:{}) => ", self.token.line, line_start);
 
