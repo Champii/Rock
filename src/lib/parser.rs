@@ -858,16 +858,39 @@ impl Parser {
 
         let mut attributes = HashMap::new();
 
+        if let TokenType::OpenBrace = self.cur_tok.t {
+            self.consume();
+            self.consume();// close
+
+            self.save_pop();
+
+            return Ok(ClassInstance {
+                attributes,
+                class: self.ctx.classes.get(&name.clone()).unwrap().clone(),
+                name,
+            });
+        }
+
         expect_or_restore!(TokenType::EOL, self);
 
         self.block_indent += 1;
 
+        let mut is_first = true;
+
         loop {
             self.save();
+
+            if !is_first {
+                expect_or_restore!(TokenType::EOL, self);
+            }
 
             if let TokenType::Indent(nb) = self.cur_tok.t {
                 if nb != self.block_indent {
                     self.restore();
+
+                    // if is_first {
+                    //     expect_or_restore!(TokenType::EOL, self);
+                    // }
 
                     break;
                 }
@@ -904,9 +927,9 @@ impl Parser {
                 break;
             }
 
-            expect_or_restore!(TokenType::EOL, self);
-
             self.save_pop();
+
+            is_first = false;
         }
 
         // let

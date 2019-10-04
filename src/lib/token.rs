@@ -24,6 +24,8 @@ pub enum TokenType {
     CloseParens,
     OpenArray,
     CloseArray,
+    OpenBrace,
+    CloseBrace,
 
     //Operator
     Operator(String),

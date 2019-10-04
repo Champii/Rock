@@ -124,6 +124,10 @@ impl Lexer {
             return t;
         }
 
+        if let Some(t) = self.try_braces() {
+            return t;
+        }
+
         if let Some(t) = self.try_array() {
             return t;
         }
@@ -509,6 +513,36 @@ impl Lexer {
                 start: self.cur_idx,
                 end: self.cur_idx,
                 txt: ")".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_braces(&mut self) -> Option<Token> {
+        if self.last_char == '{' {
+            let res = Some(Token {
+                t: TokenType::OpenBrace,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "{".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        } else if self.last_char == '}' {
+            let res = Some(Token {
+                t: TokenType::CloseBrace,
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "}".to_string(),
             });
 
             self.forward();

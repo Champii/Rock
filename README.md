@@ -18,15 +18,26 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 #> ./target/debug/plasma run
 ```
 
-## Exemple
+## Example
 
-```haskell
-add: a, b -> a + b
+```coffee
+class Foo
+    bar :: Int
+    def: 32
+    f -> this.bar + this.def
 
-main: ->
+add a, b -> a + b
+
+main ->
     x = 1
     y = 2
+
     add x, y
+
+    a = Foo
+        bar: 10
+
+    a.f()
 ```
 
 ## TODO (by order):
@@ -71,13 +82,13 @@ class Foo
 
     @val ->
 
-    bar: -> 1
+    bar -> 1
 
 trait Num
-    +: a -> a
-    -: a -> a
-    *: a -> a
-    /: a -> a
+    +: A -> A
+    -: A -> A
+    *: A -> A
+    /: A -> A
 
 impl Num for Int
     +: -> ~#compiler_add @, it
@@ -86,9 +97,9 @@ impl Num for Foo
     +: -> Foo @val + it.val
 
 class Iterator
-    collec: [a]
-    item: a
-    idx = 0
+    collec: [A]
+    item: A
+    idx: 0
 
     @collec ->
 

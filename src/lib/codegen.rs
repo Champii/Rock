@@ -675,21 +675,22 @@ impl IrBuilder for PrimaryExpr {
                     return op;
                 }
 
-                for second in vec {
+                let second = vec.first().unwrap();
 
-                    // HACK for class instances pointers
-                    if let Operand::Identifier(ident) = operand {
-                        if let SecondaryExpr::Selector(sel) = second {
-                            if let Some(Type::Name(name)) = &sel.class_name {
-                                if let Some(_) = context.classes.get(&name.clone()) {
-                                    if let Some(ptr) = context.scopes.get(ident.clone()) {
-                                        op = Some(ptr);
-                                    }
+                // HACK for class instances pointers
+                if let Operand::Identifier(ident) = operand {
+                    if let SecondaryExpr::Selector(sel) = second {
+                        if let Some(Type::Name(name)) = &sel.class_name {
+                            if let Some(_) = context.classes.get(&name.clone()) {
+                                if let Some(ptr) = context.scopes.get(ident.clone()) {
+                                    op = Some(ptr);
                                 }
                             }
                         }
                     }
+                }
 
+                for second in vec {
                     op = second.build_with(context, op.clone().unwrap());
                 }
 
@@ -721,6 +722,25 @@ impl SecondaryExpr {
 
                 for arg in args {
                     res.push(arg.build(context).unwrap());
+
+                    // let val_res = if arg.is_identifier() {
+                    //     let ident = arg.get_identifier().unwrap();
+                    //     let t = class_attr.0.t.clone().unwrap();
+                    //     if let Type::Name(name) = t {
+                    //         if let Some(_) = context.classes.get(&name) {
+                    //             context.scopes.get(ident).unwrap()
+                    //         } else {
+                    //             arg.build(context).unwrap()
+                    //         }
+                    //     } else {
+                    //         arg.build(context).unwrap()
+                    //     }
+                    // } else {
+                    //     arg.build(context).unwrap()
+                    // };
+
+                    // res.push(val_res);
+
                 }
 
                 unsafe {

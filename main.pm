@@ -1,15 +1,25 @@
-class Tata
-    lol :: Int
-    f a -> a + this.lol
-
-class Toto
-    mdr :: Tata
+class Foo
+    bar :: Int
+    def: 32
+    f -> 2
 
 main ->
-    a = Tata
-        lol: 1
+    a = Foo
+        bar: 10
+    a.f()
 
-    b = Toto
-        mdr: a
+# class Tata
+#     lol :: Int
+#     f a -> a + this.lol
 
-    b.mdr.f 2
+# class Toto
+#     mdr :: Tata
+
+# main ->
+#     a = Tata
+#         lol: 1
+
+#     b = Toto
+#         mdr: a
+
+#     b.mdr.f 2
