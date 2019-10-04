@@ -740,6 +740,31 @@ impl Parser {
         self.save_pop();
 
         Ok(Expression::BinopExpr(left, op, Box::new(right)))
+
+
+// === //
+
+        // self.save();
+
+        // let left = self.primary_expr();
+
+        // if let Ok(left) = left {
+        //     if let Ok(op) = self.operator() {
+        //         if let Ok(right) = self.expression() {
+        //             self.save_pop();
+
+        //             return Ok(Expression::BinopExpr(left, op, Box::new(right)));
+        //         }
+        //     }
+        // }
+
+        // self.restore();
+
+        // Ok(Expression::UnaryExpr(self.unary_expr()?))
+
+
+        // unary here
+
     }
 
     fn unary_expr(&mut self) -> Result<UnaryExpr, Error> {
@@ -767,8 +792,14 @@ impl Parser {
             return Ok(PrimaryExpr::PrimaryExpr(operand, secondarys));
         }
 
+        println!("LOLOLOLOL {:?}", operand);
+
         while let Ok(second) = self.secondary_expr() {
             secondarys.push(second);
+
+            if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone()) {
+                break;
+            }
         }
 
         Ok(PrimaryExpr::PrimaryExpr(operand, secondarys))

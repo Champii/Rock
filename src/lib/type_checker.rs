@@ -320,6 +320,7 @@ impl TypeInferer for PrimaryExpr {
                                     .or_insert(HashMap::new())
                                     .insert(name, res);
                             } else {
+                                println!("AST {:?}", self);
                                 panic!("WOUAT ?!");
                             }
                         }

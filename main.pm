@@ -12,4 +12,6 @@ main ->
     b = Toto
         mdr: a
 
+    c = a.lol + 2
+
     b.mdr.f 2

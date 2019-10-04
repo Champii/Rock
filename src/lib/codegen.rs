@@ -36,6 +36,7 @@ pub fn get_type(t: Box<Type>, context: &mut Context) -> *mut LLVMType {
                 "Int" | "Int32" => LLVMInt32Type(),
                 "Int64" => LLVMInt64Type(),
                 "String" => LLVMPointerType(LLVMInt8Type(), 0),
+                // _ => LLVMPointerType(context.classes.get(t).unwrap().clone().0, 0),
                 _ => context.classes.get(t).unwrap().clone().0,
             },
             Type::Array(t, _) => LLVMPointerType(get_type(t.clone(), context), 0),
@@ -706,8 +707,11 @@ impl IrBuilder for PrimaryExpr {
                         op.clone().unwrap(),
                         b"\0".as_ptr() as *const _,
                     );
+                    
                     Some(op)
                 }
+
+                // return op;
             }
         }
     }
@@ -762,6 +766,10 @@ impl SecondaryExpr {
                     return Some(f);
                 }
 
+                LLVMDumpModule(context.module);
+
+                println!("HERE {:?}", op);
+
                 let ptr_elem = LLVMBuildGEP(
                     context.builder,
                     op,
@@ -769,6 +777,7 @@ impl SecondaryExpr {
                     2,
                     b"\0".as_ptr() as *const _,
                 );
+
 
                 Some(ptr_elem)
             },
