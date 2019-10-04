@@ -13,6 +13,18 @@ impl Generator {
         Generator { ast, ctx }
     }
 
+    fn insert_toplevel_at(&mut self, i: usize, f: FunctionDecl) {
+        self.ctx.scopes.add(f.name.clone(), TypeInfer::FuncType(f.clone()));
+
+        let i = if i > self.ast.top_levels.len() { 
+            self.ast.top_levels.len()
+        } else {
+            i
+        };
+
+        self.ast.top_levels.insert(i, TopLevel::Function(f.clone()));
+    }
+
     pub fn generate(&mut self) -> SourceFile {
         let main_scope = self.ctx.scopes.scopes.first().unwrap();
     
@@ -39,26 +51,23 @@ impl Generator {
                 if f.name == "main" {
                     f.infer(&mut self.ctx).unwrap();
 
-                    self.ctx.scopes.add(f.name.clone(), TypeInfer::FuncType(f.clone()));
-                    self.ast.top_levels.insert(i, TopLevel::Function(f.clone()));
+                    self.insert_toplevel_at(i, f.clone());
 
                     continue;
                 }
 
                 if !f.is_solved() {
-                    let mut ctx_save = self.ctx.clone();
+                    let ctx_save = self.ctx.clone();
 
-                    if let Some(calls) = self.ctx.calls.get(&f.name) {
+                    if let Some(calls) = ctx_save.calls.get(&f.name) {
                         for (_, call) in calls {
                             let mut new_f = f.clone();
 
                             new_f.apply_types(f.ret.clone(), call.clone());
-                            new_f.infer(&mut ctx_save).unwrap();
+                            new_f.infer(&mut self.ctx).unwrap();
                             new_f.apply_name(call.clone());
 
-                            self.ast.top_levels.insert(i, TopLevel::Function(new_f.clone()));
-
-                            ctx_save.scopes.add(new_f.name.clone(), TypeInfer::FuncType(new_f));
+                            self.insert_toplevel_at(i, new_f.clone());
                         } 
                     }
 
@@ -67,8 +76,7 @@ impl Generator {
                     f.infer(&mut self.ctx).unwrap();
                     f.apply_name_self();
 
-                    self.ctx.scopes.add(f.name.clone(), TypeInfer::FuncType(f.clone()));
-                    self.ast.top_levels.insert(i, TopLevel::Function(f.clone()));
+                    self.insert_toplevel_at(i, f.clone());
                 }
             }
             i += 1;

@@ -767,8 +767,6 @@ impl Parser {
             return Ok(PrimaryExpr::PrimaryExpr(operand, secondarys));
         }
 
-        println!("LOLOLOLOL {:?}", operand);
-
         while let Ok(second) = self.secondary_expr() {
             secondarys.push(second);
 

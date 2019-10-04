@@ -227,11 +227,74 @@ pub enum Expression {
     UnaryExpr(UnaryExpr),
 }
 
+impl Expression {
+    pub fn is_literal(&self) -> bool {
+        match self {
+            Expression::UnaryExpr(unary) => unary.is_literal(),
+            _ => false,
+        }
+    }
+
+    pub fn is_identifier(&self) -> bool {
+        match self {
+            Expression::UnaryExpr(unary) => unary.is_identifier(),
+            _ => false,
+        }
+    }
+
+    pub fn get_identifier(&self) -> Option<String> {
+        match self {
+            Expression::UnaryExpr(unary) => unary.get_identifier(),
+            _ => None,
+        }
+    }
+}
+
+
 #[derive(Debug, Clone)]
 pub enum UnaryExpr {
     PrimaryExpr(PrimaryExpr),
     UnaryExpr(Operator, Box<UnaryExpr>),
 }
+
+impl UnaryExpr {
+    pub fn is_literal(&self) -> bool {
+        match self {
+            UnaryExpr::PrimaryExpr(p) => match p {
+                PrimaryExpr::PrimaryExpr(operand, _) => match operand {
+                    Operand::Literal(_) => true,
+                    _ => false,
+                },
+            }
+            _ => false,
+        }
+    }
+
+    pub fn is_identifier(&self) -> bool {
+        match self {
+            UnaryExpr::PrimaryExpr(p) => match p {
+                PrimaryExpr::PrimaryExpr(operand, _) => match operand {
+                    Operand::Identifier(_) => true,
+                    _ => false,
+                },
+            }
+            _ => false,
+        }
+    }
+
+    pub fn get_identifier(&self) -> Option<String> {
+        match self {
+            UnaryExpr::PrimaryExpr(p) => match p {
+                PrimaryExpr::PrimaryExpr(operand, _) => match operand {
+                    Operand::Identifier(i) => Some(i.clone()),
+                    _ => None,
+                },
+            }
+            _ => None,
+        }
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub enum PrimaryExpr {

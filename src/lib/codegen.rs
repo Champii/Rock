@@ -344,7 +344,6 @@ impl IrBuilder for FunctionDecl {
 
             let res = self.body.build(context);
 
-            // let ret_type = get_type_context(Box::new(self.ret.clone()), context);
             match &self.ret {
                 Some(Type::Name(t)) => {
                     if *t == "Void".to_string() {
@@ -676,23 +675,21 @@ impl IrBuilder for PrimaryExpr {
                     return op;
                 }
 
-                let second = vec.first().unwrap();
+                for second in vec {
 
-                // HACK for class instances
-                if let Operand::Identifier(ident) = operand {
-                    if let SecondaryExpr::Selector(sel) = second {
-                        if let Some(Type::Name(name)) = &sel.class_name {
-                            if let Some(_) = context.classes.get(&name.clone()) {
-                                if let Some(ptr) = context.scopes.get(ident.clone()) {
-                                    println!("IS INSTANCE");
-                                    op = Some(ptr)
+                    // HACK for class instances pointers
+                    if let Operand::Identifier(ident) = operand {
+                        if let SecondaryExpr::Selector(sel) = second {
+                            if let Some(Type::Name(name)) = &sel.class_name {
+                                if let Some(_) = context.classes.get(&name.clone()) {
+                                    if let Some(ptr) = context.scopes.get(ident.clone()) {
+                                        op = Some(ptr);
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                for second in vec {
                     op = second.build_with(context, op.clone().unwrap());
                 }
 
@@ -711,8 +708,6 @@ impl IrBuilder for PrimaryExpr {
 
                     Some(op)
                 }
-
-                // return op;
             }
         }
     }
@@ -767,10 +762,6 @@ impl SecondaryExpr {
                     return Some(f);
                 }
 
-                LLVMDumpModule(context.module);
-
-                println!("HERE {:?}", op);
-
                 let ptr_elem = LLVMBuildGEP(
                     context.builder,
                     op,
@@ -778,7 +769,6 @@ impl SecondaryExpr {
                     2,
                     b"\0".as_ptr() as *const _,
                 );
-
 
                 Some(ptr_elem)
             },
@@ -805,14 +795,11 @@ impl IrBuilder for Operand {
 
                         ident.push('\0');
 
-
-                        // Some(LLVMBuildLoad(
-                        //     context.builder,
-                        //     ptr,
-                        //     ident.as_ptr() as *const _,
-                        // ))
-
-                        Some(ptr)
+                        Some(LLVMBuildLoad(
+                            context.builder,
+                            ptr,
+                            ident.as_ptr() as *const _,
+                        ))
                     }
                 } else {
                     panic!("Unknown identifier {}", ident);
@@ -833,8 +820,8 @@ impl IrBuilder for Operand {
                             let class_attr = ci.class.get_attribute(attr.name.clone()).unwrap();
 
                             let (val, i) = match ci.get_attribute(attr.name.clone()) {
-                                None => (class_attr.0.default.unwrap(), class_attr.1),
-                                Some((attr, _i)) => (attr.default.unwrap(), class_attr.1),
+                                None => (class_attr.0.default.unwrap(), class_attr.1), // handle error here
+                                Some((attr, _i)) => (attr.default.unwrap(), class_attr.1), // and here
                             };
 
                             let idx = LLVMConstInt(LLVMInt32Type(), i as u64, 0);
@@ -848,7 +835,25 @@ impl IrBuilder for Operand {
                                 b"\0".as_ptr() as *const _,
                             );
 
-                            LLVMBuildStore(context.builder, val.build(context).unwrap(), ptr_elem);
+
+                            let val_res = if val.is_identifier() {
+                                let ident = val.get_identifier().unwrap();
+                                let t = class_attr.0.t.clone().unwrap();
+                                if let Type::Name(name) = t {
+                                    if let Some(_) = context.classes.get(&name) {
+                                        context.scopes.get(ident).unwrap()
+                                    } else {
+                                        val.build(context).unwrap()
+                                    }
+                                } else {
+                                    val.build(context).unwrap()
+                                }
+                            } else {
+                                val.build(context).unwrap()
+                            };
+
+
+                            LLVMBuildStore(context.builder, val_res, ptr_elem);
                         }
 
                         Some(res)
