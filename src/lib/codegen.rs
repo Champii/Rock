@@ -36,8 +36,8 @@ pub fn get_type(t: Box<Type>, context: &mut Context) -> *mut LLVMType {
                 "Int" | "Int32" => LLVMInt32Type(),
                 "Int64" => LLVMInt64Type(),
                 "String" => LLVMPointerType(LLVMInt8Type(), 0),
-                // _ => LLVMPointerType(context.classes.get(t).unwrap().clone().0, 0),
-                _ => context.classes.get(t).unwrap().clone().0,
+                _ => LLVMPointerType(context.classes.get(t).unwrap().clone().0, 0),
+                // _ => context.classes.get(t).unwrap().clone().0,
             },
             Type::Array(t, _) => LLVMPointerType(get_type(t.clone(), context), 0),
         }
@@ -684,6 +684,7 @@ impl IrBuilder for PrimaryExpr {
                         if let Some(Type::Name(name)) = &sel.class_name {
                             if let Some(_) = context.classes.get(&name.clone()) {
                                 if let Some(ptr) = context.scopes.get(ident.clone()) {
+                                    println!("IS INSTANCE");
                                     op = Some(ptr)
                                 }
                             }
@@ -707,7 +708,7 @@ impl IrBuilder for PrimaryExpr {
                         op.clone().unwrap(),
                         b"\0".as_ptr() as *const _,
                     );
-                    
+
                     Some(op)
                 }
 
@@ -804,11 +805,14 @@ impl IrBuilder for Operand {
 
                         ident.push('\0');
 
-                        Some(LLVMBuildLoad(
-                            context.builder,
-                            ptr,
-                            ident.as_ptr() as *const _,
-                        ))
+
+                        // Some(LLVMBuildLoad(
+                        //     context.builder,
+                        //     ptr,
+                        //     ident.as_ptr() as *const _,
+                        // ))
+
+                        Some(ptr)
                     }
                 } else {
                     panic!("Unknown identifier {}", ident);

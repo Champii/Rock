@@ -31,7 +31,12 @@ fn run() {
 
     print!("{}", String::from_utf8(cmd.stdout).unwrap());
 
-    std::process::exit(cmd.status.code().unwrap());
+    match cmd.status.code() {
+        Some(code) => std::process::exit(code),
+        None => println!("\nError running: \n{}", String::from_utf8(cmd.stderr).unwrap()),
+    }
+
+    std::process::exit(-1);
 }
 
 fn main() {
