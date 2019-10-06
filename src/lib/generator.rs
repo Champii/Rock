@@ -209,7 +209,7 @@ impl Generate for Expression {
 
 impl Generate for Assignation {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        self.infer(ctx)?;
+        // self.value.infer(ctx)?;
 
         self.value.generate(ctx)
     }
@@ -263,11 +263,11 @@ impl Generate for PrimaryExpr {
                                 let mut ctx_save = ctx.clone();
 
                                 for arg in args {
-                                    let t = arg.infer(&mut ctx_save).unwrap();
+                                    // let t = arg.infer(&mut ctx_save).unwrap();
                                 
                                     arg.generate(&mut ctx_save)?;
 
-                                    name = name.to_owned() + &t.unwrap().get_name();
+                                    name = name.to_owned() + &arg.clone().t.unwrap().get_name();
                                 }
 
                                 *ctx = ctx_save;

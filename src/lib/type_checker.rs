@@ -124,6 +124,7 @@ impl TypeInferer for Prototype {
 
 impl TypeInferer for FunctionDecl {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        println!("PUSH SCOPE {}", self.name);
         ctx.scopes.push();
 
         let mut types = vec![];
@@ -151,6 +152,7 @@ impl TypeInferer for FunctionDecl {
         }
 
         ctx.scopes.pop();
+        println!("POP SCOPE {}", self.name);
 
         ctx.scopes.add(self.name.clone(), Some(Type::FuncType(Box::new(self.clone()))));
 
@@ -274,7 +276,7 @@ impl TypeInferer for Assignation {
                 Ok(t)
             }
         } else {
-            println!("BEFORE INFER {:#?}", ctx.scopes);
+            println!("BEFORE INFER");
             self.name.infer(ctx)?;
 
             let t = self.value.infer(ctx)?;
@@ -316,8 +318,8 @@ impl TypeInferer for PrimaryExpr {
                                 let ret = f.ret.clone();
                                 
                                 if args.len() < f.arguments.len() {
-                                    if let Some(_) = &f.class_name {
-                                        let this = Argument {arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone())))};
+                                    if let Some(classname) = &f.class_name {
+                                        let this = Argument {t: Some(Type::Class(classname.clone())), arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone())))};
 
                                         args.insert(0, this);
                                     }
@@ -427,7 +429,11 @@ impl TypeInferer for SecondaryExpr {
 
 impl TypeInferer for Argument {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        self.arg.infer(ctx)
+        let t = self.arg.infer(ctx);
+
+        self.t = t.unwrap().clone();
+
+        Ok(self.t.clone())
     }
 }
 
@@ -436,7 +442,7 @@ impl TypeInferer for Operand {
         let t = match &mut self.kind {
             OperandKind::Literal(lit) => lit.infer(ctx),
             OperandKind::Identifier(ident) => {
-                println!("IDENTIFIER {} {:#?}", ident, ctx.scopes);
+                println!("IDENTIFIER {}", ident);
                 let res = ctx.scopes.get(ident.clone()).unwrap();
 
                 if let None = res {

@@ -521,6 +521,7 @@ impl Parser {
     fn argument(&mut self) -> Result<Argument, Error> {
         Ok(Argument {
             arg: self.expression()?,
+            t: None,
         })
     }
 

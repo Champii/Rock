@@ -163,6 +163,7 @@ pub struct ArgumentDecl {
 #[derive(Debug, Clone)]
 pub struct Argument {
     pub arg: Expression,
+    pub t: TypeInfer,
 }
 
 #[derive(Debug, Clone)]
