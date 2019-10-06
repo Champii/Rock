@@ -61,7 +61,7 @@ impl TypeError {
             self.token.start - count
         };
 
-        let line_ind = format!("file.plasma({}:{}) => ", self.token.line, line_start);
+        let line_ind = format!("file.rock({}:{}) => ", self.token.line, line_start);
 
         let mut arrow = String::new();
 
@@ -142,7 +142,7 @@ impl ParseError {
             self.token.start - count
         };
 
-        let line_ind = format!("file.plasma({}:{}) => ", self.token.line, line_start);
+        let line_ind = format!("file.rock({}:{}) => ", self.token.line, line_start);
 
         let mut arrow = String::new();
 

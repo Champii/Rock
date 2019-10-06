@@ -1,6 +1,6 @@
 [package]
-name = "plasma"
-version = "0.1.0"
+name = "rock"
+version = "0.0.1"
 authors = ["champii <contact@champii>"]
 edition = "2018"
 
@@ -11,9 +11,9 @@ lazy_static = "1.2.0"
 regex = "1"
 
 [lib]
-name = "plasma"
-path = "src/lib/plasma.rs"
+name = "rock"
+path = "src/lib/rock.rs"
 
 [[bin]]
-name = "plasma"
+name = "rock"
 path = "src/bin/main.rs"

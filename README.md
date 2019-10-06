@@ -1,4 +1,4 @@
-# Plasma 0.0.1
+# rock 0.0.1
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with safeness, no GC but a Borrow Checker instead, and of course native performances thanks to LLVM.  
@@ -15,7 +15,7 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 
 ```
 #> cargo build
-#> ./target/debug/plasma run
+#> ./target/debug/rock run
 ```
 
 ## Example

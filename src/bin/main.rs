@@ -1,12 +1,12 @@
 extern crate clap;
-extern crate plasma;
+extern crate rock;
 
 use clap::{App, SubCommand};
 
 use std::process::Command;
 
 fn build() -> bool {
-    if let Err(e) = plasma::file_to_file("./main.pm".to_string(), "./main.o\0".to_string()) {
+    if let Err(e) = rock::file_to_file("./main.rk".to_string(), "./main.o\0".to_string()) {
         println!("{}", e);
 
         return false;
@@ -40,7 +40,7 @@ fn run() {
 }
 
 fn main() {
-    let matches = App::new("plasma")
+    let matches = App::new("rock")
         .version("0.0.1")
         .author("Champii <contact@champii.io>")
         .about("Simple toy language")
