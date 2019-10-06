@@ -109,7 +109,7 @@ impl Generate for TopLevel {
             TopLevel::Class(class) => class.generate(ctx),
             TopLevel::Function(fun) => fun.generate(ctx),
             TopLevel::Prototype(fun) => fun.generate(ctx),
-            TopLevel::Mod(_) => Err(Error::ParseError(ParseError::new_empty())),
+            TopLevel::Mod(_) => Err(Error::new_empty()),
         }
     }
 }
@@ -195,14 +195,14 @@ impl Generate for While {
 
 impl Generate for Expression {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match self {
-            Expression::BinopExpr(unary, _op, expr) => {
+        match &mut self.kind {
+            ExpressionKind::BinopExpr(unary, _op, expr) => {
                 let _left = unary.generate(ctx)?;
                 let _right = expr.generate(ctx)?;
 
                 Ok(())
             }
-            Expression::UnaryExpr(unary) => unary.generate(ctx),
+            ExpressionKind::UnaryExpr(unary) => unary.generate(ctx),
         }
     }
 }
@@ -289,7 +289,7 @@ impl Generate for PrimaryExpr {
 impl Generate for SecondaryExpr {
     fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
         match self {
-            _ => Err(Error::ParseError(ParseError::new_empty())),
+            _ => Err(Error::new_empty()),
         }
     }
 }

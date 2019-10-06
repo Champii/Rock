@@ -23,6 +23,7 @@ pub struct Context {
     pub scopes: Scopes<TypeInfer>,
     pub externs: HashMap<String, String>,
     pub cur_type: TypeInfer,
+    pub input: Vec<char>,
 }
 
 impl Context {
@@ -33,6 +34,7 @@ impl Context {
             calls: HashMap::new(),
             scopes: Scopes::new(),
             cur_type: None,
+            input: vec![],
         }
     }
 }

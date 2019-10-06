@@ -1,11 +1,13 @@
+use std::collections::HashMap;
+
 use super::ast::*;
 use super::context::*;
 use super::error::*;
-use std::collections::HashMap;
+use super::token::*;
 
 pub struct TypeChecker {
     pub ctx: Context,
-    ast: SourceFile,
+    pub ast: SourceFile,
 }
 
 impl TypeChecker {
@@ -16,10 +18,8 @@ impl TypeChecker {
         }
     }
 
-    pub fn infer(&mut self) -> SourceFile {
-        self.ast.infer(&mut self.ctx).unwrap();
-
-        self.ast.clone()
+    pub fn infer(&mut self) -> Result<TypeInfer, Error> {
+        self.ast.infer(&mut self.ctx)
     }
 }
 
@@ -30,7 +30,7 @@ pub trait TypeInferer {
 
 impl TypeInferer for SourceFile {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        let mut last = Err(Error::ParseError(ParseError::new_empty()));
+        let mut last = Err(Error::new_empty());
 
         let mut top_level_methods = vec![];
 
@@ -60,7 +60,7 @@ impl TypeInferer for TopLevel {
             TopLevel::Class(class) => class.infer(ctx),
             TopLevel::Function(fun) => fun.infer(ctx),
             TopLevel::Prototype(fun) => fun.infer(ctx),
-            TopLevel::Mod(_) => Err(Error::ParseError(ParseError::new_empty())),
+            TopLevel::Mod(_) => Err(Error::new_empty()),
         }
     }
 }
@@ -95,7 +95,7 @@ impl TypeInferer for Attribute {
 
             if let Some(t2) = self.t.clone() {
                 if t2.get_name() != t.clone().unwrap().get_name() {
-                    return Err(Error::ParseError(ParseError::new_empty()));
+                    return Err(Error::new_empty());
                 }
             }
 
@@ -105,7 +105,7 @@ impl TypeInferer for Attribute {
         } else if let Some(_) = self.t.clone() {
             Ok(self.t.clone())
         } else {
-            Err(Error::ParseError(ParseError::new_empty()))
+            Err(Error::new_empty())
         }
     }
 }
@@ -170,7 +170,7 @@ impl TypeInferer for ArgumentDecl {
 
 impl TypeInferer for Body {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        let mut last = Err(Error::ParseError(ParseError::new_empty()));
+        let mut last = Err(Error::new_empty());
 
         for stmt in &mut self.stmts {
             last = Ok(stmt.infer(ctx)?);
@@ -189,7 +189,7 @@ impl TypeInferer for Statement {
             StatementKind::Assignation(assign) => assign.infer(ctx),
         };
 
-        self.t = t.unwrap();
+        self.t = t?;
 
         Ok(self.t.clone())
     }
@@ -224,8 +224,8 @@ impl TypeInferer for If {
 
 impl TypeInferer for Expression {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        match self {
-            Expression::BinopExpr(unary, op, expr) => {
+        match &mut self.kind {
+            ExpressionKind::BinopExpr(unary, op, expr) => {
                 let t = match op {
                     Operator::Add => Some(Type::Primitive(PrimitiveType::Int)),
                     Operator::EqualEqual => Some(Type::Primitive(PrimitiveType::Bool)),
@@ -247,7 +247,7 @@ impl TypeInferer for Expression {
 
                 Ok(t)
             }
-            Expression::UnaryExpr(unary) => unary.infer(ctx),
+            ExpressionKind::UnaryExpr(unary) => unary.infer(ctx),
         }
     }
 }
@@ -260,6 +260,12 @@ impl TypeInferer for Assignation {
             let res = ctx.scopes.get(name.clone());
 
             if let Some(t) = res {
+                let value_t = self.value.infer(ctx)?;
+
+                if value_t.clone().unwrap().get_name() != t.clone().unwrap().get_name() {
+                    return Err(Error::new_type_error(ctx.input.clone(), self.value.token.clone(), t.clone(), value_t.clone()));
+                }
+
                 self.t = t.clone();
 
                 Ok(t)
@@ -315,7 +321,15 @@ impl TypeInferer for PrimaryExpr {
                                 
                                 if args.len() < f.arguments.len() {
                                     if let Some(classname) = &f.class_name {
-                                        let this = Argument {t: Some(Type::Class(classname.clone())), arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone())))};
+                                        let this = Argument {
+                                            token: Token::default(), 
+                                            t: Some(Type::Class(classname.clone())), 
+                                            arg: Expression {
+                                                kind: ExpressionKind::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone()))),
+                                                t: Some(Type::Class(classname.clone())),
+                                                token: Token::default(),
+                                            },
+                                        };
 
                                         args.insert(0, this);
                                     }
@@ -350,13 +364,17 @@ impl TypeInferer for PrimaryExpr {
 
                                 if let Type::Primitive(PrimitiveType::Array(a, _n)) = t.clone() {
                                     ctx.cur_type = Some(*a);
+                                } else if let Type::Primitive(PrimitiveType::String(_n)) = t.clone() {
+                                    ctx.cur_type = Some(Type::Primitive(PrimitiveType::Int8));
+                                } else {
+                                    return Err(Error::new_not_indexable_error(t.get_name()))
                                 }
 
                                 // TODO
-                                if let Type::Primitive(_p) = t {
-                                    ctx.cur_type =
-                                        Some(Type::Primitive(PrimitiveType::Int8));
-                                }
+                                // if let Type::Primitive(_p) = t {
+                                //     ctx.cur_type =
+                                //         Some(Type::Primitive(PrimitiveType::Int8));
+                                // }
                             }
                         }
 
@@ -418,7 +436,7 @@ impl TypeInferer for PrimaryExpr {
 impl TypeInferer for SecondaryExpr {
     fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
-            _ => Err(Error::ParseError(ParseError::new_empty())),
+            _ => Err(Error::new_empty()),
         }
     }
 }
@@ -427,7 +445,7 @@ impl TypeInferer for Argument {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         let t = self.arg.infer(ctx);
 
-        self.t = t.unwrap().clone();
+        self.t = t?;
 
         Ok(self.t.clone())
     }
@@ -453,7 +471,7 @@ impl TypeInferer for Operand {
             OperandKind::Expression(expr) => expr.infer(ctx),
         };
 
-        self.t = t.unwrap();
+        self.t = t?;
 
         Ok(self.t.clone())
     }
@@ -462,6 +480,18 @@ impl TypeInferer for Operand {
 impl TypeInferer for ClassInstance {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         // TODO: check types of fields
+        for class_attr in &self.class.attributes {
+            if let Some(attr) = self.attributes.get(&class_attr.name) {
+                let mut attr = attr.clone();
+                let attr_t = attr.infer(ctx)?;
+
+                if class_attr.t.clone().unwrap().get_name() != attr_t.clone().unwrap().get_name() {
+                    return Err(Error::new_type_error(ctx.input.clone(), attr.token.clone(), class_attr.t.clone(),  attr_t.clone()));
+                }
+            } else if class_attr.default.is_none() {
+                return Err(Error::new_undefined_error(self.class.name.clone() + "::" + &class_attr.name.clone()));
+            }
+        }
         Ok(ctx.scopes.get(self.name.clone()).unwrap())
     }
 }
@@ -489,7 +519,7 @@ impl TypeInferer for Array {
 
             if last.clone().unwrap().get_name() != t.clone().unwrap().get_name() {
                 // TODO: type error
-                return Err(Error::ParseError(ParseError::new_empty()));
+                return Err(Error::new_empty());
             }
         }
 

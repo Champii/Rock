@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use std::fmt;
+
+use super::Token;
 
 #[derive(Debug, Clone)]
 pub struct SourceFile {
@@ -20,6 +23,7 @@ pub struct Class {
     pub class_attributes: Vec<Attribute>, // [(name, type, default)]
     pub methods: Vec<FunctionDecl>,
     pub class_methods: Vec<FunctionDecl>,
+    pub token: Token,
 }
 
 impl Class {
@@ -53,6 +57,7 @@ pub struct Attribute {
     pub name: String,
     pub t: Option<Type>,
     pub default: Option<Expression>,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +67,7 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
     pub class_name: Option<String>,
+    pub token: Token,
 }
 
 impl FunctionDecl {
@@ -71,6 +77,7 @@ impl FunctionDecl {
             ArgumentDecl {
                 name: "this".to_string(),
                 t: Some(Type::Class(self.class_name.clone().unwrap())),
+                token: self.token.clone(),
             },
         )
     }
@@ -152,18 +159,21 @@ impl Prototype {
 #[derive(Debug, Clone)]
 pub struct ArgumentType {
     pub t: Type,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone)]
 pub struct ArgumentDecl {
     pub name: String,
     pub t: Option<Type>,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone)]
 pub struct Argument {
     pub arg: Expression,
     pub t: TypeInfer,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -183,6 +193,7 @@ pub enum StatementKind {
 pub struct Statement {
     pub kind: StatementKind,
     pub t: TypeInfer,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -222,32 +233,40 @@ pub struct Assignation {
     pub name: PrimaryExpr,
     pub t: Option<Type>,
     pub value: Box<Statement>,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone)]
-pub enum Expression {
+pub enum ExpressionKind {
     BinopExpr(UnaryExpr, Operator, Box<Expression>),
     UnaryExpr(UnaryExpr),
 }
 
+#[derive(Debug, Clone)]
+pub struct Expression {
+    pub kind: ExpressionKind,
+    pub t: TypeInfer,
+    pub token: Token,
+}
+
 impl Expression {
     pub fn is_literal(&self) -> bool {
-        match self {
-            Expression::UnaryExpr(unary) => unary.is_literal(),
+        match &self.kind {
+            ExpressionKind::UnaryExpr(unary) => unary.is_literal(),
             _ => false,
         }
     }
 
     pub fn is_identifier(&self) -> bool {
-        match self {
-            Expression::UnaryExpr(unary) => unary.is_identifier(),
+        match &self.kind {
+            ExpressionKind::UnaryExpr(unary) => unary.is_identifier(),
             _ => false,
         }
     }
 
     pub fn get_identifier(&self) -> Option<String> {
-        match self {
-            Expression::UnaryExpr(unary) => unary.get_identifier(),
+        match &self.kind {
+            ExpressionKind::UnaryExpr(unary) => unary.get_identifier(),
             _ => None,
         }
     }
@@ -364,6 +383,7 @@ pub struct ClassInstance {
     pub name: String,
     pub class: Class,
     pub attributes: HashMap<String, Attribute>,
+    pub token: Token,
 }
 
 impl ClassInstance {
@@ -478,5 +498,12 @@ impl Type {
         }
     }
 }
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.get_name())
+    }
+}
+
 
 pub type TypeInfer = Option<Type>;

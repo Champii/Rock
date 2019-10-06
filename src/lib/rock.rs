@@ -46,15 +46,19 @@ pub fn preprocess(input: String) -> String {
 pub fn parse_str(input: String, output_name: String, config: Config) -> Result<Builder, Error> {
     let preprocessed = preprocess(input.clone());
 
-    let lexer = Lexer::new(preprocessed.chars().collect());
+    let input: Vec<char> = preprocessed.chars().collect();
+
+    let lexer = Lexer::new(input.clone());
 
     let ast = Parser::new(lexer).run()?;
 
     let mut tc = TypeChecker::new(ast);
 
-    let ast = tc.infer();
+    tc.ctx.input = input.clone();
 
-    let ast = Generator::new(ast, tc.ctx).generate();
+    tc.infer()?;
+
+    let ast = Generator::new(tc.ast, tc.ctx).generate();
 
     if config.show_ast {
         println!("AST {:#?}", ast);

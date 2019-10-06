@@ -259,11 +259,12 @@ impl Parser {
                     self.save_pop();
 
                     return Ok(Class {
-                        name: tok_name.txt,
+                        name: tok_name.clone().txt,
                         attributes,
                         class_attributes,
                         methods,
                         class_methods,
+                        token: tok_name,
                     });
                 }
 
@@ -281,6 +282,8 @@ impl Parser {
                     methods.push(f);
                 } else {
                     if let TokenType::Identifier(id) = self.cur_tok.t.clone() {
+                        let token = self.cur_tok.clone();
+
                         self.consume();
 
                         let ret = if self.cur_tok.t == TokenType::DoubleSemiColon {
@@ -307,7 +310,9 @@ impl Parser {
                             name: id,
                             t: ret,
                             default,
+                            token,
                         });
+                        
 
 
                         expect!(TokenType::EOL, self);
@@ -329,11 +334,12 @@ impl Parser {
         self.save_pop();
 
         let class = Class {
-            name: tok_name.txt,
+            name: tok_name.clone().txt,
             attributes,
             class_attributes,
             methods,
             class_methods,
+            token: tok_name,
         };
 
         self.ctx.classes.insert(class.name.clone(), class.clone());
@@ -343,6 +349,8 @@ impl Parser {
 
     fn function_decl(&mut self) -> Result<FunctionDecl, Error> {
         let mut arguments = vec![];
+
+        let token = self.cur_tok.clone();
 
         self.save();
 
@@ -383,6 +391,7 @@ impl Parser {
             arguments,
             body,
             class_name: None,
+            token,
         })
     }
 
@@ -455,7 +464,9 @@ impl Parser {
     }
 
     fn argument_decl(&mut self) -> Result<ArgumentDecl, Error> {
-        let name = expect!(TokenType::Identifier(self.cur_tok.txt.clone()), self).txt;
+        let token = expect!(TokenType::Identifier(self.cur_tok.txt.clone()), self);
+
+        let name = token.txt.clone();
 
         self.save();
 
@@ -473,7 +484,7 @@ impl Parser {
 
         self.save_pop();
 
-        Ok(ArgumentDecl { name, t })
+        Ok(ArgumentDecl { name, t, token })
     }
 
     fn arguments(&mut self) -> Result<Vec<Argument>, Error> {
@@ -519,9 +530,12 @@ impl Parser {
     }
 
     fn argument(&mut self) -> Result<Argument, Error> {
+        let token = self.cur_tok.clone();
+
         Ok(Argument {
             arg: self.expression()?,
             t: None,
+            token,
         })
     }
 
@@ -586,6 +600,7 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Statement, Error> {
+        let token = self.cur_tok.clone();
 
         let kind = if let Ok(if_) = self.if_() {
             StatementKind::If(if_)
@@ -602,6 +617,7 @@ impl Parser {
         Ok(Statement {
             kind,
             t: None,
+            token,
         })
     }
 
@@ -735,22 +751,34 @@ impl Parser {
         Ok(Assignation {
             name,
             t,
+            token: stmt.token.clone(),
             value: Box::new(stmt),
         })
     }
 
     fn expression(&mut self) -> Result<Expression, Error> {
+        let token = self.cur_tok.clone();
+
         let left = self.unary_expr()?;
+
+
+        let mut res = Expression {
+            kind: ExpressionKind::UnaryExpr(left.clone()),
+            t: None,
+            token,
+        };
 
         self.save();
 
-        let op = try_or_restore_and!(self.operator(), Ok(Expression::UnaryExpr(left)), self);
+        let op = try_or_restore_and!(self.operator(), Ok(res), self);
 
-        let right = try_or_restore_and!(self.expression(), Ok(Expression::UnaryExpr(left)), self);
+        let right = try_or_restore_and!(self.expression(), Ok(res), self);
 
         self.save_pop();
 
-        Ok(Expression::BinopExpr(left, op, Box::new(right)))
+        res.kind = ExpressionKind::BinopExpr(left, op, Box::new(right));
+
+        Ok(res)
     }
 
     fn unary_expr(&mut self) -> Result<UnaryExpr, Error> {
@@ -862,6 +890,8 @@ impl Parser {
     fn class_instance(&mut self) -> Result<ClassInstance, Error> {
         self.save();
 
+        let token = self.cur_tok.clone();
+
         let name = try_or_restore!(self.type_(), self).get_name();
 
         let mut attributes = HashMap::new();
@@ -876,6 +906,7 @@ impl Parser {
                 attributes,
                 class: self.ctx.classes.get(&name.clone()).unwrap().clone(),
                 name,
+                token,
             });
         }
 
@@ -922,6 +953,7 @@ impl Parser {
                             name: id,
                             t: None,
                             default: Some(expr),
+                            token: self.cur_tok.clone(),
                         },
                     );
                 } else {
@@ -950,6 +982,7 @@ impl Parser {
             attributes,
             class: self.ctx.classes.get(&name.clone()).unwrap().clone(),
             name,
+            token,
         })
     }
 

@@ -45,7 +45,13 @@ pub enum TokenType {
     EOF,
 }
 
-#[derive(Clone, Debug)]
+impl Default for TokenType {
+    fn default() -> TokenType {
+        TokenType::EOF
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Token {
     pub t: TokenType,
     pub line: usize,

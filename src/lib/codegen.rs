@@ -552,8 +552,8 @@ impl IrBuilder for Else {
 
 impl IrBuilder for Expression {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
-        match self {
-            Expression::BinopExpr(unary, op, expr) => {
+        match &self.kind {
+            ExpressionKind::BinopExpr(unary, op, expr) => {
                 let left = unary.build(context).unwrap();
                 let right = expr.build(context).unwrap();
 
@@ -620,7 +620,7 @@ impl IrBuilder for Expression {
                     },
                 })
             }
-            Expression::UnaryExpr(unary) => unary.build(context),
+            ExpressionKind::UnaryExpr(unary) => unary.build(context),
         }
     }
 }
