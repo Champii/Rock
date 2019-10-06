@@ -124,7 +124,7 @@ impl TypeInferer for Prototype {
 
 impl TypeInferer for FunctionDecl {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        println!("PUSH SCOPE {}", self.name);
+
         ctx.scopes.push();
 
         let mut types = vec![];
@@ -152,7 +152,6 @@ impl TypeInferer for FunctionDecl {
         }
 
         ctx.scopes.pop();
-        println!("POP SCOPE {}", self.name);
 
         ctx.scopes.add(self.name.clone(), Some(Type::FuncType(Box::new(self.clone()))));
 
@@ -164,8 +163,6 @@ impl TypeInferer for ArgumentDecl {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         ctx.scopes
             .add(self.name.clone(), self.t.clone());
-
-        println!("ARGUMENT DECL {} {:?}", self.name, self.t);
 
         Ok(self.t.clone())
     }
@@ -276,7 +273,6 @@ impl TypeInferer for Assignation {
                 Ok(t)
             }
         } else {
-            println!("BEFORE INFER");
             self.name.infer(ctx)?;
 
             let t = self.value.infer(ctx)?;
@@ -442,7 +438,6 @@ impl TypeInferer for Operand {
         let t = match &mut self.kind {
             OperandKind::Literal(lit) => lit.infer(ctx),
             OperandKind::Identifier(ident) => {
-                println!("IDENTIFIER {}", ident);
                 let res = ctx.scopes.get(ident.clone()).unwrap();
 
                 if let None = res {

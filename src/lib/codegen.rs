@@ -14,6 +14,7 @@ use std::ptr;
 
 use super::ast::*;
 use super::scope::Scopes;
+use super::Config;
 
 pub struct Context {
     pub scopes: Scopes<*mut LLVMValue>,
@@ -52,10 +53,11 @@ pub fn get_type(t: Box<Type>, context: &mut Context) -> *mut LLVMType {
 pub struct Builder {
     pub context: Context,
     pub source: SourceFile,
+    pub config: Config,
 }
 
 impl Builder {
-    pub fn new(file_name: &str, source: SourceFile) -> Builder {
+    pub fn new(file_name: &str, source: SourceFile, config: Config) -> Builder {
         unsafe {
             let ctx = LLVMContextCreate();
             let module = LLVMModuleCreateWithNameInContext(file_name.as_ptr() as *const _, ctx);
@@ -71,7 +73,7 @@ impl Builder {
                 arguments: Scopes::new(),
             };
 
-            Builder { source, context }
+            Builder { source, context, config }
         }
     }
 
@@ -80,15 +82,18 @@ impl Builder {
 
         unsafe {
             LLVMDisposeBuilder(self.context.builder);
-            LLVMDumpModule(self.context.module);
 
-            let mut err = ptr::null_mut();
+            if self.config.show_ir {
+                LLVMDumpModule(self.context.module);
 
-            LLVMVerifyModule(
-                self.context.module,
-                LLVMVerifierFailureAction::LLVMPrintMessageAction,
-                &mut err,
-            );
+                let mut err = ptr::null_mut();
+
+                LLVMVerifyModule(
+                    self.context.module,
+                    LLVMVerifierFailureAction::LLVMPrintMessageAction,
+                    &mut err,
+                );
+            }
         }
     }
 
@@ -799,10 +804,6 @@ impl SecondaryExpr {
                     return Some(f);
                 }
 
-                println!("HERE");
-
-                LLVMDumpModule(context.module);
-
                 let ptr_elem = LLVMBuildGEP(
                     context.builder,
                     op,
@@ -810,7 +811,6 @@ impl SecondaryExpr {
                     2,
                     b"\0".as_ptr() as *const _,
                 );
-                println!("HERE2");
 
                 Some(ptr_elem)
             },

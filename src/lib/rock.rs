@@ -8,6 +8,7 @@ use std::fs;
 mod ast;
 mod codegen;
 mod context;
+mod config;
 // mod desugar;
 mod error;
 mod generator;
@@ -19,6 +20,7 @@ mod token;
 mod type_checker;
 
 // use self::ast::*;
+pub use self::config::Config;
 use self::codegen::Builder;
 use self::error::Error;
 use self::generator::Generator;
@@ -27,10 +29,10 @@ use self::parser::Parser;
 use self::token::{Token, TokenType};
 use self::type_checker::TypeChecker;
 
-pub fn parse_file(in_name: String) -> Result<Builder, Error> {
+pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<Builder, Error> {
     let file = fs::read_to_string(in_name).expect("Woot");
 
-    parse_str(file)
+    parse_str(file, out_name, config)
 }
 
 pub fn preprocess(input: String) -> String {
@@ -41,44 +43,46 @@ pub fn preprocess(input: String) -> String {
     out.to_string()
 }
 
-pub fn parse_str(input: String) -> Result<Builder, Error> {
+pub fn parse_str(input: String, output_name: String, config: Config) -> Result<Builder, Error> {
     let preprocessed = preprocess(input.clone());
 
     let lexer = Lexer::new(preprocessed.chars().collect());
 
     let ast = Parser::new(lexer).run()?;
 
-    println!("AST {:#?}", ast);
     let mut tc = TypeChecker::new(ast);
 
     let ast = tc.infer();
 
     let ast = Generator::new(ast, tc.ctx).generate();
 
+    if config.show_ast {
+        println!("AST {:#?}", ast);
+    }
 
-    let mut builder = Builder::new("STDIN\0", ast);
+    let mut builder = Builder::new(&output_name, ast, config);
 
     builder.build();
 
     Ok(builder)
 }
 
-pub fn file_to_file(in_name: String, out_name: String) -> Result<(), Error> {
-    let mut builder = parse_file(in_name)?;
+pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
+    let mut builder = parse_file(in_name, out_name.clone(), config)?;
 
     builder.write(&out_name);
 
     Ok(())
 }
 
-pub fn run(in_name: String, entry: String) -> Result<u64, Error> {
-    let mut builder = parse_file(in_name)?;
+pub fn run(in_name: String, entry: String, config: Config) -> Result<u64, Error> {
+    let mut builder = parse_file(in_name, entry.clone(), config)?;
 
     Ok(builder.run(&entry))
 }
 
-pub fn run_str(input: String, entry: String) -> Result<u64, Error> {
-    let mut builder = parse_str(input)?;
+pub fn run_str(input: String, entry: String, config: Config) -> Result<u64, Error> {
+    let mut builder = parse_str(input, entry.clone(), config)?;
 
     Ok(builder.run(&entry))
 }
