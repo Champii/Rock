@@ -127,11 +127,9 @@ FLAGS:
     - returnable statement
     - operator precedence
     - floats
-    - sub, mul div and modg
-    - while/for
-    - structs
-    - methods
-    - multi-file
+    - sub, mul div and mod
+    - while/for_in
+    - modules/multi-file
     - enums
     - type aliasing
 - v1.0.0
@@ -150,13 +148,15 @@ FLAGS:
 - Assignation
 - Type inference
 - Parametric Polymophism
-- Class (attributes only)
+- Class
+- Methods
+- Simple 'for'
 
 # Goal
 
 ```haskell
 class Foo
-    val: Int
+    val :> Int
 
     @val ->
 
