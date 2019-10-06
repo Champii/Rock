@@ -5,7 +5,8 @@ class Foo
 class Bar
     foo :: Foo
     val :: Int
-    f -> @foo.bar + @val
+    f -> @foo.bar + @foo.def + @val
+# f -> 42
 
 main ->
     a = Foo

@@ -679,23 +679,31 @@ impl IrBuilder for PrimaryExpr {
                     return op;
                 }
 
-                let second = vec.first().unwrap();
-
-                // HACK for class instances pointers
-                if let OperandKind::Identifier(ident) = &operand.kind {
-                    if let SecondaryExpr::Selector(sel) = second {
-                        if let Some(Type::Class(c)) = &sel.class_type {
-                            if let Some(_) = context.classes.get(&c.clone()) {
-                                if let Some(ptr) = context.scopes.get(ident.clone()) {
-                                    op = Some(ptr);
-                                }
-                            }
-                        }
-                    }
-                }
+                let mut last = vec.first().unwrap().clone();
+                let mut is_first = true;
 
                 for second in vec {
+                    if !is_first {
+                        if let SecondaryExpr::Selector(_) = second {
+                            op = if let SecondaryExpr::Selector(_) = last {
+                                unsafe {
+                                    Some(LLVMBuildLoad(
+                                        context.builder,
+                                        op.clone().unwrap(),
+                                        b"\0".as_ptr() as *const _,
+                                    ))
+                                }
+                            } else {
+                                op
+                            };
+                        }
+                    }
+                    
                     op = second.build_with(context, op.clone().unwrap());
+
+                    last = second.clone();
+
+                    is_first = false;
                 }
 
                 let last_second = vec.last().unwrap();
@@ -726,25 +734,6 @@ impl SecondaryExpr {
 
                 for arg in args {
                     res.push(arg.build(context).unwrap());
-
-                    // let val_res = if arg.is_identifier() {
-                    //     let ident = arg.get_identifier().unwrap();
-                    //     let t = class_attr.0.t.clone().unwrap();
-                    //     if let Type::Name(name) = t {
-                    //         if let Some(_) = context.classes.get(&name) {
-                    //             context.scopes.get(ident).unwrap()
-                    //         } else {
-                    //             arg.build(context).unwrap()
-                    //         }
-                    //     } else {
-                    //         arg.build(context).unwrap()
-                    //     }
-                    // } else {
-                    //     arg.build(context).unwrap()
-                    // };
-
-                    // res.push(val_res);
-
                 }
 
                 unsafe {

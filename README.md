@@ -24,7 +24,7 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 class Foo
     bar :: Int
     def: 32
-    f -> this.bar + this.def
+    f -> @bar + @def
 
 add a, b -> a + b
 
