@@ -682,7 +682,7 @@ impl IrBuilder for PrimaryExpr {
                 let second = vec.first().unwrap();
 
                 // HACK for class instances pointers
-                if let Operand::Identifier(ident) = operand {
+                if let OperandKind::Identifier(ident) = &operand.kind {
                     if let SecondaryExpr::Selector(sel) = second {
                         if let Some(Type::Class(c)) = &sel.class_type {
                             if let Some(_) = context.classes.get(&c.clone()) {
@@ -802,9 +802,9 @@ impl SecondaryExpr {
 
 impl IrBuilder for Operand {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
-        match self {
-            Operand::Literal(lit) => lit.build(context),
-            Operand::Identifier(ident) => {
+        match &self.kind {
+            OperandKind::Literal(lit) => lit.build(context),
+            OperandKind::Identifier(ident) => {
                 if let Some(args) = context.arguments.get(ident.clone()) {
                     return Some(args);
                 }
@@ -819,6 +819,10 @@ impl IrBuilder for Operand {
 
                         ident.push('\0');
 
+                        if let Some(Type::Class(_)) = &self.t {
+                            return Some(ptr);
+                        }
+
                         Some(LLVMBuildLoad(
                             context.builder,
                             ptr,
@@ -829,7 +833,7 @@ impl IrBuilder for Operand {
                     panic!("Unknown identifier {}", ident);
                 }
             }
-            Operand::ClassInstance(ci) => {
+            OperandKind::ClassInstance(ci) => {
                 if let Some(class_ty) = context.classes.get(&ci.name.clone()) {
                     unsafe {
                         let res = LLVMBuildAlloca(
@@ -882,8 +886,8 @@ impl IrBuilder for Operand {
                     panic!("Unknown class {}", ci.name);
                 }
             }
-            Operand::Array(arr) => arr.build(context),
-            Operand::Expression(expr) => expr.build(context),
+            OperandKind::Array(arr) => arr.build(context),
+            OperandKind::Expression(expr) => expr.build(context),
         }
     }
 }

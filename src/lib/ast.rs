@@ -263,8 +263,8 @@ impl UnaryExpr {
     pub fn is_literal(&self) -> bool {
         match self {
             UnaryExpr::PrimaryExpr(p) => match p {
-                PrimaryExpr::PrimaryExpr(operand, _) => match operand {
-                    Operand::Literal(_) => true,
+                PrimaryExpr::PrimaryExpr(operand, _) => match &operand.kind {
+                    OperandKind::Literal(_) => true,
                     _ => false,
                 },
             }
@@ -275,8 +275,8 @@ impl UnaryExpr {
     pub fn is_identifier(&self) -> bool {
         match self {
             UnaryExpr::PrimaryExpr(p) => match p {
-                PrimaryExpr::PrimaryExpr(operand, _) => match operand {
-                    Operand::Identifier(_) => true,
+                PrimaryExpr::PrimaryExpr(operand, _) => match &operand.kind {
+                    OperandKind::Identifier(_) => true,
                     _ => false,
                 },
             }
@@ -287,8 +287,8 @@ impl UnaryExpr {
     pub fn get_identifier(&self) -> Option<String> {
         match self {
             UnaryExpr::PrimaryExpr(p) => match p {
-                PrimaryExpr::PrimaryExpr(operand, vec) => match operand {
-                    Operand::Identifier(i) => 
+                PrimaryExpr::PrimaryExpr(operand, vec) => match &operand.kind {
+                    OperandKind::Identifier(i) => 
                         if vec.len() == 0 {
                             Some(i.clone())
                         } else {
@@ -324,12 +324,18 @@ pub enum SecondaryExpr {
 }
 
 #[derive(Debug, Clone)]
-pub enum Operand {
+pub enum OperandKind {
     Literal(Literal),
     Identifier(String),
     ClassInstance(ClassInstance),
     Array(Array),
     Expression(Box<Expression>), // parenthesis
+}
+
+#[derive(Debug, Clone)]
+pub struct Operand {
+    pub kind: OperandKind,
+    pub t: TypeInfer,
 }
 
 #[derive(Debug, Clone)]

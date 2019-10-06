@@ -419,9 +419,9 @@ impl TypeInferer for Argument {
 
 impl TypeInferer for Operand {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        match self {
-            Operand::Literal(lit) => lit.infer(ctx),
-            Operand::Identifier(ident) => {
+        let t = match &mut self.kind {
+            OperandKind::Literal(lit) => lit.infer(ctx),
+            OperandKind::Identifier(ident) => {
                 let res = ctx.scopes.get(ident.clone()).unwrap();
 
                 if let None = res {
@@ -432,10 +432,14 @@ impl TypeInferer for Operand {
                     Ok(res)
                 }
             }
-            Operand::ClassInstance(ci) => ci.infer(ctx),
-            Operand::Array(arr) => arr.infer(ctx),
-            Operand::Expression(expr) => expr.infer(ctx),
-        }
+            OperandKind::ClassInstance(ci) => ci.infer(ctx),
+            OperandKind::Array(arr) => arr.infer(ctx),
+            OperandKind::Expression(expr) => expr.infer(ctx),
+        };
+
+        self.t = t.unwrap();
+
+        Ok(self.t.clone())
     }
 }
 

@@ -238,12 +238,9 @@ impl Parser {
     }
 
     fn class(&mut self) -> Result<Class, Error> {
-        println!("CLASS {:?}", self.cur_tok);
         let tok_name = expect!(TokenType::Type(self.cur_tok.txt.clone()), self);
 
         self.save();
-
-        println!("CLASS2 {:?}", self.cur_tok);
 
         expect!(TokenType::EOL, self);
 
@@ -274,8 +271,6 @@ impl Parser {
 
                 if let Ok(f) = self.function_decl() {
                     let mut f = f;
-
-                    println!("IS FUNCTION>!>!>");
 
                     f.name = tok_name.txt.clone() + "_" + &f.name;
 
@@ -308,7 +303,6 @@ impl Parser {
                             None
                         };
 
-                        println!("CLASS3 {:?}", ret.clone());
                         attributes.push(Attribute {
                             name: id,
                             t: ret,
@@ -604,8 +598,6 @@ impl Parser {
             error!("Expected statement".to_string(), self);
         };
 
-        println!("STMT {:?}", kind);
-
         Ok(Statement {
             kind,
             t: None,
@@ -735,8 +727,6 @@ impl Parser {
 
         expect_or_restore!(TokenType::Equal, self);
 
-        println!("HERE {:?}", t);
-
         let stmt = try_or_restore!(self.statement(), self);
 
         self.save_pop();
@@ -848,37 +838,30 @@ impl Parser {
     }
 
     fn operand(&mut self) -> Result<Operand, Error> {
-        if let Ok(lit) = self.literal() {
-            return Ok(Operand::Literal(lit));
-        }
+        let kind = if let Ok(lit) = self.literal() {
+            OperandKind::Literal(lit)
+        } else if let Ok(ident) = self.identifier() {
+            OperandKind::Identifier(ident)
+        } else if let Ok(c) = self.class_instance() {
+            OperandKind::ClassInstance(c)
+        } else if let Ok(array) = self.array() {
+            OperandKind::Array(array)
+        } else if let Ok(expr) = self.parens_expr() {
+            OperandKind::Expression(Box::new(expr))
+        } else {
+            error!("Expected operand".to_string(), self);
+        };
 
-        if let Ok(ident) = self.identifier() {
-            return Ok(Operand::Identifier(ident));
-        }
-
-        if let Ok(c) = self.class_instance() {
-            return Ok(Operand::ClassInstance(c));
-        }
-
-        if let Ok(array) = self.array() {
-            return Ok(Operand::Array(array));
-        }
-
-        if let Ok(expr) = self.parens_expr() {
-            return Ok(Operand::Expression(Box::new(expr)));
-        }
-
-        error!("Expected operand".to_string(), self);
+        return Ok(Operand {
+            kind,
+            t: None,
+        })
     }
 
     fn class_instance(&mut self) -> Result<ClassInstance, Error> {
         self.save();
 
-        println!("CLASS_INSTANCE 1");
-
-
         let name = try_or_restore!(self.type_(), self).get_name();
-        println!("CLASS_INSTANCE 2 {:?}", name);
 
         let mut attributes = HashMap::new();
 
@@ -895,19 +878,12 @@ impl Parser {
             });
         }
 
-        println!("CLASS_INSTANCE 3 {:?}", name);
-
-
         expect_or_restore!(TokenType::EOL, self);
-
-        println!("CLASS_INSTANCE 4 {:?}", name);
-
 
         self.block_indent += 1;
 
         let mut is_first = true;
 
-        println!("CLASS_INSTANCE 1 {:?}", name);
         loop {
             self.save();
 
@@ -934,7 +910,6 @@ impl Parser {
             }
 
             if let TokenType::Identifier(id) = self.cur_tok.t.clone() {
-                println!("CLASS_INSTANCE 2 {:?}", id);
                 self.consume();
 
                 expect!(TokenType::SemiColon, self);
@@ -969,8 +944,6 @@ impl Parser {
         self.save_pop();
 
         self.block_indent -= 1;
-
-        println!("Parser: name {}", name);
 
         Ok(ClassInstance {
             attributes,

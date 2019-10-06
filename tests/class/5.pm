@@ -6,4 +6,4 @@ class Foo
 main ->
     a = Foo
         bar: 10
-    42
+    a.f()

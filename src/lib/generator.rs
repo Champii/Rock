@@ -229,7 +229,7 @@ impl Generate for PrimaryExpr {
         match self {
             PrimaryExpr::PrimaryExpr(ref mut operand, vec) => {
                 let mut s = String::new();
-                let mut res = if let Operand::Identifier(ref mut id) = operand {
+                let mut res = if let OperandKind::Identifier(ref mut id) = &mut operand.kind {
                     id
                 } else {
                     &mut s
