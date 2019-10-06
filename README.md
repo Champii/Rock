@@ -11,13 +11,6 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 - Parametric Polymorphism
 - Compile to LLVM IR
 
-## Usage
-
-```
-#> cargo build
-#> ./target/debug/rock run
-```
-
 ## Example
 
 ```coffee
@@ -38,6 +31,91 @@ main ->
         bar: 10
 
     a.f()
+```
+
+## Usage
+
+### General commands
+
+```
+#> cargo build
+#> ./target/debug/rock -h
+rock 0.0.1
+Champii <contact@champii.io>
+Simple toy language
+
+USAGE:
+    rock [SUBCOMMAND]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+SUBCOMMANDS:
+    build      Build the current project directory
+    compile    Compile given files
+    help       Prints this message or the help of the given subcommand(s)
+    run        Run the current project directory
+```
+
+### Compile
+
+Compile each given files individualy, does not link them afterward.
+
+```
+#> ./target/debug/rock -h
+rock-compile 0.0.1
+Champii <contact@champii.io>
+Compile given files
+
+USAGE:
+    rock compile [FLAGS] [files]...
+
+FLAGS:
+    -a               Show ast
+    -h, --help       Prints help information
+    -i               Show the generated IR
+    -V, --version    Prints version information
+
+ARGS:
+    <files>...    Files to compile
+```
+
+### Build (TODO)
+
+Treat the current working directory as a project, and will descend recursively into it to compile each ".rk" file it encounters.
+It will then link them together.
+
+```
+#> ./target/debug/rock -h
+rock-build 0.0.1
+Champii <contact@champii.io>
+Build the current project directory
+
+USAGE:
+    rock build
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+```
+
+### Run (TODO)
+
+Same as 'build' but it runs the created binary afterwards.
+
+```
+#> ./target/debug/rock -h
+rock-run 0.0.1
+Champii <contact@champii.io>
+Run the current project directory
+
+USAGE:
+    rock run
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
 ```
 
 ## TODO (by order):
