@@ -2,6 +2,7 @@
 
 extern crate llvm_sys as llvm;
 
+use regex::Regex;
 use std::fs;
 
 mod ast;
@@ -32,8 +33,19 @@ pub fn parse_file(in_name: String) -> Result<Builder, Error> {
     parse_str(file)
 }
 
+pub fn preprocess(input: String) -> String {
+    // Add a '.' after a '@' if it is followed by some word
+    let re = Regex::new(r"@(\w)").unwrap();
+
+    let out = re.replace_all(&input, "@.$1");
+
+    out.to_string()
+}
+
 pub fn parse_str(input: String) -> Result<Builder, Error> {
-    let lexer = Lexer::new(input.chars().collect());
+    let preprocessed = preprocess(input.clone());
+
+    let lexer = Lexer::new(preprocessed.chars().collect());
 
     let ast = Parser::new(lexer).run()?;
 

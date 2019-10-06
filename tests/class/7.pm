@@ -1,7 +1,7 @@
 class Foo
     bar :: Int
-    def: 30
-    f a -> @bar + @def + a
+    def: 32
+    f -> @bar + @def
 
 class Bar
     foo :: Foo
@@ -13,4 +13,4 @@ main ->
     b = Bar
         foo: a
 
-    b.foo.f 2
+    b.foo.f()

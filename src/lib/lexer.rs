@@ -180,6 +180,10 @@ impl Lexer {
             return t;
         }
 
+        if let Some(t) = self.try_this() {
+            return t;
+        }
+
         if let Some(t) = self.try_string() {
             return t;
         }
@@ -721,6 +725,24 @@ impl Lexer {
                 start: self.cur_idx,
                 end: self.cur_idx,
                 txt: "=".to_string(),
+            });
+
+            self.forward();
+
+            return res;
+        }
+
+        None
+    }
+
+    fn try_this(&mut self) -> Option<Token> {
+        if self.last_char == '@' {
+            let res = Some(Token {
+                t: TokenType::Identifier("this".to_string()),
+                line: self.cur_line,
+                start: self.cur_idx,
+                end: self.cur_idx,
+                txt: "this".to_string(),
             });
 
             self.forward();

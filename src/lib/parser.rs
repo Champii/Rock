@@ -793,12 +793,12 @@ impl Parser {
             return Ok(SecondaryExpr::Index(idx));
         }
 
-        if let Ok(args) = self.arguments() {
-            return Ok(SecondaryExpr::Arguments(args));
-        }
-
         if let Ok(sel) = self.selector() {
             return Ok(SecondaryExpr::Selector(sel));
+        }
+
+        if let Ok(args) = self.arguments() {
+            return Ok(SecondaryExpr::Arguments(args));
         }
 
         error!("Expected secondary".to_string(), self);
