@@ -1,4 +1,4 @@
-# rock 0.0.1
+# Rock 0.0.1
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with safeness, no GC but a Borrow Checker instead, and of course native performances thanks to LLVM.  
