@@ -623,32 +623,40 @@ impl IrBuilder for Expression {
 impl IrBuilder for Assignation {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         unsafe {
-            let ptr = if let Some(val) = context.scopes.get(self.name.clone()) {
-                val
-            } else {
-                if let Some(t) = &self.t {
-                    if let Some(_) = context.classes.get(&t.get_name()) {
-                        let val = self.value.build(context).unwrap();
+            let ptr = if !self.name.has_secondaries() {
+                let name = self.name.get_identifier().unwrap();
 
-                        context.scopes.add(self.name.clone(), val);
+                if let Some(val) = context.scopes.get(name.clone()) {
+                    val
+                } else {
+                    if let Some(t) = &self.t {
+                        if let Some(_) = context.classes.get(&t.get_name()) {
+                            let val = self.value.build(context).unwrap();
 
-                        return Some(val);
+                            context.scopes.add(name.clone(), val);
+
+                            return Some(val);
+                        }
                     }
+
+                    let mut alloc_name = "alloc_".to_string() + &name.clone();
+
+                    alloc_name.push('\0');
+
+                    let alloc = LLVMBuildAlloca(
+                        context.builder,
+                        get_type(Box::new(self.t.clone().unwrap()), context),
+                        alloc_name.as_ptr() as *const _,
+                    );
+
+                    context.scopes.add(name.clone(), alloc);
+
+                    alloc
                 }
+            } else {
+                let ptr = self.name.build_no_load(context).unwrap();
 
-                let mut alloc_name = "alloc_".to_string() + &self.name.clone();
-
-                alloc_name.push('\0');
-
-                let alloc = LLVMBuildAlloca(
-                    context.builder,
-                    get_type(Box::new(self.t.clone().unwrap()), context),
-                    alloc_name.as_ptr() as *const _,
-                );
-
-                context.scopes.add(self.name.clone(), alloc);
-
-                alloc
+                ptr
             };
 
             let val = self.value.build(context).unwrap();
@@ -669,8 +677,8 @@ impl IrBuilder for UnaryExpr {
     }
 }
 
-impl IrBuilder for PrimaryExpr {
-    fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+impl PrimaryExpr {
+    fn build_no_load(&self, context: &mut Context) -> Option<*mut LLVMValue> {
         match self {
             PrimaryExpr::PrimaryExpr(operand, vec) => {
                 let mut op = operand.build(context);
@@ -698,7 +706,7 @@ impl IrBuilder for PrimaryExpr {
                             };
                         }
                     }
-                    
+
                     op = second.build_with(context, op.clone().unwrap());
 
                     last = second.clone();
@@ -706,16 +714,32 @@ impl IrBuilder for PrimaryExpr {
                     is_first = false;
                 }
 
+                op
+            }
+        }
+    }
+}
+
+impl IrBuilder for PrimaryExpr {
+    fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
+        let res = self.build_no_load(context);
+
+        match self {
+            PrimaryExpr::PrimaryExpr(_, vec) => {
+                if vec.len() == 0 {
+                    return res;
+                }
+
                 let last_second = vec.last().unwrap();
 
                 if let SecondaryExpr::Arguments(_) = last_second {
-                    return op;
+                    return res;
                 }
 
                 unsafe {
                     let op = LLVMBuildLoad(
                         context.builder,
-                        op.clone().unwrap(),
+                        res.clone().unwrap(),
                         b"\0".as_ptr() as *const _,
                     );
 
@@ -775,6 +799,10 @@ impl SecondaryExpr {
                     return Some(f);
                 }
 
+                println!("HERE");
+
+                LLVMDumpModule(context.module);
+
                 let ptr_elem = LLVMBuildGEP(
                     context.builder,
                     op,
@@ -782,6 +810,7 @@ impl SecondaryExpr {
                     2,
                     b"\0".as_ptr() as *const _,
                 );
+                println!("HERE2");
 
                 Some(ptr_elem)
             },

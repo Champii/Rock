@@ -218,7 +218,7 @@ pub struct While {
 
 #[derive(Debug, Clone)]
 pub struct Assignation {
-    pub name: String,
+    pub name: PrimaryExpr,
     pub t: Option<Type>,
     pub value: Box<Statement>,
 }
@@ -306,6 +306,26 @@ impl UnaryExpr {
 #[derive(Debug, Clone)]
 pub enum PrimaryExpr {
     PrimaryExpr(Operand, Vec<SecondaryExpr>),
+}
+
+impl PrimaryExpr {
+    pub fn has_secondaries(&self) -> bool {
+        match self {
+            PrimaryExpr::PrimaryExpr(_, vec) => vec.len() > 0,
+        }
+    }
+
+    pub fn get_identifier(&self) -> Option<String> {
+        match self {
+            PrimaryExpr::PrimaryExpr(op, _) => 
+                if let OperandKind::Identifier(ident) = &op.kind {
+                    Some(ident.clone())
+                } else {
+                    None
+                }
+        }
+    }
+
 }
 
 #[derive(Debug, Clone, Default)]

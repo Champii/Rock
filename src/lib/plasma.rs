@@ -36,7 +36,6 @@ pub fn parse_file(in_name: String) -> Result<Builder, Error> {
 pub fn preprocess(input: String) -> String {
     // Add a '.' after a '@' if it is followed by some word
     let re = Regex::new(r"@(\w)").unwrap();
-
     let out = re.replace_all(&input, "@.$1");
 
     out.to_string()
@@ -49,13 +48,13 @@ pub fn parse_str(input: String) -> Result<Builder, Error> {
 
     let ast = Parser::new(lexer).run()?;
 
+    println!("AST {:#?}", ast);
     let mut tc = TypeChecker::new(ast);
 
     let ast = tc.infer();
 
     let ast = Generator::new(ast, tc.ctx).generate();
 
-    println!("AST {:#?}", ast);
 
     let mut builder = Builder::new("STDIN\0", ast);
 

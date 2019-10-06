@@ -163,6 +163,8 @@ impl TypeInferer for ArgumentDecl {
         ctx.scopes
             .add(self.name.clone(), self.t.clone());
 
+        println!("ARGUMENT DECL {} {:?}", self.name, self.t);
+
         Ok(self.t.clone())
     }
 }
@@ -253,19 +255,31 @@ impl TypeInferer for Expression {
 
 impl TypeInferer for Assignation {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        // if
-        let res = ctx.scopes.get(self.name.clone());
+        // simple identifier
+        if !self.name.has_secondaries() {
+            let name = self.name.get_identifier().unwrap();
+            let res = ctx.scopes.get(name.clone());
 
-        if let Some(t) = res {
-            self.t = t.clone();
+            if let Some(t) = res {
+                self.t = t.clone();
 
-            Ok(t)
+                Ok(t)
+            } else {
+                let t = self.value.infer(ctx)?;
+
+                self.t = t.clone();
+
+                ctx.scopes.add(name.clone(), t.clone());
+
+                Ok(t)
+            }
         } else {
+            println!("BEFORE INFER {:#?}", ctx.scopes);
+            self.name.infer(ctx)?;
+
             let t = self.value.infer(ctx)?;
 
             self.t = t.clone();
-
-            ctx.scopes.add(self.name.clone(), t.clone());
 
             Ok(t)
         }
@@ -422,6 +436,7 @@ impl TypeInferer for Operand {
         let t = match &mut self.kind {
             OperandKind::Literal(lit) => lit.infer(ctx),
             OperandKind::Identifier(ident) => {
+                println!("IDENTIFIER {} {:#?}", ident, ctx.scopes);
                 let res = ctx.scopes.get(ident.clone()).unwrap();
 
                 if let None = res {

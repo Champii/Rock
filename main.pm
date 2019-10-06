@@ -5,7 +5,7 @@ class Foo
 class Bar
     foo :: Foo
     val :: Int
-    f -> @foo.bar + @val
+    f b -> b = 42
 
 main ->
     a = Foo
@@ -15,4 +15,4 @@ main ->
         foo: a
         val: 8
 
-    b.f()
+    b.foo.def = 46

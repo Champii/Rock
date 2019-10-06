@@ -711,7 +711,7 @@ impl Parser {
     fn assignation(&mut self) -> Result<Assignation, Error> {
         self.save();
 
-        let name = try_or_restore!(self.identifier(), self);
+        let name = try_or_restore!(self.primary_expr(), self);
 
         let t = if self.cur_tok.t == TokenType::SemiColon {
             self.consume();
