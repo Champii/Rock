@@ -32,54 +32,54 @@ impl Context {
             classes: HashMap::new(),
             calls: HashMap::new(),
             scopes: Scopes::new(),
-            cur_type: TypeInfer::Type(None),
+            cur_type: None,
         }
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum TypeInfer {
-    Proto(Prototype),
-    FuncType(FunctionDecl),
-    Type(Option<Type>),
-}
+// #[derive(Clone, Debug)]
+// pub enum TypeInfer {
+//     Proto(Prototype),
+//     FuncType(FunctionDecl),
+//     Type(Option<Type>),
+// }
 
-impl PartialEq for TypeInfer {
-    fn eq(&self, other: &TypeInfer) -> bool {
-        self.get_ret() == other.get_ret()
-    }
-}
+// impl PartialEq for TypeInfer {
+//     fn eq(&self, other: &TypeInfer) -> bool {
+//         self.get_ret() == other.get_ret()
+//     }
+// }
 
-impl TypeInfer {
-    pub fn get_ret(&self) -> Option<Type> {
-        match self.clone() {
-            TypeInfer::Proto(proto) => Some(proto.ret),
-            TypeInfer::FuncType(f) => f.ret,
-            TypeInfer::Type(t) => t,
-        }
-    }
+// impl TypeInfer {
+//     pub fn get_ret(&self) -> Option<Type> {
+//         match self.clone() {
+//             TypeInfer::Proto(proto) => Some(proto.ret),
+//             TypeInfer::FuncType(f) => f.ret,
+//             TypeInfer::Type(t) => t,
+//         }
+//     }
 
-    pub fn get_type_exn(&self) -> Type {
-        match self {
-            TypeInfer::Type(t) => t.clone().unwrap(),
-            _ => panic!("TypeInfer: Is not a type"),
-        }
-    }
+//     pub fn get_type_exn(&self) -> Type {
+//         match self {
+//             TypeInfer::Type(t) => t.clone().unwrap(),
+//             _ => panic!("TypeInfer: Is not a type"),
+//         }
+//     }
 
-    pub fn get_type(&self) -> Option<Type> {
-        match self {
-            TypeInfer::Type(t) => t.clone(),
-            _ => panic!("TypeInfer: Is not a type"),
-        }
-    }
+//     pub fn get_type(&self) -> Option<Type> {
+//         match self {
+//             TypeInfer::Type(t) => t.clone(),
+//             _ => panic!("TypeInfer: Is not a type"),
+//         }
+//     }
 
-    pub fn get_fn_type(&self) -> Option<FunctionDecl> {
-        match self {
-            TypeInfer::FuncType(f) => Some(f.clone()),
-            _ => None,
-        }
-    }
-}
+//     pub fn get_fn_type(&self) -> Option<FunctionDecl> {
+//         match self {
+//             TypeInfer::FuncType(f) => Some(f.clone()),
+//             _ => None,
+//         }
+//     }
+// }
 
 #[derive(Clone, Debug)]
 pub struct FuncType {

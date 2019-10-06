@@ -14,7 +14,7 @@ impl Generator {
     }
 
     fn insert_toplevel_at(&mut self, i: usize, f: FunctionDecl) {
-        self.ctx.scopes.add(f.name.clone(), TypeInfer::FuncType(f.clone()));
+        self.ctx.scopes.add(f.name.clone(), Some(Type::FuncType(Box::new(f.clone()))));
 
         let i = if i > self.ast.top_levels.len() { 
             self.ast.top_levels.len()
@@ -33,7 +33,7 @@ impl Generator {
 
 
         for func in items {
-            if let TypeInfer::FuncType(ref mut f) = func {
+            if let Some(Type::FuncType(ref mut f)) = func {
                 self.ast.top_levels = self
                     .ast
                     .top_levels
@@ -51,7 +51,7 @@ impl Generator {
                 if f.name == "main" {
                     f.infer(&mut self.ctx).unwrap();
 
-                    self.insert_toplevel_at(i, f.clone());
+                    self.insert_toplevel_at(i, *f.clone());
 
                     continue;
                 }
@@ -67,7 +67,7 @@ impl Generator {
                             new_f.infer(&mut self.ctx).unwrap();
                             new_f.apply_name(call.clone());
 
-                            self.insert_toplevel_at(i, new_f.clone());
+                            self.insert_toplevel_at(i, *new_f.clone());
                         } 
                     }
 
@@ -76,7 +76,7 @@ impl Generator {
                     f.infer(&mut self.ctx).unwrap();
                     f.apply_name_self();
 
-                    self.insert_toplevel_at(i, f.clone());
+                    self.insert_toplevel_at(i, *f.clone());
                 }
             }
             i += 1;
@@ -157,11 +157,11 @@ impl Generate for Body {
 
 impl Generate for Statement {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match self {
-            Statement::If(if_) => if_.generate(ctx),
-            Statement::For(for_) => for_.generate(ctx),
-            Statement::Expression(expr) => expr.generate(ctx),
-            Statement::Assignation(assign) => assign.generate(ctx),
+        match &mut self.kind {
+            StatementKind::If(if_) => if_.generate(ctx),
+            StatementKind::For(for_) => for_.generate(ctx),
+            StatementKind::Expression(expr) => expr.generate(ctx),
+            StatementKind::Assignation(assign) => assign.generate(ctx),
         }
     }
 }
@@ -241,7 +241,7 @@ impl Generate for PrimaryExpr {
                 for second in vec {
                     match second {
                         SecondaryExpr::Selector(sel) => {
-                            last_method = sel.class_name.clone();
+                            last_method = sel.class_type.clone();
 
                             if sel.full_name != sel.name {
                                 already_mangled = true;
@@ -267,7 +267,7 @@ impl Generate for PrimaryExpr {
                                 
                                     arg.generate(&mut ctx_save)?;
 
-                                    name = name.to_owned() + &t.get_ret().unwrap().get_name();
+                                    name = name.to_owned() + &t.unwrap().get_name();
                                 }
 
                                 *ctx = ctx_save;

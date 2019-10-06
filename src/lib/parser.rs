@@ -156,9 +156,12 @@ impl Parser {
 
             self.save_pop();
 
-            Ok(Type::Array(Box::new(t), 0))
+            Ok(Type::Primitive(PrimitiveType::Array(Box::new(t), 0)))
+        } else if let Some(t) = PrimitiveType::from_name(&self.cur_tok.txt) {
+            self.consume();
+            Ok(Type::Primitive(t))
         } else {
-            Ok(Type::Name(
+            Ok(Type::Class(
                 expect!(TokenType::Type(self.cur_tok.txt.clone()), self).txt,
             ))
         }
@@ -224,7 +227,7 @@ impl Parser {
                 self
             )
         } else {
-            Type::Name("Void".to_string())
+            Type::Primitive(PrimitiveType::Void)
         };
 
         return Ok(Prototype {
@@ -235,9 +238,12 @@ impl Parser {
     }
 
     fn class(&mut self) -> Result<Class, Error> {
+        println!("CLASS {:?}", self.cur_tok);
         let tok_name = expect!(TokenType::Type(self.cur_tok.txt.clone()), self);
 
         self.save();
+
+        println!("CLASS2 {:?}", self.cur_tok);
 
         expect!(TokenType::EOL, self);
 
@@ -268,6 +274,8 @@ impl Parser {
 
                 if let Ok(f) = self.function_decl() {
                     let mut f = f;
+
+                    println!("IS FUNCTION>!>!>");
 
                     f.name = tok_name.txt.clone() + "_" + &f.name;
 
@@ -300,11 +308,13 @@ impl Parser {
                             None
                         };
 
+                        println!("CLASS3 {:?}", ret.clone());
                         attributes.push(Attribute {
                             name: id,
                             t: ret,
                             default,
                         });
+
 
                         expect!(TokenType::EOL, self);
 
@@ -581,17 +591,25 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Statement, Error> {
-        if let Ok(if_) = self.if_() {
-            Ok(Statement::If(if_))
+
+        let kind = if let Ok(if_) = self.if_() {
+            StatementKind::If(if_)
         } else if let Ok(for_) = self.for_() {
-            Ok(Statement::For(for_))
+            StatementKind::For(for_)
         } else if let Ok(assign) = self.assignation() {
-            Ok(Statement::Assignation(assign))
+            StatementKind::Assignation(assign)
         } else if let Ok(expr) = self.expression() {
-            Ok(Statement::Expression(expr))
+            StatementKind::Expression(expr)
         } else {
             error!("Expected statement".to_string(), self);
-        }
+        };
+
+        println!("STMT {:?}", kind);
+
+        Ok(Statement {
+            kind,
+            t: None,
+        })
     }
 
     fn if_(&mut self) -> Result<If, Error> {
@@ -717,6 +735,8 @@ impl Parser {
 
         expect_or_restore!(TokenType::Equal, self);
 
+        println!("HERE {:?}", t);
+
         let stmt = try_or_restore!(self.statement(), self);
 
         self.save_pop();
@@ -763,14 +783,14 @@ impl Parser {
 
         let mut secondarys = vec![];
 
-        if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone()) {
+        if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone()) || self.cur_tok.t == TokenType::Equal {
             return Ok(PrimaryExpr::PrimaryExpr(operand, secondarys));
         }
 
         while let Ok(second) = self.secondary_expr() {
             secondarys.push(second);
 
-            if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone()) {
+            if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone()) || self.cur_tok.t == TokenType::Equal {
                 break;
             }
         }
@@ -806,7 +826,7 @@ impl Parser {
         let sel = Selector {
             name: expr.clone(),
             class_offset: 0,
-            class_name: None,
+            class_type: None,
             full_name: expr,
         };
 
@@ -854,7 +874,11 @@ impl Parser {
     fn class_instance(&mut self) -> Result<ClassInstance, Error> {
         self.save();
 
+        println!("CLASS_INSTANCE 1");
+
+
         let name = try_or_restore!(self.type_(), self).get_name();
+        println!("CLASS_INSTANCE 2 {:?}", name);
 
         let mut attributes = HashMap::new();
 
@@ -871,12 +895,19 @@ impl Parser {
             });
         }
 
+        println!("CLASS_INSTANCE 3 {:?}", name);
+
+
         expect_or_restore!(TokenType::EOL, self);
+
+        println!("CLASS_INSTANCE 4 {:?}", name);
+
 
         self.block_indent += 1;
 
         let mut is_first = true;
 
+        println!("CLASS_INSTANCE 1 {:?}", name);
         loop {
             self.save();
 
@@ -903,6 +934,7 @@ impl Parser {
             }
 
             if let TokenType::Identifier(id) = self.cur_tok.t.clone() {
+                println!("CLASS_INSTANCE 2 {:?}", id);
                 self.consume();
 
                 expect!(TokenType::SemiColon, self);
@@ -937,6 +969,8 @@ impl Parser {
         self.save_pop();
 
         self.block_indent -= 1;
+
+        println!("Parser: name {}", name);
 
         Ok(ClassInstance {
             attributes,

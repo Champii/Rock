@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::context::*;
+use super::ast::TypeInfer;
 use super::token::{Token, TokenType};
 
 pub enum Error {

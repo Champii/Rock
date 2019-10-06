@@ -28,18 +28,23 @@ pub struct Context {
 pub fn get_type(t: Box<Type>, context: &mut Context) -> *mut LLVMType {
     unsafe {
         match t.as_ref() {
-            Type::Name(t) => match t.as_ref() {
-                "Void" => LLVMVoidType(),
-                "Bool" => LLVMInt1Type(),
-                "Int8" => LLVMInt8Type(),
-                "Int16" => LLVMInt16Type(),
-                "Int" | "Int32" => LLVMInt32Type(),
-                "Int64" => LLVMInt64Type(),
-                "String" => LLVMPointerType(LLVMInt8Type(), 0),
-                _ => LLVMPointerType(context.classes.get(t).unwrap().clone().0, 0),
+            Type::Primitive(p) => match p {
+                PrimitiveType::Void => LLVMVoidType(),
+                PrimitiveType::Bool => LLVMInt1Type(),
+                PrimitiveType::Int8 => LLVMInt8Type(),
+                PrimitiveType::Int16 => LLVMInt16Type(),
+                PrimitiveType::Int | PrimitiveType::Int32 => LLVMInt32Type(),
+                PrimitiveType::Int64 => LLVMInt64Type(),
+                PrimitiveType::String(_) => LLVMPointerType(LLVMInt8Type(), 0),
+                PrimitiveType::Array(t, _) => LLVMPointerType(get_type(t.clone(), context), 0),
+                // _ => LLVMPointerType(context.classes.get(t).unwrap().clone().0, 0),
                 // _ => context.classes.get(t).unwrap().clone().0,
             },
-            Type::Array(t, _) => LLVMPointerType(get_type(t.clone(), context), 0),
+            Type::Class(c) => LLVMPointerType(context.classes.get(c).unwrap().clone().0, 0),
+            Type::Proto(_) => panic!("Codegen: Type::Proto not implemented"),
+            Type::FuncType(_) => panic!("Codegen: Type::FuncType not implemented"),
+            Type::ForAll(_) => panic!("Codegen: Type::ForAll not implemented"),
+            Type::Undefined(name) => panic!("Codegen: Type::Undefined({}) detected !", name),
         }
     }
 }
@@ -345,11 +350,10 @@ impl IrBuilder for FunctionDecl {
             let res = self.body.build(context);
 
             match &self.ret {
-                Some(Type::Name(t)) => {
-                    if *t == "Void".to_string() {
-                        llvm::core::LLVMBuildRetVoid(context.builder)
-                    } else {
-                        llvm::core::LLVMBuildRet(context.builder, res.unwrap())
+                Some(Type::Primitive(p)) => {
+                    match p {
+                        PrimitiveType::Void => llvm::core::LLVMBuildRetVoid(context.builder),
+                        _ =>llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
                     }
                 }
                 _ => llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
@@ -384,11 +388,11 @@ impl IrBuilder for Body {
 
 impl IrBuilder for Statement {
     fn build(&self, context: &mut Context) -> Option<*mut LLVMValue> {
-        match self {
-            Statement::If(if_) => if_.build(context),
-            Statement::For(for_) => for_.build(context),
-            Statement::Expression(expr) => expr.build(context),
-            Statement::Assignation(assign) => assign.build(context),
+        match &self.kind {
+            StatementKind::If(if_) => if_.build(context),
+            StatementKind::For(for_) => for_.build(context),
+            StatementKind::Expression(expr) => expr.build(context),
+            StatementKind::Assignation(assign) => assign.build(context),
         }
     }
 }
@@ -680,8 +684,8 @@ impl IrBuilder for PrimaryExpr {
                 // HACK for class instances pointers
                 if let Operand::Identifier(ident) = operand {
                     if let SecondaryExpr::Selector(sel) = second {
-                        if let Some(Type::Name(name)) = &sel.class_name {
-                            if let Some(_) = context.classes.get(&name.clone()) {
+                        if let Some(Type::Class(c)) = &sel.class_type {
+                            if let Some(_) = context.classes.get(&c.clone()) {
                                 if let Some(ptr) = context.scopes.get(ident.clone()) {
                                     op = Some(ptr);
                                 }
@@ -859,12 +863,8 @@ impl IrBuilder for Operand {
                             let val_res = if val.is_identifier() {
                                 let ident = val.get_identifier().unwrap();
                                 let t = class_attr.0.t.clone().unwrap();
-                                if let Type::Name(name) = t {
-                                    if let Some(_) = context.classes.get(&name) {
-                                        context.scopes.get(ident).unwrap()
-                                    } else {
-                                        val.build(context).unwrap()
-                                    }
+                                if let Type::Class(_) = t {
+                                    context.scopes.get(ident).unwrap()
                                 } else {
                                     val.build(context).unwrap()
                                 }

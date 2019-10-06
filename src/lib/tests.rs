@@ -24,7 +24,7 @@ pub fn run() {
     visit_dirs(Path::new(&"./tests".to_string()), &|file| {
         println!("{:?}", file);
         let content = fs::read_to_string(file.path()).unwrap();
-        
+
         let res = super::run_str(content, "main\0".to_string()).unwrap();
 
         assert_eq!(res as u8, 42);

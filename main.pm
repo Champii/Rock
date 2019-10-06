@@ -1,13 +1,11 @@
 class Foo
     bar :: Int
-    def: 32
-    f -> 2
 
 main ->
     a = Foo
         bar: 10
-    a.f()
 
+##
 # class Tata
 #     lol :: Int
 #     f a -> a + this.lol

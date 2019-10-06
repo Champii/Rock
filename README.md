@@ -49,7 +49,7 @@ main ->
     - returnable statement
     - operator precedence
     - floats
-    - sub, mul div and mod
+    - sub, mul div and modg
     - while/for
     - structs
     - methods

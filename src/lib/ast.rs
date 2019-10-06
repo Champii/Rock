@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use super::context::*;
-
 #[derive(Debug, Clone)]
 pub struct SourceFile {
     pub top_levels: Vec<TopLevel>,
@@ -68,13 +66,11 @@ pub struct FunctionDecl {
 
 impl FunctionDecl {
     pub fn add_this_arg(&mut self) {
-        let names: Vec<&str> = self.name.split("_").collect();
-
         self.arguments.insert(
             0,
             ArgumentDecl {
                 name: "this".to_string(),
-                t: Some(Type::Name(names[0].to_string())),
+                t: Some(Type::Class(self.class_name.clone().unwrap())),
             },
         )
     }
@@ -87,7 +83,7 @@ impl FunctionDecl {
         let mut name = String::new();
 
         for ty in t {
-            name = name + &ty.get_ret().unwrap().get_name();
+            name = name + &ty.unwrap().get_name();
         }
 
         self.name = self.name.clone() + &name;
@@ -119,7 +115,7 @@ impl FunctionDecl {
                 break;
             }
 
-            arg.t = t[i].get_ret();
+            arg.t = t[i].clone();
 
             i += 1;
         }
@@ -175,11 +171,17 @@ pub struct Body {
 }
 
 #[derive(Debug, Clone)]
-pub enum Statement {
+pub enum StatementKind {
     If(If),
     For(For),
     Expression(Expression),
     Assignation(Assignation),
+}
+
+#[derive(Debug, Clone)]
+pub struct Statement {
+    pub kind: StatementKind,
+    pub t: TypeInfer,
 }
 
 #[derive(Debug, Clone)]
@@ -310,7 +312,7 @@ pub enum PrimaryExpr {
 pub struct Selector {
     pub name: String, 
     pub class_offset: u8, 
-    pub class_name: Option<Type>,
+    pub class_type: Option<Type>,
     pub full_name: String, // after generation and type infer
 }
 
@@ -383,24 +385,71 @@ pub enum Operator {
     DashEqual,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    Name(String),
+#[derive(Debug, Clone)]
+pub enum PrimitiveType {
+    Void,
+    Bool,
+    Int,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    String(usize),
     Array(Box<Type>, usize),
+}
+
+impl PrimitiveType {
+    pub fn get_name(&self) -> String {
+        match self {
+            Self::Void => "Void".to_string(),
+            Self::Bool => "Bool".to_string(),
+            Self::Int => "Int".to_string(),
+            Self::Int8 => "Int8".to_string(),
+            Self::Int16 => "Int16".to_string(),
+            Self::Int32 => "Int32".to_string(),
+            Self::Int64 => "Int64".to_string(),
+            Self::String(size) => format!("String({})", size),
+            Self::Array(t, size) => format!("[{}; {}]", t.get_name(), size),
+        }
+    }
+
+    pub fn from_name(s: &String) -> Option<PrimitiveType> {
+        match s.as_ref() {
+            "Void" => Some(Self::Void),
+            "Bool" => Some(Self::Bool),
+            "Int" => Some(Self::Int),
+            "Int8" => Some(Self::Int8),
+            "Int16" => Some(Self::Int16),
+            "Int32" => Some(Self::Int32),
+            "Int64" => Some(Self::Int64),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Type {
+    Primitive(PrimitiveType),
+    Proto(Box<Prototype>),
+    FuncType(Box<FunctionDecl>),
+    Class(String),
+    ForAll(String), // TODO
+    Undefined(String),
 }
 
 impl Type {
     pub fn get_name(&self) -> String {
         match self {
-            Type::Name(s) => s.clone(),
-            Type::Array(a, _) => "[]".to_string() + &a.get_name(),
-        }
-    }
-
-    pub fn get_inner(&self) -> Type {
-        match self {
-            r @ Type::Name(_) => r.clone(),
-            Type::Array(a, _) => a.get_inner(),
+            Self::Primitive(p) => p.get_name(),
+            Self::Proto(p) => p.name.clone().unwrap_or(String::new()),
+            Self::FuncType(f) => f.name.clone(),
+            Self::Class(c) => c.clone(),
+            Self::ForAll(_) => String::new(),
+            Self::Undefined(s) => s.clone(),
+            // Type::Name(s) => s.clone(),
+            // Type::Array(a, _) => "[]".to_string() + &a.get_name(),
         }
     }
 }
+
+pub type TypeInfer = Option<Type>;

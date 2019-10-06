@@ -1,4 +1,5 @@
-#![feature(vec_remove_item)]
+#![feature(vec_remove_item, associated_type_bounds)]
+
 extern crate llvm_sys as llvm;
 
 use std::fs;
@@ -36,13 +37,13 @@ pub fn parse_str(input: String) -> Result<Builder, Error> {
 
     let ast = Parser::new(lexer).run()?;
 
+    println!("AST {:#?}", ast);
     let mut tc = TypeChecker::new(ast);
 
     let ast = tc.infer();
 
     let ast = Generator::new(ast, tc.ctx).generate();
 
-    println!("AST {:#?}", ast);
 
     let mut builder = Builder::new("STDIN\0", ast);
 
