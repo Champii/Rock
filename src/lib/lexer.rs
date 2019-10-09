@@ -471,6 +471,7 @@ impl Lexer {
 
         None
     }
+    
     fn try_ident(&mut self) -> Option<Token> {
         let start = self.cur_idx;
 

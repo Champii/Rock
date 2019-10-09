@@ -6,15 +6,19 @@ use std::process::Command;
 
 use rock::Config;
 
-fn build(config: Config) -> bool {
-    if let Err(e) = rock::file_to_file("./main.rk".to_string(), "./main.o\0".to_string(), config) {
-        println!("{}", e);
+mod builder;
 
-        return false;
-    }
+fn build(config: Config) -> bool {
+    let mut builder = builder::Builder::new(config.clone(), ".".to_string());
+
+    builder.populate();
+
+    builder.build();
+
+    println!("  Linking...");
 
     Command::new("clang")
-        .arg("main.o")
+        .args(builder.files.values())
         .output() 
         .expect("failed to execute process");
 

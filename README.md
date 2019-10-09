@@ -63,9 +63,6 @@ SUBCOMMANDS:
 Compile each given files individualy, does not link them afterward.
 
 ```
-#> ./target/debug/rock -h
-rock-compile 0.0.1
-Champii <contact@champii.io>
 Compile given files
 
 USAGE:
@@ -87,9 +84,6 @@ Treat the current working directory as a project, and will descend recursively i
 It will then link them together.
 
 ```
-#> ./target/debug/rock -h
-rock-build 0.0.1
-Champii <contact@champii.io>
 Build the current project directory
 
 USAGE:
@@ -105,9 +99,6 @@ FLAGS:
 Same as 'build' but it runs the created binary afterwards.
 
 ```
-#> ./target/debug/rock -h
-rock-run 0.0.1
-Champii <contact@champii.io>
 Run the current project directory
 
 USAGE:

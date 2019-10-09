@@ -351,6 +351,8 @@ impl TypeInferer for PrimaryExpr {
                                     .entry(orig_name.clone())
                                     .or_insert(HashMap::new())
                                     .insert(name, res);
+                            } else if let Some(Type::Proto(_)) = &ctx.cur_type {
+
                             } else {
                                 println!("AST {:?}", self);
                                 panic!("WOUAT ?!");
@@ -479,7 +481,6 @@ impl TypeInferer for Operand {
 
 impl TypeInferer for ClassInstance {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        // TODO: check types of fields
         for class_attr in &self.class.attributes {
             if let Some(attr) = self.attributes.get(&class_attr.name) {
                 let mut attr = attr.clone();
@@ -492,6 +493,7 @@ impl TypeInferer for ClassInstance {
                 return Err(Error::new_undefined_error(self.class.name.clone() + "::" + &class_attr.name.clone()));
             }
         }
+
         Ok(ctx.scopes.get(self.name.clone()).unwrap())
     }
 }

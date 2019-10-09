@@ -29,10 +29,17 @@ pub fn run() {
     // config.show_ir = true;
     visit_dirs(Path::new(&"./tests".to_string()), &|file| {
         println!("{:?}", file);
-        let content = fs::read_to_string(file.path()).unwrap();
+        let path = file.path();
 
-        let res = super::run_str(content, "main\0".to_string(), config.clone()).unwrap();
+        if let Some(ext) = path.extension() {
+            if ext == "rk" {
+                let content = fs::read_to_string(path).unwrap();
 
-        assert_eq!(res as u8, 42);
+                let res = super::run_str(content, "main\0".to_string(), config.clone()).unwrap();
+
+                assert_eq!(res as u8, 42);
+            }   
+        }
     }).unwrap();
+
 }

@@ -264,6 +264,7 @@ impl Generate for PrimaryExpr {
 
                                 for arg in args {
                                     // let t = arg.infer(&mut ctx_save).unwrap();
+                                    // arg.t = t.clone();
                                 
                                     arg.generate(&mut ctx_save)?;
 
