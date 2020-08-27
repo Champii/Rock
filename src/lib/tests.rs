@@ -1,5 +1,5 @@
-use std::io;
 use std::fs::{self, DirEntry};
+use std::io;
 use std::path::Path;
 
 #[allow(unused)]
@@ -38,8 +38,8 @@ pub fn run() {
                 let res = super::run_str(content, "main\0".to_string(), config.clone()).unwrap();
 
                 assert_eq!(res as u8, 42);
-            }   
+            }
         }
-    }).unwrap();
-
+    })
+    .unwrap();
 }

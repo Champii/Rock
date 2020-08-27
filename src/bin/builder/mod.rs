@@ -1,7 +1,10 @@
 use std::collections::HashMap;
-use std::{fs::{self, DirEntry}, io};
-use std::path::Path;
 use std::io::Write;
+use std::path::Path;
+use std::{
+    fs::{self, DirEntry},
+    io,
+};
 
 use super::Config;
 
@@ -47,18 +50,17 @@ impl Builder {
         Ok(fs::metadata(item)?.modified()? > fs::metadata(to_test)?.modified()?)
     }
 
-
     pub fn populate(&mut self) {
-        // check for Build.toml 
+        // check for Build.toml
         // set project path accordingly
         let mut to_compile = vec![];
         let mut files = HashMap::new();
         let mut out_files = vec![];
 
-        if !Path::new("./Rock.toml").exists() {
-            panic!("No 'Rock.toml' file found.");
-        }
-        
+        // if !Path::new("./Rock.toml").exists() {
+        //     panic!("No 'Rock.toml' file found.");
+        // }
+
         Self::visit_dirs(Path::new(&self.project_path), &mut |item| {
             let path = item.path();
             let path_str = path.to_str().unwrap();
@@ -68,7 +70,7 @@ impl Builder {
             if let Some(ext) = path.extension() {
                 if ext == "rk" {
                     files.insert(path_str.to_string(), out_path.to_str().unwrap().to_string());
-                    
+
                     match Self::is_more_recent(&path.clone(), &path.with_extension("o")) {
                         Ok(true) | Err(_) => to_compile.push(path_str.to_string()),
                         _ => (),
@@ -77,7 +79,8 @@ impl Builder {
                     out_files.push(out_path.to_str().unwrap().to_string());
                 }
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         self.files = files;
         self.out_files.extend(out_files);
@@ -90,13 +93,13 @@ impl Builder {
         res += "[";
         let size = 50;
 
-        let ratio = done*size/total;
+        let ratio = done * size / total;
 
         let mut i = 0;
         while i < size {
             if i < ratio {
                 res += "=";
-            } else if i == ratio{
+            } else if i == ratio {
                 res += ">";
             } else {
                 res += " ";
@@ -106,9 +109,9 @@ impl Builder {
 
         res += "]";
 
-        res        
+        res
     }
-    
+
     fn clear_line() {
         print!("\r                                                                                                              \r");
     }
@@ -130,16 +133,21 @@ impl Builder {
 
             fs::create_dir_all(Path::new(out_file).parent().unwrap());
 
-
             let out_file = out_file.to_owned() + &"\0".to_string();
 
-            print!("    Building: {} {}/{}: {} ", Self::progress_bar(i as i32, files_len as i32), i, files_len, file.to_string());
+            print!(
+                "    Building: {} {}/{}: {} ",
+                Self::progress_bar(i as i32, files_len as i32),
+                i,
+                files_len,
+                file.to_string()
+            );
 
             io::stdout().flush().unwrap();
 
             if let Err(e) = rock::file_to_file(file.to_string(), out_file, self.config.clone()) {
                 Self::clear_line();
-    
+
                 println!("\n   Error: {}", e);
 
                 return false;
