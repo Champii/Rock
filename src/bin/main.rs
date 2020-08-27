@@ -113,7 +113,19 @@ fn main() {
                 .about("Run given files")
                 .version("0.0.1")
                 .author("Champii <contact@champii.io>")
-                .arg(Arg::with_name("files").multiple(true).help("File to run")),
+                .arg(Arg::with_name("files").multiple(true).help("Files to run"))
+                .arg(
+                    Arg::with_name("ast")
+                        .short("a")
+                        .takes_value(false)
+                        .help("Show ast"),
+                )
+                .arg(
+                    Arg::with_name("ir")
+                        .short("i")
+                        .takes_value(false)
+                        .help("Show the generated IR"),
+                ),
         )
         .subcommand(
             SubCommand::with_name("compile")
@@ -155,7 +167,8 @@ fn main() {
     }
 
     if let Some(matches) = matches.subcommand_matches("runfile") {
-        println!("matches {:#?}", matches.values_of("files"));
+        config.show_ast = matches.is_present("ast");
+        config.show_ir = matches.is_present("ir");
         config.files = matches
             .values_of("files")
             .unwrap()

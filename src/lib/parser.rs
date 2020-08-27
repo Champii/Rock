@@ -312,8 +312,6 @@ impl Parser {
                             default,
                             token,
                         });
-                        
-
 
                         expect!(TokenType::EOL, self);
 
@@ -761,7 +759,6 @@ impl Parser {
 
         let left = self.unary_expr()?;
 
-
         let mut res = Expression {
             kind: ExpressionKind::UnaryExpr(left.clone()),
             t: None,
@@ -802,14 +799,18 @@ impl Parser {
 
         let mut secondarys = vec![];
 
-        if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone()) || self.cur_tok.t == TokenType::Equal {
+        if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone())
+            || self.cur_tok.t == TokenType::Equal
+        {
             return Ok(PrimaryExpr::PrimaryExpr(operand, secondarys));
         }
 
         while let Ok(second) = self.secondary_expr() {
             secondarys.push(second);
 
-            if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone()) || self.cur_tok.t == TokenType::Equal {
+            if self.cur_tok.t == TokenType::Operator(self.cur_tok.txt.clone())
+                || self.cur_tok.t == TokenType::Equal
+            {
                 break;
             }
         }
@@ -881,10 +882,7 @@ impl Parser {
             error!("Expected operand".to_string(), self);
         };
 
-        return Ok(Operand {
-            kind,
-            t: None,
-        })
+        return Ok(Operand { kind, t: None });
     }
 
     fn class_instance(&mut self) -> Result<ClassInstance, Error> {
@@ -898,7 +896,7 @@ impl Parser {
 
         if let TokenType::OpenBrace = self.cur_tok.t {
             self.consume();
-            self.consume();// close
+            self.consume(); // close
 
             self.save_pop();
 
