@@ -1,4 +1,4 @@
-#![feature(vec_remove_item, associated_type_bounds)]
+#![feature(const_fn, associated_type_bounds)]
 
 extern crate llvm_sys as llvm;
 

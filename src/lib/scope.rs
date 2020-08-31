@@ -16,6 +16,7 @@ impl<T: Clone> Scopes<T> {
         let mut test = self.scopes.clone();
         test.reverse();
         // Here need reverse scopes
+
         for scope in test {
             if let Some(res) = scope.items.get(&s) {
                 return Some(res.clone());

@@ -73,7 +73,11 @@ impl Builder {
                 arguments: Scopes::new(),
             };
 
-            Builder { source, context, config }
+            Builder {
+                source,
+                context,
+                config,
+            }
         }
     }
 
@@ -355,12 +359,10 @@ impl IrBuilder for FunctionDecl {
             let res = self.body.build(context);
 
             match &self.ret {
-                Some(Type::Primitive(p)) => {
-                    match p {
-                        PrimitiveType::Void => llvm::core::LLVMBuildRetVoid(context.builder),
-                        _ =>llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
-                    }
-                }
+                Some(Type::Primitive(p)) => match p {
+                    PrimitiveType::Void => llvm::core::LLVMBuildRetVoid(context.builder),
+                    _ => llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
+                },
                 _ => llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
             };
 
@@ -881,8 +883,8 @@ impl IrBuilder for Operand {
                                 b"\0".as_ptr() as *const _,
                             );
 
-
                             let val_res = if val.is_identifier() {
+                                println!("VAL IDENT {:?}", val);
                                 let ident = val.get_identifier().unwrap();
                                 let t = class_attr.0.t.clone().unwrap();
                                 if let Type::Class(_) = t {
@@ -893,7 +895,6 @@ impl IrBuilder for Operand {
                             } else {
                                 val.build(context).unwrap()
                             };
-
 
                             LLVMBuildStore(context.builder, val_res, ptr_elem);
                         }

@@ -107,12 +107,16 @@ fn run() {
 }
 
 fn main() {
-    logger::init_logger(3);
-
     let matches = App::new("rock")
         .version("0.0.1")
         .author("Champii <contact@champii.io>")
         .about("Simple toy language")
+        .arg(
+            Arg::with_name("verbose")
+                .takes_value(true)
+                .short("v")
+                .help("Verbose level"),
+        )
         .subcommand(
             SubCommand::with_name("build")
                 .about("Build the current project directory")
@@ -170,6 +174,13 @@ fn main() {
         .get_matches();
 
     let mut config = rock::Config::default();
+    config.verbose = 2;
+
+    if let Some(value) = matches.value_of("verbose") {
+        config.verbose = value.parse::<u8>().unwrap();
+    }
+
+    logger::init_logger(config.verbose);
 
     if let Some(_matches) = matches.subcommand_matches("build") {
         build(config);
