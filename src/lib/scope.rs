@@ -70,7 +70,7 @@ impl<T: Clone> Scope<T> {
 
     pub fn remove(&mut self, s: String) {
         self.items.remove(&s);
-        self.ordering.remove_item(&s);
+        self.ordering = self.ordering.iter().filter(|x| **x != s).cloned().collect();
     }
 
     pub fn get_ordered(&self) -> Vec<T> {

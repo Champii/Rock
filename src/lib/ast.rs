@@ -272,7 +272,6 @@ impl Expression {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub enum UnaryExpr {
     PrimaryExpr(PrimaryExpr),
@@ -287,7 +286,7 @@ impl UnaryExpr {
                     OperandKind::Literal(_) => true,
                     _ => false,
                 },
-            }
+            },
             _ => false,
         }
     }
@@ -299,7 +298,7 @@ impl UnaryExpr {
                     OperandKind::Identifier(_) => true,
                     _ => false,
                 },
-            }
+            },
             _ => false,
         }
     }
@@ -308,20 +307,20 @@ impl UnaryExpr {
         match self {
             UnaryExpr::PrimaryExpr(p) => match p {
                 PrimaryExpr::PrimaryExpr(operand, vec) => match &operand.kind {
-                    OperandKind::Identifier(i) => 
+                    OperandKind::Identifier(i) => {
                         if vec.len() == 0 {
                             Some(i.clone())
                         } else {
                             None
                         }
+                    }
                     _ => None,
                 },
-            }
+            },
             _ => None,
         }
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub enum PrimaryExpr {
@@ -337,21 +336,21 @@ impl PrimaryExpr {
 
     pub fn get_identifier(&self) -> Option<String> {
         match self {
-            PrimaryExpr::PrimaryExpr(op, _) => 
+            PrimaryExpr::PrimaryExpr(op, _) => {
                 if let OperandKind::Identifier(ident) = &op.kind {
                     Some(ident.clone())
                 } else {
                     None
                 }
+            }
         }
     }
-
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Selector {
-    pub name: String, 
-    pub class_offset: u8, 
+    pub name: String,
+    pub class_offset: u8,
     pub class_type: Option<Type>,
     pub full_name: String, // after generation and type infer
 }
@@ -359,8 +358,8 @@ pub struct Selector {
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
     Selector(Selector), // . Identifier  // u8 is the attribute index in struct // option<Type> is the class type if needed // RealFullName
-    Arguments(Vec<Argument>),             // (Expr, Expr, ...)
-    Index(Box<Expression>),               // [Expr]
+    Arguments(Vec<Argument>), // (Expr, Expr, ...)
+    Index(Box<Expression>), // [Expr]
 }
 
 #[derive(Debug, Clone)]
@@ -484,6 +483,12 @@ pub enum Type {
     Undefined(String),
 }
 
+impl PartialEq for Type {
+    fn eq(&self, other: &Type) -> bool {
+        self.get_name() == other.get_name()
+    }
+}
+
 impl Type {
     pub fn get_name(&self) -> String {
         match self {
@@ -504,6 +509,5 @@ impl fmt::Display for Type {
         write!(f, "{}", self.get_name())
     }
 }
-
 
 pub type TypeInfer = Option<Type>;

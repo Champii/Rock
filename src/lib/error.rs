@@ -14,15 +14,30 @@ impl Error {
         Error { input, token, msg }
     }
 
-    pub fn new_type_error(input: Vec<char>, token: Token, expected: TypeInfer, found: TypeInfer) -> Error {
-        let msg = format!("Expected '{}' but found '{}'", expected.unwrap(), found.unwrap());
+    pub fn new_type_error(
+        input: Vec<char>,
+        token: Token,
+        expected: TypeInfer,
+        found: TypeInfer,
+    ) -> Error {
+        let msg = format!("Expected '{:?}' but found '{:?}'", expected, found);
 
-        Error {input, token, msg}
+        Error { input, token, msg }
     }
 
-    pub fn new_undefined_error(name: String) -> Error {
+    pub fn new_undefined_type(input: Vec<char>, t: String) -> Error {
+        let mut e = Self::new_empty();
+
+        e.msg = format!("'{}' type is not defined", t);
+        e.input = input;
+
+        e
+    }
+
+    pub fn new_undefined_error(input: Vec<char>, name: String) -> Error {
         let mut te = Self::new_empty();
 
+        te.input = input;
         te.msg = format!("'{}' is undefined", name);
 
         te

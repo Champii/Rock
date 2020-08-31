@@ -23,13 +23,14 @@ impl TypeChecker {
     }
 }
 
-
 pub trait TypeInferer {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error>;
 }
 
 impl TypeInferer for SourceFile {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("SourceFile");
+
         let mut last = Err(Error::new_empty());
 
         let mut top_level_methods = vec![];
@@ -41,7 +42,7 @@ impl TypeInferer for SourceFile {
                     for method in &class.methods {
                         top_level_methods.push(method.clone());
                     }
-                },
+                }
                 _ => (),
             }
         }
@@ -56,6 +57,8 @@ impl TypeInferer for SourceFile {
 
 impl TypeInferer for TopLevel {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("TopLevel");
+
         match self {
             TopLevel::Class(class) => class.infer(ctx),
             TopLevel::Function(fun) => fun.infer(ctx),
@@ -67,8 +70,12 @@ impl TypeInferer for TopLevel {
 
 impl TypeInferer for Class {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Class ({:?})", self.token);
+
         // let t = TypeInfer::Type(Some(Type::Name(self.name.clone())));
         let t = Some(Type::Class(self.name.clone()));
+
+        debug!("Creating type {:?} for class {}", t, self.name);
 
         ctx.scopes.add(self.name.clone(), t.clone());
 
@@ -90,8 +97,12 @@ impl TypeInferer for Class {
 
 impl TypeInferer for Attribute {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Attribute ({:?})", self.token);
+
         if let Some(mut default) = self.default.clone() {
             let t = default.infer(ctx)?;
+
+            debug!("Infered default type {:?} for attr {}", t, self.name);
 
             if let Some(t2) = self.t.clone() {
                 if t2.get_name() != t.clone().unwrap().get_name() {
@@ -103,6 +114,11 @@ impl TypeInferer for Attribute {
 
             Ok(t)
         } else if let Some(_) = self.t.clone() {
+            debug!(
+                "Already manualy defined type {:?} for attr {}",
+                self.t, self.name
+            );
+
             Ok(self.t.clone())
         } else {
             Err(Error::new_empty())
@@ -112,11 +128,15 @@ impl TypeInferer for Attribute {
 
 impl TypeInferer for Prototype {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Prototype");
+
         ctx.externs
             .insert(self.name.clone().unwrap(), self.name.clone().unwrap());
 
-        ctx.scopes
-            .add(self.name.clone().unwrap(), Some(Type::Proto(Box::new(self.clone()))));
+        ctx.scopes.add(
+            self.name.clone().unwrap(),
+            Some(Type::Proto(Box::new(self.clone()))),
+        );
 
         Ok(Some(Type::Primitive(PrimitiveType::Void)))
     }
@@ -124,6 +144,7 @@ impl TypeInferer for Prototype {
 
 impl TypeInferer for FunctionDecl {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("FunctionDecl ({:?})", self.token);
 
         ctx.scopes.push();
 
@@ -134,18 +155,34 @@ impl TypeInferer for FunctionDecl {
 
             arg.t = t.clone();
 
+            debug!("Infered type {:?} for argument {}", t, arg.name);
+
             types.push(arg.t.clone());
         }
 
         let last = self.body.infer(ctx)?;
 
+        debug!("Infered type {:?} for return of func {}", last, self.name);
+
         if self.ret.is_none() {
             self.ret = last.clone();
+        } else if self.ret != last {
+            warn!(
+                "Ignoring the return override ({:?} by {:?}) of func {}",
+                self.ret, last, self.name
+            )
         }
 
         let mut i = 0;
 
         for arg in &mut self.arguments {
+            if arg.t != types[i] {
+                debug!(
+                    "Argument type has been overrided ({:?} by {:?}) for func {}",
+                    types[i], arg.t, self.name
+                );
+            }
+
             arg.t = types[i].clone();
 
             i += 1;
@@ -153,7 +190,10 @@ impl TypeInferer for FunctionDecl {
 
         ctx.scopes.pop();
 
-        ctx.scopes.add(self.name.clone(), Some(Type::FuncType(Box::new(self.clone()))));
+        ctx.scopes.add(
+            self.name.clone(),
+            Some(Type::FuncType(Box::new(self.clone()))),
+        );
 
         Ok(last)
     }
@@ -161,8 +201,9 @@ impl TypeInferer for FunctionDecl {
 
 impl TypeInferer for ArgumentDecl {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        ctx.scopes
-            .add(self.name.clone(), self.t.clone());
+        trace!("ArgumentDecl ({:?})", self.token);
+
+        ctx.scopes.add(self.name.clone(), self.t.clone());
 
         Ok(self.t.clone())
     }
@@ -170,6 +211,8 @@ impl TypeInferer for ArgumentDecl {
 
 impl TypeInferer for Body {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Body");
+
         let mut last = Err(Error::new_empty());
 
         for stmt in &mut self.stmts {
@@ -182,6 +225,8 @@ impl TypeInferer for Body {
 
 impl TypeInferer for Statement {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Statement ({:?})", self.token);
+
         let t = match &mut self.kind {
             StatementKind::If(if_) => if_.infer(ctx),
             StatementKind::For(for_) => for_.infer(ctx),
@@ -197,6 +242,8 @@ impl TypeInferer for Statement {
 
 impl TypeInferer for For {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("For");
+
         match self {
             For::In(in_) => in_.infer(ctx),
             For::While(while_) => while_.infer(ctx),
@@ -206,24 +253,32 @@ impl TypeInferer for For {
 
 impl TypeInferer for ForIn {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("ForIn");
+
         self.body.infer(ctx)
     }
 }
 
 impl TypeInferer for While {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("While");
+
         self.body.infer(ctx)
     }
 }
 
 impl TypeInferer for If {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("If");
+
         self.body.infer(ctx)
     }
 }
 
 impl TypeInferer for Expression {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Expression ({:?})", self.token);
+
         match &mut self.kind {
             ExpressionKind::BinopExpr(unary, op, expr) => {
                 let t = match op {
@@ -254,6 +309,8 @@ impl TypeInferer for Expression {
 
 impl TypeInferer for Assignation {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Assignation ({:?})", self.token);
+
         // simple identifier
         if !self.name.has_secondaries() {
             let name = self.name.get_identifier().unwrap();
@@ -263,7 +320,12 @@ impl TypeInferer for Assignation {
                 let value_t = self.value.infer(ctx)?;
 
                 if value_t.clone().unwrap().get_name() != t.clone().unwrap().get_name() {
-                    return Err(Error::new_type_error(ctx.input.clone(), self.value.token.clone(), t.clone(), value_t.clone()));
+                    return Err(Error::new_type_error(
+                        ctx.input.clone(),
+                        self.value.token.clone(),
+                        t.clone(),
+                        value_t.clone(),
+                    ));
                 }
 
                 self.t = t.clone();
@@ -292,6 +354,8 @@ impl TypeInferer for Assignation {
 
 impl TypeInferer for UnaryExpr {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("UnaryExpr");
+
         match self {
             UnaryExpr::PrimaryExpr(primary) => primary.infer(ctx),
             UnaryExpr::UnaryExpr(_op, unary) => unary.infer(ctx),
@@ -303,6 +367,8 @@ impl TypeInferer for PrimaryExpr {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
         match self {
             PrimaryExpr::PrimaryExpr(operand, ref mut vec) => {
+                trace!("PrimaryExpr");
+
                 ctx.cur_type = operand.infer(ctx)?;
 
                 if vec.len() == 0 {
@@ -318,14 +384,21 @@ impl TypeInferer for PrimaryExpr {
                             if let Some(Type::FuncType(f)) = &ctx.cur_type {
                                 let mut name = f.name.clone();
                                 let ret = f.ret.clone();
-                                
+
                                 if args.len() < f.arguments.len() {
                                     if let Some(classname) = &f.class_name {
                                         let this = Argument {
-                                            token: Token::default(), 
-                                            t: Some(Type::Class(classname.clone())), 
+                                            token: Token::default(),
+                                            t: Some(Type::Class(classname.clone())),
                                             arg: Expression {
-                                                kind: ExpressionKind::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr::PrimaryExpr(operand.clone(), prec.clone()))),
+                                                kind: ExpressionKind::UnaryExpr(
+                                                    UnaryExpr::PrimaryExpr(
+                                                        PrimaryExpr::PrimaryExpr(
+                                                            operand.clone(),
+                                                            prec.clone(),
+                                                        ),
+                                                    ),
+                                                ),
                                                 t: Some(Type::Class(classname.clone())),
                                                 token: Token::default(),
                                             },
@@ -352,24 +425,25 @@ impl TypeInferer for PrimaryExpr {
                                     .or_insert(HashMap::new())
                                     .insert(name, res);
                             } else if let Some(Type::Proto(_)) = &ctx.cur_type {
-
                             } else {
                                 println!("AST {:?}", self);
                                 panic!("WOUAT ?!");
                             }
                         }
                         // }
-
                         SecondaryExpr::Index(_args) => {
+                            trace!("Index");
+
                             if let Some(t) = ctx.cur_type.clone() {
                                 let t = t.clone();
 
                                 if let Type::Primitive(PrimitiveType::Array(a, _n)) = t.clone() {
                                     ctx.cur_type = Some(*a);
-                                } else if let Type::Primitive(PrimitiveType::String(_n)) = t.clone() {
+                                } else if let Type::Primitive(PrimitiveType::String(_n)) = t.clone()
+                                {
                                     ctx.cur_type = Some(Type::Primitive(PrimitiveType::Int8));
                                 } else {
-                                    return Err(Error::new_not_indexable_error(t.get_name()))
+                                    return Err(Error::new_not_indexable_error(t.get_name()));
                                 }
 
                                 // TODO
@@ -381,12 +455,19 @@ impl TypeInferer for PrimaryExpr {
                         }
 
                         SecondaryExpr::Selector(ref mut sel) => {
+                            trace!("Selector ({:?}), class: {:?}", sel.name, sel.class_type);
+
                             if let Some(t) = ctx.cur_type.clone() {
                                 let classname = t.get_name();
+
                                 let class = ctx.classes.get(&classname);
 
                                 if class.is_none() {
-                                    panic!("Unknown class {}", classname);
+                                    return Err(Error::new_undefined_type(
+                                        ctx.input.clone(),
+                                        classname,
+                                    ));
+                                    // panic!("Unknown class {}", classname);
                                 }
 
                                 let class = class.unwrap();
@@ -397,7 +478,7 @@ impl TypeInferer for PrimaryExpr {
 
                                 if let Some(f) = f {
                                     let scope_f = ctx.scopes.get(f.name.clone()).clone().unwrap();
-                                    
+
                                     ctx.cur_type = Some(Type::FuncType(Box::new(f)));
 
                                     if let Some(Type::FuncType(_)) = scope_f.clone() {
@@ -445,6 +526,8 @@ impl TypeInferer for SecondaryExpr {
 
 impl TypeInferer for Argument {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Argument ({:?})", self.token);
+
         let t = self.arg.infer(ctx);
 
         self.t = t?;
@@ -455,6 +538,8 @@ impl TypeInferer for Argument {
 
 impl TypeInferer for Operand {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Operand");
+
         let t = match &mut self.kind {
             OperandKind::Literal(lit) => lit.infer(ctx),
             OperandKind::Identifier(ident) => {
@@ -481,16 +566,26 @@ impl TypeInferer for Operand {
 
 impl TypeInferer for ClassInstance {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Expression ({:?})", self.token);
+
         for class_attr in &self.class.attributes {
             if let Some(attr) = self.attributes.get(&class_attr.name) {
                 let mut attr = attr.clone();
                 let attr_t = attr.infer(ctx)?;
 
-                if class_attr.t.clone().unwrap().get_name() != attr_t.clone().unwrap().get_name() {
-                    return Err(Error::new_type_error(ctx.input.clone(), attr.token.clone(), class_attr.t.clone(),  attr_t.clone()));
+                if class_attr.t.is_some() && class_attr.t != attr_t {
+                    return Err(Error::new_type_error(
+                        ctx.input.clone(),
+                        attr.token.clone(),
+                        class_attr.t.clone(),
+                        attr_t.clone(),
+                    ));
                 }
             } else if class_attr.default.is_none() {
-                return Err(Error::new_undefined_error(self.class.name.clone() + "::" + &class_attr.name.clone()));
+                return Err(Error::new_undefined_error(
+                    ctx.input.clone(),
+                    self.class.name.clone() + "::" + &class_attr.name.clone(),
+                ));
             }
         }
 
@@ -500,6 +595,8 @@ impl TypeInferer for ClassInstance {
 
 impl TypeInferer for Literal {
     fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Literal ({:?})", self);
+
         match &self {
             Literal::Number(_) => Ok(Some(Type::Primitive(PrimitiveType::Int))),
             Literal::String(s) => Ok(Some(Type::Primitive(PrimitiveType::String(s.len())))),
@@ -510,6 +607,8 @@ impl TypeInferer for Literal {
 
 impl TypeInferer for Array {
     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Array ({:?})", self);
+
         let mut last = None;
 
         for item in &mut self.items {

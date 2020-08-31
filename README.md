@@ -14,23 +14,24 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 ## Example
 
 ```coffee
-class Foo
-    bar :: Int
-    def: 32
-    f -> @bar + @def
+class Foo              # Class declaration
+    bar :: Int           # Type Integer
+    def: 32            # Default value (explicit type)
+    def2 :: Int: 32      # Default value (with type infer)
+    f -> @bar + @def   # Method
 
-add a, b -> a + b
+add a, b -> a + b      # Polymorphism by default
 
-main ->
+main ->                # Main function
     x = 1
     y = 2
 
-    add x, y
+    add x, y           # Call to function
 
-    a = Foo
-        bar: 10
+    a = Foo            # Class instance
+        bar: 10        # 'def' property is ommited
 
-    a.f()
+    a.f()              # Returns 42
 ```
 
 ## Usage

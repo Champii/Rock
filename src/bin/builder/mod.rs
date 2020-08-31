@@ -27,9 +27,9 @@ impl Builder {
         }
     }
 
-    fn create_dirs(&self) {
-        fs::create_dir_all(self.project_path.clone() + "/.build/");
-    }
+    // fn create_dirs(&self) {
+    //     fs::create_dir_all(self.project_path.clone() + "/.build/");
+    // }
 
     pub fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
         if dir.is_dir() {
@@ -120,7 +120,7 @@ impl Builder {
         let files_len = self.files.len();
         let mut i = files_len - self.to_compile.len();
 
-        fs::create_dir_all(self.project_path.clone() + "/.build/");
+        fs::create_dir_all(self.project_path.clone() + "/.build/").unwrap();
 
         for file in &self.to_compile {
             let out_file = self.files.get(file).unwrap();
@@ -131,7 +131,7 @@ impl Builder {
 
             // let mut out_file = splitted.join(".");
 
-            fs::create_dir_all(Path::new(out_file).parent().unwrap());
+            fs::create_dir_all(Path::new(out_file).parent().unwrap()).unwrap();
 
             let out_file = out_file.to_owned() + &"\0".to_string();
 

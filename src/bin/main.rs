@@ -1,22 +1,28 @@
 extern crate clap;
 extern crate rock;
 
+#[macro_use]
+extern crate log;
+
 use clap::{App, Arg, SubCommand};
 use std::convert::TryInto;
 use std::process::Command;
 
+use rock::logger;
 use rock::Config;
 
 mod builder;
 
 fn build(config: Config) -> bool {
+    info!(" -> Building");
+
     let mut builder = builder::Builder::new(config.clone(), ".".to_string());
 
     builder.populate();
 
     builder.build();
 
-    println!("  Linking...");
+    info!(" -> Linking");
 
     Command::new("clang")
         .args(builder.files.values())
@@ -27,6 +33,8 @@ fn build(config: Config) -> bool {
 }
 
 fn compile(config: Config) -> bool {
+    info!(" -> Compiling");
+
     let mut out = vec![];
 
     for file in &config.files {
@@ -55,6 +63,8 @@ fn compile(config: Config) -> bool {
         }
     }
 
+    info!(" -> Linking");
+
     Command::new("clang")
         .args(out)
         .output()
@@ -64,9 +74,14 @@ fn compile(config: Config) -> bool {
 }
 
 fn run_file(config: Config) {
-    let res = rock::run(config.files[0].clone(), "main\0".to_owned(), config).unwrap();
+    info!(" -> Running file");
 
-    std::process::exit(res.try_into().unwrap());
+    let res = rock::run(config.files[0].clone(), "main\0".to_owned(), config);
+
+    match res {
+        Ok(res) => std::process::exit(res.try_into().unwrap()),
+        Err(err) => println!("{:?}", err),
+    }
 }
 
 fn run() {
@@ -92,6 +107,8 @@ fn run() {
 }
 
 fn main() {
+    logger::init_logger(3);
+
     let matches = App::new("rock")
         .version("0.0.1")
         .author("Champii <contact@champii.io>")

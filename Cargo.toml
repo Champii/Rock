@@ -9,6 +9,8 @@ clap = "2.32.0"
 llvm-sys = "100"
 lazy_static = "1.2.0"
 regex = "1"
+env_logger = "0.5.12"
+log = "0.4"
 
 [lib]
 name = "rock"
