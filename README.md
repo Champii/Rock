@@ -113,6 +113,8 @@ FLAGS:
 ## TODO (by order):
 
 - v0.1.0
+    - Replace llvm-sys with Inkwell
+    - Group each AST node impl in its own file
     - escaped chars
     - immutable by default
     - mut keywork

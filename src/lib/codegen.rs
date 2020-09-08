@@ -176,7 +176,8 @@ impl Builder {
                 panic!("WOOT2");
             }
 
-            let mut opts: LLVMMCJITCompilerOptions = mem::MaybeUninit::uninit().assume_init();
+            let mut opts: LLVMMCJITCompilerOptions =
+                mem::MaybeUninit::<LLVMMCJITCompilerOptions>::uninit().assume_init();
 
             LLVMInitializeMCJITCompilerOptions(
                 &mut opts,
