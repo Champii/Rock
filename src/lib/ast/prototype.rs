@@ -16,6 +16,7 @@ use crate::type_checker::TypeInferer;
 use llvm_sys::core::LLVMInt32Type;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
@@ -138,6 +139,12 @@ impl IrBuilder for Prototype {
 
             Some(function)
         }
+    }
+}
+
+impl Generate for Prototype {
+    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
+        Ok(())
     }
 }
 

@@ -14,6 +14,7 @@ use crate::type_checker::TypeInferer;
 
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 pub type Arguments = Vec<Argument>;
@@ -90,6 +91,12 @@ impl TypeInferer for Argument {
         self.t = t?;
 
         Ok(self.t.clone())
+    }
+}
+
+impl Generate for Argument {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        self.arg.generate(ctx)
     }
 }
 

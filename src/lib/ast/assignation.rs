@@ -19,6 +19,7 @@ use crate::type_checker::TypeInferer;
 
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
@@ -104,6 +105,14 @@ impl TypeInferer for Assignation {
 
             Ok(t)
         }
+    }
+}
+
+impl Generate for Assignation {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        // self.value.infer(ctx)?;
+
+        self.value.generate(ctx)
     }
 }
 

@@ -15,6 +15,7 @@ use crate::type_checker::TypeInferer;
 
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::try_or_restore;
 
 #[derive(Debug, Clone)]
@@ -92,6 +93,15 @@ impl TypeInferer for UnaryExpr {
         match self {
             UnaryExpr::PrimaryExpr(primary) => primary.infer(ctx),
             UnaryExpr::UnaryExpr(_op, unary) => unary.infer(ctx),
+        }
+    }
+}
+
+impl Generate for UnaryExpr {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        match self {
+            UnaryExpr::PrimaryExpr(primary) => primary.generate(ctx),
+            UnaryExpr::UnaryExpr(_op, unary) => unary.generate(ctx),
         }
     }
 }

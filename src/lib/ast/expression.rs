@@ -19,6 +19,7 @@ use llvm_sys::core::LLVMBuildAdd;
 use llvm_sys::core::LLVMBuildICmp;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::try_or_restore_and;
 
 #[derive(Debug, Clone)]
@@ -111,6 +112,20 @@ impl TypeInferer for Expression {
                 Ok(t)
             }
             ExpressionKind::UnaryExpr(unary) => unary.infer(ctx),
+        }
+    }
+}
+
+impl Generate for Expression {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        match &mut self.kind {
+            ExpressionKind::BinopExpr(unary, _op, expr) => {
+                let _left = unary.generate(ctx)?;
+                let _right = expr.generate(ctx)?;
+
+                Ok(())
+            }
+            ExpressionKind::UnaryExpr(unary) => unary.generate(ctx),
         }
     }
 }

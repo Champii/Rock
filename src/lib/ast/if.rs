@@ -26,6 +26,7 @@ use llvm_sys::core::LLVMPositionBuilderAtEnd;
 use llvm_sys::core::LLVMTypeOf;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
@@ -91,6 +92,12 @@ impl TypeInferer for If {
         trace!("If");
 
         self.body.infer(ctx)
+    }
+}
+
+impl Generate for If {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        self.body.generate(ctx)
     }
 }
 

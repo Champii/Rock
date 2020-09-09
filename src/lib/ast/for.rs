@@ -14,6 +14,7 @@ use crate::type_checker::TypeInferer;
 
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
@@ -51,6 +52,15 @@ impl TypeInferer for For {
         match self {
             For::In(in_) => in_.infer(ctx),
             For::While(while_) => while_.infer(ctx),
+        }
+    }
+}
+
+impl Generate for For {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        match self {
+            For::In(in_) => in_.generate(ctx),
+            For::While(while_) => while_.generate(ctx),
         }
     }
 }

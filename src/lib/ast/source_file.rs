@@ -12,6 +12,7 @@ use crate::context::Context;
 use crate::type_checker::TypeInferer;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
@@ -58,6 +59,16 @@ impl TypeInferer for SourceFile {
         }
 
         last
+    }
+}
+
+impl Generate for SourceFile {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        for top in &mut self.top_levels {
+            top.generate(ctx)?;
+        }
+
+        Ok(())
     }
 }
 

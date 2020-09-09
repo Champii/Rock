@@ -21,6 +21,7 @@ use crate::type_checker::TypeInferer;
 
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
@@ -204,6 +205,18 @@ impl TypeInferer for FunctionDecl {
         );
 
         Ok(last)
+    }
+}
+
+impl Generate for FunctionDecl {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        ctx.scopes.push();
+
+        let res = self.body.generate(ctx);
+
+        ctx.scopes.pop();
+
+        res
     }
 }
 

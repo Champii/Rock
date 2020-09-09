@@ -22,6 +22,7 @@ use llvm_sys::core::LLVMPositionBuilderAtEnd;
 use llvm_sys::core::LLVMTypeOf;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::try_or_restore;
 
 #[derive(Debug, Clone)]
@@ -49,6 +50,12 @@ impl TypeInferer for While {
         trace!("While");
 
         self.body.infer(ctx)
+    }
+}
+
+impl Generate for While {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        self.body.generate(ctx)
     }
 }
 

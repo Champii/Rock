@@ -19,6 +19,7 @@ use llvm_sys::core::LLVMConstInt;
 use llvm_sys::core::LLVMInt32Type;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
@@ -64,6 +65,14 @@ impl Parse for SecondaryExpr {
 
 impl TypeInferer for SecondaryExpr {
     fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {
+        match self {
+            _ => Err(Error::new_empty()),
+        }
+    }
+}
+
+impl Generate for SecondaryExpr {
+    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
         match self {
             _ => Err(Error::new_empty()),
         }

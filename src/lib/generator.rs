@@ -14,9 +14,11 @@ impl Generator {
     }
 
     fn insert_toplevel_at(&mut self, i: usize, f: FunctionDecl) {
-        self.ctx.scopes.add(f.name.clone(), Some(Type::FuncType(Box::new(f.clone()))));
+        self.ctx
+            .scopes
+            .add(f.name.clone(), Some(Type::FuncType(Box::new(f.clone()))));
 
-        let i = if i > self.ast.top_levels.len() { 
+        let i = if i > self.ast.top_levels.len() {
             self.ast.top_levels.len()
         } else {
             i
@@ -27,10 +29,9 @@ impl Generator {
 
     pub fn generate(&mut self) -> SourceFile {
         let main_scope = self.ctx.scopes.scopes.first().unwrap();
-    
+
         let mut i = 0;
         let items = &mut main_scope.get_ordered().clone();
-
 
         for func in items {
             if let Some(Type::FuncType(ref mut f)) = func {
@@ -68,7 +69,7 @@ impl Generator {
                             new_f.apply_name(call.clone());
 
                             self.insert_toplevel_at(i, *new_f.clone());
-                        } 
+                        }
                     }
 
                     self.ctx = ctx_save;
@@ -82,221 +83,12 @@ impl Generator {
             i += 1;
         }
 
-
         self.ast.generate(&mut self.ctx).unwrap();
 
         self.ast.clone()
     }
 }
 
-trait Generate {
+pub trait Generate {
     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error>;
-}
-
-impl Generate for SourceFile {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        for top in &mut self.top_levels {
-            top.generate(ctx)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Generate for TopLevel {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match self {
-            TopLevel::Class(class) => class.generate(ctx),
-            TopLevel::Function(fun) => fun.generate(ctx),
-            TopLevel::Prototype(fun) => fun.generate(ctx),
-            TopLevel::Mod(_) => Err(Error::new_empty()),
-        }
-    }
-}
-
-impl Generate for Class {
-    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl Generate for Prototype {
-    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl Generate for FunctionDecl {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-
-        ctx.scopes.push();
-
-        let res = self.body.generate(ctx);
-
-        ctx.scopes.pop();
-
-        res
-    }
-}
-
-impl Generate for ArgumentDecl {
-    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl Generate for Body {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        for stmt in &mut self.stmts {
-            stmt.generate(ctx)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Generate for Statement {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match &mut self.kind {
-            StatementKind::If(if_) => if_.generate(ctx),
-            StatementKind::For(for_) => for_.generate(ctx),
-            StatementKind::Expression(expr) => expr.generate(ctx),
-            StatementKind::Assignation(assign) => assign.generate(ctx),
-        }
-    }
-}
-
-impl Generate for If {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        self.body.generate(ctx)
-    }
-}
-
-impl Generate for For {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match self {
-            For::In(in_) => in_.generate(ctx),
-            For::While(while_) => while_.generate(ctx),
-        }
-    }
-}
-
-impl Generate for ForIn {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        self.body.generate(ctx)
-    }
-}
-
-impl Generate for While {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        self.body.generate(ctx)
-    }
-}
-
-impl Generate for Expression {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match &mut self.kind {
-            ExpressionKind::BinopExpr(unary, _op, expr) => {
-                let _left = unary.generate(ctx)?;
-                let _right = expr.generate(ctx)?;
-
-                Ok(())
-            }
-            ExpressionKind::UnaryExpr(unary) => unary.generate(ctx),
-        }
-    }
-}
-
-impl Generate for Assignation {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        // self.value.infer(ctx)?;
-
-        self.value.generate(ctx)
-    }
-}
-
-impl Generate for UnaryExpr {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match self {
-            UnaryExpr::PrimaryExpr(primary) => primary.generate(ctx),
-            UnaryExpr::UnaryExpr(_op, unary) => unary.generate(ctx),
-        }
-    }
-}
-
-impl Generate for PrimaryExpr {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match self {
-            PrimaryExpr::PrimaryExpr(ref mut operand, vec) => {
-                let mut s = String::new();
-                let mut res = if let OperandKind::Identifier(ref mut id) = &mut operand.kind {
-                    id
-                } else {
-                    &mut s
-                };
-
-                let mut last_method = None;
-                let mut already_mangled = false;
-
-                for second in vec {
-                    match second {
-                        SecondaryExpr::Selector(sel) => {
-                            last_method = sel.class_type.clone();
-
-                            if sel.full_name != sel.name {
-                                already_mangled = true;
-                            }
-
-                            res = &mut sel.full_name;
-                        },
-                        SecondaryExpr::Arguments(args) => {
-                                let mut name = res.clone();
-
-                                if already_mangled {
-                                    continue;
-                                }
-
-                                if let Some(classname) = last_method.clone() {
-                                    name = classname.get_name() + "_" + &name;
-                                }
-
-                                let mut ctx_save = ctx.clone();
-
-                                for arg in args {
-                                    // let t = arg.infer(&mut ctx_save).unwrap();
-                                    // arg.t = t.clone();
-                                
-                                    arg.generate(&mut ctx_save)?;
-
-                                    name = name.to_owned() + &arg.clone().t.unwrap().get_name();
-                                }
-
-                                *ctx = ctx_save;
-
-                                if ctx.externs.get(res).is_none() && !already_mangled {
-                                    *res = name;
-                                }
-                        }
-                        _ => (),
-                    };
-                }
-
-                Ok(())
-            }
-        }
-    }
-}
-
-impl Generate for SecondaryExpr {
-    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
-        match self {
-            _ => Err(Error::new_empty()),
-        }
-    }
-}
-
-impl Generate for Argument {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        self.arg.generate(ctx)
-    }
 }

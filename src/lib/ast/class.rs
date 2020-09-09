@@ -20,6 +20,7 @@ use crate::type_checker::TypeInferer;
 use llvm_sys::core::LLVMStructType;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
@@ -192,6 +193,12 @@ impl TypeInferer for Class {
         ctx.classes.insert(self.name.clone(), self.clone());
 
         Ok(t)
+    }
+}
+
+impl Generate for Class {
+    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
+        Ok(())
     }
 }
 

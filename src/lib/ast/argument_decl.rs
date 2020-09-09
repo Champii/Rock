@@ -10,6 +10,7 @@ use crate::ast::TypeInfer;
 use crate::context::Context;
 use crate::type_checker::TypeInferer;
 
+use crate::generator::Generate;
 use crate::parser::macros::*;
 
 pub type ArgumentsDecl = Vec<ArgumentDecl>;
@@ -88,6 +89,12 @@ impl Parse for ArgumentDecl {
         ctx.save_pop();
 
         Ok(ArgumentDecl { name, t, token })
+    }
+}
+
+impl Generate for ArgumentDecl {
+    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
+        Ok(())
     }
 }
 

@@ -14,6 +14,7 @@ use crate::codegen::IrContext;
 use crate::context::Context;
 use crate::type_checker::TypeInferer;
 
+use crate::generator::Generate;
 use llvm_sys::LLVMValue;
 
 use crate::error;
@@ -71,6 +72,17 @@ impl TypeInferer for Statement {
         self.t = t?;
 
         Ok(self.t.clone())
+    }
+}
+
+impl Generate for Statement {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        match &mut self.kind {
+            StatementKind::If(if_) => if_.generate(ctx),
+            StatementKind::For(for_) => for_.generate(ctx),
+            StatementKind::Expression(expr) => expr.generate(ctx),
+            StatementKind::Assignation(assign) => assign.generate(ctx),
+        }
     }
 }
 

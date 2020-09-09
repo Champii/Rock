@@ -24,6 +24,8 @@ use crate::type_checker::TypeInferer;
 use llvm_sys::core::LLVMBuildLoad;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
+
 #[derive(Debug, Clone)]
 pub enum PrimaryExpr {
     PrimaryExpr(Operand, Vec<SecondaryExpr>),
@@ -85,6 +87,69 @@ impl PrimaryExpr {
                 }
 
                 op
+            }
+        }
+    }
+}
+
+impl Generate for PrimaryExpr {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        match self {
+            PrimaryExpr::PrimaryExpr(ref mut operand, vec) => {
+                let mut s = String::new();
+                let mut res = if let OperandKind::Identifier(ref mut id) = &mut operand.kind {
+                    id
+                } else {
+                    &mut s
+                };
+
+                let mut last_method = None;
+                let mut already_mangled = false;
+
+                for second in vec {
+                    match second {
+                        SecondaryExpr::Selector(sel) => {
+                            last_method = sel.class_type.clone();
+
+                            if sel.full_name != sel.name {
+                                already_mangled = true;
+                            }
+
+                            res = &mut sel.full_name;
+                        }
+                        SecondaryExpr::Arguments(args) => {
+                            let mut name = res.clone();
+
+                            if already_mangled {
+                                continue;
+                            }
+
+                            if let Some(classname) = last_method.clone() {
+                                name = classname.get_name() + "_" + &name;
+                            }
+
+                            let mut ctx_save = ctx.clone();
+
+                            for arg in args {
+                                // let t = arg.infer(&mut ctx_save).unwrap();
+                                // arg.t = t.clone();
+
+                                arg.generate(&mut ctx_save)?;
+
+                                name = name.to_owned() + &arg.clone().t.unwrap().get_name();
+                            }
+
+                            *ctx = ctx_save;
+
+                            if ctx.externs.get(res).is_none() && !already_mangled {
+                                *res = name;
+                            }
+                        }
+                        _ => (),
+                    };
+                }
+
+                Ok(())
             }
         }
     }

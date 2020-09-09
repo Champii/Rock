@@ -11,6 +11,7 @@ use crate::codegen::IrContext;
 use crate::context::Context;
 use crate::type_checker::TypeInferer;
 
+use crate::generator::Generate;
 use llvm_sys::LLVMValue;
 
 #[derive(Debug, Clone)]
@@ -91,6 +92,16 @@ impl TypeInferer for Body {
         }
 
         last
+    }
+}
+
+impl Generate for Body {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        for stmt in &mut self.stmts {
+            stmt.generate(ctx)?;
+        }
+
+        Ok(())
     }
 }
 

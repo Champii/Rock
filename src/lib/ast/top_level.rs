@@ -14,6 +14,7 @@ use crate::context::Context;
 use crate::type_checker::TypeInferer;
 use llvm_sys::LLVMValue;
 
+use crate::generator::Generate;
 use crate::try_or_restore;
 
 #[derive(Debug, Clone)]
@@ -68,6 +69,17 @@ impl TypeInferer for TopLevel {
             TopLevel::Class(class) => class.infer(ctx),
             TopLevel::Function(fun) => fun.infer(ctx),
             TopLevel::Prototype(fun) => fun.infer(ctx),
+            TopLevel::Mod(_) => Err(Error::new_empty()),
+        }
+    }
+}
+
+impl Generate for TopLevel {
+    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+        match self {
+            TopLevel::Class(class) => class.generate(ctx),
+            TopLevel::Function(fun) => fun.generate(ctx),
+            TopLevel::Prototype(fun) => fun.generate(ctx),
             TopLevel::Mod(_) => Err(Error::new_empty()),
         }
     }
