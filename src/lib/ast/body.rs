@@ -4,6 +4,14 @@ use crate::TokenType;
 
 use crate::ast::Parse;
 use crate::ast::Statement;
+use crate::ast::TypeInfer;
+
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::LLVMValue;
 
 #[derive(Debug, Clone)]
 pub struct Body {
@@ -69,5 +77,31 @@ impl Parse for Body {
         }
 
         Ok(Body { stmts })
+    }
+}
+
+impl TypeInferer for Body {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Body");
+
+        let mut last = Err(Error::new_empty());
+
+        for stmt in &mut self.stmts {
+            last = Ok(stmt.infer(ctx)?);
+        }
+
+        last
+    }
+}
+
+impl IrBuilder for Body {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        let mut last = None;
+
+        for stmt in &self.stmts {
+            last = stmt.build(context);
+        }
+
+        last
     }
 }

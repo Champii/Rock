@@ -5,6 +5,16 @@ use crate::TokenType;
 use crate::ast::Parse;
 use crate::ast::PrimitiveType;
 use crate::ast::Type;
+use crate::ast::TypeInfer;
+
+use crate::codegen::get_type;
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::core::LLVMInt32Type;
+use llvm_sys::LLVMValue;
 
 use crate::parser::macros::*;
 
@@ -91,5 +101,58 @@ impl Parse for Prototype {
             ret,
             arguments,
         });
+    }
+}
+
+impl IrBuilder for Prototype {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        let name_orig = self.name.clone().unwrap_or("nop".to_string());
+
+        let mut name = name_orig.clone();
+
+        name.push('\0');
+
+        let name = name.as_str();
+
+        unsafe {
+            let i32t = LLVMInt32Type();
+            let mut argts = vec![];
+
+            for arg in &self.arguments {
+                let t = get_type(Box::new(arg.clone()), context);
+
+                argts.push(t);
+            }
+
+            let function_type =
+                llvm::core::LLVMFunctionType(i32t, argts.as_mut_ptr(), argts.len() as u32, 0);
+
+            let function = llvm::core::LLVMAddFunction(
+                context.module,
+                name.as_ptr() as *const _,
+                function_type,
+            );
+
+            context.scopes.add(name_orig.clone(), function);
+            context.functions.add(name_orig, function);
+
+            Some(function)
+        }
+    }
+}
+
+impl TypeInferer for Prototype {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Prototype");
+
+        ctx.externs
+            .insert(self.name.clone().unwrap(), self.name.clone().unwrap());
+
+        ctx.scopes.add(
+            self.name.clone().unwrap(),
+            Some(Type::Proto(Box::new(self.clone()))),
+        );
+
+        Ok(Some(Type::Primitive(PrimitiveType::Void)))
     }
 }

@@ -3,6 +3,19 @@ use crate::Parser;
 use crate::TokenType;
 
 use crate::ast::Parse;
+use crate::ast::PrimitiveType;
+use crate::ast::Type;
+use crate::ast::TypeInfer;
+
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::core::LLVMConstInt;
+use llvm_sys::core::LLVMInt1Type;
+use llvm_sys::core::LLVMInt32Type;
+use llvm_sys::LLVMValue;
 
 use crate::error;
 
@@ -36,5 +49,27 @@ impl Parse for Literal {
         }
 
         error!("Expected literal".to_string(), ctx);
+    }
+}
+
+impl TypeInferer for Literal {
+    fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Literal ({:?})", self);
+
+        match &self {
+            Literal::Number(_) => Ok(Some(Type::Primitive(PrimitiveType::Int))),
+            Literal::String(s) => Ok(Some(Type::Primitive(PrimitiveType::String(s.len())))),
+            Literal::Bool(_) => Ok(Some(Type::Primitive(PrimitiveType::Bool))),
+        }
+    }
+}
+
+impl IrBuilder for Literal {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        match self {
+            Literal::Number(num) => unsafe { Some(LLVMConstInt(LLVMInt32Type(), *num, 0)) },
+            Literal::String(s) => s.build(context),
+            Literal::Bool(b) => unsafe { Some(LLVMConstInt(LLVMInt1Type(), b.clone(), 0)) },
+        }
     }
 }

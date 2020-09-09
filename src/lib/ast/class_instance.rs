@@ -1,5 +1,3 @@
-use crate::ast::Expression;
-use crate::ast::Type;
 use std::collections::HashMap;
 
 use crate::Error;
@@ -9,7 +7,13 @@ use crate::TokenType;
 
 use crate::ast::Attribute;
 use crate::ast::Class;
+use crate::ast::Expression;
 use crate::ast::Parse;
+use crate::ast::Type;
+use crate::ast::TypeInfer;
+
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
 
 use crate::parser::macros::*;
 
@@ -135,5 +139,34 @@ impl Parse for ClassInstance {
             name,
             token,
         })
+    }
+}
+
+impl TypeInferer for ClassInstance {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Expression ({:?})", self.token);
+
+        for class_attr in &self.class.attributes {
+            if let Some(attr) = self.attributes.get(&class_attr.name) {
+                let mut attr = attr.clone();
+                let attr_t = attr.infer(ctx)?;
+
+                if class_attr.t.is_some() && class_attr.t != attr_t {
+                    return Err(Error::new_type_error(
+                        ctx.input.clone(),
+                        attr.token.clone(),
+                        class_attr.t.clone(),
+                        attr_t.clone(),
+                    ));
+                }
+            } else if class_attr.default.is_none() {
+                return Err(Error::new_undefined_error(
+                    ctx.input.clone(),
+                    self.class.name.clone() + "::" + &class_attr.name.clone(),
+                ));
+            }
+        }
+
+        Ok(ctx.scopes.get(self.name.clone()).unwrap())
     }
 }

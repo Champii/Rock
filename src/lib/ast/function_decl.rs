@@ -2,14 +2,24 @@ use crate::Error;
 use crate::Parser;
 use crate::Token;
 use crate::TokenType;
+use llvm_sys::core::LLVMGetParam;
 
 use crate::ast::argument_decl::ArgumentsDecl;
-use crate::ast::r#type::TypeInfer;
 use crate::ast::ArgumentDecl;
 use crate::ast::Body;
 use crate::ast::Identifier;
 use crate::ast::Parse;
+use crate::ast::PrimitiveType;
 use crate::ast::Type;
+use crate::ast::TypeInfer;
+
+use crate::codegen::get_type;
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::LLVMValue;
 
 use crate::parser::macros::*;
 
@@ -137,5 +147,144 @@ impl Parse for FunctionDecl {
             class_name: None,
             token,
         })
+    }
+}
+
+impl TypeInferer for FunctionDecl {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("FunctionDecl ({:?})", self.token);
+
+        ctx.scopes.push();
+
+        let mut types = vec![];
+
+        for arg in &mut self.arguments {
+            let t = arg.infer(ctx)?;
+
+            arg.t = t.clone();
+
+            debug!("Infered type {:?} for argument {}", t, arg.name);
+
+            types.push(arg.t.clone());
+        }
+
+        let last = self.body.infer(ctx)?;
+
+        debug!("Infered type {:?} for return of func {}", last, self.name);
+
+        if self.ret.is_none() {
+            self.ret = last.clone();
+        } else if self.ret != last {
+            warn!(
+                "Ignoring the return override ({:?} by {:?}) of func {}",
+                self.ret, last, self.name
+            )
+        }
+
+        let mut i = 0;
+
+        for arg in &mut self.arguments {
+            if arg.t != types[i] {
+                debug!(
+                    "Argument type has been overrided ({:?} by {:?}) for func {}",
+                    types[i], arg.t, self.name
+                );
+            }
+
+            arg.t = types[i].clone();
+
+            i += 1;
+        }
+
+        ctx.scopes.pop();
+
+        ctx.scopes.add(
+            self.name.clone(),
+            Some(Type::FuncType(Box::new(self.clone()))),
+        );
+
+        Ok(last)
+    }
+}
+
+impl IrBuilder for FunctionDecl {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        let name_orig = self.name.clone();
+
+        let mut name = name_orig.clone();
+
+        name.push('\0');
+
+        let name = name.as_str();
+
+        if !self.is_solved() {
+            panic!("CODEGEN: FuncDecl is not solved {}", self.name);
+        }
+
+        unsafe {
+            let mut argts = vec![];
+
+            for arg in &self.arguments {
+                let t = get_type(Box::new(arg.t.clone().unwrap()), context);
+
+                argts.push(t);
+            }
+
+            let function_type = llvm::core::LLVMFunctionType(
+                get_type(Box::new(self.ret.clone().unwrap()), context),
+                argts.as_mut_ptr(),
+                argts.len() as u32,
+                0,
+            );
+
+            let function = llvm::core::LLVMAddFunction(
+                context.module,
+                name.as_ptr() as *const _,
+                function_type,
+            );
+
+            context.scopes.add(name_orig.clone(), function);
+            context.functions.add(name_orig, function);
+
+            context.scopes.push();
+            context.functions.push();
+            context.arguments.push();
+
+            let mut count = 0;
+            for arg in &self.arguments {
+                context
+                    .scopes
+                    .add(arg.name.clone(), LLVMGetParam(function, count));
+                context
+                    .arguments
+                    .add(arg.name.clone(), LLVMGetParam(function, count));
+
+                count += 1;
+            }
+
+            let bb = llvm::core::LLVMAppendBasicBlockInContext(
+                context.context,
+                function,
+                b"entry\0".as_ptr() as *const _,
+            );
+
+            llvm::core::LLVMPositionBuilderAtEnd(context.builder, bb);
+
+            let res = self.body.build(context);
+
+            match &self.ret {
+                Some(Type::Primitive(p)) => match p {
+                    PrimitiveType::Void => llvm::core::LLVMBuildRetVoid(context.builder),
+                    _ => llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
+                },
+                _ => llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
+            };
+
+            context.scopes.pop();
+            context.functions.pop();
+            context.arguments.pop();
+
+            return Some(function);
+        }
     }
 }

@@ -5,6 +5,10 @@ use crate::TokenType;
 
 use crate::ast::Parse;
 use crate::ast::Type;
+use crate::ast::TypeInfer;
+
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
 
 use crate::parser::macros::*;
 
@@ -84,5 +88,15 @@ impl Parse for ArgumentDecl {
         ctx.save_pop();
 
         Ok(ArgumentDecl { name, t, token })
+    }
+}
+
+impl TypeInferer for ArgumentDecl {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("ArgumentDecl ({:?})", self.token);
+
+        ctx.scopes.add(self.name.clone(), self.t.clone());
+
+        Ok(self.t.clone())
     }
 }

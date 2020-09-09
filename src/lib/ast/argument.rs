@@ -7,6 +7,13 @@ use crate::ast::Expression;
 use crate::ast::Parse;
 use crate::ast::TypeInfer;
 
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::LLVMValue;
+
 use crate::parser::macros::*;
 
 pub type Arguments = Vec<Argument>;
@@ -71,5 +78,23 @@ impl Parse for Argument {
             t: None,
             token,
         })
+    }
+}
+
+impl TypeInferer for Argument {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Argument ({:?})", self.token);
+
+        let t = self.arg.infer(ctx);
+
+        self.t = t?;
+
+        Ok(self.t.clone())
+    }
+}
+
+impl IrBuilder for Argument {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        self.arg.build(context)
     }
 }

@@ -1,10 +1,18 @@
+use crate::Error;
+use crate::Parser;
+use crate::TokenType;
+
 use crate::ast::Class;
 use crate::ast::FunctionDecl;
 use crate::ast::Parse;
 use crate::ast::Prototype;
-use crate::Error;
-use crate::Parser;
-use crate::TokenType;
+use crate::ast::TypeInfer;
+
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+use llvm_sys::LLVMValue;
 
 use crate::try_or_restore;
 
@@ -49,5 +57,31 @@ impl Parse for TopLevel {
         }
 
         res
+    }
+}
+
+impl TypeInferer for TopLevel {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("TopLevel");
+
+        match self {
+            TopLevel::Class(class) => class.infer(ctx),
+            TopLevel::Function(fun) => fun.infer(ctx),
+            TopLevel::Prototype(fun) => fun.infer(ctx),
+            TopLevel::Mod(_) => Err(Error::new_empty()),
+        }
+    }
+}
+
+impl IrBuilder for TopLevel {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        match self {
+            TopLevel::Class(class) => class.build(context),
+            TopLevel::Function(fun) => fun.build(context),
+            TopLevel::Prototype(fun) => fun.build(context),
+            TopLevel::Mod(_) => None,
+        };
+
+        None
     }
 }

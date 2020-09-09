@@ -6,6 +6,14 @@ use crate::ast::Body;
 use crate::ast::Expression;
 use crate::ast::Identifier;
 use crate::ast::Parse;
+use crate::ast::TypeInfer;
+
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::LLVMValue;
 
 use crate::parser::macros::*;
 
@@ -31,5 +39,19 @@ impl Parse for ForIn {
         ctx.save_pop();
 
         Ok(ForIn { value, expr, body })
+    }
+}
+
+impl TypeInferer for ForIn {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("ForIn");
+
+        self.body.infer(ctx)
+    }
+}
+
+impl IrBuilder for ForIn {
+    fn build(&self, _context: &mut IrContext) -> Option<*mut LLVMValue> {
+        panic!("ForIn: Uninplemented");
     }
 }

@@ -1,10 +1,28 @@
+use std::collections::HashMap;
+
 use crate::Error;
 use crate::Parser;
+use crate::Token;
 use crate::TokenType;
 
+use crate::ast::Argument;
+use crate::ast::Expression;
+use crate::ast::ExpressionKind;
 use crate::ast::Parse;
+use crate::ast::PrimitiveType;
 use crate::ast::SecondaryExpr;
+use crate::ast::Type;
+use crate::ast::TypeInfer;
+use crate::ast::UnaryExpr;
 use crate::ast::{Operand, OperandKind};
+
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::core::LLVMBuildLoad;
+use llvm_sys::LLVMValue;
 
 #[derive(Debug, Clone)]
 pub enum PrimaryExpr {
@@ -26,6 +44,47 @@ impl PrimaryExpr {
                 } else {
                     None
                 }
+            }
+        }
+    }
+
+    pub fn build_no_load(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        match self {
+            PrimaryExpr::PrimaryExpr(operand, vec) => {
+                let mut op = operand.build(context);
+
+                if vec.len() == 0 {
+                    return op;
+                }
+
+                let mut last = vec.first().unwrap().clone();
+                let mut is_first = true;
+
+                for second in vec {
+                    if !is_first {
+                        if let SecondaryExpr::Selector(_) = second {
+                            op = if let SecondaryExpr::Selector(_) = last {
+                                unsafe {
+                                    Some(LLVMBuildLoad(
+                                        context.builder,
+                                        op.clone().unwrap(),
+                                        b"\0".as_ptr() as *const _,
+                                    ))
+                                }
+                            } else {
+                                op
+                            };
+                        }
+                    }
+
+                    op = second.build_with(context, op.clone().unwrap());
+
+                    last = second.clone();
+
+                    is_first = false;
+                }
+
+                op
             }
         }
     }
@@ -54,5 +113,188 @@ impl Parse for PrimaryExpr {
         }
 
         Ok(PrimaryExpr::PrimaryExpr(operand, secondarys))
+    }
+}
+
+impl TypeInferer for PrimaryExpr {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        match self {
+            PrimaryExpr::PrimaryExpr(operand, ref mut vec) => {
+                trace!("PrimaryExpr");
+
+                ctx.cur_type = operand.infer(ctx)?;
+
+                if vec.len() == 0 {
+                    return Ok(ctx.cur_type.clone());
+                }
+                let mut prec = vec![];
+
+                for second in vec {
+                    match second {
+                        SecondaryExpr::Arguments(ref mut args) => {
+                            let mut res = vec![];
+
+                            if let Some(Type::FuncType(f)) = &ctx.cur_type {
+                                let mut name = f.name.clone();
+                                let ret = f.ret.clone();
+
+                                if args.len() < f.arguments.len() {
+                                    if let Some(classname) = &f.class_name {
+                                        let this = Argument {
+                                            token: Token::default(),
+                                            t: Some(Type::Class(classname.clone())),
+                                            arg: Expression {
+                                                kind: ExpressionKind::UnaryExpr(
+                                                    UnaryExpr::PrimaryExpr(
+                                                        PrimaryExpr::PrimaryExpr(
+                                                            operand.clone(),
+                                                            prec.clone(),
+                                                        ),
+                                                    ),
+                                                ),
+                                                t: Some(Type::Class(classname.clone())),
+                                                token: Token::default(),
+                                            },
+                                        };
+
+                                        args.insert(0, this);
+                                    }
+                                }
+
+                                let orig_name = name.clone();
+
+                                for arg in args {
+                                    let t = arg.infer(ctx)?;
+
+                                    res.push(t.clone());
+
+                                    name = name + &t.unwrap().get_name();
+                                }
+
+                                ctx.cur_type = ret;
+
+                                ctx.calls
+                                    .entry(orig_name.clone())
+                                    .or_insert(HashMap::new())
+                                    .insert(name, res);
+                            } else if let Some(Type::Proto(_)) = &ctx.cur_type {
+                            } else {
+                                println!("AST {:?}", self);
+                                panic!("WOUAT ?!");
+                            }
+                        }
+                        // }
+                        SecondaryExpr::Index(_args) => {
+                            trace!("Index");
+
+                            if let Some(t) = ctx.cur_type.clone() {
+                                let t = t.clone();
+
+                                if let Type::Primitive(PrimitiveType::Array(a, _n)) = t.clone() {
+                                    ctx.cur_type = Some(*a);
+                                } else if let Type::Primitive(PrimitiveType::String(_n)) = t.clone()
+                                {
+                                    ctx.cur_type = Some(Type::Primitive(PrimitiveType::Int8));
+                                } else {
+                                    return Err(Error::new_not_indexable_error(t.get_name()));
+                                }
+
+                                // TODO
+                                // if let Type::Primitive(_p) = t {
+                                //     ctx.cur_type =
+                                //         Some(Type::Primitive(PrimitiveType::Int8));
+                                // }
+                            }
+                        }
+
+                        SecondaryExpr::Selector(ref mut sel) => {
+                            trace!("Selector ({:?}), class: {:?}", sel.name, sel.class_type);
+
+                            if let Some(t) = ctx.cur_type.clone() {
+                                let classname = t.get_name();
+
+                                let class = ctx.classes.get(&classname);
+
+                                if class.is_none() {
+                                    return Err(Error::new_undefined_type(
+                                        ctx.input.clone(),
+                                        classname,
+                                    ));
+                                    // panic!("Unknown class {}", classname);
+                                }
+
+                                let class = class.unwrap();
+
+                                let method_name = class.name.clone() + "_" + &sel.name.clone();
+
+                                let f = class.get_method(method_name.clone());
+
+                                if let Some(f) = f {
+                                    let scope_f = ctx.scopes.get(f.name.clone()).clone().unwrap();
+
+                                    ctx.cur_type = Some(Type::FuncType(Box::new(f)));
+
+                                    if let Some(Type::FuncType(_)) = scope_f.clone() {
+                                        ctx.cur_type = scope_f.clone();
+                                    }
+
+                                    sel.class_type = Some(t.clone()); // classname
+
+                                    continue;
+                                }
+
+                                let attr = class.get_attribute(sel.name.clone());
+
+                                if let None = attr {
+                                    panic!("Unknown property {}", sel.name);
+                                }
+
+                                let (attr, i) = attr.unwrap();
+
+                                sel.class_offset = i as u8; // attribute index
+
+                                sel.class_type = Some(t.clone()); // classname
+
+                                ctx.cur_type = attr.t.clone();
+                            }
+                        }
+                    };
+
+                    prec.push(second.clone());
+                }
+
+                Ok(ctx.cur_type.clone())
+            }
+        }
+    }
+}
+
+impl IrBuilder for PrimaryExpr {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        let res = self.build_no_load(context);
+
+        match self {
+            PrimaryExpr::PrimaryExpr(_, vec) => {
+                if vec.len() == 0 {
+                    return res;
+                }
+
+                let last_second = vec.last().unwrap();
+
+                if let SecondaryExpr::Arguments(_) = last_second {
+                    return res;
+                }
+
+                unsafe {
+                    let op = LLVMBuildLoad(
+                        context.builder,
+                        res.clone().unwrap(),
+                        b"\0".as_ptr() as *const _,
+                    );
+
+                    Some(op)
+                }
+            }
+        }
     }
 }

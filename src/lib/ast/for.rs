@@ -4,7 +4,15 @@ use crate::TokenType;
 
 use crate::ast::ForIn;
 use crate::ast::Parse;
+use crate::ast::TypeInfer;
 use crate::ast::While;
+
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::LLVMValue;
 
 use crate::parser::macros::*;
 
@@ -33,5 +41,25 @@ impl Parse for For {
         ctx.save_pop();
 
         Ok(res)
+    }
+}
+
+impl TypeInferer for For {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("For");
+
+        match self {
+            For::In(in_) => in_.infer(ctx),
+            For::While(while_) => while_.infer(ctx),
+        }
+    }
+}
+
+impl IrBuilder for For {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        match self {
+            For::In(in_) => in_.build(context),
+            For::While(while_) => while_.build(context),
+        }
     }
 }

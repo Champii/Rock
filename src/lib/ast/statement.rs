@@ -9,6 +9,13 @@ use crate::ast::If;
 use crate::ast::Parse;
 use crate::ast::TypeInfer;
 
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::LLVMValue;
+
 use crate::error;
 
 #[derive(Debug, Clone)]
@@ -47,5 +54,33 @@ impl Parse for Statement {
             t: None,
             token,
         })
+    }
+}
+
+impl TypeInferer for Statement {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Statement ({:?})", self.token);
+
+        let t = match &mut self.kind {
+            StatementKind::If(if_) => if_.infer(ctx),
+            StatementKind::For(for_) => for_.infer(ctx),
+            StatementKind::Expression(expr) => expr.infer(ctx),
+            StatementKind::Assignation(assign) => assign.infer(ctx),
+        };
+
+        self.t = t?;
+
+        Ok(self.t.clone())
+    }
+}
+
+impl IrBuilder for Statement {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        match &self.kind {
+            StatementKind::If(if_) => if_.build(context),
+            StatementKind::For(for_) => for_.build(context),
+            StatementKind::Expression(expr) => expr.build(context),
+            StatementKind::Assignation(assign) => assign.build(context),
+        }
     }
 }

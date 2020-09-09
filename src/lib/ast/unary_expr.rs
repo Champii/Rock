@@ -6,6 +6,14 @@ use crate::ast::OperandKind;
 use crate::ast::Operator;
 use crate::ast::Parse;
 use crate::ast::PrimaryExpr;
+use crate::ast::TypeInfer;
+
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::LLVMValue;
 
 use crate::try_or_restore;
 
@@ -74,5 +82,25 @@ impl Parse for UnaryExpr {
         }
 
         Ok(UnaryExpr::PrimaryExpr(PrimaryExpr::parse(ctx)?))
+    }
+}
+
+impl TypeInferer for UnaryExpr {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("UnaryExpr");
+
+        match self {
+            UnaryExpr::PrimaryExpr(primary) => primary.infer(ctx),
+            UnaryExpr::UnaryExpr(_op, unary) => unary.infer(ctx),
+        }
+    }
+}
+
+impl IrBuilder for UnaryExpr {
+    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+        match self {
+            UnaryExpr::PrimaryExpr(primary) => primary.build(context),
+            UnaryExpr::UnaryExpr(_op, unary) => unary.build(context),
+        }
     }
 }

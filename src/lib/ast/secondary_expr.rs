@@ -5,7 +5,19 @@ use crate::TokenType;
 use crate::ast::Expression;
 use crate::ast::Parse;
 use crate::ast::Selector;
+use crate::ast::TypeInfer;
 use crate::ast::{Argument, Arguments};
+
+use crate::codegen::IrBuilder;
+use crate::codegen::IrContext;
+use crate::context::Context;
+use crate::type_checker::TypeInferer;
+
+use llvm_sys::core::LLVMBuildCall;
+use llvm_sys::core::LLVMBuildGEP;
+use llvm_sys::core::LLVMConstInt;
+use llvm_sys::core::LLVMInt32Type;
+use llvm_sys::LLVMValue;
 
 use crate::parser::macros::*;
 
@@ -47,5 +59,80 @@ impl Parse for SecondaryExpr {
         }
 
         self::error!("Expected secondary".to_string(), ctx);
+    }
+}
+
+impl TypeInferer for SecondaryExpr {
+    fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {
+        match self {
+            _ => Err(Error::new_empty()),
+        }
+    }
+}
+
+impl SecondaryExpr {
+    pub fn build_with(
+        &self,
+        context: &mut IrContext,
+        op: *mut LLVMValue,
+    ) -> Option<*mut LLVMValue> {
+        match self {
+            SecondaryExpr::Arguments(args) => {
+                let mut res = vec![];
+
+                for arg in args {
+                    res.push(arg.build(context).unwrap());
+                }
+
+                unsafe {
+                    Some(LLVMBuildCall(
+                        context.builder,
+                        op,
+                        res.as_mut_ptr(),
+                        res.len() as u32,
+                        b"\0".as_ptr() as *const _,
+                    ))
+                }
+            }
+
+            SecondaryExpr::Index(expr) => {
+                let idx = expr.build(context).unwrap();
+
+                unsafe {
+                    let mut indices = [idx];
+
+                    let ptr_elem = LLVMBuildGEP(
+                        context.builder,
+                        op,
+                        indices.as_mut_ptr(),
+                        1,
+                        b"\0".as_ptr() as *const _,
+                    );
+
+                    Some(ptr_elem)
+                }
+            }
+
+            SecondaryExpr::Selector(sel) => unsafe {
+                let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
+                let idx = LLVMConstInt(LLVMInt32Type(), sel.class_offset as u64, 0);
+
+                let mut indices = [zero, idx];
+
+                if let Some(f) = context.functions.get(sel.full_name.clone()) {
+                    return Some(f);
+                }
+
+                let ptr_elem = LLVMBuildGEP(
+                    context.builder,
+                    op,
+                    indices.as_mut_ptr(),
+                    2,
+                    b"\0".as_ptr() as *const _,
+                );
+
+                Some(ptr_elem)
+            },
+        }
     }
 }
