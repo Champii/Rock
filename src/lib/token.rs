@@ -32,7 +32,7 @@ pub enum TokenType {
 
     // primitives
     Identifier(String),
-    Number(u64),
+    Number(i64),
     String(String),
     Bool(bool),
     Type(String),

@@ -471,7 +471,7 @@ impl Lexer {
 
         None
     }
-    
+
     fn try_ident(&mut self) -> Option<Token> {
         let start = self.cur_idx;
 
@@ -862,6 +862,13 @@ impl Lexer {
 
     fn try_digit(&mut self) -> Option<Token> {
         let start = self.cur_idx;
+        let mut is_neg = false;
+
+        if self.last_char == '-' {
+            is_neg = true;
+
+            self.forward();
+        }
 
         if self.last_char.is_digit(10) {
             let mut number = vec![];
@@ -873,7 +880,11 @@ impl Lexer {
             }
 
             let nb_str: String = number.iter().collect();
-            let nb: u64 = nb_str.parse().unwrap();
+            let mut nb: i64 = nb_str.parse().unwrap();
+
+            if is_neg {
+                nb = -nb;
+            }
 
             // if is_keyword, return None
 

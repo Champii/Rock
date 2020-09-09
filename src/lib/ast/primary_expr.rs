@@ -131,8 +131,10 @@ impl Generate for PrimaryExpr {
                             let mut ctx_save = ctx.clone();
 
                             for arg in args {
-                                // let t = arg.infer(&mut ctx_save).unwrap();
-                                // arg.t = t.clone();
+                                if arg.t.is_none() {
+                                    let t = arg.infer(&mut ctx_save).unwrap();
+                                    arg.t = t.clone();
+                                }
 
                                 arg.generate(&mut ctx_save)?;
 
@@ -192,12 +194,13 @@ impl TypeInferer for PrimaryExpr {
                 if vec.len() == 0 {
                     return Ok(ctx.cur_type.clone());
                 }
+
                 let mut prec = vec![];
 
                 for second in vec {
                     match second {
                         SecondaryExpr::Arguments(ref mut args) => {
-                            let mut res = vec![];
+                            let mut args_types = vec![];
 
                             if let Some(Type::FuncType(f)) = &ctx.cur_type {
                                 let mut name = f.name.clone();
@@ -231,7 +234,9 @@ impl TypeInferer for PrimaryExpr {
                                 for arg in args {
                                     let t = arg.infer(ctx)?;
 
-                                    res.push(t.clone());
+                                    arg.t = t.clone();
+
+                                    args_types.push(t.clone());
 
                                     name = name + &t.unwrap().get_name();
                                 }
@@ -241,8 +246,14 @@ impl TypeInferer for PrimaryExpr {
                                 ctx.calls
                                     .entry(orig_name.clone())
                                     .or_insert(HashMap::new())
-                                    .insert(name, res);
-                            } else if let Some(Type::Proto(_)) = &ctx.cur_type {
+                                    .insert(name, args_types);
+                            } else if let Some(Type::Proto(proto)) = &ctx.cur_type {
+                                ctx.calls
+                                    .entry(proto.name.clone().unwrap())
+                                    .or_insert(HashMap::new())
+                                    .insert(proto.name.clone().unwrap(), args_types);
+
+                                ctx.cur_type = Some(proto.ret.clone());
                             } else {
                                 println!("AST {:?}", self);
                                 panic!("WOUAT ?!");

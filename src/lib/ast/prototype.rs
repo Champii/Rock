@@ -105,6 +105,28 @@ impl Parse for Prototype {
     }
 }
 
+impl TypeInferer for Prototype {
+    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+        trace!("Prototype");
+
+        ctx.externs
+            .insert(self.name.clone().unwrap(), self.name.clone().unwrap());
+
+        ctx.scopes.add(
+            self.name.clone().unwrap(),
+            Some(Type::Proto(Box::new(self.clone()))),
+        );
+
+        Ok(Some(Type::Primitive(PrimitiveType::Void)))
+    }
+}
+
+impl Generate for Prototype {
+    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
 impl IrBuilder for Prototype {
     fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
         let name_orig = self.name.clone().unwrap_or("nop".to_string());
@@ -139,27 +161,5 @@ impl IrBuilder for Prototype {
 
             Some(function)
         }
-    }
-}
-
-impl Generate for Prototype {
-    fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl TypeInferer for Prototype {
-    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        trace!("Prototype");
-
-        ctx.externs
-            .insert(self.name.clone().unwrap(), self.name.clone().unwrap());
-
-        ctx.scopes.add(
-            self.name.clone().unwrap(),
-            Some(Type::Proto(Box::new(self.clone()))),
-        );
-
-        Ok(Some(Type::Primitive(PrimitiveType::Void)))
     }
 }

@@ -4,7 +4,6 @@ use crate::ast::Type;
 pub enum PrimitiveType {
     Void,
     Bool,
-    Int,
     Int8,
     Int16,
     Int32,
@@ -18,7 +17,6 @@ impl PrimitiveType {
         match self {
             Self::Void => "Void".to_string(),
             Self::Bool => "Bool".to_string(),
-            Self::Int => "Int".to_string(),
             Self::Int8 => "Int8".to_string(),
             Self::Int16 => "Int16".to_string(),
             Self::Int32 => "Int32".to_string(),
@@ -32,11 +30,11 @@ impl PrimitiveType {
         match s.as_ref() {
             "Void" => Some(Self::Void),
             "Bool" => Some(Self::Bool),
-            "Int" => Some(Self::Int),
             "Int8" => Some(Self::Int8),
             "Int16" => Some(Self::Int16),
             "Int32" => Some(Self::Int32),
             "Int64" => Some(Self::Int64),
+            "String" => Some(Self::String(0)),
             _ => None,
         }
     }

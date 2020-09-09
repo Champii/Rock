@@ -91,9 +91,9 @@ impl TypeInferer for Expression {
         match &mut self.kind {
             ExpressionKind::BinopExpr(unary, op, expr) => {
                 let t = match op {
-                    Operator::Add => Some(Type::Primitive(PrimitiveType::Int)),
+                    Operator::Add => Some(Type::Primitive(PrimitiveType::Int32)),
                     Operator::EqualEqual => Some(Type::Primitive(PrimitiveType::Bool)),
-                    _ => Some(Type::Primitive(PrimitiveType::Int)),
+                    _ => Some(Type::Primitive(PrimitiveType::Int32)),
                 };
 
                 ctx.cur_type = t.clone();

@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::Error;
 use crate::Parser;
 use crate::TokenType;
@@ -21,7 +23,7 @@ use crate::error;
 
 #[derive(Debug, Clone)]
 pub enum Literal {
-    Number(u64),
+    Number(i64),
     String(String),
     Bool(u64),
 }
@@ -57,7 +59,7 @@ impl TypeInferer for Literal {
         trace!("Literal ({:?})", self);
 
         match &self {
-            Literal::Number(_) => Ok(Some(Type::Primitive(PrimitiveType::Int))),
+            Literal::Number(_) => Ok(Some(Type::Primitive(PrimitiveType::Int32))),
             Literal::String(s) => Ok(Some(Type::Primitive(PrimitiveType::String(s.len())))),
             Literal::Bool(_) => Ok(Some(Type::Primitive(PrimitiveType::Bool))),
         }
@@ -67,7 +69,11 @@ impl TypeInferer for Literal {
 impl IrBuilder for Literal {
     fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
         match self {
-            Literal::Number(num) => unsafe { Some(LLVMConstInt(LLVMInt32Type(), *num, 0)) },
+            Literal::Number(num) => {
+                let sign = if *num < 0 { 1 } else { 0 };
+                let nb: u64 = (*num) as u64;
+                unsafe { Some(LLVMConstInt(LLVMInt32Type(), nb, sign)) }
+            }
             Literal::String(s) => s.build(context),
             Literal::Bool(b) => unsafe { Some(LLVMConstInt(LLVMInt1Type(), b.clone(), 0)) },
         }
