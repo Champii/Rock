@@ -1,1 +1,1 @@
-main :: Int -> 42
+main :: Int32 -> 42

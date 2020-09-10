@@ -1,10 +1,10 @@
 class Foo
-    bar :: Int
+    bar :: Int32
     def: 24
 
 class Bar
     foo :: Foo
-    val :: Int
+    val :: Int32
     f -> @foo.bar + @foo.def + @val
 
 main ->

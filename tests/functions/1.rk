@@ -1,2 +1,2 @@
-one :: Int -> 42
-main :: Int -> one()
+one :: Int32 -> 42
+main :: Int32 -> one()

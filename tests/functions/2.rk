@@ -1,2 +1,2 @@
-id(a: Int) :: Int -> a
-main :: Int -> id(42)
+id(a: Int32) :: Int32 -> a
+main :: Int32 -> id(42)

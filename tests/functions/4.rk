@@ -1,4 +1,4 @@
-main :: Int ->
+main :: Int32 ->
     1
     2
 

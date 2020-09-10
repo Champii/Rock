@@ -1,4 +1,4 @@
-main :: Int ->
-    a: Int = 1
+main :: Int32 ->
+    a: Int32 = 1
     a = 42
     a

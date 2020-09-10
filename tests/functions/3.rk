@@ -1,2 +1,2 @@
-add(a: Int, b: Int) :: Int -> a + b
-main :: Int -> add(10, 32)
+add(a: Int32, b: Int32) :: Int32 -> a + b
+main :: Int32 -> add(10, 32)

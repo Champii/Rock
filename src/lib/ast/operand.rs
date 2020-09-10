@@ -173,7 +173,6 @@ impl IrBuilder for Operand {
                             );
 
                             let val_res = if val.is_identifier() {
-                                println!("VAL IDENT {:?}", val);
                                 let ident = val.get_identifier().unwrap();
                                 let t = class_attr.0.t.clone().unwrap();
                                 if let Type::Class(_) = t {
