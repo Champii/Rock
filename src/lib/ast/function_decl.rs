@@ -1,8 +1,10 @@
+use llvm_sys::core::LLVMGetParam;
+use llvm_sys::LLVMValue;
+
 use crate::Error;
 use crate::Parser;
 use crate::Token;
 use crate::TokenType;
-use llvm_sys::core::LLVMGetParam;
 
 use crate::ast::argument_decl::ArgumentsDecl;
 use crate::ast::ArgumentDecl;
@@ -17,9 +19,8 @@ use crate::codegen::get_type;
 use crate::codegen::IrBuilder;
 use crate::codegen::IrContext;
 use crate::context::Context;
-use crate::type_checker::TypeInferer;
 
-use llvm_sys::LLVMValue;
+use crate::type_checker::TypeInferer;
 
 use crate::generator::Generate;
 use crate::parser::macros::*;

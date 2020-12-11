@@ -2,7 +2,7 @@
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with safeness, no GC but a Borrow Checker instead, and of course native performances thanks to LLVM.  
-It is highly inspired from Livescript, and will borrow some features and syntax from Crystal, from functional languages like Haskell or even Rust itself.
+It is highly inspired from Livescript, and will borrow some features and syntax from Crystal, from functional languages like Haskell, or even Rust itself.
 
 ## Features
 
@@ -114,10 +114,9 @@ FLAGS:
 
 - v0.1.0
     - Replace llvm-sys with Inkwell
-    - Group each AST node impl in its own file
     - escaped chars
     - immutable by default
-    - mut keywork
+    - mut keyword
     - returnable statement
     - operator precedence
     - floats

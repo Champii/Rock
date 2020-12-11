@@ -98,20 +98,31 @@ impl TypeInferer for Expression {
 
                 ctx.cur_type = t.clone();
 
-                let _left = unary.infer(ctx)?;
-                let _right = expr.infer(ctx)?;
+                let left = unary.infer(ctx)?;
+                let right = expr.infer(ctx)?;
 
-                // if left != right {
-                //     return Err(TypeError::new());
-                // }
+                if left != right {
+                    return Err(Error::new_type_error(
+                        ctx.input.clone(),
+                        self.token.clone(),
+                        left,
+                        right,
+                    ));
+                }
 
-                // check left == right
+                // ctx.cur_type = None;
 
-                ctx.cur_type = None;
+                self.t = t.clone();
 
                 Ok(t)
             }
-            ExpressionKind::UnaryExpr(unary) => unary.infer(ctx),
+            ExpressionKind::UnaryExpr(unary) => {
+                let t = unary.infer(ctx)?;
+
+                self.t = t.clone();
+
+                Ok(t)
+            }
         }
     }
 }

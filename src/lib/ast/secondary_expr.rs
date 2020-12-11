@@ -80,6 +80,7 @@ impl Generate for SecondaryExpr {
 }
 
 impl SecondaryExpr {
+    // This function essence and very existance smells like hell
     pub fn build_with(
         &self,
         context: &mut IrContext,

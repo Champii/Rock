@@ -88,7 +88,12 @@ impl TypeInferer for Operand {
         let t = match &mut self.kind {
             OperandKind::Literal(lit) => lit.infer(ctx),
             OperandKind::Identifier(ident) => {
-                let res = ctx.scopes.get(ident.clone()).unwrap();
+                let res = match ctx.scopes.get(ident.clone()) {
+                    Some(res) => res,
+                    None => {
+                        return Err(Error::new_undefined_error(ctx.input.clone(), ident.clone()))
+                    }
+                };
 
                 if let None = res {
                     ctx.scopes.add(ident.clone(), ctx.cur_type.clone());

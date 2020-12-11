@@ -27,7 +27,7 @@ impl Generator {
         self.ast.top_levels.insert(i, TopLevel::Function(f.clone()));
     }
 
-    pub fn generate(&mut self) -> SourceFile {
+    pub fn generate(&mut self) -> Result<SourceFile, Error> {
         let main_scope = self.ctx.scopes.scopes.first().unwrap();
 
         let mut i = 0;
@@ -83,9 +83,9 @@ impl Generator {
             i += 1;
         }
 
-        self.ast.generate(&mut self.ctx).unwrap();
+        self.ast.generate(&mut self.ctx)?;
 
-        self.ast.clone()
+        Ok(self.ast.clone())
     }
 }
 

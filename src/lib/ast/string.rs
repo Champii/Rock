@@ -17,7 +17,7 @@ impl IrBuilder for String {
     fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
         let mut me = self.clone();
 
-        me.push('\0');
+        me.push(0 as char);
 
         unsafe {
             let t = LLVMPointerType(LLVMInt8Type(), 0);

@@ -64,7 +64,7 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
 
     tc.infer()?;
 
-    let ast = Generator::new(tc.ast, tc.ctx).generate();
+    let ast = Generator::new(tc.ast, tc.ctx).generate()?;
 
     if config.show_ast {
         println!("AST {:#?}", ast);

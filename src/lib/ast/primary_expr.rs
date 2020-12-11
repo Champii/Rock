@@ -132,7 +132,7 @@ impl Generate for PrimaryExpr {
 
                             for arg in args {
                                 if arg.t.is_none() {
-                                    let t = arg.infer(&mut ctx_save).unwrap();
+                                    let t = arg.infer(&mut ctx_save)?;
                                     arg.t = t.clone();
                                 }
 
@@ -277,8 +277,7 @@ impl TypeInferer for PrimaryExpr {
 
                                 // TODO
                                 // if let Type::Primitive(_p) = t {
-                                //     ctx.cur_type =
-                                //         Some(Type::Primitive(PrimitiveType::Int8));
+                                //     ctx.cur_type = Some(Type::Primitive(PrimitiveType::Int8));
                                 // }
                             }
                         }

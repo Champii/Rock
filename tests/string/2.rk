@@ -1,0 +1,13 @@
+main -> 42
+# strlen s ->
+#     i = 0
+#     for s[i] != 0
+#         i = i + 1
+#     i
+
+# main ->
+#     a = "test"
+#     i = 38
+#     i + strlen a
+
+# DISABLED: NEED FIX

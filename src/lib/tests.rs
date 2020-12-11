@@ -28,14 +28,18 @@ pub fn run() {
     // config.show_ast = true;
     // config.show_ir = true;
     visit_dirs(Path::new(&"./tests".to_string()), &|file| {
-        println!("{:?}", file);
         let path = file.path();
+        println!("{:?}", file);
 
         if let Some(ext) = path.extension() {
             if ext == "rk" {
                 let content = fs::read_to_string(path).unwrap();
 
                 let res = super::run_str(content, "main\0".to_string(), config.clone()).unwrap();
+
+                if res != 42 {
+                    println!("FAILED: {:?}", file);
+                }
 
                 assert_eq!(res as u8, 42);
             }
