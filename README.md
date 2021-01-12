@@ -15,9 +15,9 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 
 ```coffee
 class Foo              # Class declaration
-    bar :: Int           # Type Integer
-    def: 32            # Default value (explicit type)
-    def2 :: Int: 32      # Default value (with type infer)
+    bar :: Int         # Type Integer
+    def: 32            # Default value (type inference)
+    def2 :: Int: 32    # Default value (explicit type)
     f -> @bar + @def   # Method
 
 add a, b -> a + b      # Polymorphism by default
