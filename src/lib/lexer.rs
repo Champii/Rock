@@ -87,7 +87,7 @@ impl Lexer {
         }
 
         while self.last_char == ' ' {
-            self.forward();
+            self.forward(1);
         }
 
         self.discard_comment();
@@ -208,7 +208,7 @@ impl Lexer {
     fn discard_comment(&mut self) {
         if self.last_char == '#' {
             while self.last_char != '\n' && self.last_char != '\0' {
-                self.forward();
+                self.forward(1);
             }
         }
     }
@@ -217,8 +217,7 @@ impl Lexer {
         if self.last_char == '-' && self.input[self.cur_idx + 1] == '>' {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return Some(Token {
                 t: TokenType::Arrow,
@@ -239,8 +238,7 @@ impl Lexer {
         {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return Some(Token {
                 t: TokenType::FnKeyword,
@@ -261,12 +259,7 @@ impl Lexer {
             if word == "extern".to_string() && self.input[self.cur_idx + 6] == ' ' {
                 let start = self.cur_idx;
 
-                self.forward();
-                self.forward();
-                self.forward();
-                self.forward();
-                self.forward();
-                self.forward();
+                self.forward(6);
 
                 return Some(Token {
                     t: TokenType::ExternKeyword,
@@ -288,8 +281,7 @@ impl Lexer {
         {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return Some(Token {
                 t: TokenType::IfKeyword,
@@ -312,10 +304,7 @@ impl Lexer {
         {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
-            self.forward();
-            self.forward();
+            self.forward(4);
 
             return Some(Token {
                 t: TokenType::ElseKeyword,
@@ -337,9 +326,7 @@ impl Lexer {
         {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
-            self.forward();
+            self.forward(3);
 
             return Some(Token {
                 t: TokenType::ForKeyword,
@@ -363,11 +350,7 @@ impl Lexer {
         {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
-            self.forward();
-            self.forward();
-            self.forward();
+            self.forward(5);
 
             return Some(Token {
                 t: TokenType::ClassKeyword,
@@ -390,10 +373,7 @@ impl Lexer {
         {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
-            self.forward();
-            self.forward();
+            self.forward(4);
 
             return Some(Token {
                 t: TokenType::ThenKeyword,
@@ -407,8 +387,7 @@ impl Lexer {
         if self.last_char == '=' && self.input[self.cur_idx + 1] == '>' {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return Some(Token {
                 t: TokenType::ThenKeyword,
@@ -431,15 +410,12 @@ impl Lexer {
         {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
-            self.forward();
-            self.forward();
+            self.forward(4);
 
             return Some(Token {
                 t: TokenType::Bool(true),
                 line: self.cur_line,
-                start: start,
+                start,
                 end: self.cur_idx - 1,
                 txt: "true".to_string(),
             });
@@ -454,16 +430,12 @@ impl Lexer {
         {
             let start = self.cur_idx;
 
-            self.forward();
-            self.forward();
-            self.forward();
-            self.forward();
-            self.forward();
+            self.forward(5);
 
             return Some(Token {
                 t: TokenType::Bool(false),
                 line: self.cur_line,
-                start: start,
+                start,
                 end: self.cur_idx - 1,
                 txt: "false".to_string(),
             });
@@ -481,7 +453,7 @@ impl Lexer {
             while self.last_char.is_alphanumeric() || self.last_char == '_' {
                 identifier.push(self.last_char);
 
-                self.forward();
+                self.forward(1);
             }
 
             // if is_keyword, return None
@@ -489,7 +461,7 @@ impl Lexer {
             return Some(Token {
                 t: TokenType::Identifier(identifier.iter().collect()),
                 line: self.cur_line,
-                start: start,
+                start,
                 end: self.cur_idx - 1,
                 txt: identifier.iter().collect(),
             });
@@ -508,7 +480,7 @@ impl Lexer {
                 txt: "(".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         } else if self.last_char == ')' {
@@ -520,7 +492,7 @@ impl Lexer {
                 txt: ")".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -538,7 +510,7 @@ impl Lexer {
                 txt: "{".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         } else if self.last_char == '}' {
@@ -550,7 +522,7 @@ impl Lexer {
                 txt: "}".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -568,7 +540,7 @@ impl Lexer {
                 txt: "[".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         } else if self.last_char == ']' {
@@ -580,7 +552,7 @@ impl Lexer {
                 txt: "]".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -598,8 +570,7 @@ impl Lexer {
                 txt: "[]".to_string(),
             });
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return res;
         }
@@ -617,7 +588,7 @@ impl Lexer {
                 txt: ",".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -635,7 +606,7 @@ impl Lexer {
                 txt: ".".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -653,8 +624,7 @@ impl Lexer {
                 txt: "::".to_string(),
             });
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return res;
         }
@@ -672,7 +642,7 @@ impl Lexer {
                 txt: ":".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -728,7 +698,7 @@ impl Lexer {
                 txt: "=".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -746,7 +716,7 @@ impl Lexer {
                 txt: "this".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -764,7 +734,7 @@ impl Lexer {
                 txt: "+".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -778,8 +748,7 @@ impl Lexer {
                 txt: "==".to_string(),
             });
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return res;
         }
@@ -793,8 +762,7 @@ impl Lexer {
                 txt: "!=".to_string(),
             });
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return res;
         }
@@ -808,8 +776,7 @@ impl Lexer {
                 txt: "<=".to_string(),
             });
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return res;
         }
@@ -823,7 +790,7 @@ impl Lexer {
                 txt: "<".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -837,8 +804,7 @@ impl Lexer {
                 txt: ">=".to_string(),
             });
 
-            self.forward();
-            self.forward();
+            self.forward(2);
 
             return res;
         }
@@ -852,7 +818,7 @@ impl Lexer {
                 txt: ">".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             return res;
         }
@@ -867,7 +833,7 @@ impl Lexer {
         if self.last_char == '-' {
             is_neg = true;
 
-            self.forward();
+            self.forward(1);
         }
 
         if self.last_char.is_digit(10) {
@@ -876,7 +842,7 @@ impl Lexer {
             while self.last_char.is_digit(10) {
                 number.push(self.last_char);
 
-                self.forward();
+                self.forward(1);
             }
 
             let nb_str: String = number.iter().collect();
@@ -891,7 +857,7 @@ impl Lexer {
             return Some(Token {
                 t: TokenType::Number(nb),
                 line: self.cur_line,
-                start: start,
+                start,
                 end: self.cur_idx - 1,
                 txt: nb_str,
             });
@@ -910,7 +876,7 @@ impl Lexer {
                 txt: "\n".to_string(),
             });
 
-            self.forward();
+            self.forward(1);
 
             self.cur_line += 1;
 
@@ -929,7 +895,7 @@ impl Lexer {
             while self.input[self.cur_idx] == ' ' {
                 let mut count = 0;
                 while self.input[self.cur_idx] == ' ' && count < 4 {
-                    self.forward();
+                    self.forward(1);
 
                     count += 1;
                 }
@@ -960,22 +926,22 @@ impl Lexer {
         if self.last_char == '"' {
             let mut s = vec![];
 
-            self.forward();
+            self.forward(1);
 
             while self.last_char != '"' {
                 s.push(self.last_char);
 
-                self.forward();
+                self.forward(1);
             }
 
-            self.forward();
+            self.forward(1);
 
             let res: String = s.iter().collect();
 
             return Some(Token {
                 t: TokenType::String(res.clone()),
                 line: self.cur_line,
-                start: start,
+                start,
                 end: self.cur_idx - 1,
                 txt: res,
             });
@@ -993,7 +959,7 @@ impl Lexer {
             while self.last_char.is_alphanumeric() {
                 identifier.push(self.last_char);
 
-                self.forward();
+                self.forward(1);
             }
 
             // if is_keyword, return None
@@ -1001,7 +967,7 @@ impl Lexer {
             return Some(Token {
                 t: TokenType::Type(identifier.iter().collect()),
                 line: self.cur_line,
-                start: start,
+                start,
                 end: self.cur_idx - 1,
                 txt: identifier.iter().collect(),
             });
@@ -1010,8 +976,8 @@ impl Lexer {
         None
     }
 
-    fn forward(&mut self) {
-        self.cur_idx += 1;
+    fn forward(&mut self, n: usize) {
+        self.cur_idx += n;
 
         if self.cur_idx >= self.input.len() {
             self.end = true;
