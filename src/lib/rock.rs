@@ -3,6 +3,9 @@
 extern crate llvm_sys as llvm;
 
 #[macro_use]
+extern crate bitflags;
+
+#[macro_use]
 extern crate log;
 
 use regex::Regex;

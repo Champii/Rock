@@ -8,6 +8,47 @@ pub struct Lexer {
     end: bool,
 }
 
+bitflags! {
+    struct Sep: u32 {
+        const WS = 0b00000001;
+        const EOL = 0b00000010;
+        const NOTALPHANUM = 0b00000100;
+    }
+}
+
+macro_rules! match_consume {
+    ($str:literal, $t:expr, $end:expr, $self:ident) => {
+        // TODO: optimisation: test the first letter first with last_char
+
+        if $self
+            .input
+            .iter()
+            .skip($self.cur_idx)
+            .take($str.len())
+            .collect::<String>()
+            == $str.to_string()
+        {
+            if !$self.has_separator($str.len(), $end) {
+                return None;
+            }
+
+            let start = $self.cur_idx;
+
+            $self.forward($str.len());
+
+            return Some(Token {
+                t: $t,
+                line: $self.cur_line,
+                start,
+                end: $self.cur_idx - 1,
+                txt: $str.to_string(),
+            });
+        }
+
+        return None
+    };
+}
+
 impl Lexer {
     pub fn new(input: Vec<char>) -> Lexer {
         let mut input = input.clone();
@@ -69,6 +110,30 @@ impl Lexer {
         }
 
         self.set_line();
+    }
+
+    pub fn has_separator(&self, token_len: usize, sep: Sep) -> bool {
+        if sep == Sep::empty() {
+            return true;
+        }
+
+        let mut seps = vec![];
+
+        if sep & Sep::WS == Sep::WS {
+            seps.push(' ');
+        }
+
+        if sep & Sep::EOL == Sep::EOL {
+            seps.push('\n');
+        }
+
+        if sep & Sep::NOTALPHANUM == Sep::NOTALPHANUM
+            && !self.input[self.cur_idx + token_len].is_alphanumeric()
+        {
+            seps.push(self.input[self.cur_idx + token_len]);
+        }
+
+        seps.contains(&self.input[self.cur_idx + token_len])
     }
 
     pub fn next(&mut self) -> Token {
@@ -214,234 +279,51 @@ impl Lexer {
     }
 
     fn try_arrow(&mut self) -> Option<Token> {
-        if self.last_char == '-' && self.input[self.cur_idx + 1] == '>' {
-            let start = self.cur_idx;
-
-            self.forward(2);
-
-            return Some(Token {
-                t: TokenType::Arrow,
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "->".to_string(),
-            });
-        }
-
-        None
+        match_consume!("->", TokenType::Arrow, Sep::empty(), self);
     }
 
     fn try_fn_keyword(&mut self) -> Option<Token> {
-        if self.last_char == 'f'
-            && self.input[self.cur_idx + 1] == 'n'
-            && self.input[self.cur_idx + 2] == ' '
-        {
-            let start = self.cur_idx;
-
-            self.forward(2);
-
-            return Some(Token {
-                t: TokenType::FnKeyword,
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "fn".to_string(),
-            });
-        }
-
-        None
+        match_consume!("fn", TokenType::FnKeyword, Sep::WS, self);
     }
 
     fn try_extern_keyword(&mut self) -> Option<Token> {
-        if self.last_char == 'e' {
-            let word: String = self.input[self.cur_idx..self.cur_idx + 6].iter().collect();
-
-            if word == "extern".to_string() && self.input[self.cur_idx + 6] == ' ' {
-                let start = self.cur_idx;
-
-                self.forward(6);
-
-                return Some(Token {
-                    t: TokenType::ExternKeyword,
-                    line: self.cur_line,
-                    start,
-                    end: self.cur_idx - 1,
-                    txt: "extern".to_string(),
-                });
-            }
-        }
-
-        None
+        match_consume!("extern", TokenType::ExternKeyword, Sep::WS, self);
     }
 
     fn try_if_keyword(&mut self) -> Option<Token> {
-        if self.last_char == 'i'
-            && self.input[self.cur_idx + 1] == 'f'
-            && self.input[self.cur_idx + 2] == ' '
-        {
-            let start = self.cur_idx;
-
-            self.forward(2);
-
-            return Some(Token {
-                t: TokenType::IfKeyword,
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "if".to_string(),
-            });
-        }
-
-        None
+        match_consume!("if", TokenType::IfKeyword, Sep::WS, self);
     }
 
     fn try_else_keyword(&mut self) -> Option<Token> {
-        if self.last_char == 'e'
-            && self.input[self.cur_idx + 1] == 'l'
-            && self.input[self.cur_idx + 2] == 's'
-            && self.input[self.cur_idx + 3] == 'e'
-            && (self.input[self.cur_idx + 4] == ' ' || self.input[self.cur_idx + 4] == '\n')
-        {
-            let start = self.cur_idx;
-
-            self.forward(4);
-
-            return Some(Token {
-                t: TokenType::ElseKeyword,
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "else".to_string(),
-            });
-        }
-
-        None
+        match_consume!("else", TokenType::ElseKeyword, Sep::WS | Sep::EOL, self);
     }
 
     fn try_for_keyword(&mut self) -> Option<Token> {
-        if self.last_char == 'f'
-            && self.input[self.cur_idx + 1] == 'o'
-            && self.input[self.cur_idx + 2] == 'r'
-            && (self.input[self.cur_idx + 3] == ' ' || self.input[self.cur_idx + 3] == '\n')
-        {
-            let start = self.cur_idx;
-
-            self.forward(3);
-
-            return Some(Token {
-                t: TokenType::ForKeyword,
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "for".to_string(),
-            });
-        }
-
-        None
+        match_consume!("for", TokenType::ForKeyword, Sep::WS | Sep::EOL, self);
     }
 
     fn try_class_keyword(&mut self) -> Option<Token> {
-        if self.last_char == 'c'
-            && self.input[self.cur_idx + 1] == 'l'
-            && self.input[self.cur_idx + 2] == 'a'
-            && self.input[self.cur_idx + 3] == 's'
-            && self.input[self.cur_idx + 4] == 's'
-            && (self.input[self.cur_idx + 5] == ' ')
-        {
-            let start = self.cur_idx;
-
-            self.forward(5);
-
-            return Some(Token {
-                t: TokenType::ClassKeyword,
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "class".to_string(),
-            });
-        }
-
-        None
+        match_consume!("class", TokenType::ClassKeyword, Sep::WS, self);
     }
 
     fn try_then_keyword(&mut self) -> Option<Token> {
-        if self.last_char == 't'
-            && self.input[self.cur_idx + 1] == 'h'
-            && self.input[self.cur_idx + 2] == 'e'
-            && self.input[self.cur_idx + 3] == 'n'
-            && self.input[self.cur_idx + 4] == ' '
-        {
-            let start = self.cur_idx;
-
-            self.forward(4);
-
-            return Some(Token {
-                t: TokenType::ThenKeyword,
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "then".to_string(),
-            });
+        if self.last_char == 't' {
+            match_consume!("then", TokenType::ThenKeyword, Sep::WS, self);
+        } else if self.last_char == '=' {
+            match_consume!("=>", TokenType::ThenKeyword, Sep::empty(), self);
+        } else {
+            None
         }
-
-        if self.last_char == '=' && self.input[self.cur_idx + 1] == '>' {
-            let start = self.cur_idx;
-
-            self.forward(2);
-
-            return Some(Token {
-                t: TokenType::ThenKeyword,
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "then".to_string(),
-            });
-        }
-
-        None
     }
 
     fn try_bool(&mut self) -> Option<Token> {
-        if self.last_char == 't'
-            && self.input[self.cur_idx + 1] == 'r'
-            && self.input[self.cur_idx + 2] == 'u'
-            && self.input[self.cur_idx + 3] == 'e'
-            && !self.input[self.cur_idx + 4].is_alphanumeric()
-        {
-            let start = self.cur_idx;
-
-            self.forward(4);
-
-            return Some(Token {
-                t: TokenType::Bool(true),
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "true".to_string(),
-            });
+        if self.last_char == 't' {
+            match_consume!("true", TokenType::Bool(true), Sep::NOTALPHANUM, self);
+        } else if self.last_char == 'f' {
+            match_consume!("false", TokenType::Bool(false), Sep::NOTALPHANUM, self);
+        } else {
+            None
         }
-
-        if self.last_char == 'f'
-            && self.input[self.cur_idx + 1] == 'a'
-            && self.input[self.cur_idx + 2] == 'l'
-            && self.input[self.cur_idx + 3] == 's'
-            && self.input[self.cur_idx + 4] == 'e'
-            && !self.input[self.cur_idx + 5].is_alphanumeric()
-        {
-            let start = self.cur_idx;
-
-            self.forward(5);
-
-            return Some(Token {
-                t: TokenType::Bool(false),
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: "false".to_string(),
-            });
-        }
-
-        None
     }
 
     fn try_ident(&mut self) -> Option<Token> {
@@ -472,182 +354,52 @@ impl Lexer {
 
     fn try_parens(&mut self) -> Option<Token> {
         if self.last_char == '(' {
-            let res = Some(Token {
-                t: TokenType::OpenParens,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "(".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
+            match_consume!("(", TokenType::OpenParens, Sep::empty(), self);
         } else if self.last_char == ')' {
-            let res = Some(Token {
-                t: TokenType::CloseParens,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: ")".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
+            match_consume!(")", TokenType::CloseParens, Sep::empty(), self);
+        } else {
+            None
         }
-
-        None
     }
 
     fn try_braces(&mut self) -> Option<Token> {
         if self.last_char == '{' {
-            let res = Some(Token {
-                t: TokenType::OpenBrace,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "{".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
+            match_consume!("{", TokenType::OpenBrace, Sep::empty(), self);
         } else if self.last_char == '}' {
-            let res = Some(Token {
-                t: TokenType::CloseBrace,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "}".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
+            match_consume!("}", TokenType::CloseBrace, Sep::empty(), self);
+        } else {
+            None
         }
-
-        None
     }
 
     fn try_array(&mut self) -> Option<Token> {
         if self.last_char == '[' {
-            let res = Some(Token {
-                t: TokenType::OpenArray,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "[".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
+            match_consume!("[", TokenType::OpenArray, Sep::empty(), self);
         } else if self.last_char == ']' {
-            let res = Some(Token {
-                t: TokenType::CloseArray,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "]".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
+            match_consume!("]", TokenType::CloseArray, Sep::empty(), self);
+        } else {
+            None
         }
-
-        None
     }
 
     fn try_array_decl(&mut self) -> Option<Token> {
-        if self.last_char == '[' && self.input[self.cur_idx + 1] == ']' {
-            let res = Some(Token {
-                t: TokenType::ArrayType,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx + 1,
-                txt: "[]".to_string(),
-            });
-
-            self.forward(2);
-
-            return res;
-        }
-
-        None
+        match_consume!("[]", TokenType::ArrayType, Sep::empty(), self);
     }
 
     fn try_coma(&mut self) -> Option<Token> {
-        if self.last_char == ',' {
-            let res = Some(Token {
-                t: TokenType::Coma,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: ",".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
-        }
-
-        None
+        match_consume!(",", TokenType::Coma, Sep::empty(), self);
     }
 
     fn try_dot(&mut self) -> Option<Token> {
-        if self.last_char == '.' {
-            let res = Some(Token {
-                t: TokenType::Dot,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: ".".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
-        }
-
-        None
+        match_consume!(".", TokenType::Dot, Sep::empty(), self);
     }
 
     fn try_double_semi_colon(&mut self) -> Option<Token> {
-        if self.last_char == ':' && self.input[self.cur_idx + 1] == ':' {
-            let res = Some(Token {
-                t: TokenType::DoubleSemiColon,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx + 1,
-                txt: "::".to_string(),
-            });
-
-            self.forward(2);
-
-            return res;
-        }
-
-        None
+        match_consume!("::", TokenType::DoubleSemiColon, Sep::empty(), self);
     }
 
     fn try_semi_colon(&mut self) -> Option<Token> {
-        if self.last_char == ':' {
-            let res = Some(Token {
-                t: TokenType::SemiColon,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: ":".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
-        }
-
-        None
+        match_consume!(":", TokenType::SemiColon, Sep::empty(), self);
     }
 
     // fn try_equal_equal(&mut self) -> Option<Token> {
@@ -689,21 +441,7 @@ impl Lexer {
     // }
 
     fn try_equal(&mut self) -> Option<Token> {
-        if self.last_char == '=' {
-            let res = Some(Token {
-                t: TokenType::Equal,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "=".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
-        }
-
-        None
+        match_consume!("=", TokenType::Equal, Sep::empty(), self);
     }
 
     fn try_this(&mut self) -> Option<Token> {
@@ -726,104 +464,57 @@ impl Lexer {
 
     fn try_operator(&mut self) -> Option<Token> {
         if self.last_char == '+' {
-            let res = Some(Token {
-                t: TokenType::Operator(self.last_char.to_string()),
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "+".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
+            match_consume!(
+                "+",
+                TokenType::Operator(self.last_char.to_string()),
+                Sep::empty(),
+                self
+            );
+        } else if self.last_char == '=' && self.input[self.cur_idx + 1] == '=' {
+            match_consume!(
+                "==",
+                TokenType::Operator("==".to_string()),
+                Sep::empty(),
+                self
+            );
+        } else if self.last_char == '!' && self.input[self.cur_idx + 1] == '=' {
+            match_consume!(
+                "!=",
+                TokenType::Operator("!=".to_string()),
+                Sep::empty(),
+                self
+            );
+        } else if self.last_char == '<' && self.input[self.cur_idx + 1] == '=' {
+            match_consume!(
+                "<=",
+                TokenType::Operator("<=".to_string()),
+                Sep::empty(),
+                self
+            );
+        } else if self.last_char == '<' {
+            match_consume!(
+                "<",
+                TokenType::Operator("<".to_string()),
+                Sep::empty(),
+                self
+            );
+        } else if self.last_char == '>' && self.input[self.cur_idx + 1] == '=' {
+            match_consume!(
+                ">=",
+                TokenType::Operator(">=".to_string()),
+                Sep::empty(),
+                self
+            );
+        } else if self.last_char == '>' {
+            match_consume!(
+                ">",
+                TokenType::Operator(">".to_string()),
+                Sep::empty(),
+                self
+            );
+        } else {
+            None
         }
-
-        if self.last_char == '=' && self.input[self.cur_idx + 1] == '=' {
-            let res = Some(Token {
-                t: TokenType::Operator("==".to_string()),
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx + 1,
-                txt: "==".to_string(),
-            });
-
-            self.forward(2);
-
-            return res;
-        }
-
-        if self.last_char == '!' && self.input[self.cur_idx + 1] == '=' {
-            let res = Some(Token {
-                t: TokenType::Operator("!=".to_string()),
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx + 1,
-                txt: "!=".to_string(),
-            });
-
-            self.forward(2);
-
-            return res;
-        }
-
-        if self.last_char == '<' && self.input[self.cur_idx + 1] == '=' {
-            let res = Some(Token {
-                t: TokenType::Operator("<=".to_string()),
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx + 1,
-                txt: "<=".to_string(),
-            });
-
-            self.forward(2);
-
-            return res;
-        }
-
-        if self.last_char == '<' {
-            let res = Some(Token {
-                t: TokenType::Operator(self.last_char.to_string()),
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "<".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
-        }
-
-        if self.last_char == '>' && self.input[self.cur_idx + 1] == '=' {
-            let res = Some(Token {
-                t: TokenType::Operator(">=".to_string()),
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx + 1,
-                txt: ">=".to_string(),
-            });
-
-            self.forward(2);
-
-            return res;
-        }
-
-        if self.last_char == '>' {
-            let res = Some(Token {
-                t: TokenType::Operator(self.last_char.to_string()),
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: ">".to_string(),
-            });
-
-            self.forward(1);
-
-            return res;
-        }
-
-        None
     }
 
     fn try_digit(&mut self) -> Option<Token> {
