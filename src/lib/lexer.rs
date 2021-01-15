@@ -1,13 +1,5 @@
 use super::{Token, TokenType};
 
-pub struct Lexer {
-    pub input: Vec<char>,
-    cur_idx: usize,
-    last_char: char,
-    cur_line: usize,
-    end: bool,
-}
-
 bitflags! {
     struct Sep: u32 {
         const WS = 0b00000001;
@@ -16,37 +8,24 @@ bitflags! {
     }
 }
 
-macro_rules! match_consume {
-    ($str:literal, $t:expr, $end:expr, $self:ident) => {
-        // TODO: optimisation: test the first letter first with last_char
-
-        if $self
-            .input
-            .iter()
-            .skip($self.cur_idx)
-            .take($str.len())
-            .collect::<String>()
-            == $str.to_string()
+macro_rules! closure_vec {
+    ($($m:path),*,) => {
         {
-            if !$self.has_separator($str.len(), $end) {
-                return None;
-            }
+            let mut res = vec![];
 
-            let start = $self.cur_idx;
+            $(res.push(Box::new($m as for<'r> fn(&'r mut Lexer) -> Option<Token>));)*
 
-            $self.forward($str.len());
-
-            return Some(Token {
-                t: $t,
-                line: $self.cur_line,
-                start,
-                end: $self.cur_idx - 1,
-                txt: $str.to_string(),
-            });
+            res
         }
-
-        return None
     };
+}
+
+pub struct Lexer {
+    pub input: Vec<char>,
+    cur_idx: usize,
+    last_char: char,
+    cur_line: usize,
+    end: bool,
 }
 
 impl Lexer {
@@ -112,7 +91,7 @@ impl Lexer {
         self.set_line();
     }
 
-    pub fn has_separator(&self, token_len: usize, sep: Sep) -> bool {
+    fn has_separator(&self, token_len: usize, sep: Sep) -> bool {
         if sep == Sep::empty() {
             return true;
         }
@@ -138,13 +117,9 @@ impl Lexer {
 
     pub fn next(&mut self) -> Token {
         if self.end {
-            return Token {
-                t: TokenType::EOF,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "".to_string(),
-            };
+            return self
+                .new_token(TokenType::EOF, self.cur_idx, "".to_string())
+                .unwrap(); // safe to unwrap here
         }
 
         if let Some(t) = self.try_indent() {
@@ -157,114 +132,44 @@ impl Lexer {
 
         self.discard_comment();
 
-        if let Some(t) = self.try_fn_keyword() {
-            return t;
-        }
+        let v = closure_vec![
+            Self::try_fn_keyword,
+            Self::try_extern_keyword,
+            Self::try_if_keyword,
+            Self::try_else_keyword,
+            Self::try_then_keyword,
+            Self::try_for_keyword,
+            Self::try_class_keyword,
+            Self::try_parens,
+            Self::try_braces,
+            Self::try_array,
+            Self::try_type,
+            Self::try_array_decl,
+            Self::try_bool,
+            Self::try_ident,
+            Self::try_arrow,
+            Self::try_digit,
+            Self::try_coma,
+            Self::try_dot,
+            Self::try_double_semi_colon,
+            Self::try_semi_colon,
+            Self::try_operator,
+            Self::try_equal,
+            Self::try_this,
+            Self::try_string,
+            Self::try_end_of,
+        ];
 
-        if let Some(t) = self.try_extern_keyword() {
-            return t;
-        }
-
-        if let Some(t) = self.try_if_keyword() {
-            return t;
-        }
-
-        if let Some(t) = self.try_else_keyword() {
-            return t;
-        }
-
-        if let Some(t) = self.try_then_keyword() {
-            return t;
-        }
-
-        if let Some(t) = self.try_for_keyword() {
-            return t;
-        }
-
-        if let Some(t) = self.try_class_keyword() {
-            return t;
-        }
-
-        if let Some(t) = self.try_parens() {
-            return t;
-        }
-
-        if let Some(t) = self.try_braces() {
-            return t;
-        }
-
-        if let Some(t) = self.try_array() {
-            return t;
-        }
-
-        if let Some(t) = self.try_type() {
-            return t;
-        }
-
-        if let Some(t) = self.try_array_decl() {
-            return t;
-        }
-
-        if let Some(t) = self.try_bool() {
-            return t;
-        }
-
-        if let Some(t) = self.try_ident() {
-            return t;
-        }
-
-        if let Some(t) = self.try_arrow() {
-            return t;
-        }
-
-        if let Some(t) = self.try_digit() {
-            return t;
-        }
-
-        if let Some(t) = self.try_coma() {
-            return t;
-        }
-
-        if let Some(t) = self.try_dot() {
-            return t;
-        }
-
-        if let Some(t) = self.try_double_semi_colon() {
-            return t;
-        }
-
-        if let Some(t) = self.try_semi_colon() {
-            return t;
-        }
-
-        if let Some(t) = self.try_operator() {
-            return t;
-        }
-
-        if let Some(t) = self.try_equal() {
-            return t;
-        }
-
-        if let Some(t) = self.try_this() {
-            return t;
-        }
-
-        if let Some(t) = self.try_string() {
-            return t;
-        }
-
-        if let Some(t) = self.try_end_of() {
-            return t;
+        for method in v {
+            if let Some(t) = method(self) {
+                return t;
+            }
         }
 
         if self.cur_idx >= self.input.len() - 1 {
-            return Token {
-                t: TokenType::EOF,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "".to_string(),
-            };
+            return self
+                .new_token(TokenType::EOF, self.cur_idx, "".to_string())
+                .unwrap(); // safe to unwrap here
         }
 
         panic!("Unknown token: '{}'", self.last_char);
@@ -278,39 +183,90 @@ impl Lexer {
         }
     }
 
+    fn forward(&mut self, n: usize) {
+        self.cur_idx += n;
+
+        if self.cur_idx >= self.input.len() {
+            self.end = true;
+
+            self.cur_idx = self.input.len() - 1;
+
+            self.last_char = '\0';
+        } else {
+            self.last_char = self.input[self.cur_idx];
+        }
+    }
+
+    fn new_token(&self, t: TokenType, start: usize, txt: String) -> Option<Token> {
+        return Some(Token {
+            t,
+            line: self.cur_line,
+            start,
+            end: self.cur_idx - 1,
+            txt,
+        });
+    }
+
+    fn match_consume(&mut self, s: &str, t: TokenType, end: Sep) -> Option<Token> {
+        // TODO: optimisation: test the first letter first with last_char
+
+        if self
+            .input
+            .iter()
+            .skip(self.cur_idx)
+            .take(s.len())
+            .collect::<String>()
+            == s.to_string()
+        {
+            if !self.has_separator(s.len(), end) {
+                return None;
+            }
+
+            let start = self.cur_idx;
+
+            self.forward(s.len());
+
+            return self.new_token(t, start, s.to_string());
+        }
+
+        return None;
+    }
+
+    // Actual lexer methods
+
     fn try_arrow(&mut self) -> Option<Token> {
-        match_consume!("->", TokenType::Arrow, Sep::empty(), self);
+        self.match_consume("->", TokenType::Arrow, Sep::empty())
     }
 
     fn try_fn_keyword(&mut self) -> Option<Token> {
-        match_consume!("fn", TokenType::FnKeyword, Sep::WS, self);
+        self.match_consume("fn", TokenType::FnKeyword, Sep::WS)
     }
 
     fn try_extern_keyword(&mut self) -> Option<Token> {
-        match_consume!("extern", TokenType::ExternKeyword, Sep::WS, self);
+        self.match_consume("extern", TokenType::ExternKeyword, Sep::WS)
     }
 
     fn try_if_keyword(&mut self) -> Option<Token> {
-        match_consume!("if", TokenType::IfKeyword, Sep::WS, self);
+        self.match_consume("if", TokenType::IfKeyword, Sep::WS)
     }
 
     fn try_else_keyword(&mut self) -> Option<Token> {
-        match_consume!("else", TokenType::ElseKeyword, Sep::WS | Sep::EOL, self);
+        self.match_consume("else", TokenType::ElseKeyword, Sep::WS | Sep::EOL)
     }
 
     fn try_for_keyword(&mut self) -> Option<Token> {
-        match_consume!("for", TokenType::ForKeyword, Sep::WS | Sep::EOL, self);
+        self.match_consume("for", TokenType::ForKeyword, Sep::WS | Sep::EOL)
     }
 
     fn try_class_keyword(&mut self) -> Option<Token> {
-        match_consume!("class", TokenType::ClassKeyword, Sep::WS, self);
+        self.match_consume("class", TokenType::ClassKeyword, Sep::WS)
     }
 
     fn try_then_keyword(&mut self) -> Option<Token> {
         if self.last_char == 't' {
-            match_consume!("then", TokenType::ThenKeyword, Sep::WS, self);
+            self.match_consume("then", TokenType::ThenKeyword, Sep::WS)
         } else if self.last_char == '=' {
-            match_consume!("=>", TokenType::ThenKeyword, Sep::empty(), self);
+            self.match_consume("=>", TokenType::ThenKeyword, Sep::empty())
         } else {
             None
         }
@@ -318,9 +274,9 @@ impl Lexer {
 
     fn try_bool(&mut self) -> Option<Token> {
         if self.last_char == 't' {
-            match_consume!("true", TokenType::Bool(true), Sep::NOTALPHANUM, self);
+            self.match_consume("true", TokenType::Bool(true), Sep::NOTALPHANUM)
         } else if self.last_char == 'f' {
-            match_consume!("false", TokenType::Bool(false), Sep::NOTALPHANUM, self);
+            self.match_consume("false", TokenType::Bool(false), Sep::NOTALPHANUM)
         } else {
             None
         }
@@ -340,13 +296,11 @@ impl Lexer {
 
             // if is_keyword, return None
 
-            return Some(Token {
-                t: TokenType::Identifier(identifier.iter().collect()),
-                line: self.cur_line,
+            return self.new_token(
+                TokenType::Identifier(identifier.iter().collect()),
                 start,
-                end: self.cur_idx - 1,
-                txt: identifier.iter().collect(),
-            });
+                identifier.iter().collect(),
+            );
         }
 
         None
@@ -354,9 +308,9 @@ impl Lexer {
 
     fn try_parens(&mut self) -> Option<Token> {
         if self.last_char == '(' {
-            match_consume!("(", TokenType::OpenParens, Sep::empty(), self);
+            self.match_consume("(", TokenType::OpenParens, Sep::empty())
         } else if self.last_char == ')' {
-            match_consume!(")", TokenType::CloseParens, Sep::empty(), self);
+            self.match_consume(")", TokenType::CloseParens, Sep::empty())
         } else {
             None
         }
@@ -364,9 +318,9 @@ impl Lexer {
 
     fn try_braces(&mut self) -> Option<Token> {
         if self.last_char == '{' {
-            match_consume!("{", TokenType::OpenBrace, Sep::empty(), self);
+            self.match_consume("{", TokenType::OpenBrace, Sep::empty())
         } else if self.last_char == '}' {
-            match_consume!("}", TokenType::CloseBrace, Sep::empty(), self);
+            self.match_consume("}", TokenType::CloseBrace, Sep::empty())
         } else {
             None
         }
@@ -374,87 +328,47 @@ impl Lexer {
 
     fn try_array(&mut self) -> Option<Token> {
         if self.last_char == '[' {
-            match_consume!("[", TokenType::OpenArray, Sep::empty(), self);
+            self.match_consume("[", TokenType::OpenArray, Sep::empty())
         } else if self.last_char == ']' {
-            match_consume!("]", TokenType::CloseArray, Sep::empty(), self);
+            self.match_consume("]", TokenType::CloseArray, Sep::empty())
         } else {
             None
         }
     }
 
     fn try_array_decl(&mut self) -> Option<Token> {
-        match_consume!("[]", TokenType::ArrayType, Sep::empty(), self);
+        self.match_consume("[]", TokenType::ArrayType, Sep::empty())
     }
 
     fn try_coma(&mut self) -> Option<Token> {
-        match_consume!(",", TokenType::Coma, Sep::empty(), self);
+        self.match_consume(",", TokenType::Coma, Sep::empty())
     }
 
     fn try_dot(&mut self) -> Option<Token> {
-        match_consume!(".", TokenType::Dot, Sep::empty(), self);
+        self.match_consume(".", TokenType::Dot, Sep::empty())
     }
 
     fn try_double_semi_colon(&mut self) -> Option<Token> {
-        match_consume!("::", TokenType::DoubleSemiColon, Sep::empty(), self);
+        self.match_consume("::", TokenType::DoubleSemiColon, Sep::empty())
     }
 
     fn try_semi_colon(&mut self) -> Option<Token> {
-        match_consume!(":", TokenType::SemiColon, Sep::empty(), self);
+        self.match_consume(":", TokenType::SemiColon, Sep::empty())
     }
 
-    // fn try_equal_equal(&mut self) -> Option<Token> {
-    //     if self.last_char == '=' && self.input[self.cur_idx + 1] == '=' {
-    //         let res = Some(Token {
-    //             t: TokenType::EqualEqual,
-    //             line: self.cur_line,
-    //             start: self.cur_idx,
-    //             end: self.cur_idx + 1,
-    //             txt: "==".to_string(),
-    //         });
-
-    //         self.forward();
-    //         self.forward();
-
-    //         return res;
-    //     }
-
-    //     None
-    // }
-
-    // fn try_dash_equal(&mut self) -> Option<Token> {
-    //     if self.last_char == '!' && self.input[self.cur_idx + 1] == '=' {
-    //         let res = Some(Token {
-    //             t: TokenType::DashEqual,
-    //             line: self.cur_line,
-    //             start: self.cur_idx,
-    //             end: self.cur_idx + 1,
-    //             txt: "!=".to_string(),
-    //         });
-
-    //         self.forward();
-    //         self.forward();
-
-    //         return res;
-    //     }
-
-    //     None
-    // }
-
     fn try_equal(&mut self) -> Option<Token> {
-        match_consume!("=", TokenType::Equal, Sep::empty(), self);
+        self.match_consume("=", TokenType::Equal, Sep::empty())
     }
 
     fn try_this(&mut self) -> Option<Token> {
         if self.last_char == '@' {
-            let res = Some(Token {
-                t: TokenType::Identifier("this".to_string()),
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
-                txt: "this".to_string(),
-            });
-
             self.forward(1);
+
+            let res = self.new_token(
+                TokenType::Identifier("this".to_string()),
+                self.cur_idx,
+                "this".to_string(),
+            );
 
             return res;
         }
@@ -464,54 +378,23 @@ impl Lexer {
 
     fn try_operator(&mut self) -> Option<Token> {
         if self.last_char == '+' {
-            match_consume!(
+            self.match_consume(
                 "+",
                 TokenType::Operator(self.last_char.to_string()),
                 Sep::empty(),
-                self
-            );
+            )
         } else if self.last_char == '=' && self.input[self.cur_idx + 1] == '=' {
-            match_consume!(
-                "==",
-                TokenType::Operator("==".to_string()),
-                Sep::empty(),
-                self
-            );
+            self.match_consume("==", TokenType::Operator("==".to_string()), Sep::empty())
         } else if self.last_char == '!' && self.input[self.cur_idx + 1] == '=' {
-            match_consume!(
-                "!=",
-                TokenType::Operator("!=".to_string()),
-                Sep::empty(),
-                self
-            );
+            self.match_consume("!=", TokenType::Operator("!=".to_string()), Sep::empty())
         } else if self.last_char == '<' && self.input[self.cur_idx + 1] == '=' {
-            match_consume!(
-                "<=",
-                TokenType::Operator("<=".to_string()),
-                Sep::empty(),
-                self
-            );
+            self.match_consume("<=", TokenType::Operator("<=".to_string()), Sep::empty())
         } else if self.last_char == '<' {
-            match_consume!(
-                "<",
-                TokenType::Operator("<".to_string()),
-                Sep::empty(),
-                self
-            );
+            self.match_consume("<", TokenType::Operator("<".to_string()), Sep::empty())
         } else if self.last_char == '>' && self.input[self.cur_idx + 1] == '=' {
-            match_consume!(
-                ">=",
-                TokenType::Operator(">=".to_string()),
-                Sep::empty(),
-                self
-            );
+            self.match_consume(">=", TokenType::Operator(">=".to_string()), Sep::empty())
         } else if self.last_char == '>' {
-            match_consume!(
-                ">",
-                TokenType::Operator(">".to_string()),
-                Sep::empty(),
-                self
-            );
+            self.match_consume(">", TokenType::Operator(">".to_string()), Sep::empty())
         } else {
             None
         }
@@ -545,13 +428,7 @@ impl Lexer {
 
             // if is_keyword, return None
 
-            return Some(Token {
-                t: TokenType::Number(nb),
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: nb_str,
-            });
+            return self.new_token(TokenType::Number(nb), start, nb_str);
         }
 
         None
@@ -596,13 +473,7 @@ impl Lexer {
             }
 
             if indent > 0 {
-                return Some(Token {
-                    t: TokenType::Indent(indent),
-                    line: self.cur_line,
-                    start: save,
-                    end: self.cur_idx,
-                    txt: " ".to_string(),
-                });
+                return self.new_token(TokenType::Indent(indent), save, " ".to_string());
             }
 
             self.cur_idx = save;
@@ -629,13 +500,7 @@ impl Lexer {
 
             let res: String = s.iter().collect();
 
-            return Some(Token {
-                t: TokenType::String(res.clone()),
-                line: self.cur_line,
-                start,
-                end: self.cur_idx - 1,
-                txt: res,
-            });
+            return self.new_token(TokenType::String(res.clone()), start, res);
         }
 
         None
@@ -655,29 +520,13 @@ impl Lexer {
 
             // if is_keyword, return None
 
-            return Some(Token {
-                t: TokenType::Type(identifier.iter().collect()),
-                line: self.cur_line,
+            return self.new_token(
+                TokenType::Type(identifier.iter().collect()),
                 start,
-                end: self.cur_idx - 1,
-                txt: identifier.iter().collect(),
-            });
+                identifier.iter().collect(),
+            );
         }
 
         None
-    }
-
-    fn forward(&mut self, n: usize) {
-        self.cur_idx += n;
-
-        if self.cur_idx >= self.input.len() {
-            self.end = true;
-
-            self.cur_idx = self.input.len() - 1;
-
-            self.last_char = '\0';
-        } else {
-            self.last_char = self.input[self.cur_idx];
-        }
     }
 }
