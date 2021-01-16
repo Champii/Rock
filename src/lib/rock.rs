@@ -13,7 +13,7 @@ use std::fs;
 
 mod ast;
 mod codegen;
-mod config;
+pub mod config;
 mod context;
 // mod desugar;
 mod error;

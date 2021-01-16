@@ -91,14 +91,14 @@ impl TypeInferer for Operand {
                 let res = match ctx.scopes.get(ident.clone()) {
                     Some(res) => res,
                     None => {
-                        return Err(Error::new_undefined_error(ctx.input.clone(), ident.clone()))
+                        return Err(Error::new_undefined_error(ctx.input.clone(), ident.clone()));
                     }
                 };
 
                 if let None = res {
                     ctx.scopes.add(ident.clone(), ctx.cur_type.clone());
 
-                    return Ok(ctx.cur_type.clone());
+                    Ok(ctx.cur_type.clone())
                 } else {
                     Ok(res)
                 }

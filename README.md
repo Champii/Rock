@@ -117,7 +117,6 @@ FLAGS:
     - escaped chars
     - immutable by default
     - mut keyword
-    - returnable statement
     - operator precedence
     - floats
     - sub, mul div and mod
@@ -144,6 +143,7 @@ FLAGS:
 - Class
 - Methods
 - Simple 'for'
+- Returnable statement
 
 # Goal
 

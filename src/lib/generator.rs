@@ -27,6 +27,22 @@ impl Generator {
         self.ast.top_levels.insert(i, TopLevel::Function(f.clone()));
     }
 
+    pub fn remove_top_level(&mut self, name: &str) {
+        self.ast.top_levels = self
+            .ast
+            .top_levels
+            .iter()
+            .filter(|top| {
+                if let TopLevel::Function(fu) = top {
+                    fu.name != name
+                } else {
+                    true
+                }
+            })
+            .cloned()
+            .collect();
+    }
+
     pub fn generate(&mut self) -> Result<SourceFile, Error> {
         let main_scope = self.ctx.scopes.scopes.first().unwrap();
 
@@ -35,19 +51,7 @@ impl Generator {
 
         for func in items {
             if let Some(Type::FuncType(ref mut f)) = func {
-                self.ast.top_levels = self
-                    .ast
-                    .top_levels
-                    .iter()
-                    .filter(|top| {
-                        if let TopLevel::Function(fu) = top {
-                            fu.name != f.name
-                        } else {
-                            true
-                        }
-                    })
-                    .cloned()
-                    .collect();
+                self.remove_top_level(&f.name);
 
                 if f.name == "main" {
                     f.infer(&mut self.ctx).unwrap();
@@ -83,6 +87,7 @@ impl Generator {
             i += 1;
         }
 
+        // replace every call with mangled names
         self.ast.generate(&mut self.ctx)?;
 
         Ok(self.ast.clone())

@@ -9,7 +9,8 @@ use std::convert::TryInto;
 use std::process::Command;
 
 use rock::logger;
-use rock::Config;
+
+pub(crate) use rock::*;
 
 mod builder;
 
@@ -174,7 +175,7 @@ fn main() {
         .get_matches();
 
     let mut config = rock::Config::default();
-    config.verbose = 2;
+    config.verbose = 5;
 
     if let Some(value) = matches.value_of("verbose") {
         config.verbose = value.parse::<u8>().unwrap();

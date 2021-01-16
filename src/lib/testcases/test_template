@@ -1,0 +1,14 @@
+
+#[test]
+fn {name}() {{
+    use super::Config;
+
+    let input = include_str!("{path}");
+    let expected_output = 42;
+
+    let config = Config::default();
+
+    let actual_output = super::run_str(input.to_string(), "main\0".to_string(), config.clone()).unwrap();
+
+    assert_eq!(expected_output, actual_output);
+}}

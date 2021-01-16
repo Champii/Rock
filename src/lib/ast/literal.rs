@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::Error;
 use crate::Parser;
 use crate::TokenType;
