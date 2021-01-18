@@ -1,0 +1,5 @@
+toto b -> b
+
+log a -> toto a
+
+main -> log 42

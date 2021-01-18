@@ -71,9 +71,14 @@ impl Generator {
                             new_f.apply_types(f.ret.clone(), call.clone());
                             new_f.infer(&mut self.ctx).unwrap();
                             new_f.apply_name(call.clone());
+                            if !new_f.is_solved() {
+                                panic!("NOT SOLVED {}", new_f.name);
+                            }
 
                             self.insert_toplevel_at(i, *new_f.clone());
                         }
+                    } else {
+                        self.insert_toplevel_at(i, *f.clone());
                     }
 
                     self.ctx = ctx_save;
@@ -88,13 +93,17 @@ impl Generator {
             i += 1;
         }
 
-        // replace every call with mangled names
+        // println!("PreGenerate {:#?}", self.ast);
+        // // replace every call with mangled names
         self.ast.generate(&mut self.ctx)?;
 
         debug!("Re-infer top levels");
         for func in &mut self.ast.top_levels {
             if let TopLevel::Function(ref mut f) = func {
                 f.infer(&mut self.ctx)?;
+                if !f.is_solved() {
+                    warn!("{} is not solved", f.name);
+                }
             }
         }
 

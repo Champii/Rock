@@ -52,13 +52,13 @@ impl FunctionDecl {
     }
 
     pub fn apply_name(&mut self, t: Vec<TypeInfer>) {
-        let mut name = String::new();
+        let mut name = self.name.clone();
 
         for ty in t {
             name = name + &ty.unwrap().get_name();
         }
 
-        self.name = self.name.clone() + &name;
+        self.name = name;
     }
 
     pub fn apply_name_self(&mut self) {
@@ -81,6 +81,8 @@ impl FunctionDecl {
         self.ret = ret;
 
         let mut i = 0;
+
+        println!("APPLY_TYPE {:#?}", t);
 
         for arg in &mut self.arguments {
             if i >= t.len() {
@@ -159,6 +161,7 @@ impl TypeInferer for FunctionDecl {
         ctx.scopes.push();
 
         let mut types = vec![];
+        println!("FUNCDECL {:#?}", self.arguments);
 
         for arg in &mut self.arguments {
             let t = arg.infer(ctx)?;

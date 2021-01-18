@@ -62,18 +62,21 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
 
     let ast = Parser::new(lexer).run()?;
 
+    info!("   -> TypeCheck {}", output_name);
     let mut tc = TypeChecker::new(ast);
 
     tc.ctx.input = input.clone();
 
     tc.infer()?;
 
+    info!("   -> Generate {}", output_name);
     let ast = Generator::new(tc.ast, tc.ctx).generate()?;
 
     if config.show_ast {
         println!("AST {:#?}", ast);
     }
 
+    info!("   -> Codegen {}", output_name);
     let mut builder = Builder::new(&output_name, ast, config);
 
     builder.build();

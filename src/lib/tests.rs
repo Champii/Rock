@@ -184,6 +184,20 @@ fn testcases_variables_5() {
 }
 
 #[test]
+fn testcases_inference_7() {
+    use super::Config;
+
+    let input = include_str!("./testcases/inference/7.rk");
+    let expected_output = 42;
+
+    let config = Config::default();
+
+    let actual_output = super::run_str(input.to_string(), "main\0".to_string(), config.clone()).unwrap();
+
+    assert_eq!(expected_output, actual_output);
+}
+
+#[test]
 fn testcases_inference_4() {
     use super::Config;
 
@@ -202,6 +216,20 @@ fn testcases_inference_3() {
     use super::Config;
 
     let input = include_str!("./testcases/inference/3.rk");
+    let expected_output = 42;
+
+    let config = Config::default();
+
+    let actual_output = super::run_str(input.to_string(), "main\0".to_string(), config.clone()).unwrap();
+
+    assert_eq!(expected_output, actual_output);
+}
+
+#[test]
+fn testcases_inference_6() {
+    use super::Config;
+
+    let input = include_str!("./testcases/inference/6.rk");
     let expected_output = 42;
 
     let config = Config::default();

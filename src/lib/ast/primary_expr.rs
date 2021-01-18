@@ -133,6 +133,7 @@ impl Generate for PrimaryExpr {
                             for arg in args {
                                 if arg.t.is_none() {
                                     let t = arg.infer(&mut ctx_save)?;
+
                                     arg.t = t.clone();
                                 }
 
@@ -197,7 +198,7 @@ impl TypeInferer for PrimaryExpr {
 
                 let mut prec = vec![];
 
-                for second in vec {
+                'outer: for second in vec {
                     match second {
                         SecondaryExpr::Arguments(ref mut args) => {
                             let mut args_types = vec![];
@@ -231,8 +232,15 @@ impl TypeInferer for PrimaryExpr {
 
                                 let orig_name = name.clone();
 
+                                ctx.cur_type = ret;
+
                                 for arg in args {
                                     let t = arg.infer(ctx)?;
+                                    println!("PRE INFER ARGS {:#?}", arg);
+
+                                    // if t.is_none() {
+                                    //     continue 'outer;
+                                    // }
 
                                     arg.t = t.clone();
 
@@ -241,12 +249,12 @@ impl TypeInferer for PrimaryExpr {
                                     name = name + &t.unwrap().get_name();
                                 }
 
-                                ctx.cur_type = ret;
-
                                 ctx.calls
                                     .entry(orig_name.clone())
                                     .or_insert(HashMap::new())
                                     .insert(name, args_types);
+
+                                // second.t = ctx.cur_type.clone();
                             } else if let Some(Type::Proto(proto)) = &ctx.cur_type {
                                 ctx.calls
                                     .entry(proto.name.clone().unwrap())
