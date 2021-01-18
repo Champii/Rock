@@ -79,6 +79,7 @@ impl Generator {
                     self.ctx = ctx_save;
                 } else {
                     f.infer(&mut self.ctx).unwrap();
+
                     f.apply_name_self();
 
                     self.insert_toplevel_at(i, *f.clone());
@@ -89,6 +90,13 @@ impl Generator {
 
         // replace every call with mangled names
         self.ast.generate(&mut self.ctx)?;
+
+        debug!("Re-infer top levels");
+        for func in &mut self.ast.top_levels {
+            if let TopLevel::Function(ref mut f) = func {
+                f.infer(&mut self.ctx)?;
+            }
+        }
 
         Ok(self.ast.clone())
     }

@@ -46,6 +46,7 @@ pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<B
 
 pub fn preprocess(input: String) -> String {
     // Add a '.' after a '@' if it is followed by some word
+    // This is a dirty trick to ditch having to modiffy the parser for that sugar
     let re = Regex::new(r"@(\w)").unwrap();
     let out = re.replace_all(&input, "@.$1");
 

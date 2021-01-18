@@ -95,10 +95,11 @@ impl TypeInferer for Operand {
                     }
                 };
 
+                println!("ident {:?}", ident);
                 if let None = res {
                     ctx.scopes.add(ident.clone(), ctx.cur_type.clone());
 
-                    Ok(ctx.cur_type.clone())
+                    return Ok(ctx.cur_type.clone());
                 } else {
                     Ok(res)
                 }
