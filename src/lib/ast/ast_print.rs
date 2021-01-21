@@ -51,7 +51,7 @@ macro_rules! derive_print {
             fn $method(&self, ctx: &mut $ctx) {
                 let indent_str = String::from("  ").repeat(ctx.indent());
 
-                println!("{}{} {:?}", indent_str, stringify!($id), ctx.get_token(self.token).unwrap().t);
+                println!("{}{:10} {:?}", indent_str, stringify!($id), ctx.get_token(self.token).unwrap().t);
 
                 ctx.increment();
 
