@@ -25,14 +25,17 @@ pub enum UnaryExpr {
     UnaryExpr(Operator, Box<UnaryExpr>),
 }
 
-impl AstPrint for UnaryExpr {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        match self {
-            Self::PrimaryExpr(p) => p.print(ctx),
-            _ => (),
-        }
-    }
-}
+// impl AstPrint for UnaryExpr {
+//     fn print(&self, ctx: &mut AstPrintContext) {
+//         match self {
+//             Self::PrimaryExpr(p) => p.print(ctx),
+//             Self::UnaryExpr(op, u) => {
+//                 op.print(ctx);
+//                 u.print(ctx);
+//             }
+//         }
+//     }
+// }
 
 impl UnaryExpr {
     pub fn is_literal(&self) -> bool {
@@ -65,7 +68,7 @@ impl UnaryExpr {
                 PrimaryExpr::PrimaryExpr(operand, vec) => match &operand.kind {
                     OperandKind::Identifier(i) => {
                         if vec.len() == 0 {
-                            Some(i.clone())
+                            Some(i.name.clone())
                         } else {
                             None
                         }

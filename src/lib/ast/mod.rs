@@ -2,6 +2,8 @@ use crate::Error;
 use crate::Parser;
 
 #[macro_use]
+pub mod helper;
+#[macro_use]
 pub mod ast_print;
 mod argument;
 mod argument_decl;
@@ -61,7 +63,7 @@ pub use secondary_expr::SecondaryExpr;
 // pub use selector::Selector;
 pub use source_file::SourceFile;
 pub use statement::{Statement, StatementKind};
-pub use top_level::TopLevel;
+pub use top_level::{TopLevel, TopLevelKind};
 pub use unary_expr::UnaryExpr;
 
 pub use ast_print::AstPrint;

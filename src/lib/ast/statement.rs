@@ -28,15 +28,15 @@ pub enum StatementKind {
     // Assignation(Assignation),
 }
 
-impl AstPrint for StatementKind {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        match self {
-            // Self::If(f) => f.print(ctx),
-            Self::Expression(e) => e.print(ctx),
-            _ => (),
-        }
-    }
-}
+// impl AstPrint for StatementKind {
+//     fn print(&self, ctx: &mut AstPrintContext) {
+//         match self {
+//             // Self::If(f) => f.print(ctx),
+//             Self::Expression(e) => e.print(ctx),
+//             _ => (),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct Statement {
@@ -44,7 +44,7 @@ pub struct Statement {
     pub token: TokenId,
 }
 
-derive_print!(Statement, [kind]);
+// derive_print!(Statement, [kind]);
 
 impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {

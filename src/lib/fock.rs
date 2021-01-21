@@ -8,10 +8,14 @@ extern crate bitflags;
 #[macro_use]
 extern crate log;
 
+use infer::*;
 use regex::Regex;
 use std::fs;
 
-mod ast;
+#[macro_use]
+pub mod ast;
+#[macro_use]
+pub mod infer;
 
 mod codegen;
 pub mod config;
@@ -63,6 +67,8 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
     let tokens = Lexer::new(input.clone()).collect();
 
     let ast = Parser::new(tokens.clone(), input.clone()).run()?;
+
+    ast.annotate(&mut InferBuilder::new());
 
     // info!("   -> TypeCheck {}", output_name);
     // let mut tc = TypeChecker::new(ast);

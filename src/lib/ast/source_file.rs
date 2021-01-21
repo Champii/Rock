@@ -1,3 +1,5 @@
+#[macro_use]
+use crate::infer::*;
 use crate::Parser;
 use crate::TokenType;
 use crate::{token::TokenId, Error};
@@ -17,13 +19,22 @@ use llvm_sys::LLVMValue;
 use crate::generator::Generate;
 use crate::parser::macros::*;
 
+// pub struct Identity {
+//     node_id: NodeId,
+//     token_id: TokenId,
+//     type_id: TypeId,
+//     scope_depth: u8,
+// }
+
 #[derive(Debug, Clone)]
 pub struct SourceFile {
     pub top_levels: Vec<TopLevel>,
+    // pub identity: Identity,
     pub token: TokenId,
 }
 
-derive_print!(SourceFile, [top_levels]);
+// annotate!(struct, SourceFile, [top_levels]);
+// visitable_class!(SourceFile, Annotate, annotate, InferBuilder, [top_levels]);
 
 impl Parse for SourceFile {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
@@ -41,6 +52,12 @@ impl Parse for SourceFile {
         })
     }
 }
+
+// impl Annotate for SourceFile {
+//     fn annotate(&self, ctx: &mut InferBuilder) {
+//         //
+//     }
+// }
 
 // impl TypeInferer for SourceFile {
 //     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {

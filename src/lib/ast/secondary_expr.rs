@@ -30,16 +30,16 @@ pub enum SecondaryExpr {
                               // Index(Box<Expression>), // [Expr]
 }
 
-impl AstPrint for SecondaryExpr {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        match self {
-            Self::Arguments(args) => {
-                args.print(ctx);
-            }
-            _ => (),
-        }
-    }
-}
+// impl AstPrint for SecondaryExpr {
+//     fn print(&self, ctx: &mut AstPrintContext) {
+//         match self {
+//             Self::Arguments(args) => {
+//                 args.print(ctx);
+//             }
+//             _ => (),
+//         }
+//     }
+// }
 
 impl SecondaryExpr {
     fn index(ctx: &mut Parser) -> Result<Box<Expression>, Error> {

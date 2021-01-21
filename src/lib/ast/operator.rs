@@ -41,6 +41,7 @@ impl Parse for Operator {
 
         let op = match op.as_ref() {
             "+" => Operator::Add,
+            "-" => Operator::Sub,
             "==" => Operator::EqualEqual,
             "!=" => Operator::DashEqual,
             "<" => Operator::Less,

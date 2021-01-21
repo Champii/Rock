@@ -1,6 +1,7 @@
 use llvm_sys::core::LLVMGetParam;
 use llvm_sys::LLVMValue;
 
+use crate::infer::*;
 use crate::Parser;
 use crate::Token;
 use crate::TokenType;
@@ -36,7 +37,15 @@ pub struct FunctionDecl {
     pub token: TokenId,
 }
 
-derive_print!(FunctionDecl, [arguments, body]);
+// visitable_class!(
+//     FunctionDecl,
+//     Annotate,
+//     annotate,
+//     InferBuilder,
+//     [arguments, body,]
+// );
+
+// derive_print!(FunctionDecl, [arguments, body]);
 
 impl FunctionDecl {
     // pub fn add_this_arg(&mut self) {

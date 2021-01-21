@@ -47,7 +47,7 @@ impl Parse for Arguments {
 
             res.push(arg);
 
-            if TokenType::EOL == ctx.cur_tok().t {
+            if TokenType::Coma != ctx.cur_tok().t {
                 break;
             }
 
@@ -67,7 +67,7 @@ pub struct Argument {
     pub token: TokenId,
 }
 
-derive_print!(Argument, [arg]);
+// derive_print!(Argument, [arg]);
 
 impl Parse for Argument {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {

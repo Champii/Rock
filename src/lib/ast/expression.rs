@@ -9,6 +9,7 @@ use crate::ast::Parse;
 // use crate::ast::TypeInfer;
 use crate::ast::ast_print::*;
 use crate::ast::UnaryExpr;
+use crate::infer::*;
 
 use crate::codegen::IrBuilder;
 use crate::codegen::IrContext;
@@ -29,26 +30,14 @@ pub enum ExpressionKind {
     UnaryExpr(UnaryExpr),
 }
 
-impl AstPrint for ExpressionKind {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        match self {
-            Self::UnaryExpr(u) => u.print(ctx),
-            Self::BinopExpr(b, op, e) => {
-                b.print(ctx);
-                op.print(ctx);
-                e.print(ctx);
-            }
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
     pub token: TokenId,
 }
 
-derive_print!(Expression, [kind]);
+// annotate!(Expression, [kind]);
+// derive_print!(Expression, [kind]);
 
 impl Expression {
     pub fn is_literal(&self) -> bool {

@@ -1,16 +1,16 @@
 use crate::token::{Token, TokenId};
 
 pub trait AstPrint {
-    fn print(&self, ctx: &mut AstPrintContext);
+    fn print(&self, ctx: &mut AstPrintContext) {}
 }
 
-impl<T: AstPrint> AstPrint for Vec<T> {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        for x in self {
-            x.print(ctx);
-        }
-    }
-}
+// impl<T: AstPrint> AstPrint for Vec<T> {
+//     fn print(&self, ctx: &mut AstPrintContext) {
+//         for x in self {
+//             x.print(ctx);
+//         }
+//     }
+// }
 
 pub struct AstPrintContext {
     indent: usize,
@@ -46,9 +46,9 @@ impl AstPrintContext {
 
 #[macro_use]
 macro_rules! derive_print {
-    ($id:tt, [ $($field:ident),* ]) => {
-        impl AstPrint for $id {
-            fn print(&self, ctx: &mut AstPrintContext) {
+    ($id:tt, $trait:tt, $method:ident, $ctx:tt, [ $($field:ident),* ]) => {
+        impl $trait for $id {
+            fn $method(&self, ctx: &mut $ctx) {
                 let indent_str = String::from("  ").repeat(ctx.indent());
 
                 println!("{}{} {:?}", indent_str, stringify!($id), ctx.get_token(self.token).unwrap().t);
@@ -56,7 +56,7 @@ macro_rules! derive_print {
                 ctx.increment();
 
                 $(
-                    self.$field.print(ctx);
+                    self.$field.$method(ctx);
                 )*
 
                 ctx.decrement();
@@ -64,3 +64,5 @@ macro_rules! derive_print {
         }
     };
 }
+
+predef_trait!(AstPrint, print, AstPrintContext, derive_print);

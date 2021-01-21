@@ -32,17 +32,17 @@ pub enum PrimaryExpr {
     PrimaryExpr(Operand, Vec<SecondaryExpr>),
 }
 
-impl AstPrint for PrimaryExpr {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        match self {
-            Self::PrimaryExpr(operand, secondaries) => {
-                operand.print(ctx);
-                secondaries.print(ctx);
-            }
-            _ => (),
-        }
-    }
-}
+// impl AstPrint for PrimaryExpr {
+//     fn print(&self, ctx: &mut AstPrintContext) {
+//         match self {
+//             Self::PrimaryExpr(operand, secondaries) => {
+//                 operand.print(ctx);
+//                 secondaries.print(ctx);
+//             }
+//             _ => (),
+//         }
+//     }
+// }
 
 impl PrimaryExpr {
     pub fn has_secondaries(&self) -> bool {
@@ -55,7 +55,7 @@ impl PrimaryExpr {
         match self {
             PrimaryExpr::PrimaryExpr(op, _) => {
                 if let OperandKind::Identifier(ident) = &op.kind {
-                    Some(ident.clone())
+                    Some(ident.name.clone())
                 } else {
                     None
                 }

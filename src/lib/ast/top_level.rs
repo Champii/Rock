@@ -1,3 +1,4 @@
+use crate::infer::*;
 use crate::TokenType;
 use crate::{token::Token, Error};
 use crate::{token::TokenId, Parser};
@@ -23,21 +24,16 @@ pub enum TopLevelKind {
     Function(FunctionDecl),
 }
 
-impl AstPrint for TopLevelKind {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        match self {
-            Self::Function(f) => f.print(ctx),
-        }
-    }
-}
+// visitable_enum!(TopLevelKind, Annotate, annotate, InferBuilder, [Function]);
+// visitable_enum!(TopLevelKind, AstPrint, print, AstPrintContext, [Function]);
 
 #[derive(Debug, Clone)]
 pub struct TopLevel {
-    kind: TopLevelKind,
-    token: TokenId,
+    pub kind: TopLevelKind,
+    pub token: TokenId,
 }
 
-derive_print!(TopLevel, [kind]);
+// derive_print!(TopLevel, [kind]);
 
 impl Parse for TopLevel {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {

@@ -1,3 +1,5 @@
+#[macro_use]
+use crate::infer::*;
 use crate::Parser;
 use crate::Token;
 use crate::TokenType;
@@ -45,7 +47,9 @@ pub struct ArgumentDecl {
     pub token: TokenId,
 }
 
-derive_print!(ArgumentDecl, []);
+// visitable_class!(ArgumentDecl, Annotate, annotate, InferBuilder, []);
+
+// derive_print!(ArgumentDecl, []);
 
 impl Parse for ArgumentDecl {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {

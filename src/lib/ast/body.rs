@@ -21,7 +21,7 @@ pub struct Body {
     pub token: TokenId,
 }
 
-derive_print!(Body, [stmt]);
+// derive_print!(Body, [stmt]);
 
 impl Parse for Body {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {

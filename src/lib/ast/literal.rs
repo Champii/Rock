@@ -34,8 +34,7 @@ impl AstPrint for Literal {
         match self {
             Self::Number(n) => println!("{}Number({})", indent, n),
             Self::String(s) => println!("{}String({})", indent, s),
-            Self::Number(b) => println!("{}Boolean({})", indent, b),
-            _ => (),
+            Self::Bool(b) => println!("{}Boolean({})", indent, b),
         }
     }
 }
@@ -65,6 +64,8 @@ impl Parse for Literal {
         error!("Expected literal".to_string(), ctx);
     }
 }
+
+// annotate!(Literal, []);
 
 // impl TypeInferer for Literal {
 //     fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {

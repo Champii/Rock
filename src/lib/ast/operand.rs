@@ -36,14 +36,15 @@ pub enum OperandKind {
     Expression(Box<Expression>), // parenthesis
 }
 
-impl AstPrint for OperandKind {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        match self {
-            Self::Literal(l) => l.print(ctx),
-            _ => (),
-        }
-    }
-}
+// impl AstPrint for OperandKind {
+//     fn print(&self, ctx: &mut AstPrintContext) {
+//         match self {
+//             Self::Literal(l) => l.print(ctx),
+//             Self::Identifier(i) => i.print(ctx),
+//             Self::Expression(e) => e.print(ctx),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct Operand {
@@ -51,7 +52,7 @@ pub struct Operand {
     pub token: TokenId,
 }
 
-derive_print!(Operand, [kind]);
+// derive_print!(Operand, [kind]);
 
 impl Operand {
     fn parens_expr(ctx: &mut Parser) -> Result<Expression, Error> {
@@ -75,7 +76,7 @@ impl Operand {
 
 impl Parse for Operand {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let token = ctx.cur_tok_id;
+        let mut token = ctx.cur_tok_id;
 
         let kind = if let Ok(lit) = Literal::parse(ctx) {
             OperandKind::Literal(lit)
@@ -86,6 +87,8 @@ impl Parse for Operand {
         // } else if let Ok(array) = Array::parse(ctx) {
         //     OperandKind::Array(array)
         } else if let Ok(expr) = Self::parens_expr(ctx) {
+            token = expr.token;
+
             OperandKind::Expression(Box::new(expr))
         } else {
             self::error!("Expected operand".to_string(), ctx);

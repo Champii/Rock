@@ -383,6 +383,8 @@ impl Lexer {
                 TokenType::Operator(self.last_char.to_string()),
                 Sep::empty(),
             )
+        } else if self.last_char == '-' {
+            self.match_consume("-", TokenType::Operator("-".to_string()), Sep::empty())
         } else if self.last_char == '=' && self.input[self.cur_idx + 1] == '=' {
             self.match_consume("==", TokenType::Operator("==".to_string()), Sep::empty())
         } else if self.last_char == '!' && self.input[self.cur_idx + 1] == '=' {
