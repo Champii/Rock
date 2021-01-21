@@ -12,6 +12,7 @@ use regex::Regex;
 use std::fs;
 
 mod ast;
+
 mod codegen;
 pub mod config;
 mod context;
@@ -30,11 +31,12 @@ mod type_checker;
 use self::codegen::Builder;
 pub use self::config::Config;
 use self::error::Error;
-use self::generator::Generator;
+// use self::generator::Generator;
 use self::lexer::Lexer;
 use self::parser::Parser;
 use self::token::{Token, TokenType};
-use self::type_checker::TypeChecker;
+// use self::type_checker::TypeChecker;
+use self::ast::ast_print::*;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<Builder, Error> {
     info!("   -> Parsing {}", in_name);
@@ -58,36 +60,38 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
 
     let input: Vec<char> = preprocessed.chars().collect();
 
-    let lexer = Lexer::new(input.clone());
+    let tokens = Lexer::new(input.clone()).collect();
 
-    let ast = Parser::new(lexer).run()?;
+    let ast = Parser::new(tokens.clone(), input.clone()).run()?;
 
-    info!("   -> TypeCheck {}", output_name);
-    let mut tc = TypeChecker::new(ast);
+    // info!("   -> TypeCheck {}", output_name);
+    // let mut tc = TypeChecker::new(ast);
 
-    tc.ctx.input = input.clone();
+    // tc.ctx.input = input.clone();
 
-    tc.infer()?;
+    // tc.infer()?;
 
-    info!("   -> Generate {}", output_name);
-    let ast = Generator::new(tc.ast, tc.ctx).generate()?;
+    // info!("   -> Generate {}", output_name);
+    // let ast = Generator::new(tc.ast, tc.ctx).generate()?;
 
     if config.show_ast {
-        println!("AST {:#?}", ast);
+        // println!("AST {:#?}", ast);
+        ast.print(&mut AstPrintContext::new(tokens.clone(), input.clone()));
     }
 
-    info!("   -> Codegen {}", output_name);
+    // info!("   -> Codegen {}", output_name);
     let mut builder = Builder::new(&output_name, ast, config);
 
-    builder.build();
+    // builder.build();
 
+    // Ok(builder)
     Ok(builder)
 }
 
 pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
     let mut builder = parse_file(in_name, out_name.clone(), config)?;
 
-    builder.write(&out_name);
+    // builder.write(&out_name);
 
     Ok(())
 }
@@ -95,7 +99,8 @@ pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result
 pub fn run(in_name: String, entry: String, config: Config) -> Result<u64, Error> {
     let mut builder = parse_file(in_name, entry.clone(), config)?;
 
-    Ok(builder.run(&entry))
+    // Ok(builder.run(&entry))
+    Ok(0)
 }
 
 pub fn run_str(input: String, entry: String, config: Config) -> Result<u64, Error> {
@@ -103,5 +108,6 @@ pub fn run_str(input: String, entry: String, config: Config) -> Result<u64, Erro
 
     let mut builder = parse_str(input, entry.clone(), config)?;
 
-    Ok(builder.run(&entry))
+    Ok(0)
+    // Ok(builder.run(&entry))
 }

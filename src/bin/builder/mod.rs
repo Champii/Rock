@@ -145,7 +145,7 @@ impl Builder {
 
             io::stdout().flush().unwrap();
 
-            if let Err(e) = rock::file_to_file(file.to_string(), out_file, self.config.clone()) {
+            if let Err(e) = fock::file_to_file(file.to_string(), out_file, self.config.clone()) {
                 Self::clear_line();
 
                 println!("\n   Error: {}", e);

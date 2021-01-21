@@ -529,4 +529,22 @@ impl Lexer {
 
         None
     }
+
+    //
+
+    pub fn collect(&mut self) -> Vec<Token> {
+        let mut res = vec![];
+
+        loop {
+            let next = self.next();
+
+            res.push(next.clone());
+
+            if next.t == TokenType::EOF {
+                break;
+            }
+        }
+
+        res
+    }
 }

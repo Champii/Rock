@@ -2,26 +2,36 @@ use crate::Error;
 use crate::Parser;
 use crate::TokenType;
 
+use crate::ast::ast_print::*;
 use crate::ast::OperandKind;
 use crate::ast::Operator;
 use crate::ast::Parse;
 use crate::ast::PrimaryExpr;
-use crate::ast::TypeInfer;
+// use crate::ast::TypeInfer;
 
 use crate::codegen::IrBuilder;
 use crate::codegen::IrContext;
 use crate::context::Context;
-use crate::type_checker::TypeInferer;
+// use crate::type_checker::TypeInferer;
 
 use llvm_sys::LLVMValue;
 
-use crate::generator::Generate;
+// use crate::generator::Generate;
 use crate::try_or_restore;
 
 #[derive(Debug, Clone)]
 pub enum UnaryExpr {
     PrimaryExpr(PrimaryExpr),
     UnaryExpr(Operator, Box<UnaryExpr>),
+}
+
+impl AstPrint for UnaryExpr {
+    fn print(&self, ctx: &mut AstPrintContext) {
+        match self {
+            Self::PrimaryExpr(p) => p.print(ctx),
+            _ => (),
+        }
+    }
 }
 
 impl UnaryExpr {
@@ -70,7 +80,7 @@ impl UnaryExpr {
 
 impl Parse for UnaryExpr {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        if ctx.cur_tok.t == TokenType::Operator(ctx.cur_tok.txt.clone()) {
+        if ctx.cur_tok().t == TokenType::Operator(ctx.cur_tok().txt.clone()) {
             ctx.save();
 
             let op = try_or_restore!(Operator::parse(ctx), ctx);
@@ -86,31 +96,31 @@ impl Parse for UnaryExpr {
     }
 }
 
-impl TypeInferer for UnaryExpr {
-    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        trace!("UnaryExpr");
+// impl TypeInferer for UnaryExpr {
+//     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+//         trace!("UnaryExpr");
 
-        match self {
-            UnaryExpr::PrimaryExpr(primary) => primary.infer(ctx),
-            UnaryExpr::UnaryExpr(_op, unary) => unary.infer(ctx),
-        }
-    }
-}
+//         match self {
+//             UnaryExpr::PrimaryExpr(primary) => primary.infer(ctx),
+//             UnaryExpr::UnaryExpr(_op, unary) => unary.infer(ctx),
+//         }
+//     }
+// }
 
-impl Generate for UnaryExpr {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match self {
-            UnaryExpr::PrimaryExpr(primary) => primary.generate(ctx),
-            UnaryExpr::UnaryExpr(_op, unary) => unary.generate(ctx),
-        }
-    }
-}
+// impl Generate for UnaryExpr {
+//     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+//         match self {
+//             UnaryExpr::PrimaryExpr(primary) => primary.generate(ctx),
+//             UnaryExpr::UnaryExpr(_op, unary) => unary.generate(ctx),
+//         }
+//     }
+// }
 
-impl IrBuilder for UnaryExpr {
-    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
-        match self {
-            UnaryExpr::PrimaryExpr(primary) => primary.build(context),
-            UnaryExpr::UnaryExpr(_op, unary) => unary.build(context),
-        }
-    }
-}
+// impl IrBuilder for UnaryExpr {
+//     fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+//         match self {
+//             UnaryExpr::PrimaryExpr(primary) => primary.build(context),
+//             UnaryExpr::UnaryExpr(_op, unary) => unary.build(context),
+//         }
+//     }
+// }

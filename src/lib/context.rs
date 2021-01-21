@@ -18,22 +18,22 @@ use super::scope::Scopes;
 
 #[derive(Clone, Debug)]
 pub struct Context {
-    pub calls: HashMap<String, HashMap<String, Vec<TypeInfer>>>,
-    pub classes: HashMap<String, Class>,
-    pub scopes: Scopes<TypeInfer>,
-    pub externs: HashMap<String, String>,
-    pub cur_type: TypeInfer,
+    // pub calls: HashMap<String, HashMap<String, Vec<TypeInfer>>>,
+    // pub classes: HashMap<String, Class>,
+    // pub scopes: Scopes<TypeInfer>,
+    // pub externs: HashMap<String, String>,
+    // pub cur_type: TypeInfer,
     pub input: Vec<char>,
 }
 
 impl Context {
     pub fn new() -> Context {
         Context {
-            externs: HashMap::new(),
-            classes: HashMap::new(),
-            calls: HashMap::new(),
-            scopes: Scopes::new(),
-            cur_type: None,
+            // externs: HashMap::new(),
+            // classes: HashMap::new(),
+            // calls: HashMap::new(),
+            // scopes: Scopes::new(),
+            // cur_type: None,
             input: vec![],
         }
     }
@@ -83,14 +83,14 @@ impl Context {
 //     }
 // }
 
-#[derive(Clone, Debug)]
-pub struct FuncType {
-    pub params_vec: Vec<Type>,
-    pub params: HashMap<String, Option<Type>>,
-    pub ret: Option<Type>,
-    pub solved: bool,
-    pub func: FunctionDecl,
-}
+// #[derive(Clone, Debug)]
+// pub struct FuncType {
+//     pub params_vec: Vec<Type>,
+//     pub params: HashMap<String, Option<Type>>,
+//     pub ret: Option<Type>,
+//     pub solved: bool,
+//     pub func: FunctionDecl,
+// }
 
 // impl FuncType {
 //     pub fn new(func: FunctionDecl) -> FuncType {

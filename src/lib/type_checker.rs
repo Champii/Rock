@@ -15,11 +15,11 @@ impl TypeChecker {
         }
     }
 
-    pub fn infer(&mut self) -> Result<TypeInfer, Error> {
-        self.ast.infer(&mut self.ctx)
-    }
+    // pub fn infer(&mut self) -> Result<TypeInfer, Error> {
+    //     self.ast.infer(&mut self.ctx)
+    // }
 }
 
-pub trait TypeInferer {
-    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error>;
-}
+// pub trait TypeInferer {
+//     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error>;
+// }

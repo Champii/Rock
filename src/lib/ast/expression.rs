@@ -1,18 +1,19 @@
-use crate::Error;
 use crate::Parser;
 use crate::Token;
+use crate::{token::TokenId, Error};
 
 use crate::ast::Operator;
 use crate::ast::Parse;
-use crate::ast::PrimitiveType;
-use crate::ast::Type;
-use crate::ast::TypeInfer;
+// use crate::ast::PrimitiveType;
+// use crate::ast::Type;
+// use crate::ast::TypeInfer;
+use crate::ast::ast_print::*;
 use crate::ast::UnaryExpr;
 
 use crate::codegen::IrBuilder;
 use crate::codegen::IrContext;
 use crate::context::Context;
-use crate::type_checker::TypeInferer;
+// use crate::type_checker::TypeInferer;
 
 use llvm::LLVMIntPredicate;
 use llvm_sys::core::LLVMBuildAdd;
@@ -28,12 +29,26 @@ pub enum ExpressionKind {
     UnaryExpr(UnaryExpr),
 }
 
+impl AstPrint for ExpressionKind {
+    fn print(&self, ctx: &mut AstPrintContext) {
+        match self {
+            Self::UnaryExpr(u) => u.print(ctx),
+            Self::BinopExpr(b, op, e) => {
+                b.print(ctx);
+                op.print(ctx);
+                e.print(ctx);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
-    pub t: TypeInfer,
-    pub token: Token,
+    pub token: TokenId,
 }
+
+derive_print!(Expression, [kind]);
 
 impl Expression {
     pub fn is_literal(&self) -> bool {
@@ -60,13 +75,12 @@ impl Expression {
 
 impl Parse for Expression {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let token = ctx.cur_tok.clone();
+        let token = ctx.cur_tok_id;
 
         let left = UnaryExpr::parse(ctx)?;
 
         let mut res = Expression {
             kind: ExpressionKind::UnaryExpr(left.clone()),
-            t: None,
             token,
         };
 
@@ -84,134 +98,134 @@ impl Parse for Expression {
     }
 }
 
-impl TypeInferer for Expression {
-    fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-        trace!("Expression ({:?})", self.token);
+// impl TypeInferer for Expression {
+//     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
+//         trace!("Expression ({:?})", self.token);
 
-        match &mut self.kind {
-            ExpressionKind::BinopExpr(unary, op, expr) => {
-                let t = match op {
-                    Operator::Add => Some(Type::Primitive(PrimitiveType::Int32)),
-                    Operator::EqualEqual => Some(Type::Primitive(PrimitiveType::Bool)),
-                    _ => Some(Type::Primitive(PrimitiveType::Int32)),
-                };
+//         match &mut self.kind {
+//             ExpressionKind::BinopExpr(unary, op, expr) => {
+//                 let t = match op {
+//                     Operator::Add => Some(Type::Primitive(PrimitiveType::Int32)),
+//                     Operator::EqualEqual => Some(Type::Primitive(PrimitiveType::Bool)),
+//                     _ => Some(Type::Primitive(PrimitiveType::Int32)),
+//                 };
 
-                ctx.cur_type = t.clone();
+//                 ctx.cur_type = t.clone();
 
-                let left = unary.infer(ctx)?;
-                let right = expr.infer(ctx)?;
+//                 let left = unary.infer(ctx)?;
+//                 let right = expr.infer(ctx)?;
 
-                if left != right {
-                    return Err(Error::new_type_error(
-                        ctx.input.clone(),
-                        self.token.clone(),
-                        left,
-                        right,
-                    ));
-                }
+//                 if left != right {
+//                     return Err(Error::new_type_error(
+//                         ctx.input.clone(),
+//                         self.token.clone(),
+//                         left,
+//                         right,
+//                     ));
+//                 }
 
-                // ctx.cur_type = None;
+//                 // ctx.cur_type = None;
 
-                self.t = t.clone();
+//                 self.t = t.clone();
 
-                Ok(t)
-            }
-            ExpressionKind::UnaryExpr(unary) => {
-                let t = unary.infer(ctx)?;
+//                 Ok(t)
+//             }
+//             ExpressionKind::UnaryExpr(unary) => {
+//                 let t = unary.infer(ctx)?;
 
-                self.t = t.clone();
+//                 self.t = t.clone();
 
-                Ok(t)
-            }
-        }
-    }
-}
+//                 Ok(t)
+//             }
+//         }
+//     }
+// }
 
-impl Generate for Expression {
-    fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-        match &mut self.kind {
-            ExpressionKind::BinopExpr(unary, _op, expr) => {
-                let _left = unary.generate(ctx)?;
-                let _right = expr.generate(ctx)?;
+// impl Generate for Expression {
+//     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
+//         match &mut self.kind {
+//             ExpressionKind::BinopExpr(unary, _op, expr) => {
+//                 let _left = unary.generate(ctx)?;
+//                 let _right = expr.generate(ctx)?;
 
-                Ok(())
-            }
-            ExpressionKind::UnaryExpr(unary) => unary.generate(ctx),
-        }
-    }
-}
+//                 Ok(())
+//             }
+//             ExpressionKind::UnaryExpr(unary) => unary.generate(ctx),
+//         }
+//     }
+// }
 
-impl IrBuilder for Expression {
-    fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
-        match &self.kind {
-            ExpressionKind::BinopExpr(unary, op, expr) => {
-                let left = unary.build(context).unwrap();
-                let right = expr.build(context).unwrap();
+// impl IrBuilder for Expression {
+//     fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
+//         match &self.kind {
+//             ExpressionKind::BinopExpr(unary, op, expr) => {
+//                 let left = unary.build(context).unwrap();
+//                 let right = expr.build(context).unwrap();
 
-                Some(match op {
-                    Operator::Add => unsafe {
-                        LLVMBuildAdd(context.builder, left, right, b"\0".as_ptr() as *const _)
-                    },
-                    Operator::EqualEqual => unsafe {
-                        LLVMBuildICmp(
-                            context.builder,
-                            LLVMIntPredicate::LLVMIntEQ,
-                            left,
-                            right,
-                            "\0".as_ptr() as *const _,
-                        )
-                    },
-                    Operator::DashEqual => unsafe {
-                        LLVMBuildICmp(
-                            context.builder,
-                            LLVMIntPredicate::LLVMIntNE,
-                            left,
-                            right,
-                            "\0".as_ptr() as *const _,
-                        )
-                    },
-                    Operator::Less => unsafe {
-                        LLVMBuildICmp(
-                            context.builder,
-                            LLVMIntPredicate::LLVMIntSLT,
-                            left,
-                            right,
-                            "\0".as_ptr() as *const _,
-                        )
-                    },
-                    Operator::LessOrEqual => unsafe {
-                        LLVMBuildICmp(
-                            context.builder,
-                            LLVMIntPredicate::LLVMIntSLE,
-                            left,
-                            right,
-                            "\0".as_ptr() as *const _,
-                        )
-                    },
-                    Operator::More => unsafe {
-                        LLVMBuildICmp(
-                            context.builder,
-                            LLVMIntPredicate::LLVMIntSGT,
-                            left,
-                            right,
-                            "\0".as_ptr() as *const _,
-                        )
-                    },
-                    Operator::MoreOrEqual => unsafe {
-                        LLVMBuildICmp(
-                            context.builder,
-                            LLVMIntPredicate::LLVMIntSGE,
-                            left,
-                            right,
-                            "\0".as_ptr() as *const _,
-                        )
-                    },
-                    _ => unsafe {
-                        LLVMBuildAdd(context.builder, left, right, b"\0".as_ptr() as *const _)
-                    },
-                })
-            }
-            ExpressionKind::UnaryExpr(unary) => unary.build(context),
-        }
-    }
-}
+//                 Some(match op {
+//                     Operator::Add => unsafe {
+//                         LLVMBuildAdd(context.builder, left, right, b"\0".as_ptr() as *const _)
+//                     },
+//                     Operator::EqualEqual => unsafe {
+//                         LLVMBuildICmp(
+//                             context.builder,
+//                             LLVMIntPredicate::LLVMIntEQ,
+//                             left,
+//                             right,
+//                             "\0".as_ptr() as *const _,
+//                         )
+//                     },
+//                     Operator::DashEqual => unsafe {
+//                         LLVMBuildICmp(
+//                             context.builder,
+//                             LLVMIntPredicate::LLVMIntNE,
+//                             left,
+//                             right,
+//                             "\0".as_ptr() as *const _,
+//                         )
+//                     },
+//                     Operator::Less => unsafe {
+//                         LLVMBuildICmp(
+//                             context.builder,
+//                             LLVMIntPredicate::LLVMIntSLT,
+//                             left,
+//                             right,
+//                             "\0".as_ptr() as *const _,
+//                         )
+//                     },
+//                     Operator::LessOrEqual => unsafe {
+//                         LLVMBuildICmp(
+//                             context.builder,
+//                             LLVMIntPredicate::LLVMIntSLE,
+//                             left,
+//                             right,
+//                             "\0".as_ptr() as *const _,
+//                         )
+//                     },
+//                     Operator::More => unsafe {
+//                         LLVMBuildICmp(
+//                             context.builder,
+//                             LLVMIntPredicate::LLVMIntSGT,
+//                             left,
+//                             right,
+//                             "\0".as_ptr() as *const _,
+//                         )
+//                     },
+//                     Operator::MoreOrEqual => unsafe {
+//                         LLVMBuildICmp(
+//                             context.builder,
+//                             LLVMIntPredicate::LLVMIntSGE,
+//                             left,
+//                             right,
+//                             "\0".as_ptr() as *const _,
+//                         )
+//                     },
+//                     _ => unsafe {
+//                         LLVMBuildAdd(context.builder, left, right, b"\0".as_ptr() as *const _)
+//                     },
+//                 })
+//             }
+//             ExpressionKind::UnaryExpr(unary) => unary.build(context),
+//         }
+//     }
+// }

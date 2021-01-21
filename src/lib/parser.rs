@@ -1,3 +1,5 @@
+use crate::token::TokenId;
+
 use super::ast::*;
 use super::context::*;
 use super::error::Error;
@@ -7,11 +9,11 @@ use super::Token;
 #[macro_export]
 macro_rules! expect {
     ($tok:expr, $self:expr) => {
-        if $tok != $self.cur_tok.t {
+        if $tok != $self.cur_tok().t {
             // panic!("Expected {:?} but found {:?}", $expr, $tok);
             error_expect!($tok, $self);
         } else {
-            let cur_tok = $self.cur_tok.clone();
+            let cur_tok = $self.cur_tok();
 
             $self.consume();
 
@@ -23,12 +25,12 @@ macro_rules! expect {
 #[macro_export]
 macro_rules! expect_or_restore {
     ($tok:expr, $self:expr) => {
-        if $self.cur_tok.t != $tok {
+        if $self.cur_tok().t != $tok {
             $self.restore();
 
             error_expect!($tok, $self);
         } else {
-            let cur_tok = $self.cur_tok.clone();
+            let cur_tok = $self.cur_tok();
 
             $self.consume();
 
@@ -41,7 +43,7 @@ macro_rules! expect_or_restore {
 macro_rules! error_expect {
     ($expected:expr, $self:expr) => {
         crate::parser::macros::error!(
-            format!("Expected {:?} but got {:?}", $expected, $self.cur_tok.t),
+            format!("Expected {:?} but got {:?}", $expected, $self.cur_tok().t),
             $self
         );
     };
@@ -51,8 +53,8 @@ macro_rules! error_expect {
 macro_rules! error {
     ($msg:expr, $self:expr) => {
         return Err(Error::new_parse_error(
-            $self.lexer.input.clone(),
-            $self.cur_tok.clone(),
+            $self.input.clone(),
+            $self.cur_tok(),
             $msg,
         ));
     };
@@ -106,22 +108,22 @@ pub mod macros {
 
 // TODO: Create getters and setters instead of exposing publicly
 pub struct Parser {
-    pub lexer: Lexer,
-    pub cur_tok: Token,
-    save: Vec<Token>,
+    // pub lexer: Lexer,
+    pub input: Vec<char>,
+    pub tokens: Vec<Token>,
+    pub cur_tok_id: TokenId,
+    save: Vec<TokenId>,
     pub ctx: Context,
     pub block_indent: u8,
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer) -> Parser {
-        let mut lexer = lexer;
-        let cur_tok = lexer.next();
-
+    pub fn new(tokens: Vec<Token>, input: Vec<char>) -> Parser {
         Parser {
-            save: vec![cur_tok.clone()],
-            cur_tok,
-            lexer,
+            input,
+            tokens,
+            save: vec![0],
+            cur_tok_id: 0,
             ctx: Context::new(),
             block_indent: 0,
         }
@@ -131,12 +133,19 @@ impl Parser {
         SourceFile::parse(self)
     }
 
+    pub fn cur_tok(&self) -> Token {
+        match self.tokens.get(self.cur_tok_id as usize) {
+            Some(a) => a.clone(),
+            _ => unreachable!(),
+        }
+    }
+
     pub fn consume(&mut self) {
-        self.cur_tok = self.lexer.next();
+        self.cur_tok_id += 1;
     }
 
     pub fn save(&mut self) {
-        self.save.push(self.cur_tok.clone());
+        self.save.push(self.cur_tok_id);
     }
 
     pub fn save_pop(&mut self) {
@@ -146,7 +155,13 @@ impl Parser {
     pub fn restore(&mut self) {
         let save = self.save.pop().unwrap();
 
-        self.lexer.restore(save.clone());
-        self.cur_tok = save;
+        self.cur_tok_id = save;
+    }
+
+    pub fn seek(&self, distance: usize) -> Token {
+        match self.tokens.get(self.cur_tok_id as usize + distance) {
+            Some(a) => a.clone(),
+            _ => unreachable!(),
+        }
     }
 }

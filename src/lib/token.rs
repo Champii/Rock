@@ -59,3 +59,5 @@ pub struct Token {
     pub end: usize,
     pub txt: String,
 }
+
+pub type TokenId = usize;

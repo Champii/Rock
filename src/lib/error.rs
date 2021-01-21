@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::ast::TypeInfer;
+// use super::ast::TypeInfer;
 use super::token::{Token, TokenType};
 
 pub struct Error {
@@ -14,16 +14,16 @@ impl Error {
         Error { input, token, msg }
     }
 
-    pub fn new_type_error(
-        input: Vec<char>,
-        token: Token,
-        expected: TypeInfer,
-        found: TypeInfer,
-    ) -> Error {
-        let msg = format!("Expected '{:?}' but found '{:?}'", expected, found);
+    // pub fn new_type_error(
+    //     input: Vec<char>,
+    //     token: Token,
+    //     expected: TypeInfer,
+    //     found: TypeInfer,
+    // ) -> Error {
+    //     let msg = format!("Expected '{:?}' but found '{:?}'", expected, found);
 
-        Error { input, token, msg }
-    }
+    //     Error { input, token, msg }
+    // }
 
     pub fn new_undefined_type(input: Vec<char>, t: String) -> Error {
         let mut e = Self::new_empty();

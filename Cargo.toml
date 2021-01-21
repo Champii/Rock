@@ -1,5 +1,5 @@
 [package]
-name = "rock"
+name = "fock"
 version = "0.0.1"
 authors = ["champii <contact@champii>"]
 edition = "2018"
@@ -14,9 +14,9 @@ log = "0.4"
 bitflags = "1.2.1"
 
 [lib]
-name = "rock"
-path = "src/lib/rock.rs"
+name = "fock"
+path = "src/lib/fock.rs"
 
 [[bin]]
-name = "rock"
+name = "fock"
 path = "src/bin/main.rs"

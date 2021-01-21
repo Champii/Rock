@@ -1,5 +1,5 @@
 extern crate clap;
-extern crate rock;
+extern crate fock;
 
 #[macro_use]
 extern crate log;
@@ -8,9 +8,9 @@ use clap::{App, Arg, SubCommand};
 use std::convert::TryInto;
 use std::process::Command;
 
-use rock::logger;
+use fock::logger;
 
-pub(crate) use rock::*;
+pub(crate) use fock::*;
 
 mod builder;
 
@@ -57,7 +57,7 @@ fn compile(config: Config) -> bool {
 
         out_file += &"\0".to_string();
 
-        if let Err(e) = rock::file_to_file(file.to_string(), out_file, config.clone()) {
+        if let Err(e) = fock::file_to_file(file.to_string(), out_file, config.clone()) {
             println!("{}", e);
 
             return false;
@@ -77,7 +77,7 @@ fn compile(config: Config) -> bool {
 fn run_file(config: Config) {
     info!(" -> Running file");
 
-    let res = rock::run(config.files[0].clone(), "main\0".to_owned(), config);
+    let res = fock::run(config.files[0].clone(), "main\0".to_owned(), config);
 
     match res {
         Ok(res) => std::process::exit(res.try_into().unwrap()),
@@ -108,7 +108,7 @@ fn run() {
 }
 
 fn main() {
-    let matches = App::new("rock")
+    let matches = App::new("fock")
         .version("0.0.1")
         .author("Champii <contact@champii.io>")
         .about("Simple toy language")
@@ -174,7 +174,7 @@ fn main() {
         )
         .get_matches();
 
-    let mut config = rock::Config::default();
+    let mut config = fock::Config::default();
     config.verbose = 5;
 
     if let Some(value) = matches.value_of("verbose") {

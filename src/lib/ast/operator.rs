@@ -2,6 +2,7 @@ use crate::Error;
 use crate::Parser;
 use crate::TokenType;
 
+use crate::ast::ast_print::*;
 use crate::ast::Parse;
 
 use crate::error;
@@ -23,9 +24,17 @@ pub enum Operator {
     DashEqual,
 }
 
+impl AstPrint for Operator {
+    fn print(&self, ctx: &mut AstPrintContext) {
+        let indent = String::from("  ").repeat(ctx.indent());
+
+        println!("{}{:?}", indent, self);
+    }
+}
+
 impl Parse for Operator {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let op = match &ctx.cur_tok.t {
+        let op = match ctx.cur_tok().t {
             TokenType::Operator(op) => op,
             _ => error!("Expected operator".to_string(), ctx),
         };
