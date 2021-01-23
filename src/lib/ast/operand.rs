@@ -1,3 +1,4 @@
+use crate::infer::*;
 use crate::Parser;
 use crate::TokenType;
 use crate::{token::TokenId, Error};
@@ -13,6 +14,7 @@ use llvm_sys::core::LLVMInt32Type;
 use crate::ast::ast_print::*;
 use crate::ast::Expression;
 use crate::ast::Identifier;
+use crate::ast::Identity;
 use crate::ast::Literal;
 use crate::ast::Parse;
 // use crate::ast::Type;
@@ -36,6 +38,14 @@ pub enum OperandKind {
     Expression(Box<Expression>), // parenthesis
 }
 
+visitable_constraint_enum!(
+    OperandKind,
+    ConstraintGen,
+    constrain,
+    InferBuilder,
+    [Literal(x), Identifier(x), Expression(x)]
+);
+
 // impl AstPrint for OperandKind {
 //     fn print(&self, ctx: &mut AstPrintContext) {
 //         match self {
@@ -49,10 +59,11 @@ pub enum OperandKind {
 #[derive(Debug, Clone)]
 pub struct Operand {
     pub kind: OperandKind,
-    pub token: TokenId,
+    pub identity: Identity,
 }
 
 // derive_print!(Operand, [kind]);
+visitable_constraint_class!(Operand, ConstraintGen, constrain, InferBuilder, [kind]);
 
 impl Operand {
     fn parens_expr(ctx: &mut Parser) -> Result<Expression, Error> {
@@ -87,14 +98,17 @@ impl Parse for Operand {
         // } else if let Ok(array) = Array::parse(ctx) {
         //     OperandKind::Array(array)
         } else if let Ok(expr) = Self::parens_expr(ctx) {
-            token = expr.token;
+            token = expr.identity.token_id;
 
             OperandKind::Expression(Box::new(expr))
         } else {
             self::error!("Expected operand".to_string(), ctx);
         };
 
-        return Ok(Operand { kind, token });
+        return Ok(Operand {
+            kind,
+            identity: Identity::new(token),
+        });
     }
 }
 

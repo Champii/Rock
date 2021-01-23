@@ -1,3 +1,4 @@
+use crate::infer::*;
 use crate::Error;
 use crate::Parser;
 use crate::TokenType;
@@ -32,6 +33,12 @@ impl AstPrint for Operator {
     }
 }
 
+impl Annotate for Operator {
+    fn annotate(&self, ctx: &mut InferBuilder) {
+        //
+    }
+}
+
 impl Parse for Operator {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let op = match ctx.cur_tok().t {
@@ -54,5 +61,12 @@ impl Parse for Operator {
         ctx.consume();
 
         Ok(op)
+    }
+}
+
+impl ConstraintGen for Operator {
+    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+        // ctx.get_type(self.identity.clone()).unwrap()
+        0
     }
 }

@@ -19,6 +19,8 @@ use llvm_sys::LLVMValue;
 use crate::generator::Generate;
 use crate::try_or_restore;
 
+use super::Identity;
+
 #[derive(Debug, Clone)]
 pub enum TopLevelKind {
     Function(FunctionDecl),
@@ -26,14 +28,22 @@ pub enum TopLevelKind {
 
 // visitable_enum!(TopLevelKind, Annotate, annotate, InferBuilder, [Function]);
 // visitable_enum!(TopLevelKind, AstPrint, print, AstPrintContext, [Function]);
+visitable_constraint_enum!(
+    TopLevelKind,
+    ConstraintGen,
+    constrain,
+    InferBuilder,
+    [Function(x)]
+);
 
 #[derive(Debug, Clone)]
 pub struct TopLevel {
     pub kind: TopLevelKind,
-    pub token: TokenId,
+    pub identity: Identity,
 }
 
 // derive_print!(TopLevel, [kind]);
+visitable_constraint_class!(TopLevel, ConstraintGen, constrain, InferBuilder, [kind]);
 
 impl Parse for TopLevel {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
@@ -47,7 +57,10 @@ impl Parse for TopLevel {
             ctx.consume();
         }
 
-        Ok(TopLevel { kind, token })
+        Ok(TopLevel {
+            kind,
+            identity: Identity::new(token),
+        })
     }
 }
 

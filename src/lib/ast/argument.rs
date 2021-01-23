@@ -1,3 +1,4 @@
+use crate::infer::*;
 use crate::Parser;
 use crate::Token;
 use crate::TokenType;
@@ -17,6 +18,8 @@ use llvm_sys::LLVMValue;
 
 use crate::generator::Generate;
 use crate::parser::macros::*;
+
+use super::Identity;
 
 pub type Arguments = Vec<Argument>;
 
@@ -64,7 +67,7 @@ impl Parse for Arguments {
 pub struct Argument {
     pub arg: Expression,
     // pub t: TypeInfer,
-    pub token: TokenId,
+    pub identity: Identity,
 }
 
 // derive_print!(Argument, [arg]);
@@ -76,11 +79,12 @@ impl Parse for Argument {
         Ok(Argument {
             arg: Expression::parse(ctx)?,
             // t: None,
-            token,
+            identity: Identity::new(token),
         })
     }
 }
 
+visitable_constraint_class!(Argument, ConstraintGen, constrain, InferBuilder, [arg]);
 // impl TypeInferer for Argument {
 //     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
 //         trace!("Argument ({:?})", self.token);

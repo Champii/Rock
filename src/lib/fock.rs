@@ -16,6 +16,8 @@ use std::fs;
 pub mod ast;
 #[macro_use]
 pub mod infer;
+#[macro_use]
+pub use crate::infer::*;
 
 mod codegen;
 pub mod config;
@@ -41,6 +43,28 @@ use self::parser::Parser;
 use self::token::{Token, TokenType};
 // use self::type_checker::TypeChecker;
 use self::ast::ast_print::*;
+// use self::ast::helper::*;
+
+// pub trait Test {
+//     fn test(&self, ctx: &mut InferBuilder)
+//     where
+//         Self: std::fmt::Debug + HasName + Annotate,
+//     {
+//         println!("1{:?}", self);
+//         self.annotate(ctx);
+//     }
+// }
+
+// impl<T: Annotate + HasName> Test for T {}
+// impl<T: Annotate> Test for T {
+//     fn test(&self, ctx: &mut InferBuilder)
+//     where
+//         Self: std::fmt::Debug + HasName + Annotate,
+//     {
+//         println!("2{:?}", self);
+//         self.annotate(ctx);
+//     }
+// }
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<Builder, Error> {
     info!("   -> Parsing {}", in_name);
@@ -67,8 +91,17 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
     let tokens = Lexer::new(input.clone()).collect();
 
     let ast = Parser::new(tokens.clone(), input.clone()).run()?;
+    let mut infer_builder = &mut InferBuilder::new(InferState::new());
 
-    ast.annotate(&mut InferBuilder::new());
+    ast.annotate(infer_builder);
+
+    ast.constrain(infer_builder);
+
+    infer_builder.solve();
+
+    println!("INFER {:#?}", infer_builder);
+
+    // ast.test();
 
     // info!("   -> TypeCheck {}", output_name);
     // let mut tc = TypeChecker::new(ast);

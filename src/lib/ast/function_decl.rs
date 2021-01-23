@@ -1,119 +1,31 @@
-use llvm_sys::core::LLVMGetParam;
-use llvm_sys::LLVMValue;
-
 use crate::infer::*;
+use crate::Error;
 use crate::Parser;
-use crate::Token;
 use crate::TokenType;
-use crate::{token::TokenId, Error};
 
 use crate::ast::argument_decl::ArgumentsDecl;
-use crate::ast::ast_print::*;
+use crate::ast::helper::*;
 use crate::ast::ArgumentDecl;
 use crate::ast::Body;
 use crate::ast::Identifier;
 use crate::ast::Parse;
-// use crate::ast::PrimitiveType;
-// use crate::ast::Type;
-// use crate::ast::TypeInfer;
+use crate::ast::{r#type::FuncType, Type};
 
-// use crate::codegen::get_type;
-use crate::codegen::IrBuilder;
-use crate::codegen::IrContext;
-use crate::context::Context;
+// use crate::codegen::IrBuilder;
+// use crate::codegen::IrContext;
+// use crate::context::Context;
 
-// use crate::type_checker::TypeInferer;
-
-use crate::generator::Generate;
+// use crate::generator::Generate;
 use crate::parser::macros::*;
+
+use super::{ast_print::AstPrintContext, AstPrint, Identity};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
     pub name: Identifier,
-    // pub ret: Option<Type>,
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
-    // pub class_name: Option<String>,
-    pub token: TokenId,
-}
-
-// visitable_class!(
-//     FunctionDecl,
-//     Annotate,
-//     annotate,
-//     InferBuilder,
-//     [arguments, body,]
-// );
-
-// derive_print!(FunctionDecl, [arguments, body]);
-
-impl FunctionDecl {
-    // pub fn add_this_arg(&mut self) {
-    //     self.arguments.insert(
-    //         0,
-    //         ArgumentDecl {
-    //             name: "this".to_string(),
-    //             // t: Some(Type::Class(self.class_name.clone().unwrap())),
-    //             token: self.token.clone(),
-    //         },
-    //     )
-    // }
-
-    // pub fn is_solved(&self) -> bool {
-    //     self.arguments.iter().all(|arg| arg.t.is_some()) && self.ret.is_some()
-    // }
-
-    // pub fn apply_name(&mut self, t: Vec<TypeInfer>) {
-    //     let mut name = self.name.clone();
-
-    //     for ty in t {
-    //         name = name + &ty.unwrap().get_name();
-    //     }
-
-    //     self.name = name;
-    // }
-
-    // pub fn apply_name_self(&mut self) {
-    //     let mut name = String::new();
-
-    //     for arg in &self.arguments {
-    //         name = name + &arg.t.clone().unwrap().get_name();
-    //     }
-
-    //     // if let Some(t) = self.ret.clone() {
-    //     //     name = name + &t.get_name();
-    //     // }
-
-    //     self.name = self.name.clone() + &name;
-    // }
-
-    // pub fn apply_types(&mut self, ret: Option<Type>, t: Vec<TypeInfer>) {
-    //     // self.apply_name(t.clone(), ret.clone());
-
-    //     self.ret = ret;
-
-    //     let mut i = 0;
-
-    //     println!("APPLY_TYPE {:#?}", t);
-
-    //     for arg in &mut self.arguments {
-    //         if i >= t.len() {
-    //             break;
-    //         }
-
-    //         arg.t = t[i].clone();
-
-    //         i += 1;
-    //     }
-    // }
-
-    // pub fn get_solved_name(&self) -> String {
-    //     let orig_name = self.name.clone();
-
-    //     // self.apply_name()
-
-    //     orig_name
-    // }
+    pub identity: Identity,
 }
 
 impl Parse for FunctionDecl {
@@ -126,28 +38,12 @@ impl Parse for FunctionDecl {
 
         let name = try_or_restore!(Identifier::parse(ctx), ctx);
 
-        // if let TokenType::SemiColon = ctx.cur_tok.t {
-        //     ctx.consume();
-        // }
-
         if TokenType::OpenParens == ctx.cur_tok().t
             || TokenType::Identifier(ctx.cur_tok().txt.clone()) == ctx.cur_tok().t
         {
             // manage error and restore here
             arguments = ArgumentsDecl::parse(ctx)?;
         }
-
-        // let ret = if ctx.cur_tok.t == TokenType::DoubleSemiColon {
-        //     expect_or_restore!(TokenType::DoubleSemiColon, ctx);
-
-        //     Some(try_or_restore_expect!(
-        //         Type::parse(ctx),
-        //         TokenType::Type(ctx.cur_tok.txt.clone()),
-        //         ctx
-        //     ))
-        // } else {
-        //     None
-        // };
 
         expect_or_restore!(TokenType::Equal, ctx);
 
@@ -157,163 +53,58 @@ impl Parse for FunctionDecl {
 
         Ok(FunctionDecl {
             name,
-            // ret,
             arguments,
             body,
-            // class_name: None,
-            token,
+            identity: Identity::new(token),
         })
     }
 }
 
-// impl TypeInferer for FunctionDecl {
-//     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-//         trace!("FunctionDecl ({:?})", self.token);
+generate_has_name!(FunctionDecl);
 
-//         ctx.scopes.push();
+impl AstPrint for FunctionDecl {
+    fn print(&self, ctx: &mut AstPrintContext) {
+        let indent = String::from("  ").repeat(ctx.indent());
 
-//         let mut types = vec![];
-//         println!("FUNCDECL {:#?}", self.arguments);
+        println!("{}{}({})", indent, "FunctionDecl", *self.name);
 
-//         for arg in &mut self.arguments {
-//             let t = arg.infer(ctx)?;
+        ctx.increment();
 
-//             arg.t = t.clone();
+        self.arguments.print(ctx);
+        self.body.print(ctx);
 
-//             debug!("Infered type {:?} for argument {}", t, arg.name);
+        ctx.decrement();
+    }
+}
 
-//             types.push(arg.t.clone());
-//         }
+impl Annotate for FunctionDecl {
+    fn annotate(&self, ctx: &mut InferBuilder) {
+        let args = self.arguments.annotate(ctx);
+        let ret = self.body.annotate(ctx);
 
-//         let last = self.body.infer(ctx)?;
+        ctx.new_named_annotation((*self.name).clone(), self.identity.clone());
+    }
 
-//         debug!("Infered type {:?} for return of func {}", last, self.name);
+    fn annotate_primitive(&self, ctx: &mut InferBuilder) {}
+}
 
-//         if self.ret.is_none() {
-//             self.ret = last.clone();
-//         } else if self.ret != last {
-//             warn!(
-//                 "Ignoring the return override ({:?} by {:?}) of func {}",
-//                 self.ret, last, self.name
-//             )
-//         }
+impl ConstraintGen for FunctionDecl {
+    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+        println!("Constraint: FunctionDecl");
 
-//         let mut i = 0;
+        let args = self.arguments.constrain_vec(ctx);
+        let body_type = self.body.constrain(ctx);
 
-//         for arg in &mut self.arguments {
-//             if arg.t != types[i] {
-//                 debug!(
-//                     "Argument type has been overrided ({:?} by {:?}) for func {}",
-//                     types[i], arg.t, self.name
-//                 );
-//             }
+        let self_type_id = ctx.get_type_id(self.identity.clone()).unwrap();
+        // let body_type = ctx.get_type(self.body.identity.clone()).unwrap();
 
-//             arg.t = types[i].clone();
+        ctx.solve_type(
+            self.identity.clone(),
+            Type::FuncType(FuncType::new((*self.name).clone(), args, body_type)),
+        );
 
-//             i += 1;
-//         }
+        ctx.add_constraint(Constraint::Eq(self_type_id, body_type));
 
-//         ctx.scopes.pop();
-
-//         ctx.scopes.add(
-//             self.name.clone(),
-//             Some(Type::FuncType(Box::new(self.clone()))),
-//         );
-
-//         Ok(last)
-//     }
-// }
-
-// impl Generate for FunctionDecl {
-//     fn generate(&mut self, ctx: &mut Context) -> Result<(), Error> {
-//         ctx.scopes.push();
-
-//         let res = self.body.generate(ctx);
-
-//         ctx.scopes.pop();
-
-//         res
-//     }
-// }
-
-// impl IrBuilder for FunctionDecl {
-//     fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
-//         let name_orig = self.name.clone();
-
-//         let mut name = name_orig.clone();
-
-//         name.push('\0');
-
-//         let name = name.as_str();
-
-//         if !self.is_solved() {
-//             panic!("CODEGEN: FuncDecl is not solved {}", self.name);
-//         }
-
-//         unsafe {
-//             let mut argts = vec![];
-
-//             for arg in &self.arguments {
-//                 let t = get_type(Box::new(arg.t.clone().unwrap()), context);
-
-//                 argts.push(t);
-//             }
-
-//             let function_type = llvm::core::LLVMFunctionType(
-//                 get_type(Box::new(self.ret.clone().unwrap()), context),
-//                 argts.as_mut_ptr(),
-//                 argts.len() as u32,
-//                 0,
-//             );
-
-//             let function = llvm::core::LLVMAddFunction(
-//                 context.module,
-//                 name.as_ptr() as *const _,
-//                 function_type,
-//             );
-
-//             context.scopes.add(name_orig.clone(), function);
-//             context.functions.add(name_orig, function);
-
-//             context.scopes.push();
-//             context.functions.push();
-//             context.arguments.push();
-
-//             let mut count = 0;
-//             for arg in &self.arguments {
-//                 context
-//                     .scopes
-//                     .add(arg.name.clone(), LLVMGetParam(function, count));
-//                 context
-//                     .arguments
-//                     .add(arg.name.clone(), LLVMGetParam(function, count));
-
-//                 count += 1;
-//             }
-
-//             let bb = llvm::core::LLVMAppendBasicBlockInContext(
-//                 context.context,
-//                 function,
-//                 b"entry\0".as_ptr() as *const _,
-//             );
-
-//             llvm::core::LLVMPositionBuilderAtEnd(context.builder, bb);
-
-//             let res = self.body.build(context);
-
-//             match &self.ret {
-//                 Some(Type::Primitive(p)) => match p {
-//                     PrimitiveType::Void => llvm::core::LLVMBuildRetVoid(context.builder),
-//                     _ => llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
-//                 },
-//                 _ => llvm::core::LLVMBuildRet(context.builder, res.unwrap()),
-//             };
-
-//             context.scopes.pop();
-//             context.functions.pop();
-//             context.arguments.pop();
-
-//             return Some(function);
-//         }
-//     }
-// }
+        self_type_id
+    }
+}

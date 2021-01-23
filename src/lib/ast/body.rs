@@ -1,3 +1,4 @@
+use crate::infer::*;
 use crate::Parser;
 use crate::TokenType;
 use crate::{token::TokenId, Error};
@@ -15,20 +16,23 @@ use crate::context::Context;
 use crate::generator::Generate;
 use llvm_sys::LLVMValue;
 
+use super::Identity;
+
 #[derive(Debug, Clone)]
 pub struct Body {
     pub stmt: Statement,
-    pub token: TokenId,
+    pub identity: Identity,
 }
 
 // derive_print!(Body, [stmt]);
+visitable_constraint_class!(Body, ConstraintGen, constrain, InferBuilder, [stmt]);
 
 impl Parse for Body {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let stmt = Statement::parse(ctx)?;
 
         Ok(Body {
-            token: stmt.token,
+            identity: Identity::new(stmt.identity.token_id),
             stmt,
         })
     }

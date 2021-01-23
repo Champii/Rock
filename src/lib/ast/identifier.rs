@@ -1,3 +1,5 @@
+use crate::ast::helper::*;
+use crate::infer::*;
 use crate::Parser;
 use crate::TokenType;
 use crate::{token::TokenId, Error};
@@ -7,11 +9,22 @@ use crate::ast::Parse;
 
 use crate::parser::macros::*;
 
-#[derive(Debug, Clone)]
+use super::Identity;
+
+#[derive(Debug, Clone, Default)]
 pub struct Identifier {
     pub name: String,
-    pub token: TokenId,
+    pub identity: Identity,
 }
+
+impl std::ops::Deref for Identifier {
+    type Target = String;
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+generate_has_name!(Identifier);
 
 impl Parse for Identifier {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
@@ -21,7 +34,7 @@ impl Parse for Identifier {
 
         Ok(Self {
             name: token.txt,
-            token: token_id,
+            identity: Identity::new(token_id),
         })
     }
 }
@@ -30,10 +43,20 @@ impl AstPrint for Identifier {
     fn print(&self, ctx: &mut AstPrintContext) {
         let indent_str = String::from("  ").repeat(ctx.indent());
 
-        println!(
-            "{}Identifier {:?}",
-            indent_str,
-            ctx.get_token(self.token).unwrap().t
-        );
+        if let TokenType::Identifier(ident) = ctx.get_token(self.identity.token_id).unwrap().t {
+            println!("{}Identifier({})", indent_str, ident);
+        }
+    }
+}
+
+impl Annotate for Identifier {
+    fn annotate(&self, ctx: &mut InferBuilder) {
+        ctx.new_named_annotation(self.name.clone(), self.identity.clone());
+    }
+}
+
+impl ConstraintGen for Identifier {
+    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+        ctx.get_type_id(self.identity.clone()).unwrap()
     }
 }

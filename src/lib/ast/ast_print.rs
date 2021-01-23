@@ -47,11 +47,11 @@ impl AstPrintContext {
 #[macro_use]
 macro_rules! derive_print {
     ($id:tt, $trait:tt, $method:ident, $ctx:tt, [ $($field:ident),* ]) => {
-        impl $trait for $id {
+        impl $trait for crate::ast::$id {
             fn $method(&self, ctx: &mut $ctx) {
                 let indent_str = String::from("  ").repeat(ctx.indent());
 
-                println!("{}{:10} {:?}", indent_str, stringify!($id), ctx.get_token(self.token).unwrap().t);
+                println!("{}{:30}", indent_str, stringify!($id));
 
                 ctx.increment();
 
@@ -65,4 +65,4 @@ macro_rules! derive_print {
     };
 }
 
-predef_trait!(AstPrint, print, AstPrintContext, derive_print);
+predef_trait_visitor!(AstPrint, print, AstPrintContext, derive_print);

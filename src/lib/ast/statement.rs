@@ -1,3 +1,4 @@
+use crate::infer::*;
 use crate::Parser;
 use crate::Token;
 use crate::{token::TokenId, Error};
@@ -20,6 +21,8 @@ use llvm_sys::LLVMValue;
 
 use crate::error;
 
+use super::Identity;
+
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     If(If),
@@ -38,13 +41,22 @@ pub enum StatementKind {
 //     }
 // }
 
+visitable_constraint_enum!(
+    StatementKind,
+    ConstraintGen,
+    constrain,
+    InferBuilder,
+    [Expression(x)]
+);
+
 #[derive(Debug, Clone)]
 pub struct Statement {
     pub kind: Box<StatementKind>,
-    pub token: TokenId,
+    pub identity: Identity,
 }
 
 // derive_print!(Statement, [kind]);
+visitable_constraint_class!(Statement, ConstraintGen, constrain, InferBuilder, [kind]);
 
 impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
@@ -62,7 +74,10 @@ impl Parse for Statement {
             error!("Expected statement".to_string(), ctx);
         });
 
-        Ok(Statement { kind, token })
+        Ok(Statement {
+            kind,
+            identity: Identity::new(token),
+        })
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::infer::*;
 use crate::Parser;
 use crate::Token;
 use crate::{token::TokenId, Error};
@@ -8,6 +9,7 @@ use crate::ast::Parse;
 // use crate::ast::Type;
 // use crate::ast::TypeInfer;
 use crate::ast::ast_print::*;
+use crate::ast::Identity;
 use crate::ast::UnaryExpr;
 use crate::infer::*;
 
@@ -30,14 +32,24 @@ pub enum ExpressionKind {
     UnaryExpr(UnaryExpr),
 }
 
+visitable_constraint_enum!(
+    ExpressionKind,
+    ConstraintGen,
+    constrain,
+    InferBuilder,
+    [UnaryExpr(unary)]
+);
+
 #[derive(Debug, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
-    pub token: TokenId,
+    pub identity: Identity,
 }
 
 // annotate!(Expression, [kind]);
 // derive_print!(Expression, [kind]);
+
+visitable_constraint_class!(Expression, ConstraintGen, constrain, InferBuilder, [kind]);
 
 impl Expression {
     pub fn is_literal(&self) -> bool {
@@ -70,7 +82,7 @@ impl Parse for Expression {
 
         let mut res = Expression {
             kind: ExpressionKind::UnaryExpr(left.clone()),
-            token,
+            identity: Identity::new(token),
         };
 
         ctx.save();

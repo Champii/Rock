@@ -19,22 +19,27 @@ use llvm_sys::LLVMValue;
 use crate::generator::Generate;
 use crate::parser::macros::*;
 
-// pub struct Identity {
-//     node_id: NodeId,
-//     token_id: TokenId,
-//     type_id: TypeId,
-//     scope_depth: u8,
-// }
+use super::identity::Identity;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SourceFile {
     pub top_levels: Vec<TopLevel>,
-    // pub identity: Identity,
-    pub token: TokenId,
+    pub identity: Identity,
 }
 
 // annotate!(struct, SourceFile, [top_levels]);
-// visitable_class!(SourceFile, Annotate, annotate, InferBuilder, [top_levels]);
+
+impl ConstraintGen for SourceFile {
+    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+        println!("Constraint: SourceFile");
+
+        self.top_levels.constrain_vec(ctx);
+
+        ctx.remove_node_id(self.identity.clone());
+
+        0
+    }
+}
 
 impl Parse for SourceFile {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
@@ -48,7 +53,7 @@ impl Parse for SourceFile {
 
         Ok(SourceFile {
             top_levels,
-            token: 0,
+            identity: Identity::new(0),
         })
     }
 }

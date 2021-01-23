@@ -1,3 +1,4 @@
+use crate::infer::*;
 use crate::Error;
 use crate::Parser;
 use crate::TokenType;
@@ -24,6 +25,29 @@ pub enum UnaryExpr {
     PrimaryExpr(PrimaryExpr),
     UnaryExpr(Operator, Box<UnaryExpr>),
 }
+
+impl ConstraintGen for UnaryExpr {
+    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+        println!("Constraint: UnaryExpr");
+
+        match self {
+            UnaryExpr::PrimaryExpr(p) => p.constrain(ctx),
+            UnaryExpr::UnaryExpr(op, unary) => {
+                unary.constrain(ctx);
+
+                op.constrain(ctx)
+            }
+        }
+    }
+}
+
+// visitable_constraint_enum!(
+//     UnaryExpr,
+//     ConstraintGen,
+//     constrain,
+//     InferBuilder,
+//     [PrimaryExpr(p), UnaryExpr(op, u)]
+// );
 
 // impl AstPrint for UnaryExpr {
 //     fn print(&self, ctx: &mut AstPrintContext) {
