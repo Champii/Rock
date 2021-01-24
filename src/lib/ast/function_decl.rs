@@ -1,8 +1,10 @@
 use crate::infer::*;
+use crate::parser::macros::*;
 use crate::Error;
 use crate::Parser;
 use crate::TokenType;
 
+use super::{ast_print::AstPrintContext, AstPrint, Identity};
 use crate::ast::argument_decl::ArgumentsDecl;
 use crate::ast::helper::*;
 use crate::ast::ArgumentDecl;
@@ -10,15 +12,6 @@ use crate::ast::Body;
 use crate::ast::Identifier;
 use crate::ast::Parse;
 use crate::ast::{r#type::FuncType, Type};
-
-// use crate::codegen::IrBuilder;
-// use crate::codegen::IrContext;
-// use crate::context::Context;
-
-// use crate::generator::Generate;
-use crate::parser::macros::*;
-
-use super::{ast_print::AstPrintContext, AstPrint, Identity};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
@@ -79,24 +72,21 @@ impl AstPrint for FunctionDecl {
 
 impl Annotate for FunctionDecl {
     fn annotate(&self, ctx: &mut InferBuilder) {
-        let args = self.arguments.annotate(ctx);
-        let ret = self.body.annotate(ctx);
+        let _args = self.arguments.annotate(ctx);
+        let _ret = self.body.annotate(ctx);
 
         ctx.new_named_annotation((*self.name).clone(), self.identity.clone());
     }
-
-    fn annotate_primitive(&self, ctx: &mut InferBuilder) {}
 }
 
 impl ConstraintGen for FunctionDecl {
     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
-        println!("Constraint: FunctionDecl");
+        // println!("Constraint: FunctionDecl");
 
         let args = self.arguments.constrain_vec(ctx);
         let body_type = self.body.constrain(ctx);
 
         let self_type_id = ctx.get_type_id(self.identity.clone()).unwrap();
-        // let body_type = ctx.get_type(self.body.identity.clone()).unwrap();
 
         ctx.solve_type(
             self.identity.clone(),

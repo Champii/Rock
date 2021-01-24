@@ -1,21 +1,13 @@
 use crate::token::{Token, TokenId};
 
 pub trait AstPrint {
-    fn print(&self, ctx: &mut AstPrintContext) {}
+    fn print(&self, _ctx: &mut AstPrintContext) {}
 }
-
-// impl<T: AstPrint> AstPrint for Vec<T> {
-//     fn print(&self, ctx: &mut AstPrintContext) {
-//         for x in self {
-//             x.print(ctx);
-//         }
-//     }
-// }
 
 pub struct AstPrintContext {
     indent: usize,
     tokens: Vec<Token>,
-    input: Vec<char>,
+    _input: Vec<char>,
 }
 
 impl AstPrintContext {
@@ -23,7 +15,7 @@ impl AstPrintContext {
         Self {
             indent: 0,
             tokens,
-            input,
+            _input: input,
         }
     }
 

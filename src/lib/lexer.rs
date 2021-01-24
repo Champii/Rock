@@ -43,54 +43,6 @@ impl Lexer {
         }
     }
 
-    pub fn set_line(&mut self) {
-        let lines: Vec<_> = self.input[..self.cur_idx].split(|c| *c == '\n').collect();
-
-        self.cur_line = lines.len();
-    }
-
-    pub fn seek(&mut self, n: u32) -> Token {
-        let mut n = n;
-
-        let saved = self.cur_idx;
-        let lines = self.cur_line;
-        let last_char = self.last_char;
-
-        let mut tok = self.next();
-
-        n -= 1;
-
-        while n > 0 {
-            tok = self.next();
-
-            n -= 1
-        }
-
-        self.cur_idx = saved;
-        self.cur_line = lines;
-        self.last_char = last_char;
-
-        tok
-    }
-
-    pub fn restore(&mut self, token: Token) {
-        self.cur_idx = token.end + 1;
-
-        if self.cur_idx >= self.input.len() {
-            self.end = true;
-
-            self.cur_idx = self.input.len() - 1;
-
-            self.last_char = '\0';
-        } else {
-            self.end = false;
-
-            self.last_char = self.input[self.cur_idx];
-        }
-
-        self.set_line();
-    }
-
     fn has_separator(&self, token_len: usize, sep: Sep) -> bool {
         if sep == Sep::empty() {
             return true;

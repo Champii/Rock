@@ -1,3 +1,4 @@
+use crate::error;
 use crate::infer::*;
 use crate::Error;
 use crate::Parser;
@@ -5,25 +6,8 @@ use crate::TokenType;
 
 use crate::ast::ast_print::*;
 use crate::ast::Parse;
-// use crate::ast::PrimitiveType;
-// use crate::ast::Type;
-// use crate::ast::TypeInfer;
-
-use crate::codegen::IrBuilder;
-use crate::codegen::IrContext;
-use crate::context::Context;
-// use crate::type_checker::TypeInferer;
-
-use llvm_sys::core::LLVMConstInt;
-use llvm_sys::core::LLVMInt1Type;
-use llvm_sys::core::LLVMInt32Type;
-use llvm_sys::LLVMValue;
-
-use crate::error;
 
 use super::{Identity, PrimitiveType, Type};
-
-// use super::helper::Leaf;
 
 #[derive(Debug, Clone)]
 pub enum LiteralKind {
@@ -90,14 +74,14 @@ impl Parse for Literal {
 impl Annotate for Literal {
     fn annotate(&self, ctx: &mut InferBuilder) {
         match &self.kind {
-            LiteralKind::Number(n) => {
+            LiteralKind::Number(_n) => {
                 ctx.new_type_solved(self.identity.clone(), Type::Primitive(PrimitiveType::Int64))
             }
             LiteralKind::String(s) => ctx.new_type_solved(
                 self.identity.clone(),
                 Type::Primitive(PrimitiveType::String(s.len())),
             ),
-            LiteralKind::Bool(b) => {
+            LiteralKind::Bool(_b) => {
                 ctx.new_type_solved(self.identity.clone(), Type::Primitive(PrimitiveType::Bool))
             }
         }
@@ -114,31 +98,3 @@ impl ConstraintGen for Literal {
         ctx.get_type_id(self.identity.clone()).unwrap()
     }
 }
-// impl Leaf for Literal {}
-// annotate!(Literal, []);
-
-// impl TypeInferer for Literal {
-//     fn infer(&mut self, _ctx: &mut Context) -> Result<TypeInfer, Error> {
-//         trace!("Literal ({:?})", self);
-
-//         match &self {
-//             Literal::Number(_) => Ok(Some(Type::Primitive(PrimitiveType::Int32))),
-//             Literal::String(s) => Ok(Some(Type::Primitive(PrimitiveType::String(s.len())))),
-//             Literal::Bool(_) => Ok(Some(Type::Primitive(PrimitiveType::Bool))),
-//         }
-//     }
-// }
-
-// impl IrBuilder for Literal {
-//     fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
-//         match self {
-//             Literal::Number(num) => {
-//                 let sign = if *num < 0 { 1 } else { 0 };
-//                 let nb: u64 = (*num) as u64;
-//                 unsafe { Some(LLVMConstInt(LLVMInt32Type(), nb, sign)) }
-//             }
-//             Literal::String(s) => s.build(context),
-//             Literal::Bool(b) => unsafe { Some(LLVMConstInt(LLVMInt1Type(), b.clone(), 0)) },
-//         }
-//     }
-// }

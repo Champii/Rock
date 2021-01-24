@@ -1,16 +1,9 @@
 use std::fmt;
 
 use crate::infer::*;
-use crate::Error;
-use crate::Parser;
-use crate::TokenType;
 
-use crate::ast::FunctionDecl;
-use crate::ast::Parse;
 use crate::ast::PrimitiveType;
 // use crate::ast::Prototype;
-
-use crate::parser::macros::*;
 
 #[derive(Debug, Clone)]
 pub enum Type {
@@ -65,28 +58,3 @@ impl FuncType {
         }
     }
 }
-
-pub type TypeInfer = Option<Type>;
-
-// impl Parse for Type {
-//     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-//         if ctx.cur_tok.t == TokenType::ArrayType {
-//             ctx.save();
-
-//             ctx.consume();
-
-//             let t = try_or_restore!(Type::parse(ctx), ctx);
-
-//             ctx.save_pop();
-
-//             Ok(Type::Primitive(PrimitiveType::Array(Box::new(t), 0)))
-//         } else if let Some(t) = PrimitiveType::from_name(&ctx.cur_tok.txt) {
-//             ctx.consume();
-//             Ok(Type::Primitive(t))
-//         } else {
-//             Ok(Type::Class(
-//                 expect!(TokenType::Type(ctx.cur_tok.txt.clone()), ctx).txt,
-//             ))
-//         }
-//     }
-// }

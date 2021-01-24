@@ -1,9 +1,7 @@
 use crate::token::TokenId;
 
 use super::ast::*;
-use super::context::*;
 use super::error::Error;
-use super::Lexer;
 use super::Token;
 
 #[macro_export]
@@ -108,12 +106,10 @@ pub mod macros {
 
 // TODO: Create getters and setters instead of exposing publicly
 pub struct Parser {
-    // pub lexer: Lexer,
     pub input: Vec<char>,
     pub tokens: Vec<Token>,
     pub cur_tok_id: TokenId,
     save: Vec<TokenId>,
-    pub ctx: Context,
     pub block_indent: u8,
 }
 
@@ -124,7 +120,6 @@ impl Parser {
             tokens,
             save: vec![0],
             cur_tok_id: 0,
-            ctx: Context::new(),
             block_indent: 0,
         }
     }

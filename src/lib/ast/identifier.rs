@@ -1,8 +1,7 @@
-use crate::ast::helper::*;
 use crate::infer::*;
+use crate::Error;
 use crate::Parser;
-use crate::TokenType;
-use crate::{token::TokenId, Error};
+use crate::{ast::helper::*, token::TokenType};
 
 use crate::ast::ast_print::*;
 use crate::ast::Parse;

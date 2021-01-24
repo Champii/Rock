@@ -34,7 +34,7 @@ impl AstPrint for Operator {
 }
 
 impl Annotate for Operator {
-    fn annotate(&self, ctx: &mut InferBuilder) {
+    fn annotate(&self, _ctx: &mut InferBuilder) {
         //
     }
 }
@@ -65,7 +65,7 @@ impl Parse for Operator {
 }
 
 impl ConstraintGen for Operator {
-    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+    fn constrain(&self, _ctx: &mut InferBuilder) -> TypeId {
         // ctx.get_type(self.identity.clone()).unwrap()
         0
     }

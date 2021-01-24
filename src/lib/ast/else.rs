@@ -6,11 +6,6 @@ use crate::ast::Body;
 use crate::ast::If;
 use crate::ast::Parse;
 
-use crate::codegen::IrBuilder;
-use crate::codegen::IrContext;
-
-use llvm_sys::LLVMValue;
-
 #[derive(Debug, Clone)]
 pub enum Else {
     If(If),
@@ -25,12 +20,3 @@ impl Parse for Else {
         })
     }
 }
-
-// impl IrBuilder for Else {
-//     fn build(&self, context: &mut IrContext) -> Option<*mut LLVMValue> {
-//         match self {
-//             Else::If(if_) => if_.build(context),
-//             Else::Body(body) => body.build(context),
-//         }
-//     }
-// }

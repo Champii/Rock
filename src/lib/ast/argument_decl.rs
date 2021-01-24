@@ -1,22 +1,12 @@
-#[macro_use]
+use super::Identity;
 use crate::infer::*;
+use crate::parser::macros::*;
+use crate::Error;
 use crate::Parser;
-use crate::Token;
 use crate::TokenType;
-use crate::{token::TokenId, Error};
 
 use crate::ast::ast_print::*;
 use crate::ast::Parse;
-// use crate::ast::Type;
-// use crate::ast::TypeInfer;
-
-use crate::context::Context;
-// use crate::type_checker::TypeInferer;
-
-use crate::generator::Generate;
-use crate::parser::macros::*;
-
-use super::Identity;
 
 pub type ArgumentsDecl = Vec<ArgumentDecl>;
 
@@ -49,9 +39,6 @@ pub struct ArgumentDecl {
     pub identity: Identity,
 }
 
-// visitable_class!(ArgumentDecl, Annotate, annotate, InferBuilder, []);
-
-// derive_print!(ArgumentDecl, []);
 impl AstPrint for ArgumentDecl {
     fn print(&self, ctx: &mut AstPrintContext) {
         let indent_str = String::from("  ").repeat(ctx.indent());
@@ -79,22 +66,6 @@ impl Parse for ArgumentDecl {
         })
     }
 }
-
-// impl Generate for ArgumentDecl {
-//     fn generate(&mut self, _ctx: &mut Context) -> Result<(), Error> {
-//         Ok(())
-//     }
-// }
-
-// impl TypeInferer for ArgumentDecl {
-//     fn infer(&mut self, ctx: &mut Context) -> Result<TypeInfer, Error> {
-//         trace!("ArgumentDecl ({:?})", self.token);
-
-//         ctx.scopes.add(self.name.clone(), self.t.clone());
-
-//         Ok(self.t.clone())
-//     }
-// }
 
 impl ConstraintGen for ArgumentDecl {
     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
