@@ -47,13 +47,6 @@ impl AstPrint for ArgumentDecl {
     }
 }
 
-impl Annotate for ArgumentDecl {
-    fn annotate(&self, ctx: &mut InferBuilder) {
-        ctx.new_named_annotation(self.name.clone(), self.identity.clone());
-        //
-    }
-}
-
 impl Parse for ArgumentDecl {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let token_id = ctx.cur_tok_id;
@@ -64,6 +57,12 @@ impl Parse for ArgumentDecl {
             name: token.txt.clone(),
             identity: Identity::new(token_id),
         })
+    }
+}
+
+impl Annotate for ArgumentDecl {
+    fn annotate(&self, ctx: &mut InferBuilder) {
+        ctx.new_named_annotation(self.name.clone(), self.identity.clone());
     }
 }
 

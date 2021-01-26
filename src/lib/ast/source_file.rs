@@ -15,18 +15,6 @@ pub struct SourceFile {
     pub identity: Identity,
 }
 
-impl ConstraintGen for SourceFile {
-    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
-        // println!("Constraint: SourceFile");
-
-        self.top_levels.constrain_vec(ctx);
-
-        ctx.remove_node_id(self.identity.clone());
-
-        0
-    }
-}
-
 impl Parse for SourceFile {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut top_levels = vec![];
@@ -41,5 +29,15 @@ impl Parse for SourceFile {
             top_levels,
             identity: Identity::new(0),
         })
+    }
+}
+
+impl ConstraintGen for SourceFile {
+    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+        self.top_levels.constrain_vec(ctx);
+
+        ctx.remove_node_id(self.identity.clone());
+
+        0
     }
 }

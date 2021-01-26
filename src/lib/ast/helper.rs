@@ -226,3 +226,22 @@ macro_rules! visitable_constraint_vec {
 }
 
 visitable_constraint_vec!(ConstraintGen, constrain, InferBuilder);
+
+// #[macro_use]
+// macro_rules! impl_parse {
+//     ($class:tt, {
+//         $( $field:ident ( $( box $attr_box:ident ),* ) ),*
+//     }) => {
+//         impl Parse for $class {
+//             fn parse(ctx: &mut Parser) -> Result<$class, Error> {
+//                 $(
+//                     {
+//                         return Ok($class::$field($(
+//                             $(Box::new(try_or_restore!($attr::parse(ctx), ctx)))?
+//                         ),*));
+//                     }
+//                 )*
+//             }
+//         }
+//     };
+// }
