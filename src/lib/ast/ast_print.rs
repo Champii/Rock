@@ -1,8 +1,7 @@
+use crate::ast::helper::*;
+use crate::ast::*;
 use crate::token::{Token, TokenId};
-
-pub trait AstPrint {
-    fn print(&self, _ctx: &mut AstPrintContext) {}
-}
+use crate::visit::*;
 
 pub struct AstPrintContext {
     indent: usize,
@@ -34,27 +33,65 @@ impl AstPrintContext {
     pub fn indent(&self) -> usize {
         self.indent
     }
+
+    pub fn print<T: ClassName>(&self, t: T) {
+        let indent_str = String::from("  ").repeat(self.indent());
+
+        println!("{}{:30}", indent_str, t.class_name_self());
+    }
 }
 
-#[macro_use]
-macro_rules! derive_print {
-    ($id:tt, $trait:tt, $method:ident, $ctx:tt, [ $($field:ident),* ]) => {
-        impl $trait for crate::ast::$id {
-            fn $method(&self, ctx: &mut $ctx) {
-                let indent_str = String::from("  ").repeat(ctx.indent());
-
-                println!("{}{:30}", indent_str, stringify!($id));
-
-                ctx.increment();
-
-                $(
-                    self.$field.$method(ctx);
-                )*
-
-                ctx.decrement();
+macro_rules! impl_visitor_trait {
+    ($(
+        $name:ident, $method:ident
+    )*) => {
+        impl<'ast> Visitor<'ast> for AstPrintContext {
+            fn visit_name(&mut self, name: String) {
+                // Nothing
+                self.print(name);
             }
+
+            fn visit_primitive<T>(&mut self, val: T)
+            where
+                T: ClassName,
+            {
+                self.print(val);
+            }
+
+            $(
+                concat_idents!(fn_name = visit_, $method {
+                    fn fn_name(&mut self, $method: &'ast $name) {
+                        self.print($method);
+
+                        self.increment();
+
+                        concat_idents!(fn2_name = walk_, $method {
+                            fn2_name(self, $method);
+                        });
+
+                        self.decrement();
+                    }
+                });
+            )*
         }
     };
 }
 
-predef_trait_visitor!(AstPrint, print, AstPrintContext, derive_print);
+impl_visitor_trait!(
+    SourceFile, source_file
+    TopLevel, top_level
+    FunctionDecl, function_decl
+    Identifier, identifier
+    ArgumentDecl, argument_decl
+    Body, body
+    Statement, statement
+    Expression, expression
+    If, r#if
+    UnaryExpr, unary
+    Operator, operator
+    PrimaryExpr, primary
+    SecondaryExpr, secondary
+    Operand, operand
+    Argument, argument
+    Literal, literal
+);

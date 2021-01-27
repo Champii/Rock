@@ -12,6 +12,7 @@ regex = "1"
 env_logger = "0.5.12"
 log = "0.4"
 bitflags = "1.2.1"
+concat-idents = "1.1.2"
 
 [lib]
 name = "fock"

@@ -1,7 +1,7 @@
 use crate::parser::macros::*;
+use crate::token::TokenType;
 use crate::Error;
 use crate::Parser;
-use crate::{infer::*, token::TokenType};
 
 use crate::ast::Expression;
 use crate::ast::Identifier;
@@ -18,21 +18,11 @@ pub enum OperandKind {
     Expression(Box<Expression>), // parenthesis
 }
 
-visitable_constraint_enum!(
-    OperandKind,
-    ConstraintGen,
-    constrain,
-    InferBuilder,
-    [Literal(x), Identifier(x), Expression(x)]
-);
-
 #[derive(Debug, Clone)]
 pub struct Operand {
     pub kind: OperandKind,
     pub identity: Identity,
 }
-
-visitable_constraint_class!(Operand, ConstraintGen, constrain, InferBuilder, [kind]);
 
 impl Operand {
     fn parens_expr(ctx: &mut Parser) -> Result<Expression, Error> {

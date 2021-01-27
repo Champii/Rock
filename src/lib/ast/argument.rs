@@ -1,5 +1,4 @@
 use super::Identity;
-use crate::infer::*;
 use crate::parser::macros::*;
 use crate::Error;
 use crate::Parser;
@@ -50,5 +49,3 @@ impl Parse for Argument {
         })
     }
 }
-
-visitable_constraint_class!(Argument, ConstraintGen, constrain, InferBuilder, [arg]);

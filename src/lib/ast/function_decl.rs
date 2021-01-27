@@ -1,17 +1,15 @@
-use crate::infer::*;
 use crate::parser::macros::*;
 use crate::Error;
 use crate::Parser;
 use crate::TokenType;
 
-use super::{ast_print::AstPrintContext, AstPrint, Identity};
+use super::Identity;
 use crate::ast::argument_decl::ArgumentsDecl;
 use crate::ast::helper::*;
 use crate::ast::ArgumentDecl;
 use crate::ast::Body;
 use crate::ast::Identifier;
 use crate::ast::Parse;
-use crate::ast::{r#type::FuncType, Type};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
@@ -55,46 +53,31 @@ impl Parse for FunctionDecl {
 
 generate_has_name!(FunctionDecl);
 
-impl AstPrint for FunctionDecl {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        let indent = String::from("  ").repeat(ctx.indent());
+// impl Annotate for FunctionDecl {
+//     fn annotate(&self, ctx: &mut InferBuilder) {
+//         let _args = self.arguments.annotate(ctx);
+//         let _ret = self.body.annotate(ctx);
 
-        println!("{}{}({})", indent, "FunctionDecl", *self.name);
+//         ctx.new_named_annotation((*self.name).clone(), self.identity.clone());
+//     }
+// }
 
-        ctx.increment();
+// impl ConstraintGen for FunctionDecl {
+//     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+//         // println!("Constraint: FunctionDecl");
 
-        self.arguments.print(ctx);
-        self.body.print(ctx);
+//         let args = self.arguments.constrain_vec(ctx);
+//         let body_type = self.body.constrain(ctx);
 
-        ctx.decrement();
-    }
-}
+//         let self_type_id = ctx.get_type_id(self.identity.clone()).unwrap();
 
-impl Annotate for FunctionDecl {
-    fn annotate(&self, ctx: &mut InferBuilder) {
-        let _args = self.arguments.annotate(ctx);
-        let _ret = self.body.annotate(ctx);
+//         ctx.solve_type(
+//             self.identity.clone(),
+//             Type::FuncType(FuncType::new((*self.name).clone(), args, body_type)),
+//         );
 
-        ctx.new_named_annotation((*self.name).clone(), self.identity.clone());
-    }
-}
+//         ctx.add_constraint(Constraint::Eq(self_type_id, body_type));
 
-impl ConstraintGen for FunctionDecl {
-    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
-        // println!("Constraint: FunctionDecl");
-
-        let args = self.arguments.constrain_vec(ctx);
-        let body_type = self.body.constrain(ctx);
-
-        let self_type_id = ctx.get_type_id(self.identity.clone()).unwrap();
-
-        ctx.solve_type(
-            self.identity.clone(),
-            Type::FuncType(FuncType::new((*self.name).clone(), args, body_type)),
-        );
-
-        ctx.add_constraint(Constraint::Eq(self_type_id, body_type));
-
-        self_type_id
-    }
-}
+//         self_type_id
+//     }
+// }

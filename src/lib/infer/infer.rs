@@ -219,45 +219,45 @@ pub trait Annotate {
     }
 }
 
-#[macro_use]
-macro_rules! derive_annotate {
-    ($id:tt, $trait:tt, $method:ident, $ctx:tt, [ $($field:ident),* ]) => {
-        impl $trait for crate::ast::$id {
-            fn $method(&self, ctx: &mut $ctx)  {
-                // println!("Annotate: {}", stringify!($id));
+// #[macro_use]
+// macro_rules! derive_annotate {
+//     ($id:tt, $trait:tt, $method:ident, $ctx:tt, [ $($field:ident),* ]) => {
+//         impl $trait for crate::ast::$id {
+//             fn $method(&self, ctx: &mut $ctx)  {
+//                 // println!("Annotate: {}", stringify!($id));
 
-                ctx.new_type_id(self.identity.clone());
+//                 ctx.new_type_id(self.identity.clone());
 
-                $(
-                    self.$field.$method(ctx);
-                )*
-            }
-        }
-    };
-}
+//                 $(
+//                     self.$field.$method(ctx);
+//                 )*
+//             }
+//         }
+//     };
+// }
 
-#[macro_use]
-predef_trait_visitor!(Annotate, annotate, InferBuilder, derive_annotate);
+// #[macro_use]
+// predef_trait_visitor!(Annotate, annotate, InferBuilder, derive_annotate);
 
-pub trait ConstraintGen {
-    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId;
-    fn constrain_vec(&self, _ctx: &mut InferBuilder) -> Vec<TypeId> {
-        unimplemented!();
-    }
-}
+// pub trait ConstraintGen {
+//     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId;
+//     fn constrain_vec(&self, _ctx: &mut InferBuilder) -> Vec<TypeId> {
+//         unimplemented!();
+//     }
+// }
 
-#[allow(unused_macros)]
-#[macro_use]
-macro_rules! derive_constraints {
-    ($id:tt, $trait:tt, $method:ident, $ctx:tt, [ $($field:ident),* ]) => {
-        impl $trait for crate::ast::$id {
-            fn $method(&self, ctx: &mut $ctx) -> TypeId{
-                // println!("Constraint: {}", stringify!($id));
+// #[allow(unused_macros)]
+// #[macro_use]
+// macro_rules! derive_constraints {
+//     ($id:tt, $trait:tt, $method:ident, $ctx:tt, [ $($field:ident),* ]) => {
+//         impl $trait for crate::ast::$id {
+//             fn $method(&self, ctx: &mut $ctx) -> TypeId{
+//                 // println!("Constraint: {}", stringify!($id));
 
-                $(
-                    self.$field.$method(ctx);
-                )*
-            }
-        }
-    };
-}
+//                 $(
+//                     self.$field.$method(ctx);
+//                 )*
+//             }
+//         }
+//     };
+// }

@@ -1,4 +1,3 @@
-use crate::infer::*;
 use crate::try_or_restore_and;
 use crate::Error;
 use crate::Parser;
@@ -14,21 +13,11 @@ pub enum ExpressionKind {
     UnaryExpr(UnaryExpr),
 }
 
-visitable_constraint_enum!(
-    ExpressionKind,
-    ConstraintGen,
-    constrain,
-    InferBuilder,
-    [UnaryExpr(unary)]
-);
-
 #[derive(Debug, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
     pub identity: Identity,
 }
-
-visitable_constraint_class!(Expression, ConstraintGen, constrain, InferBuilder, [kind]);
 
 impl Expression {
     pub fn is_literal(&self) -> bool {

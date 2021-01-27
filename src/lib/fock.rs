@@ -7,6 +7,8 @@ extern crate bitflags;
 
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate concat_idents;
 
 use regex::Regex;
 use std::fs;
@@ -26,6 +28,7 @@ mod parser;
 mod scope;
 mod tests;
 mod token;
+mod visit;
 
 use self::ast::ast_print::*;
 use self::codegen::*;
@@ -34,6 +37,7 @@ use self::error::Error;
 use self::lexer::Lexer;
 use self::parser::Parser;
 use self::token::*;
+use self::visit::*;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<Builder, Error> {
     info!("   -> Parsing {}", in_name);
@@ -60,19 +64,19 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
     let tokens = Lexer::new(input.clone()).collect();
 
     let ast = Parser::new(tokens.clone(), input.clone()).run()?;
-    let infer_builder = &mut InferBuilder::new(InferState::new());
+    let _infer_builder = &mut InferBuilder::new(InferState::new());
 
-    ast.annotate(infer_builder);
+    // ast.annotate(infer_builder);
 
-    ast.constrain(infer_builder);
+    // ast.constrain(infer_builder);
 
-    infer_builder.solve();
+    // infer_builder.solve();
 
     // println!("INFER {:#?}", infer_builder);
 
     if config.show_ast {
         // println!("AST {:#?}", ast);
-        ast.print(&mut AstPrintContext::new(tokens.clone(), input.clone()));
+        AstPrintContext::new(tokens.clone(), input.clone()).visit_source_file(&ast);
     }
 
     // info!("   -> Codegen {}", output_name);

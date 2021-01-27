@@ -50,7 +50,7 @@ pub use expression::{Expression, ExpressionKind};
 // pub use forin::ForIn;
 pub use function_decl::FunctionDecl;
 pub use identifier::Identifier;
-pub use literal::Literal;
+pub use literal::{Literal, LiteralKind};
 pub use operand::{Operand, OperandKind};
 pub use operator::Operator;
 pub use primary_expr::PrimaryExpr;
@@ -67,8 +67,6 @@ pub use source_file::SourceFile;
 pub use statement::{Statement, StatementKind};
 pub use top_level::{TopLevel, TopLevelKind};
 pub use unary_expr::UnaryExpr;
-
-pub use ast_print::AstPrint;
 
 pub trait Parse {
     fn parse(ctx: &mut Parser) -> Result<Self, Error>

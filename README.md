@@ -190,3 +190,17 @@ main ->
   b = Foo 2
   a + b
 ```
+
+# NEW GLOBAL LONG TERM TODO
+
+## 1
+  - Use the simpliest syntax possible
+  - Custom operators
+  - If/Else
+  - Ultra basic HIR-MIR
+  - Typing + inference
+  - Crate/Mod
+  - Basic LLVM compile
+
+## 2
+  - Pattern matching

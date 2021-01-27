@@ -1,6 +1,5 @@
 use super::Identity;
 use crate::error;
-use crate::infer::*;
 use crate::Error;
 use crate::Parser;
 
@@ -16,21 +15,11 @@ pub enum StatementKind {
     // Assignation(Assignation),
 }
 
-visitable_constraint_enum!(
-    StatementKind,
-    ConstraintGen,
-    constrain,
-    InferBuilder,
-    [Expression(x)]
-);
-
 #[derive(Debug, Clone)]
 pub struct Statement {
     pub kind: Box<StatementKind>,
     pub identity: Identity,
 }
-
-visitable_constraint_class!(Statement, ConstraintGen, constrain, InferBuilder, [kind]);
 
 impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {

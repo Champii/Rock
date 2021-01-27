@@ -1,4 +1,3 @@
-use crate::infer::*;
 use crate::try_or_restore;
 use crate::Error;
 use crate::Parser;
@@ -15,20 +14,20 @@ pub enum UnaryExpr {
     UnaryExpr(Operator, Box<UnaryExpr>),
 }
 
-impl ConstraintGen for UnaryExpr {
-    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
-        // println!("Constraint: UnaryExpr");
+// impl ConstraintGen for UnaryExpr {
+//     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+//         // println!("Constraint: UnaryExpr");
 
-        match self {
-            UnaryExpr::PrimaryExpr(p) => p.constrain(ctx),
-            UnaryExpr::UnaryExpr(op, unary) => {
-                unary.constrain(ctx);
+//         match self {
+//             UnaryExpr::PrimaryExpr(p) => p.constrain(ctx),
+//             UnaryExpr::UnaryExpr(op, unary) => {
+//                 unary.constrain(ctx);
 
-                op.constrain(ctx)
-            }
-        }
-    }
-}
+//                 op.constrain(ctx)
+//             }
+//        //  }
+// //     }
+// // }
 
 impl UnaryExpr {
     pub fn is_literal(&self) -> bool {

@@ -6,10 +6,9 @@ use crate::ast::Parse;
 use crate::ast::TopLevel;
 
 use super::identity::Identity;
-use crate::infer::*;
 use crate::parser::macros::*;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SourceFile {
     pub top_levels: Vec<TopLevel>,
     pub identity: Identity,
@@ -32,12 +31,12 @@ impl Parse for SourceFile {
     }
 }
 
-impl ConstraintGen for SourceFile {
-    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
-        self.top_levels.constrain_vec(ctx);
+// impl ConstraintGen for SourceFile {
+//     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+//         self.top_levels.constrain_vec(ctx);
 
-        ctx.remove_node_id(self.identity.clone());
+//         ctx.remove_node_id(self.identity.clone());
 
-        0
-    }
-}
+//         0
+//     }
+// }

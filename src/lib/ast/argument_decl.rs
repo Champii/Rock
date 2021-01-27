@@ -1,11 +1,9 @@
 use super::Identity;
-use crate::infer::*;
 use crate::parser::macros::*;
 use crate::Error;
 use crate::Parser;
 use crate::TokenType;
 
-use crate::ast::ast_print::*;
 use crate::ast::Parse;
 
 pub type ArgumentsDecl = Vec<ArgumentDecl>;
@@ -33,18 +31,10 @@ impl Parse for ArgumentsDecl {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ArgumentDecl {
     pub name: String,
     pub identity: Identity,
-}
-
-impl AstPrint for ArgumentDecl {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        let indent_str = String::from("  ").repeat(ctx.indent());
-
-        println!("{}{}({})", indent_str, "ArgumentDecl", self.name);
-    }
 }
 
 impl Parse for ArgumentDecl {
@@ -60,14 +50,14 @@ impl Parse for ArgumentDecl {
     }
 }
 
-impl Annotate for ArgumentDecl {
-    fn annotate(&self, ctx: &mut InferBuilder) {
-        ctx.new_named_annotation(self.name.clone(), self.identity.clone());
-    }
-}
+// impl Annotate for ArgumentDecl {
+//     fn annotate(&self, ctx: &mut InferBuilder) {
+//         ctx.new_named_annotation(self.name.clone(), self.identity.clone());
+//     }
+// }
 
-impl ConstraintGen for ArgumentDecl {
-    fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
-        ctx.get_type_id(self.identity.clone()).unwrap()
-    }
-}
+// impl ConstraintGen for ArgumentDecl {
+//     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
+//         ctx.get_type_id(self.identity.clone()).unwrap()
+//     }
+// }

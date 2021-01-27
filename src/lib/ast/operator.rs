@@ -1,9 +1,7 @@
-use crate::infer::*;
 use crate::Error;
 use crate::Parser;
 use crate::TokenType;
 
-use crate::ast::ast_print::*;
 use crate::ast::Parse;
 
 use crate::error;
@@ -25,19 +23,11 @@ pub enum Operator {
     DashEqual,
 }
 
-impl AstPrint for Operator {
-    fn print(&self, ctx: &mut AstPrintContext) {
-        let indent = String::from("  ").repeat(ctx.indent());
-
-        println!("{}{:?}", indent, self);
-    }
-}
-
-impl Annotate for Operator {
-    fn annotate(&self, _ctx: &mut InferBuilder) {
-        //
-    }
-}
+// impl Annotate for Operator {
+//     fn annotate(&self, _ctx: &mut InferBuilder) {
+//         //
+//     }
+// }
 
 impl Parse for Operator {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
@@ -64,9 +54,9 @@ impl Parse for Operator {
     }
 }
 
-impl ConstraintGen for Operator {
-    fn constrain(&self, _ctx: &mut InferBuilder) -> TypeId {
-        // ctx.get_type(self.identity.clone()).unwrap()
-        0
-    }
-}
+// impl ConstraintGen for Operator {
+//     fn constrain(&self, _ctx: &mut InferBuilder) -> TypeId {
+//         // ctx.get_type(self.identity.clone()).unwrap()
+//         0
+//     }
+// }
