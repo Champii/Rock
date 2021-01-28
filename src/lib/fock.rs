@@ -10,7 +10,6 @@ extern crate log;
 #[macro_use]
 extern crate concat_idents;
 
-use regex::Regex;
 use std::fs;
 
 #[macro_use]
@@ -19,9 +18,11 @@ pub mod ast;
 pub mod infer;
 
 pub use crate::infer::*;
+mod ast_lowering;
 mod codegen;
 pub mod config;
 mod error;
+mod hir;
 pub mod logger;
 mod parser;
 mod scope;
@@ -33,8 +34,6 @@ use crate::codegen::*;
 pub use crate::config::Config;
 use crate::error::Error;
 use crate::parser::*;
-// use self::lexer::Lexer;
-// use self::token::*;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<Builder, Error> {
     info!("   -> Parsing {}", in_name);
@@ -44,24 +43,12 @@ pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<B
     parse_str(file, out_name, config)
 }
 
-pub fn preprocess(input: String) -> String {
-    // Add a '.' after a '@' if it is followed by some word
-    // This is a dirty trick to ditch having to modiffy the parser for that sugar
-    let re = Regex::new(r"@(\w)").unwrap();
-    let out = re.replace_all(&input, "@.$1");
-
-    out.to_string()
-}
-
 pub fn parse_str(input: String, output_name: String, config: Config) -> Result<Builder, Error> {
-    let preprocessed = preprocess(input.clone());
+    let (ast, tokens) = parser::parse(input.clone())?;
 
-    let input: Vec<char> = preprocessed.chars().collect();
-
-    let tokens = Lexer::new(input.clone()).collect();
-
-    let ast = Parser::new(tokens.clone(), input.clone()).run()?;
     let _infer_builder = &mut InferBuilder::new(InferState::new());
+
+    let hir = ast_lowering::lower_crate(&ast);
 
     // ast.annotate(infer_builder);
 
@@ -74,6 +61,8 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
     if config.show_ast {
         // println!("AST {:#?}", ast);
         AstPrintContext::new(tokens.clone(), input.clone()).visit_root(&ast);
+
+        println!("{:#?}", hir);
     }
 
     // info!("   -> Codegen {}", output_name);

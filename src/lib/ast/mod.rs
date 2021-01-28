@@ -7,7 +7,6 @@ pub mod ast_print;
 mod ast;
 mod identity;
 mod primitive_type;
-mod string;
 mod r#type;
 pub mod visit;
 

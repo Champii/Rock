@@ -12,7 +12,7 @@ pub enum Type {
     FuncType(FuncType),
     Class(String),
     ForAll(String), // TODO
-    Undefined(String),
+    Undefined(u64),
 }
 
 impl PartialEq for Type {
@@ -29,7 +29,7 @@ impl Type {
             Self::FuncType(f) => f.name.clone(),
             Self::Class(c) => c.clone(),
             Self::ForAll(_) => String::new(),
-            Self::Undefined(s) => s.clone(),
+            Self::Undefined(s) => s.to_string(),
             // Type::Name(s) => s.clone(),
             // Type::Array(a, _) => "[]".to_string() + &a.get_name(),
         }

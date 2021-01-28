@@ -6,15 +6,15 @@ use crate::parser::{Token, TokenId};
 pub struct AstPrintContext {
     indent: usize,
     tokens: Vec<Token>,
-    _input: Vec<char>,
+    _input: String,
 }
 
 impl AstPrintContext {
-    pub fn new(tokens: Vec<Token>, input: Vec<char>) -> Self {
+    pub fn new(tokens: Vec<Token>, input: String) -> Self {
         Self {
             indent: 0,
-            tokens,
             _input: input,
+            tokens,
         }
     }
 
