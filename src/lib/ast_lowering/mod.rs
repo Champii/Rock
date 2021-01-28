@@ -67,12 +67,23 @@ impl AstLoweringContext {
 
     pub fn lower_function_decl(&mut self, f: &FunctionDecl) -> hir::FunctionDecl {
         let body_id = BodyId::next();
+        let ident = self.lower_identifier(&f.name);
 
-        let body = self.lower_body(&f.body);
+        let body = self.lower_body(
+            &f.body,
+            ident.clone(),
+            f.arguments
+                .iter()
+                .map(|arg| hir::Identifier {
+                    name: arg.name.clone(),
+                })
+                .collect(),
+        );
 
         self.bodies.insert(body_id.clone(), body);
 
         hir::FunctionDecl {
+            name: ident,
             arguments: f
                 .arguments
                 .iter()
@@ -88,8 +99,15 @@ impl AstLoweringContext {
         Type::Undefined(0)
     }
 
-    pub fn lower_body(&mut self, body: &Body) -> hir::Body {
+    pub fn lower_body(
+        &mut self,
+        body: &Body,
+        name: hir::Identifier,
+        arguments: Vec<hir::Identifier>,
+    ) -> hir::Body {
         hir::Body {
+            name,
+            arguments,
             stmt: self.lower_statement(&body.stmt),
         }
     }

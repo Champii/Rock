@@ -29,6 +29,7 @@ pub enum TopLevelKind {
 
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
+    pub name: Identifier,
     pub arguments: Vec<Type>,
     pub ret: Type,
     pub body_id: BodyId,
@@ -55,6 +56,8 @@ pub struct ArgumentDecl {
 
 #[derive(Debug, Clone)]
 pub struct Body {
+    pub name: Identifier,
+    pub arguments: Vec<Identifier>,
     pub stmt: Statement,
 }
 

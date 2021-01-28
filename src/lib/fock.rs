@@ -1,6 +1,6 @@
 #![feature(const_fn, associated_type_bounds)]
 
-extern crate llvm_sys as llvm;
+// extern crate llvm_sys as llvm;
 
 #[macro_use]
 extern crate bitflags;
@@ -10,6 +10,7 @@ extern crate log;
 #[macro_use]
 extern crate concat_idents;
 
+use inkwell::context::Context;
 use std::fs;
 
 #[macro_use]
@@ -35,7 +36,7 @@ pub use crate::config::Config;
 use crate::error::Error;
 use crate::parser::*;
 
-pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<Builder, Error> {
+pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
     info!("   -> Parsing {}", in_name);
 
     let file = fs::read_to_string(in_name).expect("Woot");
@@ -43,14 +44,14 @@ pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<B
     parse_str(file, out_name, config)
 }
 
-pub fn parse_str(input: String, output_name: String, config: Config) -> Result<Builder, Error> {
+pub fn parse_str(input: String, output_name: String, config: Config) -> Result<(), Error> {
     let (ast, tokens) = parser::parse(input.clone())?;
 
     let _infer_builder = &mut InferBuilder::new(InferState::new());
 
     let hir = ast_lowering::lower_crate(&ast);
 
-    // ast.annotate(infer_builder);
+    let context = Context::create();
 
     // ast.constrain(infer_builder);
 
@@ -65,13 +66,13 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
         println!("{:#?}", hir);
     }
 
+    CodegenContext::new(&context).lower_hir(&hir);
     // info!("   -> Codegen {}", output_name);
-    let builder = Builder::new(&output_name, ast, config);
 
     // builder.build();
 
     // Ok(builder)
-    Ok(builder)
+    Ok(())
 }
 
 pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
@@ -92,7 +93,7 @@ pub fn run(in_name: String, entry: String, config: Config) -> Result<u64, Error>
 pub fn run_str(input: String, entry: String, config: Config) -> Result<u64, Error> {
     info!("Parsing StdIn");
 
-    let _builder: Builder = parse_str(input, entry.clone(), config)?;
+    let _builder = parse_str(input, entry.clone(), config)?;
 
     Ok(0)
     // Ok(builder.run(&entry))
