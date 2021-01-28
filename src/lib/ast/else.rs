@@ -6,12 +6,6 @@ use crate::ast::Body;
 use crate::ast::If;
 use crate::ast::Parse;
 
-#[derive(Debug, Clone)]
-pub enum Else {
-    If(If),
-    Body(Body),
-}
-
 impl Parse for Else {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         Ok(match ctx.cur_tok().t {

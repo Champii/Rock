@@ -9,21 +9,6 @@ use crate::ast::Identity;
 use crate::ast::Literal;
 use crate::ast::Parse;
 
-#[derive(Debug, Clone)]
-pub enum OperandKind {
-    Literal(Literal),
-    Identifier(Identifier),
-    // ClassInstance(ClassInstance),
-    // Array(Array),
-    Expression(Box<Expression>), // parenthesis
-}
-
-#[derive(Debug, Clone)]
-pub struct Operand {
-    pub kind: OperandKind,
-    pub identity: Identity,
-}
-
 impl Operand {
     fn parens_expr(ctx: &mut Parser) -> Result<Expression, Error> {
         if ctx.cur_tok().t != TokenType::OpenParens {

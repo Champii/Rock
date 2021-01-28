@@ -104,6 +104,12 @@ pub mod macros {
     pub use crate::try_or_restore_expect;
 }
 
+pub trait Parse {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error>
+    where
+        Self: Sized;
+}
+
 // TODO: Create getters and setters instead of exposing publicly
 pub struct Parser {
     pub input: Vec<char>,
@@ -124,8 +130,8 @@ impl Parser {
         }
     }
 
-    pub fn run(&mut self) -> Result<SourceFile, Error> {
-        SourceFile::parse(self)
+    pub fn run(&mut self) -> Result<Root, Error> {
+        Root::parse(self)
     }
 
     pub fn cur_tok(&self) -> Token {

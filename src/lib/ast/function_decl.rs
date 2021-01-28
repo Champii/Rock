@@ -11,14 +11,6 @@ use crate::ast::Body;
 use crate::ast::Identifier;
 use crate::ast::Parse;
 
-#[derive(Debug, Clone)]
-pub struct FunctionDecl {
-    pub name: Identifier,
-    pub arguments: Vec<ArgumentDecl>,
-    pub body: Body,
-    pub identity: Identity,
-}
-
 impl Parse for FunctionDecl {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut arguments = vec![];
@@ -51,9 +43,6 @@ impl Parse for FunctionDecl {
     }
 }
 
-generate_has_name!(FunctionDecl);
-
-// impl Annotate for FunctionDecl {
 //     fn annotate(&self, ctx: &mut InferBuilder) {
 //         let _args = self.arguments.annotate(ctx);
 //         let _ret = self.body.annotate(ctx);

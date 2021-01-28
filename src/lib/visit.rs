@@ -31,7 +31,8 @@ macro_rules! generate_visitor_trait {
 }
 
 generate_visitor_trait!(
-    SourceFile, source_file
+    Root, root
+    Mod, r#mod
     TopLevel, top_level
     FunctionDecl, function_decl
     Identifier, identifier
@@ -64,8 +65,12 @@ macro_rules! walk_list {
     }
 }
 
-pub fn walk_source_file<'a, V: Visitor<'a>>(visitor: &mut V, source_file: &'a SourceFile) {
-    walk_list!(visitor, visit_top_level, &source_file.top_levels);
+pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
+    visitor.visit_mod(root.r#mod);
+}
+
+pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {
+    walk_list!(visitor, visit_top_level, &_mod.top_levels);
 }
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {

@@ -7,20 +7,6 @@ use crate::ast::Expression;
 use crate::ast::If;
 use crate::ast::Parse;
 
-#[derive(Debug, Clone)]
-pub enum StatementKind {
-    If(If),
-    // For(For),
-    Expression(Expression),
-    // Assignation(Assignation),
-}
-
-#[derive(Debug, Clone)]
-pub struct Statement {
-    pub kind: Box<StatementKind>,
-    pub identity: Identity,
-}
-
 impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let token = ctx.cur_tok_id;

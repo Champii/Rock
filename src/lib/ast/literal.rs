@@ -7,13 +7,6 @@ use crate::ast::Parse;
 
 use super::Identity;
 
-#[derive(Debug, Clone)]
-pub enum LiteralKind {
-    Number(i64),
-    String(String),
-    Bool(u64),
-}
-
 impl Parse for LiteralKind {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         if let TokenType::Number(num) = ctx.cur_tok().t {
@@ -38,12 +31,6 @@ impl Parse for LiteralKind {
 
         error!("Expected literal".to_string(), ctx);
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Literal {
-    pub kind: LiteralKind,
-    pub identity: Identity,
 }
 
 impl Parse for Literal {

@@ -6,23 +6,6 @@ use crate::ast::Parse;
 
 use crate::error;
 
-#[derive(Debug, Clone)]
-pub enum Operator {
-    Add,
-    Sub,
-    Sum,
-    Div,
-    Mod,
-
-    Less,
-    LessOrEqual,
-    More,
-    MoreOrEqual,
-
-    EqualEqual,
-    DashEqual,
-}
-
 // impl Annotate for Operator {
 //     fn annotate(&self, _ctx: &mut InferBuilder) {
 //         //

@@ -5,13 +5,6 @@ use crate::Parser;
 use crate::ast::Parse;
 use crate::ast::{Argument, Arguments};
 
-#[derive(Debug, Clone)]
-pub enum SecondaryExpr {
-    // Selector(Selector), // . Identifier  // u8 is the attribute index in struct // option<Type> is the class type if needed // RealFullName
-    Arguments(Vec<Argument>), // (Expr, Expr, ...)
-                              // Index(Box<Expression>), // [Expr]
-}
-
 // impl ConstraintGen for SecondaryExpr {
 //     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
 //         match self {

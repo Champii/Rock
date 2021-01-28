@@ -6,11 +6,6 @@ use crate::ast::Parse;
 use crate::ast::SecondaryExpr;
 use crate::ast::{Operand, OperandKind};
 
-#[derive(Debug, Clone)]
-pub enum PrimaryExpr {
-    PrimaryExpr(Operand, Vec<SecondaryExpr>),
-}
-
 // impl ConstraintGen for PrimaryExpr {
 //     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
 //         // println!("Constraint: PrimaryExpr");

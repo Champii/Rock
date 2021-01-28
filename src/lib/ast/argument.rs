@@ -7,8 +7,6 @@ use crate::TokenType;
 use crate::ast::Expression;
 use crate::ast::Parse;
 
-pub type Arguments = Vec<Argument>;
-
 impl Parse for Arguments {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut res = vec![];
@@ -31,12 +29,6 @@ impl Parse for Arguments {
 
         Ok(res)
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Argument {
-    pub arg: Expression,
-    pub identity: Identity,
 }
 
 impl Parse for Argument {

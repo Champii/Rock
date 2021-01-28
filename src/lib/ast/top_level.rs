@@ -4,18 +4,7 @@ use crate::Parser;
 use crate::TokenType;
 
 use crate::ast::FunctionDecl;
-use crate::ast::Parse;
-
-#[derive(Debug, Clone)]
-pub enum TopLevelKind {
-    Function(FunctionDecl),
-}
-
-#[derive(Debug, Clone)]
-pub struct TopLevel {
-    pub kind: TopLevelKind,
-    pub identity: Identity,
-}
+use crate::parser::Parse;
 
 impl Parse for TopLevel {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {

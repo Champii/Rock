@@ -7,18 +7,6 @@ use crate::ast::Operator;
 use crate::ast::Parse;
 use crate::ast::UnaryExpr;
 
-#[derive(Debug, Clone)]
-pub enum ExpressionKind {
-    BinopExpr(UnaryExpr, Operator, Box<Expression>),
-    UnaryExpr(UnaryExpr),
-}
-
-#[derive(Debug, Clone)]
-pub struct Expression {
-    pub kind: ExpressionKind,
-    pub identity: Identity,
-}
-
 impl Expression {
     pub fn is_literal(&self) -> bool {
         match &self.kind {

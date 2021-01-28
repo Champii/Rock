@@ -8,12 +8,6 @@ use crate::ast::Operator;
 use crate::ast::Parse;
 use crate::ast::PrimaryExpr;
 
-#[derive(Debug, Clone)]
-pub enum UnaryExpr {
-    PrimaryExpr(PrimaryExpr),
-    UnaryExpr(Operator, Box<UnaryExpr>),
-}
-
 // impl ConstraintGen for UnaryExpr {
 //     fn constrain(&self, ctx: &mut InferBuilder) -> TypeId {
 //         // println!("Constraint: UnaryExpr");

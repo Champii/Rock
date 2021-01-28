@@ -47,7 +47,6 @@ macro_rules! impl_visitor_trait {
     )*) => {
         impl<'ast> Visitor<'ast> for AstPrintContext {
             fn visit_name(&mut self, name: String) {
-                // Nothing
                 self.print(name);
             }
 
@@ -78,7 +77,8 @@ macro_rules! impl_visitor_trait {
 }
 
 impl_visitor_trait!(
-    SourceFile, source_file
+    Root, root
+    Mod, r#mod
     TopLevel, top_level
     FunctionDecl, function_decl
     Identifier, identifier

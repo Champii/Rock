@@ -16,12 +16,12 @@ pub struct IrContext {
 
 pub struct Builder {
     pub context: IrContext,
-    pub source: SourceFile,
+    pub source: Root,
     pub config: Config,
 }
 
 impl Builder {
-    pub fn new(file_name: &str, source: SourceFile, config: Config) -> Builder {
+    pub fn new(file_name: &str, source: Root, config: Config) -> Builder {
         unsafe {
             let ctx = LLVMContextCreate();
             let module = LLVMModuleCreateWithNameInContext(file_name.as_ptr() as *const _, ctx);

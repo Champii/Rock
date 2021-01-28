@@ -6,8 +6,6 @@ use crate::TokenType;
 
 use crate::ast::Parse;
 
-pub type ArgumentsDecl = Vec<ArgumentDecl>;
-
 impl Parse for ArgumentsDecl {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut res = vec![];
@@ -29,12 +27,6 @@ impl Parse for ArgumentsDecl {
 
         Ok(res)
     }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ArgumentDecl {
-    pub name: String,
-    pub identity: Identity,
 }
 
 impl Parse for ArgumentDecl {

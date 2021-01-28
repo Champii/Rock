@@ -8,21 +8,6 @@ use crate::parser::macros::*;
 
 use super::Identity;
 
-#[derive(Debug, Clone)]
-pub struct Identifier {
-    pub name: String,
-    pub identity: Identity,
-}
-
-impl std::ops::Deref for Identifier {
-    type Target = String;
-    fn deref(&self) -> &Self::Target {
-        &self.name
-    }
-}
-
-generate_has_name!(Identifier);
-
 impl Parse for Identifier {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let token_id = ctx.cur_tok_id;

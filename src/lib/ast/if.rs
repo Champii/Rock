@@ -8,13 +8,6 @@ use crate::ast::Else;
 use crate::ast::Expression;
 use crate::ast::Parse;
 
-#[derive(Debug, Clone)]
-pub struct If {
-    pub predicat: Expression,
-    pub body: Body,
-    pub else_: Option<Box<Else>>,
-}
-
 impl Parse for If {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         expect!(TokenType::IfKeyword, ctx);
