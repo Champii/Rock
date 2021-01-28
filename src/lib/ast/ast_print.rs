@@ -1,7 +1,7 @@
 use crate::ast::helper::*;
+use crate::ast::visit::*;
 use crate::ast::*;
-use crate::token::{Token, TokenId};
-use crate::visit::*;
+use crate::parser::{Token, TokenId};
 
 pub struct AstPrintContext {
     indent: usize,

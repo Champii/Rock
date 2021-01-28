@@ -1,10 +1,7 @@
-use crate::token::TokenId;
+use crate::ast::*;
+use crate::error::Error;
+use crate::parser::*;
 
-use super::ast::*;
-use super::error::Error;
-use super::Token;
-
-#[macro_export]
 macro_rules! expect {
     ($tok:expr, $self:expr) => {
         if $tok != $self.cur_tok().t {
@@ -20,7 +17,6 @@ macro_rules! expect {
     };
 }
 
-#[macro_export]
 macro_rules! expect_or_restore {
     ($tok:expr, $self:expr) => {
         if $self.cur_tok().t != $tok {
@@ -37,17 +33,15 @@ macro_rules! expect_or_restore {
     };
 }
 
-#[macro_export]
 macro_rules! error_expect {
     ($expected:expr, $self:expr) => {
-        crate::parser::macros::error!(
+        error!(
             format!("Expected {:?} but got {:?}", $expected, $self.cur_tok().t),
             $self
         );
     };
 }
 
-#[macro_export]
 macro_rules! error {
     ($msg:expr, $self:expr) => {
         return Err(Error::new_parse_error(
@@ -58,7 +52,6 @@ macro_rules! error {
     };
 }
 
-#[macro_export]
 macro_rules! try_or_restore {
     ($expr:expr, $self:expr) => {
         match $expr {
@@ -72,14 +65,12 @@ macro_rules! try_or_restore {
     };
 }
 
-#[macro_export]
-macro_rules! try_or_restore_expect {
-    ($expr:expr, $expected:expr, $self:expr) => {
-        try_or_restore_and!($expr, error_expect!($expected, $self), $self);
-    };
-}
+// macro_rules! try_or_restore_expect {
+//     ($expr:expr, $expected:expr, $self:expr) => {
+//         try_or_restore_and!($expr, error_expect!($expected, $self), $self);
+//     };
+// }
 
-#[macro_export]
 macro_rules! try_or_restore_and {
     ($expr:expr, $and:expr, $self:expr) => {
         match $expr {
@@ -92,16 +83,6 @@ macro_rules! try_or_restore_and {
             }
         }
     };
-}
-
-pub mod macros {
-    pub use crate::error;
-    pub use crate::error_expect;
-    pub use crate::expect;
-    pub use crate::expect_or_restore;
-    pub use crate::try_or_restore;
-    pub use crate::try_or_restore_and;
-    pub use crate::try_or_restore_expect;
 }
 
 pub trait Parse {
@@ -172,6 +153,23 @@ impl Parse for Root {
         Ok(Root {
             identity: Identity::new(ctx.cur_tok_id),
             r#mod: Mod::parse(ctx)?,
+        })
+    }
+}
+
+impl Parse for Mod {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let mut res = vec![];
+
+        while TokenType::EOF != ctx.cur_tok().t {
+            res.push(TopLevel::parse(ctx)?);
+        }
+
+        expect!(TokenType::EOF, ctx);
+
+        Ok(Mod {
+            identity: Identity::new(0),
+            top_levels: res,
         })
     }
 }
@@ -468,7 +466,15 @@ impl Parse for Operand {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut token = ctx.cur_tok_id;
 
-        if ctx.cur_tok().t == TokenType::OpenParens {
+        let kind = if let Ok(lit) = Literal::parse(ctx) {
+            OperandKind::Literal(lit)
+        } else if let Ok(ident) = Identifier::parse(ctx) {
+            OperandKind::Identifier(ident)
+        // } else if let Ok(c) = ClassInstance::parse(ctx) {
+        //     OperandKind::ClassInstance(c)
+        // } else if let Ok(array) = Array::parse(ctx) {
+        //     OperandKind::Array(array)
+        } else if ctx.cur_tok().t == TokenType::OpenParens {
             ctx.save();
 
             expect_or_restore!(TokenType::OpenParens, ctx);
@@ -479,23 +485,11 @@ impl Parse for Operand {
 
             ctx.save_pop();
 
-            return Ok(expr);
-        }
-
-        let kind = if let Ok(lit) = Literal::parse(ctx) {
-            OperandKind::Literal(lit)
-        } else if let Ok(ident) = Identifier::parse(ctx) {
-            OperandKind::Identifier(ident)
-        // } else if let Ok(c) = ClassInstance::parse(ctx) {
-        //     OperandKind::ClassInstance(c)
-        // } else if let Ok(array) = Array::parse(ctx) {
-        //     OperandKind::Array(array)
-        } else if let Ok(expr) = Self::parens_expr(ctx) {
             token = expr.identity.token_id;
 
             OperandKind::Expression(Box::new(expr))
         } else {
-            self::error!("Expected operand".to_string(), ctx);
+            error!("Expected operand".to_string(), ctx);
         };
 
         return Ok(Operand {
@@ -519,7 +513,7 @@ impl Parse for SecondaryExpr {
             return Ok(SecondaryExpr::Arguments(args));
         }
 
-        self::error!("Expected secondary".to_string(), ctx);
+        error!("Expected secondary".to_string(), ctx);
     }
 }
 

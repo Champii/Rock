@@ -1,7 +1,7 @@
 use std::fmt;
 
 // use super::ast::TypeInfer;
-use super::token::{Token, TokenType};
+use super::parser::{Token, TokenType};
 
 pub struct Error {
     pub input: Vec<char>,

@@ -22,22 +22,19 @@ pub use crate::infer::*;
 mod codegen;
 pub mod config;
 mod error;
-// mod lexer;
 pub mod logger;
 mod parser;
 mod scope;
 mod tests;
-// mod token;
-mod visit;
 
-use self::ast::ast_print::*;
-use self::codegen::*;
-pub use self::config::Config;
-use self::error::Error;
+use crate::ast::ast_print::*;
+use crate::ast::visit::*;
+use crate::codegen::*;
+pub use crate::config::Config;
+use crate::error::Error;
+use crate::parser::*;
 // use self::lexer::Lexer;
-use self::parser::*;
 // use self::token::*;
-use self::visit::*;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<Builder, Error> {
     info!("   -> Parsing {}", in_name);
@@ -76,7 +73,7 @@ pub fn parse_str(input: String, output_name: String, config: Config) -> Result<B
 
     if config.show_ast {
         // println!("AST {:#?}", ast);
-        AstPrintContext::new(tokens.clone(), input.clone()).visit_source_file(&ast);
+        AstPrintContext::new(tokens.clone(), input.clone()).visit_root(&ast);
     }
 
     // info!("   -> Codegen {}", output_name);

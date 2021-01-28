@@ -1,9 +1,9 @@
 use llvm::core::*;
 use llvm::*;
 
-use super::ast::*;
-use super::scope::Scopes;
-use super::Config;
+use crate::ast::*;
+use crate::scope::Scopes;
+use crate::Config;
 
 pub struct IrContext {
     pub scopes: Scopes<*mut LLVMValue>,

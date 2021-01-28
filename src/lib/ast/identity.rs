@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::token::TokenId;
+use crate::parser::TokenId;
 
 use crate::infer::NodeId;
 use crate::infer::TypeId;

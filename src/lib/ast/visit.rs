@@ -66,7 +66,7 @@ macro_rules! walk_list {
 }
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
-    visitor.visit_mod(root.r#mod);
+    visitor.visit_mod(&root.r#mod);
 }
 
 pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {

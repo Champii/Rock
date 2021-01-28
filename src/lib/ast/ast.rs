@@ -1,5 +1,7 @@
-use super::Identity;
+use crate::ast::helper::*;
+use crate::ast::identity::Identity;
 
+#[derive(Debug, Clone)]
 pub struct Root {
     pub r#mod: Mod,
     pub identity: Identity,
