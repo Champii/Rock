@@ -21,21 +21,3 @@ use crate::ast::{Argument, Arguments};
 //         }
 //     }
 // }
-
-impl Parse for SecondaryExpr {
-    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        // if let Ok(idx) = Self::index(ctx) {
-        //     return Ok(SecondaryExpr::Index(idx));
-        // }
-
-        // if let Ok(sel) = Selector::parse(ctx) {
-        //     return Ok(SecondaryExpr::Selector(sel));
-        // }
-
-        if let Ok(args) = Arguments::parse(ctx) {
-            return Ok(SecondaryExpr::Arguments(args));
-        }
-
-        self::error!("Expected secondary".to_string(), ctx);
-    }
-}

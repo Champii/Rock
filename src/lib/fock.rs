@@ -22,21 +22,21 @@ pub use crate::infer::*;
 mod codegen;
 pub mod config;
 mod error;
-mod lexer;
+// mod lexer;
 pub mod logger;
 mod parser;
 mod scope;
 mod tests;
-mod token;
+// mod token;
 mod visit;
 
 use self::ast::ast_print::*;
 use self::codegen::*;
 pub use self::config::Config;
 use self::error::Error;
-use self::lexer::Lexer;
-use self::parser::Parser;
-use self::token::*;
+// use self::lexer::Lexer;
+use self::parser::*;
+// use self::token::*;
 use self::visit::*;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<Builder, Error> {

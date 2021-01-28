@@ -11,38 +11,6 @@ use crate::ast::Body;
 use crate::ast::Identifier;
 use crate::ast::Parse;
 
-impl Parse for FunctionDecl {
-    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let mut arguments = vec![];
-
-        let token = ctx.cur_tok_id;
-
-        ctx.save();
-
-        let name = try_or_restore!(Identifier::parse(ctx), ctx);
-
-        if TokenType::OpenParens == ctx.cur_tok().t
-            || TokenType::Identifier(ctx.cur_tok().txt.clone()) == ctx.cur_tok().t
-        {
-            // manage error and restore here
-            arguments = ArgumentsDecl::parse(ctx)?;
-        }
-
-        expect_or_restore!(TokenType::Equal, ctx);
-
-        let body = try_or_restore!(Body::parse(ctx), ctx);
-
-        ctx.save_pop();
-
-        Ok(FunctionDecl {
-            name,
-            arguments,
-            body,
-            identity: Identity::new(token),
-        })
-    }
-}
-
 //     fn annotate(&self, ctx: &mut InferBuilder) {
 //         let _args = self.arguments.annotate(ctx);
 //         let _ret = self.body.annotate(ctx);

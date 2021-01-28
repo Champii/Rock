@@ -88,6 +88,29 @@ pub struct Expression {
     pub identity: Identity,
 }
 
+impl Expression {
+    pub fn is_literal(&self) -> bool {
+        match &self.kind {
+            ExpressionKind::UnaryExpr(unary) => unary.is_literal(),
+            _ => false,
+        }
+    }
+
+    pub fn is_identifier(&self) -> bool {
+        match &self.kind {
+            ExpressionKind::UnaryExpr(unary) => unary.is_identifier(),
+            _ => false,
+        }
+    }
+
+    pub fn get_identifier(&self) -> Option<String> {
+        match &self.kind {
+            ExpressionKind::UnaryExpr(unary) => unary.get_identifier(),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
     BinopExpr(UnaryExpr, Operator, Box<Expression>),
@@ -104,6 +127,50 @@ pub enum Else {
 pub enum UnaryExpr {
     PrimaryExpr(PrimaryExpr),
     UnaryExpr(Operator, Box<UnaryExpr>),
+}
+
+impl UnaryExpr {
+    pub fn is_literal(&self) -> bool {
+        match self {
+            UnaryExpr::PrimaryExpr(p) => match p {
+                PrimaryExpr::PrimaryExpr(operand, _) => match &operand.kind {
+                    OperandKind::Literal(_) => true,
+                    _ => false,
+                },
+            },
+            _ => false,
+        }
+    }
+
+    pub fn is_identifier(&self) -> bool {
+        match self {
+            UnaryExpr::PrimaryExpr(p) => match p {
+                PrimaryExpr::PrimaryExpr(operand, _) => match &operand.kind {
+                    OperandKind::Identifier(_) => true,
+                    _ => false,
+                },
+            },
+            _ => false,
+        }
+    }
+
+    pub fn get_identifier(&self) -> Option<String> {
+        match self {
+            UnaryExpr::PrimaryExpr(p) => match p {
+                PrimaryExpr::PrimaryExpr(operand, vec) => match &operand.kind {
+                    OperandKind::Identifier(i) => {
+                        if vec.len() == 0 {
+                            Some(i.name.clone())
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                },
+            },
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +193,26 @@ pub enum Operator {
 #[derive(Debug, Clone)]
 pub enum PrimaryExpr {
     PrimaryExpr(Operand, Vec<SecondaryExpr>),
+}
+
+impl PrimaryExpr {
+    pub fn has_secondaries(&self) -> bool {
+        match self {
+            PrimaryExpr::PrimaryExpr(_, vec) => vec.len() > 0,
+        }
+    }
+
+    pub fn get_identifier(&self) -> Option<String> {
+        match self {
+            PrimaryExpr::PrimaryExpr(op, _) => {
+                if let OperandKind::Identifier(ident) = &op.kind {
+                    Some(ident.name.clone())
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
