@@ -10,6 +10,12 @@ pub struct Root {
     pub bodies: BTreeMap<BodyId, Body>,
 }
 
+impl Root {
+    pub fn get_top_level(&self, hir_id: HirId) -> Option<&TopLevel> {
+        self.top_levels.get(&hir_id)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Mod {
     pub top_levels: Vec<HirId>,
@@ -30,13 +36,21 @@ pub enum TopLevelKind {
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
     pub name: Identifier,
-    pub arguments: Vec<Type>,
+    pub arguments: Vec<ArgumentDecl>,
     pub ret: Type,
     pub body_id: BodyId,
 }
 
 #[derive(Debug, Clone)]
+pub struct ArgumentDecl {
+    // pub hir_id: HirId,
+    pub name: Identifier,
+    pub t: Option<Type>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Identifier {
+    pub hir_id: HirId,
     pub name: String,
 }
 
@@ -47,18 +61,16 @@ impl std::ops::Deref for Identifier {
     }
 }
 
-pub type ArgumentsDecl = Vec<ArgumentDecl>;
-
-#[derive(Debug, Clone, Default)]
-pub struct ArgumentDecl {
-    pub name: String,
-}
-
 #[derive(Debug, Clone)]
 pub struct Body {
     pub name: Identifier,
-    pub arguments: Vec<Identifier>,
     pub stmt: Statement,
+}
+
+impl Body {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.stmt.get_terminal_hir_id()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -66,9 +78,17 @@ pub struct Statement {
     pub kind: Box<StatementKind>,
 }
 
+impl Statement {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        match &*self.kind {
+            StatementKind::Expression(e) => e.get_terminal_hir_id(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum StatementKind {
-    If(If),
+    // If(If),
     Expression(Expression),
 }
 
@@ -81,8 +101,8 @@ pub struct If {
 
 #[derive(Debug, Clone)]
 pub enum Else {
-    If(If),
-    Body(Body),
+    // If(If),
+// Body(Body),
 }
 
 #[derive(Debug, Clone)]
@@ -104,6 +124,14 @@ impl Expression {
     pub fn new_function_call(op: Expression, args: Vec<Expression>) -> Self {
         Self {
             kind: Box::new(ExpressionKind::FunctionCall(op, args)),
+        }
+    }
+
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        match &*self.kind {
+            ExpressionKind::Lit(l) => l.hir_id.clone(),
+            ExpressionKind::Identifier(i) => i.hir_id.clone(),
+            ExpressionKind::FunctionCall(op, args) => op.get_terminal_hir_id(),
         }
     }
 }
@@ -135,6 +163,7 @@ pub enum ExpressionKind {
 
 #[derive(Debug, Clone)]
 pub struct Literal {
+    pub hir_id: HirId,
     pub kind: LiteralKind,
 }
 

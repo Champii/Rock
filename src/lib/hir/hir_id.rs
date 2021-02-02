@@ -1,27 +1,29 @@
+use paste::paste;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-pub type CrateId = u64;
-pub type DefIndex = u64;
-pub type LocalId = u64;
+// pub type CrateId = u64;
+// pub type DefIndex = u64;
+// pub type LocalId = u64;
 
 macro_rules! def_id {
     ($name:ident) => {
-        concat_idents!(glob = GLOBAL_NEXT_, $name {
+        paste! {
             #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
             pub struct $name(u64);
 
-            static glob: AtomicU64 = AtomicU64::new(0);
+            static [<GLOBAL_NEXT_ $name:upper>]: AtomicU64 = AtomicU64::new(0);
 
             impl $name {
                 pub fn next() -> Self {
+
                     Self(AtomicU64::fetch_add(
-                        &glob,
+                        &[<GLOBAL_NEXT_ $name:upper>],
                         1,
                         Ordering::SeqCst,
                     ))
                 }
             }
-        });
+        }
     };
 }
 

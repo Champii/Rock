@@ -9,6 +9,7 @@ pub struct AstLoweringContext {
     modules: BTreeMap<HirId, hir::Mod>,
     bodies: BTreeMap<BodyId, hir::Body>,
 }
+
 impl AstLoweringContext {
     pub fn new() -> Self {
         Self {
@@ -72,12 +73,12 @@ impl AstLoweringContext {
         let body = self.lower_body(
             &f.body,
             ident.clone(),
-            f.arguments
-                .iter()
-                .map(|arg| hir::Identifier {
-                    name: arg.name.clone(),
-                })
-                .collect(),
+            // f.arguments
+            //     .iter()
+            //     .map(|arg| hir::Identifier {
+            //         name: arg.name.clone(),
+            //     })
+            //     .collect(),
         );
 
         self.bodies.insert(body_id.clone(), body);
@@ -94,20 +95,20 @@ impl AstLoweringContext {
         }
     }
 
-    pub fn lower_argument_decl(&mut self, argument: &ArgumentDecl) -> Type {
-        // TODO: create and assign placeholder type id
-        Type::Undefined(0)
+    pub fn lower_argument_decl(&mut self, argument: &ArgumentDecl) -> hir::ArgumentDecl {
+        hir::ArgumentDecl {
+            // hir_id: HirId::next(),
+            name: hir::Identifier {
+                hir_id: HirId::next(),
+                name: argument.name.clone(),
+            },
+            t: None,
+        }
     }
 
-    pub fn lower_body(
-        &mut self,
-        body: &Body,
-        name: hir::Identifier,
-        arguments: Vec<hir::Identifier>,
-    ) -> hir::Body {
+    pub fn lower_body(&mut self, body: &Body, name: hir::Identifier) -> hir::Body {
         hir::Body {
             name,
-            arguments,
             stmt: self.lower_statement(&body.stmt),
         }
     }
@@ -177,6 +178,7 @@ impl AstLoweringContext {
 
     pub fn lower_literal(&mut self, lit: &Literal) -> hir::Literal {
         hir::Literal {
+            hir_id: HirId::next(),
             kind: match &lit.kind {
                 LiteralKind::Number(n) => hir::LiteralKind::Number(*n),
                 LiteralKind::String(s) => hir::LiteralKind::String(s.clone()),
@@ -187,6 +189,7 @@ impl AstLoweringContext {
 
     pub fn lower_identifier(&mut self, id: &Identifier) -> hir::Identifier {
         hir::Identifier {
+            hir_id: HirId::next(),
             name: id.name.clone(),
         }
     }

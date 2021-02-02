@@ -26,15 +26,14 @@ mod error;
 mod hir;
 pub mod logger;
 mod parser;
-mod scope;
 mod tests;
+mod visit_macro;
 
 use crate::ast::ast_print::*;
 use crate::ast::visit::*;
 use crate::codegen::*;
 pub use crate::config::Config;
 use crate::error::Error;
-use crate::parser::*;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
     info!("   -> Parsing {}", in_name);
@@ -44,34 +43,28 @@ pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(
     parse_str(file, out_name, config)
 }
 
-pub fn parse_str(input: String, output_name: String, config: Config) -> Result<(), Error> {
+pub fn parse_str(input: String, _output_name: String, config: Config) -> Result<(), Error> {
+    // Text to Ast
     let (ast, tokens) = parser::parse(input.clone())?;
 
-    let _infer_builder = &mut InferBuilder::new(InferState::new());
-
+    // Ast to Hir
     let hir = ast_lowering::lower_crate(&ast);
 
-    let context = Context::create();
+    visit_macro::lol();
 
-    // ast.constrain(infer_builder);
+    // Infer Hir
+    infer::infer(&hir);
 
-    // infer_builder.solve();
-
-    // println!("INFER {:#?}", infer_builder);
-
+    // Debug trees
     if config.show_ast {
-        // println!("AST {:#?}", ast);
         AstPrintContext::new(tokens.clone(), input.clone()).visit_root(&ast);
 
         println!("{:#?}", hir);
     }
 
-    CodegenContext::new(&context).lower_hir(&hir);
-    // info!("   -> Codegen {}", output_name);
+    // Generate code
+    CodegenContext::new(&Context::create()).lower_hir(&hir);
 
-    // builder.build();
-
-    // Ok(builder)
     Ok(())
 }
 

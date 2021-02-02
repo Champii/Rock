@@ -174,8 +174,10 @@ fn main() {
         )
         .get_matches();
 
-    let mut config = fock::Config::default();
-    config.verbose = 5;
+    let mut config = fock::Config {
+        verbose: 5,
+        ..Default::default()
+    };
 
     if let Some(value) = matches.value_of("verbose") {
         config.verbose = value.parse::<u8>().unwrap();

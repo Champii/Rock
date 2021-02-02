@@ -50,21 +50,6 @@ generate_visitor_trait!(
     Literal, literal
 );
 
-#[macro_export]
-macro_rules! walk_list {
-    ($visitor: expr, $method: ident, $list: expr) => {
-        for elem in $list {
-            $visitor.$method(elem)
-        }
-    };
-
-    ($visitor: expr, $method: ident, $list: expr, $($extra_args: expr),*) => {
-        for elem in $list {
-            $visitor.$method(elem, $($extra_args,)*)
-        }
-    }
-}
-
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     visitor.visit_mod(&root.r#mod);
 }
