@@ -89,14 +89,17 @@ impl AstLoweringContext {
     pub fn lower_top_level(&mut self, top_level: &TopLevel) -> hir::HirId {
         let id = self.hir_map.next_hir_id(top_level.identity.clone());
 
-        let top_level = hir::TopLevel {
+        let mut top_level = hir::TopLevel {
             kind: self.lower_top_level_kind(&top_level.kind),
             hir_id: id.clone(),
         };
 
-        self.top_levels.insert(id.clone(), top_level);
+        let child_id = top_level.get_child_hir();
+        top_level.hir_id = child_id.clone();
 
-        return id.clone();
+        self.top_levels.insert(child_id.clone(), top_level);
+
+        return child_id.clone();
     }
 
     pub fn lower_top_level_kind(&mut self, top_level_kind: &TopLevelKind) -> hir::TopLevelKind {

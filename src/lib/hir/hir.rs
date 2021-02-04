@@ -30,6 +30,14 @@ pub struct TopLevel {
     pub hir_id: HirId,
 }
 
+impl TopLevel {
+    pub fn get_child_hir(&self) -> HirId {
+        match &self.kind {
+            TopLevelKind::Function(f) => f.hir_id.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum TopLevelKind {
     Function(FunctionDecl),

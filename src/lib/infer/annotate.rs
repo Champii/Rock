@@ -24,7 +24,9 @@ impl AnnotateContext {
 
 impl<'a> Visitor<'a> for AnnotateContext {
     fn visit_function_decl(&mut self, f: &FunctionDecl) {
-        self.visit_identifier(&f.name);
+        // self.visit_identifier(&f.name);
+        self.state
+            .new_named_annotation(f.name.to_string(), f.hir_id.clone());
 
         walk_list!(self, visit_argument_decl, &f.arguments);
     }

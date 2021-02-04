@@ -5,11 +5,15 @@ use crate::{ast::visit::*, ast::*, ast_lowering::HirMap, hir::HirId, scopes::*, 
 #[derive(Clone, Default, Debug)]
 pub struct ResolutionMap<T>(HashMap<T, T>)
 where
-    T: Eq + std::hash::Hash;
+    T: Eq + Clone + std::hash::Hash;
 
-impl<T: Eq + std::hash::Hash> ResolutionMap<T> {
+impl<T: Eq + Clone + std::hash::Hash> ResolutionMap<T> {
     pub fn insert(&mut self, pointer_id: T, pointee_id: T) {
         self.0.insert(pointer_id, pointee_id);
+    }
+
+    pub fn get(&self, pointer_id: T) -> Option<T> {
+        self.0.get(&pointer_id).cloned()
     }
 }
 
@@ -49,6 +53,7 @@ impl<'a> Visitor<'a> for ResolveCtx {
 
         walk_mod(self, m);
     }
+
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top.kind {
             TopLevelKind::Function(f) => {

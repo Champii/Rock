@@ -36,13 +36,22 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 walk_list!(self, visit_expression, args);
                 let op_hir_id = op.get_terminal_hir_id();
 
-                if let Some(top) = self.hir.get_top_level(dbg!(op_hir_id.clone())) {
-                    if let TopLevelKind::Function(f) = &top.kind {
-                        self.state.add_constraint(Constraint::Eq(
-                            self.state.get_type_id(op_hir_id).unwrap(),
-                            1,
-                        ));
+                // TODO: Use global resolution instead of top_level
+                // TODO: Need Arena and a way to fetch any element/item/node
+                if let Some(top_id) = self.hir.resolutions.get(op_hir_id.clone()) {
+                    if let Some(top) = self.hir.get_top_level(top_id.clone()) {
+                        if let TopLevelKind::Function(f) = &top.kind {
+                            println!("OUAWEJHAWKEALWKJEH");
+                            self.state.add_constraint(Constraint::Eq(
+                                self.state.get_type_id(op_hir_id).unwrap(),
+                                self.state.get_type_id(f.hir_id.clone()).unwrap(),
+                            ));
+                        }
+                    } else {
+                        panic!("No top");
                     }
+                } else {
+                    panic!("No reso");
                 }
             }
         }
