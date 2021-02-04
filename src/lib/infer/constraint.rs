@@ -46,6 +46,16 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                 self.state.get_type_id(op_hir_id).unwrap(),
                                 self.state.get_type_id(f.hir_id.clone()).unwrap(),
                             ));
+
+                            let mut i = 0
+                            for arg in f.arguments {
+                                self.state.add_constraint(Constraint::Eq(
+                                    self.state.get_type_id(arg.hir_id.clone()).unwrap(),
+                                    self.state.get_type_id(args.get(&i).unwrap()).unwrap(),
+                                ));
+
+                                i += 1;
+                            }
                         }
                     } else {
                         panic!("No top");
