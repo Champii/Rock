@@ -1,12 +1,14 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use crate::{ast::resolve::ResolutionMap, hir::hir_id::*};
+use crate::{ast::resolve::ResolutionMap, hir::hir_id::*, TypeId};
 use crate::{ast::Type, ast_lowering::HirMap};
 
 #[derive(Debug, Clone)]
 pub struct Root {
     pub hir_map: HirMap,
     pub resolutions: ResolutionMap<HirId>,
+    pub node_types: BTreeMap<HirId, TypeId>,
+    pub types: BTreeMap<TypeId, Type>,
     pub top_levels: BTreeMap<HirId, TopLevel>,
     pub modules: BTreeMap<HirId, Mod>,
     pub bodies: BTreeMap<BodyId, Body>,
@@ -19,6 +21,12 @@ impl Root {
 
     pub fn get_body(&self, body_id: BodyId) -> Option<&Body> {
         self.bodies.get(&body_id)
+    }
+
+    pub fn get_type(&self, hir_id: HirId) -> Option<Type> {
+        let t_id = self.node_types.get(&hir_id)?;
+
+        self.types.get(&t_id).cloned()
     }
 }
 

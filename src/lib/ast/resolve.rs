@@ -19,14 +19,13 @@ impl<T: Eq + Clone + std::hash::Hash> ResolutionMap<T> {
 
 impl ResolutionMap<NodeId> {
     pub fn lower_resolution_map(&self, hir_map: &HirMap) -> ResolutionMap<HirId> {
-        dbg!(hir_map);
         ResolutionMap(
             self.0
                 .iter()
                 .map(|(k, v)| {
                     (
-                        hir_map.get_hir_id(dbg!(*k)).unwrap(),
-                        hir_map.get_hir_id(dbg!(*v)).unwrap(),
+                        hir_map.get_hir_id(*k).unwrap(),
+                        hir_map.get_hir_id(*v).unwrap(),
                     )
                 })
                 .collect(),
@@ -36,7 +35,7 @@ impl ResolutionMap<NodeId> {
 
 #[derive(Debug, Default)]
 pub struct ResolveCtx {
-    scopes: Scopes<Identity>,
+    scopes: Scopes<String, Identity>,
     resolutions: ResolutionMap<NodeId>,
 }
 

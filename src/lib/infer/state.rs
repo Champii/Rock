@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -161,5 +161,25 @@ impl InferState {
             cpy = self.constraints.clone();
             res = vec![];
         }
+    }
+
+    // pub fn to_hir_types(&self) -> HashMap<HirId, Type> {
+    //     let mut res = HashMap::new();
+
+    //     for (hir_id, type_id) in &self.node_types {
+    //         res.insert(hir_id.clone(), self.get_type(*type_id).unwrap());
+    //     }
+
+    //     res
+    // }
+    pub fn get_node_types(&self) -> BTreeMap<HirId, TypeId> {
+        self.node_types.clone()
+    }
+
+    pub fn get_types(&self) -> BTreeMap<TypeId, Type> {
+        self.types
+            .iter()
+            .map(|(t_id, t)| (t_id.clone(), t.clone().unwrap()))
+            .collect()
     }
 }

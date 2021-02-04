@@ -1,24 +1,33 @@
 use std::collections::HashMap;
+use std::hash::Hash;
 
 #[derive(Clone, Debug)]
-pub struct Scopes<T: Clone> {
-    pub scopes: Vec<Scope<T>>,
+pub struct Scopes<K: Hash + Eq + Clone, T: Clone> {
+    pub scopes: Vec<Scope<K, T>>,
 }
 
-impl<T: Clone> Default for Scopes<T> {
+impl<K, T> Default for Scopes<K, T>
+where
+    K: Hash + Eq + Clone,
+    T: Clone,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Clone> Scopes<T> {
-    pub fn new() -> Scopes<T> {
+impl<K, T> Scopes<K, T>
+where
+    K: Hash + Eq + Clone,
+    T: Clone,
+{
+    pub fn new() -> Scopes<K, T> {
         Scopes {
             scopes: vec![Scope::new()],
         }
     }
 
-    pub fn get(&self, s: String) -> Option<T> {
+    pub fn get(&self, s: K) -> Option<T> {
         let mut test = self.scopes.clone();
         test.reverse();
         // Here need reverse scopes
@@ -33,14 +42,14 @@ impl<T: Clone> Scopes<T> {
         // self.scopes.last().unwrap()
     }
 
-    pub fn add(&mut self, s: String, val: T) {
+    pub fn add(&mut self, s: K, val: T) {
         // Here need reverse scopes
         let scope = self.scopes.last_mut().unwrap();
 
         scope.insert(s, val);
     }
 
-    pub fn remove(&mut self, s: String) {
+    pub fn remove(&mut self, s: K) {
         // Here need reverse scopes
         let scope = self.scopes.last_mut().unwrap();
 
@@ -57,25 +66,29 @@ impl<T: Clone> Scopes<T> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Scope<T: Clone> {
-    pub ordering: Vec<String>,
-    pub items: HashMap<String, T>,
+pub struct Scope<K: Hash + Eq + Clone, T: Clone> {
+    pub ordering: Vec<K>,
+    pub items: HashMap<K, T>,
 }
 
-impl<T: Clone> Scope<T> {
-    pub fn new() -> Scope<T> {
+impl<K, T> Scope<K, T>
+where
+    K: Hash + Eq + Clone,
+    T: Clone,
+{
+    pub fn new() -> Scope<K, T> {
         Scope {
             ordering: vec![],
             items: HashMap::new(),
         }
     }
 
-    pub fn insert(&mut self, s: String, v: T) {
+    pub fn insert(&mut self, s: K, v: T) {
         self.items.insert(s.clone(), v);
         self.ordering.push(s);
     }
 
-    pub fn remove(&mut self, s: String) {
+    pub fn remove(&mut self, s: K) {
         self.items.remove(&s);
         self.ordering = self.ordering.iter().filter(|x| **x != s).cloned().collect();
     }

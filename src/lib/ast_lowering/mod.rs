@@ -63,6 +63,8 @@ impl AstLoweringContext {
         hir::Root {
             hir_map: self.hir_map.clone(),
             resolutions: root.resolutions.lower_resolution_map(&self.hir_map),
+            node_types: BTreeMap::new(),
+            types: BTreeMap::new(),
             top_levels: self.top_levels.clone(),
             modules: self.modules.clone(),
             bodies: self.bodies.clone(),

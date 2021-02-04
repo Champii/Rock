@@ -6,7 +6,7 @@ use self::annotate::AnnotateContext;
 use self::constraint::ConstraintContext;
 pub use self::state::*;
 
-pub fn infer(root: &crate::hir::Root) {
+pub fn infer(root: &mut crate::hir::Root) {
     let mut infer_state = InferState::new();
 
     let mut annotate_ctx = AnnotateContext::new(infer_state);
@@ -22,4 +22,7 @@ pub fn infer(root: &crate::hir::Root) {
     infer_state.solve();
 
     println!("INFER {:#?}", infer_state);
+
+    root.node_types = infer_state.get_node_types();
+    root.types = infer_state.get_types();
 }

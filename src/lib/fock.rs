@@ -56,15 +56,15 @@ pub fn parse_str(input: String, _output_name: String, config: Config) -> Result<
     ast::resolve(&mut ast);
 
     // Ast to Hir
-    let hir = ast_lowering::lower_crate(&ast);
+    let mut hir = ast_lowering::lower_crate(&ast);
 
     // Infer Hir
-    infer::infer(&hir);
+    infer::infer(&mut hir);
 
     println!("{:#?}", hir);
 
     // Generate code
-    CodegenContext::new(&Context::create()).lower_hir(&hir);
+    codegen::generate(&hir);
 
     Ok(())
 }
