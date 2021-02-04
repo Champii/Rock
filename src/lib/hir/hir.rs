@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use crate::{ast::resolve::ResolutionMap, hir::hir_id::*, TypeId};
 use crate::{ast::Type, ast_lowering::HirMap};
@@ -154,7 +154,7 @@ impl Expression {
         match &*self.kind {
             ExpressionKind::Lit(l) => l.hir_id.clone(),
             ExpressionKind::Identifier(i) => i.hir_id.clone(),
-            ExpressionKind::FunctionCall(op, args) => op.get_terminal_hir_id(),
+            ExpressionKind::FunctionCall(op, _args) => op.get_terminal_hir_id(),
         }
     }
 }

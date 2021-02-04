@@ -25,8 +25,13 @@ fn build(config: Config) -> bool {
 
     info!(" -> Linking");
 
+    Command::new("llc")
+        .args(&["out.ir"])
+        .output()
+        .expect("failed to execute process");
+
     Command::new("clang")
-        .args(builder.files.values())
+        .args(&["out.ir.s"])
         .output()
         .expect("failed to execute process");
 

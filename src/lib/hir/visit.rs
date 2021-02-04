@@ -30,7 +30,7 @@ macro_rules! generate_visitor_trait {
 
 generate_visitor_trait!(
     Root, root
-    Mod, r#mod
+    // Mod, r#mod
     TopLevel, top_level
     FunctionDecl, function_decl
     ArgumentDecl, argument_decl
@@ -47,7 +47,7 @@ pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     walk_map!(visitor, visit_body, &root.bodies);
 }
 
-pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {}
+// pub fn _walk_mod<'a, V: Visitor<'a>>(_visitor: &mut V, _mod: &'a Mod) {}
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {

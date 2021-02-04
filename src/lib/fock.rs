@@ -10,7 +10,6 @@ extern crate log;
 #[macro_use]
 extern crate concat_idents;
 
-use inkwell::context::Context;
 use std::fs;
 
 #[macro_use]
@@ -32,7 +31,6 @@ mod tests;
 
 use crate::ast::ast_print::*;
 use crate::ast::visit::*;
-use crate::codegen::*;
 pub use crate::config::Config;
 use crate::error::Error;
 
@@ -61,7 +59,9 @@ pub fn parse_str(input: String, _output_name: String, config: Config) -> Result<
     // Infer Hir
     infer::infer(&mut hir);
 
-    println!("{:#?}", hir);
+    if config.show_ast {
+        println!("{:#?}", hir);
+    }
 
     // Generate code
     codegen::generate(&hir);
@@ -69,11 +69,11 @@ pub fn parse_str(input: String, _output_name: String, config: Config) -> Result<
     Ok(())
 }
 
-pub fn parse_mod(config: Config) -> Result<(), Error> {
+pub fn parse_mod(_config: Config) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn parse_crate(config: Config) -> Result<(), Error> {
+pub fn parse_crate(_config: Config) -> Result<(), Error> {
     Ok(())
 }
 

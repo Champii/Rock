@@ -2,7 +2,6 @@ use std::convert::TryInto;
 
 use inkwell::module::Module;
 use inkwell::types::BasicType;
-use inkwell::values::BasicValue;
 use inkwell::{builder::Builder, values::BasicValueEnum};
 use inkwell::{context::Context, types::BasicTypeEnum};
 
@@ -53,11 +52,9 @@ impl<'a> CodegenContext<'a> {
         for (_, body) in &root.bodies {
             self.lower_body(&body, builder);
         }
-
-        self.module.print_to_stderr();
     }
 
-    pub fn lower_function_decl(&mut self, f: &'a FunctionDecl, builder: &'a Builder) {
+    pub fn lower_function_decl(&mut self, f: &'a FunctionDecl, _builder: &'a Builder) {
         let t = self.hir.get_type(f.hir_id.clone()).unwrap();
 
         if let Type::FuncType(f_type) = t {
@@ -73,7 +70,7 @@ impl<'a> CodegenContext<'a> {
 
             let fn_type = ret.fn_type(args.as_slice(), false);
 
-            let fn_value = self.module.add_function(&f.name.name, fn_type, None);
+            self.module.add_function(&f.name.name, fn_type, None);
         }
     }
 
@@ -87,7 +84,7 @@ impl<'a> CodegenContext<'a> {
         match self.module.get_function(&body.name.name) {
             Some(f) => {
                 let hir_top_reso = self.hir.resolutions.get(body.name.hir_id.clone()).unwrap();
-                let hir_top = self.hir.get_top_level(dbg!(hir_top_reso)).unwrap();
+                let hir_top = self.hir.get_top_level(hir_top_reso).unwrap();
 
                 match &hir_top.kind {
                     TopLevelKind::Function(hir_f) => {
@@ -131,7 +128,6 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::FunctionCall(callee, args) => {
                 self.lower_function_call(callee, args, builder)
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -154,14 +150,6 @@ impl<'a> CodegenContext<'a> {
                         .map(|arg: &'a _| self.lower_expression(arg, builder))
                         .collect::<Vec<_>>();
 
-                    // let mut arguments = vec![];
-
-                    // for arg in args {
-                    //     let ret = self.lower_expression(arg, builder).clone();
-
-                    //     arguments.push(ret);
-                    // }
-
                     builder
                         .build_call(f_value, arguments.as_slice(), "call")
                         .try_as_basic_value()
@@ -174,7 +162,7 @@ impl<'a> CodegenContext<'a> {
         }
     }
 
-    pub fn lower_literal(&mut self, lit: &Literal, builder: &'a Builder) -> BasicValueEnum<'a> {
+    pub fn lower_literal(&mut self, lit: &Literal, _builder: &'a Builder) -> BasicValueEnum<'a> {
         match &lit.kind {
             LiteralKind::Number(n) => {
                 let i64_type = self.context.i64_type();
@@ -188,7 +176,7 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_identifier(
         &mut self,
         id: &Identifier,
-        builder: &'a Builder,
+        _builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
         let reso = self.hir.resolutions.get(id.hir_id.clone()).unwrap();
 
@@ -206,5 +194,5 @@ pub fn generate(hir: &Root) {
     codegen_ctx.module.verify().unwrap();
     codegen_ctx
         .module
-        .write_bitcode_to_path(&std::path::Path::new("/tmp/lol.o"));
+        .write_bitcode_to_path(&std::path::Path::new("./out.ir"));
 }

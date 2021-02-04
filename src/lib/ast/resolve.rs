@@ -84,7 +84,5 @@ pub fn resolve(root: &mut Root) {
 
     ctx.visit_root(root);
 
-    println!("RESOLUTION {:#?}", ctx);
-
     root.resolutions = ctx.resolutions;
 }

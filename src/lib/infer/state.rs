@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     sync::atomic::{AtomicU64, Ordering},
 };
 

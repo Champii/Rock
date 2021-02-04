@@ -119,8 +119,6 @@ struct Test {}
 
 impl<'a> Visitor<'a> for Test {
     fn visit_root(&mut self, root: &'a Root) {
-        println!("ROOT {:#?}", root);
-
         self.walk_root(root);
     }
 }

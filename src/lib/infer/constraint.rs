@@ -40,23 +40,24 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 // TODO: Need Arena and a way to fetch any element/item/node
                 if let Some(top_id) = self.hir.resolutions.get(op_hir_id.clone()) {
                     if let Some(top) = self.hir.get_top_level(top_id.clone()) {
-                        if let TopLevelKind::Function(f) = &top.kind {
-                            println!("OUAWEJHAWKEALWKJEH");
-                            self.state.add_constraint(Constraint::Eq(
-                                self.state.get_type_id(op_hir_id).unwrap(),
-                                self.state.get_type_id(f.hir_id.clone()).unwrap(),
-                            ));
-
-                            let mut i = 0;
-                            for arg in &f.arguments {
+                        match &top.kind {
+                            TopLevelKind::Function(f) => {
                                 self.state.add_constraint(Constraint::Eq(
-                                    self.state.get_type_id(arg.name.hir_id.clone()).unwrap(),
-                                    self.state
-                                        .get_type_id(args.get(i).unwrap().get_terminal_hir_id())
-                                        .unwrap(),
+                                    self.state.get_type_id(op_hir_id).unwrap(),
+                                    self.state.get_type_id(f.hir_id.clone()).unwrap(),
                                 ));
 
-                                i += 1;
+                                let mut i = 0;
+                                for arg in &f.arguments {
+                                    self.state.add_constraint(Constraint::Eq(
+                                        self.state.get_type_id(arg.name.hir_id.clone()).unwrap(),
+                                        self.state
+                                            .get_type_id(args.get(i).unwrap().get_terminal_hir_id())
+                                            .unwrap(),
+                                    ));
+
+                                    i += 1;
+                                }
                             }
                         }
                     } else {

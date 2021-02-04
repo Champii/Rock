@@ -289,7 +289,7 @@ impl Parse for Body {
 
 impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let token = ctx.cur_tok_id;
+        // let token = ctx.cur_tok_id;
 
         let kind = Box::new(if let Ok(if_) = If::parse(ctx) {
             StatementKind::If(if_)
@@ -363,7 +363,7 @@ impl Parse for If {
 
 impl Parse for Expression {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let token = ctx.cur_tok_id;
+        // let token = ctx.cur_tok_id;
 
         let left = UnaryExpr::parse(ctx)?;
 
@@ -466,7 +466,7 @@ impl Parse for PrimaryExpr {
 
 impl Parse for Operand {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let mut token = ctx.cur_tok_id;
+        // let mut token = ctx.cur_tok_id;
 
         let kind = if let Ok(lit) = Literal::parse(ctx) {
             OperandKind::Literal(lit)
@@ -582,7 +582,7 @@ impl Parse for Arguments {
 
 impl Parse for Argument {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let token = ctx.cur_tok_id;
+        // let token = ctx.cur_tok_id;
 
         Ok(Argument {
             arg: Expression::parse(ctx)?,

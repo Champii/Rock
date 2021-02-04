@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 use std::io::Write;
-use std::path::Path;
-use std::{
-    fs::{self, DirEntry},
-    io,
-};
+use std::{fs, io};
 
 use super::Config;
 
@@ -31,59 +27,65 @@ impl Builder {
     //     fs::create_dir_all(self.project_path.clone() + "/.build/");
     // }
 
-    pub fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
-        if dir.is_dir() {
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.is_dir() {
-                    Self::visit_dirs(&path, cb)?;
-                } else {
-                    cb(&entry);
-                }
-            }
-        }
-        Ok(())
-    }
+    // pub fn visit_dirs(dir: &Path, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
+    //     if dir.is_dir() {
+    //         for entry in fs::read_dir(dir)? {
+    //             let entry = entry?;
+    //             let path = entry.path();
+    //             if path.is_dir() {
+    //                 Self::visit_dirs(&path, cb)?;
+    //             } else {
+    //                 cb(&entry);
+    //             }
+    //         }
+    //     }
+    //     Ok(())
+    // }
 
-    fn is_more_recent(item: &Path, to_test: &Path) -> std::io::Result<bool> {
-        Ok(fs::metadata(item)?.modified()? > fs::metadata(to_test)?.modified()?)
-    }
+    // fn is_more_recent(item: &Path, to_test: &Path) -> std::io::Result<bool> {
+    //     Ok(fs::metadata(item)?.modified()? > fs::metadata(to_test)?.modified()?)
+    // }
 
     pub fn populate(&mut self) {
         // check for Build.toml
         // set project path accordingly
         let mut to_compile = vec![];
         let mut files = HashMap::new();
-        let mut out_files = vec![];
+        // let mut out_files = vec![];
 
         // if !Path::new("./Rock.toml").exists() {
         //     panic!("No 'Rock.toml' file found.");
         // }
 
-        Self::visit_dirs(Path::new(&self.project_path), &mut |item| {
-            let path = item.path();
-            let path_str = path.to_str().unwrap();
+        to_compile.push(format!("{}/{}", &self.project_path, "src/main.rk"));
+        files.insert(
+            format!("{}/{}", &self.project_path, "src/main.rk"),
+            "".to_string(),
+        );
 
-            let out_path = Path::new("./.build/").join(path.with_extension("o"));
+        // Self::visit_dirs(Path::new(&self.project_path), &mut |item| {
+        //     let path = item.path();
+        //     let path_str = path.to_str().unwrap();
 
-            if let Some(ext) = path.extension() {
-                if ext == "rk" {
-                    files.insert(path_str.to_string(), out_path.to_str().unwrap().to_string());
+        //     let out_path = Path::new("./.build/").join(path.with_extension("o"));
 
-                    match Self::is_more_recent(&path.clone(), &path.with_extension("o")) {
-                        Ok(true) | Err(_) => to_compile.push(path_str.to_string()),
-                        _ => (),
-                    }
+        //     if let Some(ext) = path.extension() {
+        //         if ext == "rk" {
+        //             files.insert(path_str.to_string(), out_path.to_str().unwrap().to_string());
 
-                    out_files.push(out_path.to_str().unwrap().to_string());
-                }
-            }
-        })
-        .unwrap();
+        //             match Self::is_more_recent(&path.clone(), &path.with_extension("o")) {
+        //                 Ok(true) | Err(_) => to_compile.push(path_str.to_string()),
+        //                 _ => (),
+        //             }
+
+        //             out_files.push(out_path.to_str().unwrap().to_string());
+        //         }
+        //     }
+        // })
+        // .unwrap();
 
         self.files = files;
-        self.out_files.extend(out_files);
+        // self.out_files.extend(out_files);
         self.to_compile.extend(to_compile);
     }
 
@@ -123,7 +125,7 @@ impl Builder {
         fs::create_dir_all(self.project_path.clone() + "/.build/").unwrap();
 
         for file in &self.to_compile {
-            let out_file = self.files.get(file).unwrap();
+            // let out_file = self.files.get(file).unwrap();
             // let mut splitted: Vec<String> = file.split(".").map(|x| x.to_string()).collect();
             // let len = splitted.len();
 
@@ -131,9 +133,9 @@ impl Builder {
 
             // let mut out_file = splitted.join(".");
 
-            fs::create_dir_all(Path::new(out_file).parent().unwrap()).unwrap();
+            // fs::create_dir_all(Path::new(out_file).parent().unwrap()).unwrap();
 
-            let out_file = out_file.to_owned() + &"\0".to_string();
+            // let out_file = out_file.to_owned() + &"\0".to_string();
 
             print!(
                 "    Building: {} {}/{}: {} ",
@@ -145,7 +147,9 @@ impl Builder {
 
             io::stdout().flush().unwrap();
 
-            if let Err(e) = fock::file_to_file(file.to_string(), out_file, self.config.clone()) {
+            if let Err(e) =
+                fock::file_to_file(file.to_string(), "".to_string(), self.config.clone())
+            {
                 Self::clear_line();
 
                 println!("\n   Error: {}", e);
