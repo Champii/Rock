@@ -26,8 +26,9 @@ mod error;
 mod hir;
 pub mod logger;
 mod parser;
+mod scopes;
 mod tests;
-mod visit_macro;
+// mod visit_macro;
 
 use crate::ast::ast_print::*;
 use crate::ast::visit::*;
@@ -45,26 +46,34 @@ pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(
 
 pub fn parse_str(input: String, _output_name: String, config: Config) -> Result<(), Error> {
     // Text to Ast
-    let (ast, tokens) = parser::parse(input.clone())?;
-
-    // Ast to Hir
-    let hir = ast_lowering::lower_crate(&ast);
-
-    visit_macro::lol();
-
-    // Infer Hir
-    infer::infer(&hir);
+    let (mut ast, tokens) = parser::parse(input.clone())?;
 
     // Debug trees
     if config.show_ast {
         AstPrintContext::new(tokens.clone(), input.clone()).visit_root(&ast);
-
-        println!("{:#?}", hir);
     }
+
+    ast::resolve(&mut ast);
+
+    // Ast to Hir
+    let hir = ast_lowering::lower_crate(&ast);
+
+    // Infer Hir
+    infer::infer(&hir);
+
+    println!("{:#?}", hir);
 
     // Generate code
     CodegenContext::new(&Context::create()).lower_hir(&hir);
 
+    Ok(())
+}
+
+pub fn parse_mod(config: Config) -> Result<(), Error> {
+    Ok(())
+}
+
+pub fn parse_crate(config: Config) -> Result<(), Error> {
     Ok(())
 }
 

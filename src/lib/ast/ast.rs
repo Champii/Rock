@@ -1,14 +1,28 @@
-use crate::ast::helper::*;
 use crate::ast::identity::Identity;
+use crate::{ast::helper::*, NodeId};
+
+use crate::ast::resolve::ResolutionMap;
 
 #[derive(Debug, Clone)]
 pub struct Root {
     pub r#mod: Mod,
-    pub identity: Identity,
+    pub resolutions: ResolutionMap<NodeId>,
+    // pub identity: Identity,
+}
+
+#[derive(Debug, Clone)]
+pub struct Path {
+    pub segments: Vec<Segment>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Segment {
+    pub name: Identifier,
 }
 
 #[derive(Debug, Clone)]
 pub struct Mod {
+    // pub name: Path,
     pub top_levels: Vec<TopLevel>,
     pub identity: Identity,
 }
@@ -22,6 +36,8 @@ pub struct TopLevel {
 #[derive(Debug, Clone)]
 pub enum TopLevelKind {
     Function(FunctionDecl),
+    // Mod(Mod),
+    // Use(Path),
 }
 
 #[derive(Debug, Clone)]
@@ -60,13 +76,13 @@ pub struct ArgumentDecl {
 #[derive(Debug, Clone)]
 pub struct Body {
     pub stmt: Statement,
-    pub identity: Identity,
+    // pub identity: Identity,
 }
 
 #[derive(Debug, Clone)]
 pub struct Statement {
     pub kind: Box<StatementKind>,
-    pub identity: Identity,
+    // pub identity: Identity,
 }
 
 #[derive(Debug, Clone)]
@@ -87,7 +103,7 @@ pub struct If {
 #[derive(Debug, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
-    pub identity: Identity,
+    // pub identity: Identity,
 }
 
 impl Expression {
@@ -220,7 +236,7 @@ impl PrimaryExpr {
 #[derive(Debug, Clone)]
 pub struct Operand {
     pub kind: OperandKind,
-    pub identity: Identity,
+    // pub identity: Identity,
 }
 
 #[derive(Debug, Clone)]
@@ -257,5 +273,5 @@ pub type Arguments = Vec<Argument>;
 #[derive(Debug, Clone)]
 pub struct Argument {
     pub arg: Expression,
-    pub identity: Identity,
+    // pub identity: Identity,
 }

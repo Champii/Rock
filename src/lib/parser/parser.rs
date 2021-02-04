@@ -1,3 +1,4 @@
+use crate::ast::resolve::ResolutionMap;
 use crate::ast::*;
 use crate::error::Error;
 use crate::parser::*;
@@ -151,7 +152,8 @@ impl Parser {
 impl Parse for Root {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         Ok(Root {
-            identity: Identity::new(ctx.cur_tok_id),
+            resolutions: ResolutionMap::default(),
+            // identity: Identity::new(ctx.cur_tok_id),
             r#mod: Mod::parse(ctx)?,
         })
     }
@@ -279,7 +281,7 @@ impl Parse for Body {
         let stmt = Statement::parse(ctx)?;
 
         Ok(Body {
-            identity: Identity::new(stmt.identity.token_id),
+            // identity: Identity::new(stmt.identity.token_id),
             stmt,
         })
     }
@@ -303,7 +305,7 @@ impl Parse for Statement {
 
         Ok(Statement {
             kind,
-            identity: Identity::new(token),
+            // identity: Identity::new(token),
         })
     }
 }
@@ -367,7 +369,7 @@ impl Parse for Expression {
 
         let mut res = Expression {
             kind: ExpressionKind::UnaryExpr(left.clone()),
-            identity: Identity::new(token),
+            // identity: Identity::new(token),
         };
 
         ctx.save();
@@ -485,7 +487,7 @@ impl Parse for Operand {
 
             ctx.save_pop();
 
-            token = expr.identity.token_id;
+            // token = expr.identity.token_id;
 
             OperandKind::Expression(Box::new(expr))
         } else {
@@ -494,7 +496,7 @@ impl Parse for Operand {
 
         return Ok(Operand {
             kind,
-            identity: Identity::new(token),
+            // identity: Identity::new(token),
         });
     }
 }
@@ -584,7 +586,7 @@ impl Parse for Argument {
 
         Ok(Argument {
             arg: Expression::parse(ctx)?,
-            identity: Identity::new(token),
+            // identity: Identity::new(token),
         })
     }
 }

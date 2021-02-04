@@ -3,10 +3,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::{
-    ast::{Identity, Type},
-    hir::{visit::*, HirId, Root},
-};
+use crate::{ast::Type, hir::HirId};
 
 pub type NodeId = u64;
 

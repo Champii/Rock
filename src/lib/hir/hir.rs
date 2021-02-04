@@ -1,10 +1,12 @@
 use std::collections::BTreeMap;
 
-use crate::ast::Type;
-use crate::hir::hir_id::*;
+use crate::{ast::resolve::ResolutionMap, hir::hir_id::*};
+use crate::{ast::Type, ast_lowering::HirMap};
 
 #[derive(Debug, Clone)]
 pub struct Root {
+    pub hir_map: HirMap,
+    pub resolutions: ResolutionMap<HirId>,
     pub top_levels: BTreeMap<HirId, TopLevel>,
     pub modules: BTreeMap<HirId, Mod>,
     pub bodies: BTreeMap<BodyId, Body>,
@@ -39,13 +41,14 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub ret: Type,
     pub body_id: BodyId,
+    pub hir_id: HirId,
 }
 
 #[derive(Debug, Clone)]
 pub struct ArgumentDecl {
     // pub hir_id: HirId,
     pub name: Identifier,
-    pub t: Option<Type>,
+    // pub t: Option<Type>,
 }
 
 #[derive(Debug, Clone)]

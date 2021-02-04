@@ -1,15 +1,26 @@
-use paste::paste;
-
+#[macro_export]
 macro_rules! generate_visitor_trait {
     (
         $(
-            $name:ty : {
+            $(struct $name_class:ty : {
                 $(
                     $( [ $child_field:ident => $child_method:ty ] )?
                     $( $child:ident )?
                     $( _ )?
                 ),*
-            },
+            })?
+
+            $(enum $name_enum:ty : (
+                $(
+                    $prop_name:ident (
+                        $(
+                            $( $attr:ident => $ty:ty)?
+                            $( [$attr_vec:ident => $ty_vec:ty ])?
+                        ),*
+                    )
+                ),*
+            ))?
+            ,
         )*
     ) => {
 
@@ -22,18 +33,44 @@ macro_rules! generate_visitor_trait {
             {}
 
             $(
-                paste! {
-                    fn [<visit_ $name:snake>](&mut self, node: &'ast $name) {
-                        self.[<walk_ $name:snake>](node);
-                    }
+                paste::paste! {
+                    // Class implem
+                    $(
+                        fn [<visit_ $name_class:snake>](&mut self, node: &'ast $name_class) {
+                            self.[<walk_ $name_class:snake>](node);
+                        }
 
-                    fn [<walk_ $name:snake>](&mut self, node: &'ast $name) {
-                        $(
-                            $(self.[<visit_ $child>](&node.$child);)?
-                            $(walk_list!(self, [<visit_ $child_method:snake>], &node.$child_field);)?
-                        )*
-                    }
+                        fn [<walk_ $name_class:snake>](&mut self, _node: &'ast $name_class) {
+                            $(
+                                $(self.[<visit_ $child>](&_node.$child);)?
+                                $(walk_list!(self, [<visit_ $child_method:snake>], &_node.$child_field);)?
+                            )*
+                        }
+                    )?
 
+                    // Enum implem
+                    $(
+                        fn [<visit_ $name_enum:snake>](&mut self, node: &'ast $name_enum) {
+                            self.[<walk_ $name_enum:snake>](node);
+                        }
+
+                        fn [<walk_ $name_enum:snake>](&mut self, node: &'ast $name_enum) {
+                            match &node.kind {
+                                $(
+                                    $name_enum::$prop_name(
+                                        $(
+                                            $($attr)?
+                                            $()?
+                                        )*
+                                    )
+                                )*
+                            }
+                            // $(
+                            //     $(self.[<visit_ $child>](&_node.$child);)?
+                            //     $(walk_list!(self, [<visit_ $child_method:snake>], &_node.$child_field);)?
+                            // )*
+                        }
+                    )?
                 }
             )*
         }
@@ -50,12 +87,32 @@ pub struct Root {
 pub struct TopLevel {}
 
 #[derive(Debug)]
-pub struct Body {}
+pub struct Body {
+    statement: Statement,
+}
+
+#[derive(Debug)]
+pub struct Statement {
+    kind: StatementKind,
+}
+
+#[derive(Debug)]
+pub enum StatementKind {
+    Ident(String),
+    Number(i64),
+    Body(Box<Body>),
+    Bodies(Vec<Body>),
+}
 
 generate_visitor_trait!(
-    Root : {[top_levels => TopLevel], body},
-    TopLevel : {_},
-    Body: {_},
+    struct Root : {[top_levels => TopLevel], body},
+    struct TopLevel : {_},
+    struct Body: { statement },
+    enum Statement: (
+        Ident(x => String),
+        Body(y => Body),
+        Bodies([y => Body]),
+    ),
 );
 
 struct Test {}
@@ -73,7 +130,11 @@ pub fn lol() {
 
     let root = Root {
         top_levels: vec![TopLevel {}],
-        body: Body {},
+        body: Body {
+            statement: Statement {
+                kind: StatementKind::Ident("".to_string()),
+            },
+        },
     };
 
     test.visit_root(&root);

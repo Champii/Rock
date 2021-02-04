@@ -1,3 +1,10 @@
+// use crate::ast::*;
+// use crate::{ast::helper::*, generate_visitor_trait};
+
+// generate_visitor_trait!(
+//     Root : {_},
+// );
+
 use concat_idents::concat_idents;
 
 use crate::ast::helper::*;
