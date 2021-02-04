@@ -1,6 +1,6 @@
 use super::{Constraint, InferState};
-use crate::hir::visit::*;
-use crate::hir::*;
+use crate::{ast::FuncType, hir::*};
+use crate::{ast::Type, hir::visit::*};
 
 #[derive(Debug)]
 pub struct ConstraintContext<'a> {
@@ -47,11 +47,13 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                 self.state.get_type_id(f.hir_id.clone()).unwrap(),
                             ));
 
-                            let mut i = 0
-                            for arg in f.arguments {
+                            let mut i = 0;
+                            for arg in &f.arguments {
                                 self.state.add_constraint(Constraint::Eq(
-                                    self.state.get_type_id(arg.hir_id.clone()).unwrap(),
-                                    self.state.get_type_id(args.get(&i).unwrap()).unwrap(),
+                                    self.state.get_type_id(arg.name.hir_id.clone()).unwrap(),
+                                    self.state
+                                        .get_type_id(args.get(i).unwrap().get_terminal_hir_id())
+                                        .unwrap(),
                                 ));
 
                                 i += 1;
@@ -67,22 +69,26 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
         }
     }
 
-    // fn visit_function_decl(&mut self, f: &FunctionDecl) {
-    //     // let args = arguments.constrain_vec(ctx);
-    //     // let body_type = self.body.constrain(ctx);
+    fn visit_function_decl(&mut self, f: &FunctionDecl) {
+        let args = f
+            .arguments
+            .iter()
+            .map(|arg| self.state.get_type_id(arg.name.hir_id.clone()).unwrap())
+            .collect();
 
-    //     // let self_type_id = ctx.get_type_id(self.identity.clone()).unwrap();
+        if let Some(body) = self.hir.get_body(f.body_id.clone()) {
+            let body_hir_id = body.get_terminal_hir_id();
+            let body_type_id = self.state.get_type_id(body_hir_id).unwrap();
 
-    //     // ctx.solve_type(
-    //     //     self.identity.clone(),
-    //     //     Type::FuncType(FuncType::new((*self.name).clone(), args, body_type)),
-    //     // );
+            let self_type_id = self.state.get_type_id(f.hir_id.clone()).unwrap();
 
-    //     // ctx.add_constraint(Constraint::Eq(self_type_id, body_type));
+            self.state.solve_type(
+                f.hir_id.clone(),
+                Type::FuncType(FuncType::new((*f.name).clone(), args, body_type_id)),
+            );
 
-    //     // self_type_id
-    //     // self.new_named_annotation((*argument.name).clone(), argument.hir_id.clone());
-    // }
-
-    // fn visit_argument_decl(&mut self, argument: &ArgumentDecl) {}
+            self.state
+                .add_constraint(Constraint::Eq(self_type_id, body_type_id));
+        }
+    }
 }

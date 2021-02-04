@@ -16,6 +16,10 @@ impl Root {
     pub fn get_top_level(&self, hir_id: HirId) -> Option<&TopLevel> {
         self.top_levels.get(&hir_id)
     }
+
+    pub fn get_body(&self, body_id: BodyId) -> Option<&Body> {
+        self.bodies.get(&body_id)
+    }
 }
 
 #[derive(Debug, Clone)]
