@@ -1,4 +1,6 @@
-use super::{Token, TokenType};
+use crate::diagnostics::Diagnostic;
+
+use super::{ParsingCtx, Span, Token, TokenType};
 
 bitflags! {
     struct Sep: u32 {
@@ -13,14 +15,15 @@ macro_rules! closure_vec {
         {
             let mut res = vec![];
 
-            $(res.push(Box::new($m as for<'r> fn(&'r mut Lexer) -> Option<Token>));)*
+            $(res.push(Box::new($m as for<'r> fn(&'r mut Lexer<'a>) -> Option<Token>));)*
 
             res
         }
     };
 }
 
-pub struct Lexer {
+pub struct Lexer<'a> {
+    ctx: &'a mut ParsingCtx,
     pub input: Vec<char>,
     cur_idx: usize,
     last_char: char,
@@ -28,13 +31,14 @@ pub struct Lexer {
     end: bool,
 }
 
-impl Lexer {
-    pub fn new(input: Vec<char>) -> Lexer {
-        let mut input = input.clone();
+impl<'a> Lexer<'a> {
+    pub fn new(ctx: &'a mut ParsingCtx) -> Lexer {
+        let mut input: Vec<char> = ctx.get_current_file().chars().collect();
 
         input.push('\0');
 
         Lexer {
+            ctx,
             last_char: input[0],
             input,
             cur_idx: 0,
@@ -124,7 +128,14 @@ impl Lexer {
                 .unwrap(); // safe to unwrap here
         }
 
-        panic!("Unknown token: '{}'", self.last_char);
+        self.ctx.diagnostics.push(Diagnostic::new_unexpected_token(
+            self.ctx.new_span(self.cur_idx, self.cur_idx),
+        ));
+
+        self.end = true;
+
+        self.new_token(TokenType::EOF, self.cur_idx, "".to_string())
+            .unwrap()
     }
 
     fn discard_comment(&mut self) {
@@ -152,9 +163,7 @@ impl Lexer {
     fn new_token(&self, t: TokenType, start: usize, txt: String) -> Option<Token> {
         return Some(Token {
             t,
-            line: self.cur_line,
-            start,
-            end: self.cur_idx - 1,
+            span: self.ctx.new_span(start, self.cur_idx - 1),
             txt,
         });
     }
@@ -392,9 +401,7 @@ impl Lexer {
         if self.last_char == '\n' {
             let res = Some(Token {
                 t: TokenType::EOL,
-                line: self.cur_line,
-                start: self.cur_idx,
-                end: self.cur_idx,
+                span: self.ctx.new_span(self.cur_idx, self.cur_idx),
                 txt: "\n".to_string(),
             });
 

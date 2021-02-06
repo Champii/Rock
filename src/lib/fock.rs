@@ -17,10 +17,14 @@ pub mod ast;
 #[macro_use]
 pub mod infer;
 
+use diagnostics::Diagnostic;
+use parser::ParsingCtx;
+
 pub use crate::infer::*;
 mod ast_lowering;
 mod codegen;
 pub mod config;
+mod diagnostics;
 mod error;
 mod hir;
 pub mod logger;
@@ -32,7 +36,8 @@ mod tests;
 use crate::ast::ast_print::*;
 use crate::ast::visit::*;
 pub use crate::config::Config;
-use crate::error::Error;
+// use crate::error::Error;
+type Error = Diagnostic;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
     info!("   -> Parsing {}", in_name);
@@ -43,28 +48,42 @@ pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(
 }
 
 pub fn parse_str(input: String, _output_name: String, config: Config) -> Result<(), Error> {
+    let mut parsing_ctx = ParsingCtx::default();
+    parsing_ctx.add_file(input.clone());
+
     // Text to Ast
-    let (mut ast, tokens) = parser::parse(input.clone())?;
+    let (mut ast, tokens) = parser::parse(&mut parsing_ctx)?;
+
+    if parsing_ctx.diagnostics.must_stop {
+        parsing_ctx.print_diagnostics();
+
+        std::process::exit(-1);
+    }
 
     // Debug trees
     if config.show_ast {
         AstPrintContext::new(tokens.clone(), input.clone()).visit_root(&ast);
     }
 
-    ast::resolve(&mut ast);
+    ast::resolve(&mut ast, &mut parsing_ctx);
 
+    if parsing_ctx.diagnostics.must_stop {
+        parsing_ctx.print_diagnostics();
+
+        std::process::exit(-1);
+    }
     // Ast to Hir
     let mut hir = ast_lowering::lower_crate(&ast);
 
     // Infer Hir
     infer::infer(&mut hir);
 
-    if config.show_ast {
+    if config.show_hir {
         println!("{:#?}", hir);
     }
 
     // Generate code
-    codegen::generate(&hir);
+    codegen::generate(&config, &hir);
 
     Ok(())
 }

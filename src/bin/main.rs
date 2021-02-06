@@ -63,7 +63,7 @@ fn compile(config: Config) -> bool {
         out_file += &"\0".to_string();
 
         if let Err(e) = fock::file_to_file(file.to_string(), out_file, config.clone()) {
-            println!("{}", e);
+            // println!("{}", e);
 
             return false;
         }
@@ -86,7 +86,8 @@ fn run_file(config: Config) {
 
     match res {
         Ok(res) => std::process::exit(res.try_into().unwrap()),
-        Err(err) => println!("{:?}", err),
+        // Err(err) => println!("{:?}", err),
+        Err(err) => (),
     }
 }
 
@@ -148,6 +149,12 @@ fn main() {
                         .help("Show ast"),
                 )
                 .arg(
+                    Arg::with_name("hir")
+                        .short("h")
+                        .takes_value(false)
+                        .help("Show hir"),
+                )
+                .arg(
                     Arg::with_name("ir")
                         .short("i")
                         .takes_value(false)
@@ -169,6 +176,12 @@ fn main() {
                         .short("a")
                         .takes_value(false)
                         .help("Show ast"),
+                )
+                .arg(
+                    Arg::with_name("hir")
+                        .short("h")
+                        .takes_value(false)
+                        .help("Show hir"),
                 )
                 .arg(
                     Arg::with_name("ir")
@@ -204,6 +217,7 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("runfile") {
         config.show_ast = matches.is_present("ast");
+        config.show_hir = matches.is_present("hir");
         config.show_ir = matches.is_present("ir");
         config.files = matches
             .values_of("files")
@@ -218,6 +232,7 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("compile") {
         config.show_ast = matches.is_present("ast");
+        config.show_hir = matches.is_present("hir");
         config.show_ir = matches.is_present("ir");
         config.files = matches
             .values_of("files")

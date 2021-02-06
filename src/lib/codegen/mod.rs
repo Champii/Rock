@@ -9,6 +9,7 @@ use crate::{
     ast::{PrimitiveType, Type},
     hir::*,
     scopes::Scopes,
+    Config,
 };
 
 pub struct CodegenContext<'a> {
@@ -21,14 +22,12 @@ pub struct CodegenContext<'a> {
 impl<'a> CodegenContext<'a> {
     pub fn new(context: &'a Context, hir: &'a Root) -> Self {
         let module = context.create_module("mod");
-        // let builder = context.create_builder();
 
         Self {
             context,
             module,
             hir,
             scopes: Scopes::new(),
-            // builder,
         }
     }
 
@@ -100,10 +99,10 @@ impl<'a> CodegenContext<'a> {
 
                 let basic_block = self.context.append_basic_block(f, "entry");
 
-                // let builder = self.context.create_builder();
                 builder.position_at_end(basic_block);
 
                 let ret = self.lower_stmt(&body.stmt, builder);
+
                 builder.build_return(Some(&ret));
             }
             None => (),
@@ -113,7 +112,6 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_stmt(&mut self, stmt: &'a Statement, builder: &'a Builder) -> BasicValueEnum<'a> {
         match &*stmt.kind {
             StatementKind::Expression(e) => self.lower_expression(&e, builder),
-            // _ => unimplemented!(),
         }
     }
 
@@ -184,7 +182,7 @@ impl<'a> CodegenContext<'a> {
     }
 }
 
-pub fn generate(hir: &Root) {
+pub fn generate(config: &Config, hir: &Root) {
     let context = Context::create();
     let builder = context.create_builder();
 
@@ -192,6 +190,11 @@ pub fn generate(hir: &Root) {
     codegen_ctx.lower_hir(hir, &builder);
 
     codegen_ctx.module.verify().unwrap();
+
+    if config.show_ir {
+        codegen_ctx.module.print_to_stderr();
+    }
+
     codegen_ctx
         .module
         .write_bitcode_to_path(&std::path::Path::new("./out.ir"));

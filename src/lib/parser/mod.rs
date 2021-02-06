@@ -2,29 +2,54 @@ use regex::Regex;
 
 mod lexer;
 mod parser;
+mod parsing_context;
+mod span;
 mod token;
 
 pub use lexer::*;
 pub use parser::*;
+pub use parsing_context::*;
+pub use span::*;
 pub use token::*;
 
-use crate::Error;
+use crate::diagnostics::{Diagnostic, Diagnostics};
 
-pub fn preprocess(input: String) -> String {
-    // Add a '.' after a '@' if it is followed by some word
-    // This is a dirty trick to ditch having to modiffy the parser for that sugar
-    let re = Regex::new(r"@(\w)").unwrap();
-    let out = re.replace_all(&input, "@.$1");
+// pub fn preprocess(input: String) -> String {
+//     // Add a '.' after a '@' if it is followed by some word
+//     // This is a dirty trick to ditch having to modiffy the parser for that sugar
+//     let re = Regex::new(r"@(\w)").unwrap();
+//     let out = re.replace_all(&input, "@.$1");
 
-    out.to_string()
-}
+//     out.to_string()
+// }
 
-pub fn parse(input: String) -> Result<(crate::ast::Root, Vec<Token>), Error> {
-    let preprocessed = preprocess(input.clone());
+pub fn parse(ctx: &mut ParsingCtx) -> Result<(crate::ast::Root, Vec<Token>), Diagnostic> {
+    // let preprocessed = preprocess(input.clone());
 
-    let input: Vec<char> = preprocessed.chars().collect();
+    // let input: Vec<char> = ctx.get_current_file().chars().collect();
 
-    let tokens = Lexer::new(input.clone()).collect();
+    let tokens = Lexer::new(ctx).collect();
 
-    Ok((Parser::new(tokens.clone(), input.clone()).run()?, tokens))
+    if ctx.diagnostics.must_stop {
+        ctx.print_diagnostics();
+
+        std::process::exit(-1);
+    }
+
+    let ast = match Parser::new(tokens.clone(), ctx).run() {
+        Ok(ast) => ast,
+        Err(e) => {
+            ctx.print_diagnostics();
+
+            if ctx.diagnostics.must_stop {
+                std::process::exit(-1);
+
+                unreachable!();
+            }
+
+            return Err(e);
+        }
+    };
+
+    Ok((ast, tokens))
 }

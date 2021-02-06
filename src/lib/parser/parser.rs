@@ -1,12 +1,15 @@
-use crate::ast::resolve::ResolutionMap;
 use crate::ast::*;
-use crate::error::Error;
+use crate::{ast::resolve::ResolutionMap, diagnostics::Diagnostic};
+// use crate::error::Error;
 use crate::parser::*;
+
+type Error = Diagnostic;
 
 macro_rules! expect {
     ($tok:expr, $self:expr) => {
         if $tok != $self.cur_tok().t {
             // panic!("Expected {:?} but found {:?}", $expr, $tok);
+
             error_expect!($tok, $self);
         } else {
             let cur_tok = $self.cur_tok();
@@ -45,9 +48,8 @@ macro_rules! error_expect {
 
 macro_rules! error {
     ($msg:expr, $self:expr) => {
-        return Err(Error::new_parse_error(
-            $self.input.clone(),
-            $self.cur_tok(),
+        return Err(Diagnostic::new_syntax_error(
+            $self.cur_tok().span.clone(),
             $msg,
         ));
     };
@@ -93,7 +95,8 @@ pub trait Parse {
 }
 
 // TODO: Create getters and setters instead of exposing publicly
-pub struct Parser {
+pub struct Parser<'a> {
+    ctx: &'a mut ParsingCtx,
     pub input: Vec<char>,
     pub tokens: Vec<Token>,
     pub cur_tok_id: TokenId,
@@ -101,9 +104,12 @@ pub struct Parser {
     pub block_indent: u8,
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<Token>, input: Vec<char>) -> Parser {
+impl<'a> Parser<'a> {
+    pub fn new(tokens: Vec<Token>, ctx: &'a mut ParsingCtx) -> Parser {
+        let input: Vec<char> = ctx.get_current_file().chars().collect();
+
         Parser {
+            ctx,
             input,
             tokens,
             save: vec![0],
@@ -164,13 +170,19 @@ impl Parse for Mod {
         let mut res = vec![];
 
         while TokenType::EOF != ctx.cur_tok().t {
-            res.push(TopLevel::parse(ctx)?);
+            match TopLevel::parse(ctx) {
+                Ok(top) => res.push(top),
+                Err(e) => {
+                    ctx.ctx.diagnostics.push(e.clone());
+                    return Err(e);
+                }
+            };
         }
 
         expect!(TokenType::EOF, ctx);
 
         Ok(Mod {
-            identity: Identity::new(0),
+            identity: Identity::default(),
             top_levels: res,
         })
     }
@@ -178,7 +190,8 @@ impl Parse for Mod {
 
 impl Parse for TopLevel {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let token = ctx.cur_tok_id;
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
 
         let kind = match ctx.cur_tok().t {
             _ => TopLevelKind::Function(FunctionDecl::parse(ctx)?),
@@ -190,7 +203,7 @@ impl Parse for TopLevel {
 
         Ok(TopLevel {
             kind,
-            identity: Identity::new(token),
+            identity: Identity::new(token_id, token.span),
         })
     }
 }
@@ -199,7 +212,8 @@ impl Parse for FunctionDecl {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut arguments = vec![];
 
-        let token = ctx.cur_tok_id;
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
 
         ctx.save();
 
@@ -222,7 +236,7 @@ impl Parse for FunctionDecl {
             name,
             arguments,
             body,
-            identity: Identity::new(token),
+            identity: Identity::new(token_id, token.span),
         })
     }
 }
@@ -230,12 +244,13 @@ impl Parse for FunctionDecl {
 impl Parse for Identifier {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
 
-        let token = expect!(TokenType::Identifier(ctx.cur_tok().txt.clone()), ctx);
+        let token_res = expect!(TokenType::Identifier(ctx.cur_tok().txt.clone()), ctx);
 
         Ok(Self {
-            name: token.txt,
-            identity: Identity::new(token_id),
+            name: token_res.txt,
+            identity: Identity::new(token_id, token.span),
         })
     }
 }
@@ -266,12 +281,13 @@ impl Parse for ArgumentsDecl {
 impl Parse for ArgumentDecl {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
 
-        let token = expect!(TokenType::Identifier(ctx.cur_tok().txt.clone()), ctx);
+        let token_res = expect!(TokenType::Identifier(ctx.cur_tok().txt.clone()), ctx);
 
         Ok(ArgumentDecl {
             name: token.txt.clone(),
-            identity: Identity::new(token_id),
+            identity: Identity::new(token_id, token.span),
         })
     }
 }
@@ -291,17 +307,22 @@ impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         // let token = ctx.cur_tok_id;
 
-        let kind = Box::new(if let Ok(if_) = If::parse(ctx) {
-            StatementKind::If(if_)
+        let kind = Box::new(match If::parse(ctx) {
+            Ok(if_) => StatementKind::If(if_),
+            Err(e) => match Expression::parse(ctx) {
+                Ok(expr) => StatementKind::Expression(expr),
+                Err(e) => error!("Expected statement".to_string(), ctx),
+            },
+        });
         // } else if let Ok(for_) = For::parse(ctx) {
         //     StatementKind::For(for_)
         // } else if let Ok(assign) = Assignation::parse(ctx) {
         //     StatementKind::Assignation(assign)
-        } else if let Ok(expr) = Expression::parse(ctx) {
-            StatementKind::Expression(expr)
-        } else {
-            error!("Expected statement".to_string(), ctx);
-        });
+        // } else if let Ok(expr) = Expression::parse(ctx) {
+        //     StatementKind::Expression(expr)
+        // } else {
+        //     error!("Expected statement".to_string(), ctx);
+        // });
 
         Ok(Statement {
             kind,
@@ -522,10 +543,11 @@ impl Parse for SecondaryExpr {
 impl Parse for Literal {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
 
         Ok(Self {
             kind: LiteralKind::parse(ctx)?,
-            identity: Identity::new(token_id),
+            identity: Identity::new(token_id, token.span),
         })
     }
 }

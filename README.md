@@ -203,4 +203,14 @@ main ->
   - Basic LLVM compile
 
 ## 2
+
+### Todo Dependency graph
+  - Currying
+    - Closure
+        - LowLevel Structs
   - Pattern matching
+  - Polymorphism
+  - Custom operators
+    - Operator as Identifier (special syntax)
+    - Infix notation 
+    - Custom precedence definition

@@ -137,13 +137,13 @@ impl Builder {
 
             // let out_file = out_file.to_owned() + &"\0".to_string();
 
-            print!(
-                "    Building: {} {}/{}: {} ",
-                Self::progress_bar(i as i32, files_len as i32),
-                i,
-                files_len,
-                file.to_string()
-            );
+            // print!(
+            //     "    Building: {} {}/{}: {} ",
+            //     Self::progress_bar(i as i32, files_len as i32),
+            //     i,
+            //     files_len,
+            //     file.to_string()
+            // );
 
             io::stdout().flush().unwrap();
 
@@ -152,14 +152,14 @@ impl Builder {
             {
                 Self::clear_line();
 
-                println!("\n   Error: {}", e);
+                // println!("\n   Error: {}", e);
 
                 return false;
             }
 
             Self::clear_line();
 
-            println!("\r    Compiled: {}..", file.to_string());
+            // println!("\r    Compiled: {}..", file.to_string());
             i += 1;
         }
 

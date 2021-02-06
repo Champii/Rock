@@ -1,3 +1,5 @@
+use super::Span;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     // keywords
@@ -54,9 +56,10 @@ impl Default for TokenType {
 #[derive(Clone, Debug, Default)]
 pub struct Token {
     pub t: TokenType,
-    pub line: usize,
-    pub start: usize,
-    pub end: usize,
+    pub span: Span,
+    // pub line: usize,
+    // pub start: usize,
+    // pub end: usize,
     pub txt: String,
 }
 

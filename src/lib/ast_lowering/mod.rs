@@ -57,7 +57,6 @@ impl AstLoweringContext {
     }
 
     pub fn lower_root(&mut self, root: &Root) -> hir::Root {
-        // self.modules.insert(self.lower_mod(&root.r#mod));
         self.lower_mod(&root.r#mod);
 
         hir::Root {
@@ -115,16 +114,7 @@ impl AstLoweringContext {
         let id = self.hir_map.next_hir_id(f.identity.clone());
         let ident = self.lower_identifier(&f.name);
 
-        let body = self.lower_body(
-            &f.body,
-            ident.clone(),
-            // f.arguments
-            //     .iter()
-            //     .map(|arg| hir::Identifier {
-            //         name: arg.name.clone(),
-            //     })
-            //     .collect(),
-        );
+        let body = self.lower_body(&f.body, ident.clone());
 
         self.bodies.insert(body_id.clone(), body);
 
@@ -149,7 +139,6 @@ impl AstLoweringContext {
                 hir_id: id,
                 name: argument.name.clone(),
             },
-            // t: None,
         }
     }
 

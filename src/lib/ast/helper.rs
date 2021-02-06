@@ -21,15 +21,6 @@ impl<T> ClassName for T
 where
     T: core::fmt::Debug,
 {
-    // fn class_name() -> String {
-    //     let name = format!("{:?}", T::default());
-
-    //     let names = name.split::<_>(" ").collect::<Vec<&str>>();
-    //     let name = names.get(0).unwrap();
-
-    //     name.to_string()
-    // }
-
     fn class_name_self(&self) -> String {
         // T::class_name()
         let name = format!("{:?}", self);
