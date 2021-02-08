@@ -1,16 +1,18 @@
-#[derive(Clone, Debug, Default)]
+use std::path::PathBuf;
+
+#[derive(Clone, Debug)]
 pub struct Span {
-    pub file_id: usize,
+    pub file_path: PathBuf,
     pub start: usize,
     pub end: usize,
 }
 
 impl Span {
-    pub fn new(file_id: usize, start: usize, end: usize) -> Self {
+    pub fn new(file_path: PathBuf, start: usize, end: usize) -> Self {
         Self {
             start,
             end,
-            file_id,
+            file_path,
         }
     }
 }

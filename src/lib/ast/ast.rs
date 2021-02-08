@@ -36,7 +36,7 @@ pub struct TopLevel {
 #[derive(Debug, Clone)]
 pub enum TopLevelKind {
     Function(FunctionDecl),
-    // Mod(Mod),
+    Mod(Identifier, Mod),
     // Use(Path),
 }
 
@@ -67,7 +67,7 @@ generate_has_name!(Identifier);
 
 pub type ArgumentsDecl = Vec<ArgumentDecl>;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ArgumentDecl {
     pub name: String,
     pub identity: Identity,

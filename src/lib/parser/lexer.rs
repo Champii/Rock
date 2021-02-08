@@ -33,7 +33,7 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new(ctx: &'a mut ParsingCtx) -> Lexer {
-        let mut input: Vec<char> = ctx.get_current_file().chars().collect();
+        let mut input: Vec<char> = ctx.get_current_file().content.chars().collect();
 
         input.push('\0');
 
@@ -90,6 +90,7 @@ impl<'a> Lexer<'a> {
 
         let v = closure_vec![
             Self::try_fn_keyword,
+            Self::try_mod_keyword,
             Self::try_extern_keyword,
             Self::try_if_keyword,
             Self::try_else_keyword,
@@ -201,6 +202,10 @@ impl<'a> Lexer<'a> {
 
     fn try_fn_keyword(&mut self) -> Option<Token> {
         self.match_consume("fn", TokenType::FnKeyword, Sep::WS)
+    }
+
+    fn try_mod_keyword(&mut self) -> Option<Token> {
+        self.match_consume("mod", TokenType::ModKeyword, Sep::WS)
     }
 
     fn try_extern_keyword(&mut self) -> Option<Token> {

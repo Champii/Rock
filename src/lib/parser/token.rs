@@ -4,6 +4,7 @@ use super::Span;
 pub enum TokenType {
     // keywords
     FnKeyword,
+    ModKeyword,
     ExternKeyword,
     IfKeyword,
     ThenKeyword,
@@ -53,7 +54,7 @@ impl Default for TokenType {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Token {
     pub t: TokenType,
     pub span: Span,

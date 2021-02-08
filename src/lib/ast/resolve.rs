@@ -48,6 +48,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         // We add every top level first
         for top in &m.top_levels {
             match &top.kind {
+                TopLevelKind::Mod(_, m) => (),
                 TopLevelKind::Function(f) => {
                     self.scopes.add((*f.name).clone(), f.identity.clone());
                 }
@@ -66,6 +67,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
                 self.scopes.pop();
             }
+            TopLevelKind::Mod(_, m) => walk_mod(self, m),
         };
     }
 

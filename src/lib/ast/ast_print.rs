@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Display};
+
 use crate::ast::helper::*;
 use crate::ast::visit::*;
 use crate::ast::*;
@@ -6,11 +8,11 @@ use crate::parser::*;
 pub struct AstPrintContext {
     indent: usize,
     tokens: Vec<Token>,
-    _input: String,
+    _input: SourceFile,
 }
 
 impl AstPrintContext {
-    pub fn new(tokens: Vec<Token>, input: String) -> Self {
+    pub fn new(tokens: Vec<Token>, input: SourceFile) -> Self {
         Self {
             indent: 0,
             _input: input,
@@ -39,6 +41,15 @@ impl AstPrintContext {
 
         println!("{}{:30}", indent_str, t.class_name_self());
     }
+
+    pub fn print_primitive<T>(&self, t: T)
+    where
+        T: Debug,
+    {
+        let indent_str = String::from("  ").repeat(self.indent());
+
+        println!("{}{:?}", indent_str, t);
+    }
 }
 
 macro_rules! impl_visitor_trait {
@@ -47,14 +58,14 @@ macro_rules! impl_visitor_trait {
     )*) => {
         impl<'ast> Visitor<'ast> for AstPrintContext {
             fn visit_name(&mut self, name: String) {
-                self.print(name);
+                self.print_primitive(name);
             }
 
             fn visit_primitive<T>(&mut self, val: T)
             where
-                T: ClassName,
+                T: Debug,
             {
-                self.print(val);
+                self.print_primitive(val);
             }
 
             $(

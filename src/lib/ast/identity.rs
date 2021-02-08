@@ -7,7 +7,7 @@ use crate::infer::TypeId;
 
 static GLOBAL_NEXT_NODE_ID: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Identity {
     pub node_id: NodeId,
     pub token_id: TokenId,

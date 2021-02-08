@@ -1,7 +1,8 @@
 use core::fmt;
+use std::{collections::HashMap, path::PathBuf};
 
-use crate::parser::TokenId;
 use crate::parser::{ParsingCtx, Span};
+use crate::parser::{SourceFile, TokenId};
 
 #[derive(Clone, Debug)]
 pub struct Diagnostic {
@@ -26,7 +27,9 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::UnknownIdentifier)
     }
 
-    pub fn print(&self, input: Vec<char>) {
+    pub fn print(&self, file: &SourceFile) {
+        let input: Vec<char> = file.content.chars().collect();
+
         let line = input[..self.span.start]
             .split(|c| *c == '\n')
             .collect::<Vec<_>>()
@@ -44,7 +47,12 @@ impl Diagnostic {
             self.span.start - count
         };
 
-        let line_ind = format!("file.rock({}:{}) => ", line, line_start);
+        let line_ind = format!(
+            "{}({}:{}) => ",
+            file.file_path.to_str().unwrap(),
+            line,
+            line_start
+        );
 
         let mut arrow = String::new();
 
@@ -102,9 +110,9 @@ impl Diagnostics {
         self.list.push(diag);
     }
 
-    pub fn print(&self, files: &Vec<String>) {
+    pub fn print(&self, files: &HashMap<PathBuf, SourceFile>) {
         for diag in &self.list {
-            let input: Vec<char> = files.get(diag.span.file_id).unwrap().chars().collect();
+            let input = files.get(&diag.span.file_path).unwrap();
 
             diag.print(input);
         }

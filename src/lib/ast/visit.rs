@@ -14,7 +14,7 @@ macro_rules! generate_visitor_trait {
 
             fn visit_primitive<T>(&mut self, _val: T)
             where
-                T: ClassName,
+                T: std::fmt::Debug,
             {}
 
             $(
@@ -60,6 +60,10 @@ pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {
+        TopLevelKind::Mod(name, m) => {
+            visitor.visit_identifier(&name);
+            visitor.visit_mod(&m);
+        }
         TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
     };
 }

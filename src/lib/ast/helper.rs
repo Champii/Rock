@@ -22,13 +22,9 @@ where
     T: core::fmt::Debug,
 {
     fn class_name_self(&self) -> String {
-        // T::class_name()
         let name = format!("{:?}", self);
 
-        let names = name.split::<_>(" ").collect::<Vec<&str>>();
-        let name = names.get(0).unwrap();
-
-        name.to_string()
+        name.chars().take_while(|c| c.is_alphanumeric()).collect()
     }
 }
 

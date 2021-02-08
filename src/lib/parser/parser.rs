@@ -106,7 +106,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: Vec<Token>, ctx: &'a mut ParsingCtx) -> Parser {
-        let input: Vec<char> = ctx.get_current_file().chars().collect();
+        let input: Vec<char> = ctx.get_current_file().content.chars().collect();
 
         Parser {
             ctx,
@@ -118,8 +118,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn run(&mut self) -> Result<Root, Error> {
+    pub fn run_root(&mut self) -> Result<Root, Error> {
         Root::parse(self)
+    }
+
+    pub fn run_mod(&mut self) -> Result<Mod, Error> {
+        Mod::parse(self)
     }
 
     pub fn cur_tok(&self) -> Token {
@@ -182,7 +186,7 @@ impl Parse for Mod {
         expect!(TokenType::EOF, ctx);
 
         Ok(Mod {
-            identity: Identity::default(),
+            identity: Identity::new(0, ctx.ctx.new_span(0, 0)),
             top_levels: res,
         })
     }
@@ -194,6 +198,14 @@ impl Parse for TopLevel {
         let token = ctx.cur_tok();
 
         let kind = match ctx.cur_tok().t {
+            TokenType::ModKeyword => {
+                ctx.consume(); // mod keyword
+                let name = Identifier::parse(ctx)?;
+
+                let (mod_, _) = super::parse_mod(name.name.clone(), ctx.ctx)?;
+
+                TopLevelKind::Mod(name, mod_)
+            }
             _ => TopLevelKind::Function(FunctionDecl::parse(ctx)?),
         };
 

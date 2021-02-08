@@ -10,7 +10,7 @@ extern crate log;
 #[macro_use]
 extern crate concat_idents;
 
-use std::fs;
+use std::{fs, path::PathBuf};
 
 #[macro_use]
 pub mod ast;
@@ -18,7 +18,7 @@ pub mod ast;
 pub mod infer;
 
 use diagnostics::Diagnostic;
-use parser::ParsingCtx;
+use parser::{ParsingCtx, SourceFile};
 
 pub use crate::infer::*;
 mod ast_lowering;
@@ -42,12 +42,20 @@ type Error = Diagnostic;
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
     info!("   -> Parsing {}", in_name);
 
-    let file = fs::read_to_string(in_name).expect("Woot");
+    let file = fs::read_to_string(in_name.clone()).expect("Woot");
 
-    parse_str(file, out_name, config)
+    parse_str(
+        SourceFile {
+            file_path: PathBuf::from(in_name.clone()),
+            mod_path: PathBuf::from(in_name.clone()),
+            content: file,
+        },
+        out_name,
+        config,
+    )
 }
 
-pub fn parse_str(input: String, _output_name: String, config: Config) -> Result<(), Error> {
+pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Result<(), Error> {
     let mut parsing_ctx = ParsingCtx::default();
     parsing_ctx.add_file(input.clone());
 
@@ -114,7 +122,13 @@ pub fn run(in_name: String, entry: String, config: Config) -> Result<u64, Error>
 pub fn run_str(input: String, entry: String, config: Config) -> Result<u64, Error> {
     info!("Parsing StdIn");
 
-    let _builder = parse_str(input, entry.clone(), config)?;
+    let source = SourceFile {
+        file_path: PathBuf::from(""),
+        mod_path: PathBuf::from(""),
+        content: input,
+    };
+
+    let _builder = parse_str(source, entry.clone(), config)?;
 
     Ok(0)
     // Ok(builder.run(&entry))
