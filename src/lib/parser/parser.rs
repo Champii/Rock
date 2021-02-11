@@ -202,7 +202,8 @@ impl Parse for TopLevel {
                 ctx.consume(); // mod keyword
                 let name = Identifier::parse(ctx)?;
 
-                let (mod_, _) = super::parse_mod(name.name.clone(), ctx.ctx)?;
+                let (mod_, _) = super::parse_mod(name.name.clone(), ctx.ctx)
+                    .map_err(|diag| Diagnostic::new(token.span.clone(), diag.get_kind()))?;
 
                 TopLevelKind::Mod(name, mod_)
             }

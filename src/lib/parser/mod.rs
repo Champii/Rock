@@ -63,7 +63,7 @@ pub fn parse_mod(
 
     // let input: Vec<char> = ctx.get_current_file().chars().collect();
 
-    ctx.resolve_and_add_file(name);
+    ctx.resolve_and_add_file(name)?;
 
     let tokens = Lexer::new(ctx).collect();
 

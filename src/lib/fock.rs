@@ -83,12 +83,12 @@ pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Res
     // Ast to Hir
     let mut hir = ast_lowering::lower_crate(&ast);
 
-    // Infer Hir
-    infer::infer(&mut hir);
-
     if config.show_hir {
         println!("{:#?}", hir);
     }
+
+    // Infer Hir
+    infer::infer(&mut hir);
 
     // Generate code
     codegen::generate(&config, &hir);

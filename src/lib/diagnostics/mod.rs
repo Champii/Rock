@@ -27,6 +27,10 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::UnknownIdentifier)
     }
 
+    pub fn new_module_not_found(span: Span) -> Self {
+        Self::new(span, DiagnosticKind::ModuleNotFound)
+    }
+
     pub fn print(&self, file: &SourceFile) {
         let input: Vec<char> = file.content.chars().collect();
 
@@ -74,6 +78,10 @@ impl Diagnostic {
             arrow,
         );
     }
+
+    pub fn get_kind(&self) -> DiagnosticKind {
+        self.kind.clone()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -81,6 +89,7 @@ pub enum DiagnosticKind {
     UnexpectedToken,
     SyntaxError(String),
     UnknownIdentifier,
+    ModuleNotFound,
     NotAFunction,
     UnusedParameter,
     UnusedFunction,
@@ -92,6 +101,7 @@ impl DiagnosticKind {
             Self::UnexpectedToken => "UnexpectedToken".to_string(),
             Self::SyntaxError(msg) => format!("SyntaxError: {}", msg),
             Self::UnknownIdentifier => "UnknownIdentifier".to_string(),
+            Self::ModuleNotFound => "ModuleNotFound".to_string(),
             _ => "ERROR TBD".to_string(),
         }
     }

@@ -55,7 +55,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             }
         }
 
-        walk_mod(self, m);
+        walk_list!(self, visit_top_level, &m.top_levels);
     }
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
@@ -67,7 +67,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
                 self.scopes.pop();
             }
-            TopLevelKind::Mod(_, m) => walk_mod(self, m),
+            TopLevelKind::Mod(_, m) => self.visit_mod(m),
         };
     }
 
