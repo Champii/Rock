@@ -103,7 +103,7 @@ impl AstLoweringContext {
                 self.top_levels.insert(child_id.clone(), top_level);
                 child_id.clone()
             }
-            TopLevelKind::Mod(name, mod_) => self.lower_mod(&mod_),
+            TopLevelKind::Mod(_name, mod_) => self.lower_mod(&mod_),
         }
     }
 

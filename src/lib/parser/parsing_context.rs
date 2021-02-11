@@ -23,7 +23,7 @@ impl SourceFile {
 
         file_path.set_extension("rk");
 
-        let mut mod_path = self.mod_path.as_path().join(Path::new(&name));
+        let mod_path = self.mod_path.as_path().join(Path::new(&name));
 
         let content = match fs::read_to_string(file_path.to_str().unwrap().to_string()) {
             Ok(content) => content,

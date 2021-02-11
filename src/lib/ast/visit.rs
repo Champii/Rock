@@ -1,6 +1,5 @@
 use concat_idents::concat_idents;
 
-use crate::ast::helper::*;
 use crate::ast::*;
 
 macro_rules! generate_visitor_trait {

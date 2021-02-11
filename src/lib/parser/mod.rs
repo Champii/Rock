@@ -1,5 +1,3 @@
-use regex::Regex;
-
 mod lexer;
 mod parser;
 mod parsing_context;
@@ -12,7 +10,7 @@ pub use parsing_context::*;
 pub use span::*;
 pub use token::*;
 
-use crate::diagnostics::{Diagnostic, Diagnostics};
+use crate::diagnostics::Diagnostic;
 
 // pub fn preprocess(input: String) -> String {
 //     // Add a '.' after a '@' if it is followed by some word
@@ -43,8 +41,6 @@ pub fn parse(ctx: &mut ParsingCtx) -> Result<(crate::ast::Root, Vec<Token>), Dia
 
             if ctx.diagnostics.must_stop {
                 std::process::exit(-1);
-
-                unreachable!();
             }
 
             return Err(e);
@@ -80,8 +76,6 @@ pub fn parse_mod(
 
             if ctx.diagnostics.must_stop {
                 std::process::exit(-1);
-
-                unreachable!();
             }
 
             return Err(e);

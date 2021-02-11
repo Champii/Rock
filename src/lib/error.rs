@@ -1,15 +1,11 @@
-use std::fmt;
-
-use crate::parser::Span;
-
 // use super::ast::TypeInfer;
-use super::parser::{Token, TokenType};
+// use super::parser::Token;
 
-pub struct Error {
-    pub input: Vec<char>,
-    pub token: Token,
-    pub msg: String,
-}
+// pub struct Error {
+//     pub input: Vec<char>,
+//     pub token: Token,
+//     pub msg: String,
+// }
 
 // impl Error {
 // pub fn new_parse_error(input: Vec<char>, token: Token, msg: String) -> Error {

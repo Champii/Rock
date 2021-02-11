@@ -1,6 +1,6 @@
 use crate::diagnostics::Diagnostic;
 
-use super::{ParsingCtx, Span, Token, TokenType};
+use super::{ParsingCtx, Token, TokenType};
 
 bitflags! {
     struct Sep: u32 {

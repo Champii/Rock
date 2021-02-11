@@ -296,7 +296,7 @@ impl Parse for ArgumentDecl {
         let token_id = ctx.cur_tok_id;
         let token = ctx.cur_tok();
 
-        let token_res = expect!(TokenType::Identifier(ctx.cur_tok().txt.clone()), ctx);
+        expect!(TokenType::Identifier(ctx.cur_tok().txt.clone()), ctx);
 
         Ok(ArgumentDecl {
             name: token.txt.clone(),
@@ -322,9 +322,9 @@ impl Parse for Statement {
 
         let kind = Box::new(match If::parse(ctx) {
             Ok(if_) => StatementKind::If(if_),
-            Err(e) => match Expression::parse(ctx) {
+            Err(_e) => match Expression::parse(ctx) {
                 Ok(expr) => StatementKind::Expression(expr),
-                Err(e) => error!("Expected statement".to_string(), ctx),
+                Err(_e) => error!("Expected statement".to_string(), ctx),
             },
         });
         // } else if let Ok(for_) = For::parse(ctx) {

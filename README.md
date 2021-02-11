@@ -205,11 +205,16 @@ main ->
 ## 2
 
 ### Todo Dependency graph
+  - Modules
+    - Path
+    - Rename/mangle fns before codegen
+  - Polymophism
+    - Mark generic functions
+    - Allow them to pass the typechecker if never called
   - Currying
     - Closure
         - LowLevel Structs
   - Pattern matching
-  - Polymorphism
   - Custom operators
     - Operator as Identifier (special syntax)
     - Infix notation 

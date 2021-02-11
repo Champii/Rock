@@ -1,8 +1,7 @@
-use core::fmt;
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::parser::{ParsingCtx, Span};
-use crate::parser::{SourceFile, TokenId};
+use crate::parser::SourceFile;
+use crate::parser::Span;
 
 #[derive(Clone, Debug)]
 pub struct Diagnostic {

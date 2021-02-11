@@ -62,7 +62,7 @@ fn compile(config: Config) -> bool {
 
         out_file += &"\0".to_string();
 
-        if let Err(e) = fock::file_to_file(file.to_string(), out_file, config.clone()) {
+        if let Err(_e) = fock::file_to_file(file.to_string(), out_file, config.clone()) {
             // println!("{}", e);
 
             return false;
@@ -87,7 +87,7 @@ fn run_file(config: Config) {
     match res {
         Ok(res) => std::process::exit(res.try_into().unwrap()),
         // Err(err) => println!("{:?}", err),
-        Err(err) => (),
+        Err(_err) => (),
     }
 }
 
