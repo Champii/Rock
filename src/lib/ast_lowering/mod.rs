@@ -6,7 +6,7 @@ use crate::{
     NodeId,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct HirMap {
     map: HashMap<HirId, NodeId>,
     rev_map: HashMap<NodeId, HirId>,
@@ -14,10 +14,7 @@ pub struct HirMap {
 
 impl HirMap {
     pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-            rev_map: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn next_hir_id(&mut self, identity: Identity) -> HirId {
@@ -35,7 +32,7 @@ impl HirMap {
     fn add_hir_mapping(&mut self, hir_id: HirId, node_id: NodeId) {
         self.map.insert(hir_id.clone(), node_id);
 
-        self.rev_map.insert(node_id, hir_id.clone());
+        self.rev_map.insert(node_id, hir_id);
     }
 }
 
@@ -94,14 +91,14 @@ impl AstLoweringContext {
             TopLevelKind::Function(f) => {
                 let mut top_level = hir::TopLevel {
                     kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),
-                    hir_id: id.clone(),
+                    hir_id: id,
                 };
 
                 let child_id = top_level.get_child_hir();
                 top_level.hir_id = child_id.clone();
 
                 self.top_levels.insert(child_id.clone(), top_level);
-                child_id.clone()
+                child_id
             }
             TopLevelKind::Mod(_name, mod_) => self.lower_mod(&mod_),
         }
@@ -176,7 +173,7 @@ impl AstLoweringContext {
     pub fn lower_primary(&mut self, primary: &PrimaryExpr) -> hir::Expression {
         match &primary {
             PrimaryExpr::PrimaryExpr(op, secs) => {
-                if secs.len() == 0 {
+                if secs.is_empty() {
                     return self.lower_operand(&op);
                 }
 
@@ -195,7 +192,7 @@ impl AstLoweringContext {
         match &operand.kind {
             OperandKind::Literal(l) => hir::Expression::new_literal(self.lower_literal(&l)),
             OperandKind::Identifier(i) => {
-                hir::Expression::new_identifier(self.lower_identifier(&i))
+                hir::Expression::new_identifier_path(self.lower_identifier_path(&i))
             }
             OperandKind::Expression(e) => self.lower_expression(&**e),
         }
@@ -220,6 +217,12 @@ impl AstLoweringContext {
                 LiteralKind::String(s) => hir::LiteralKind::String(s.clone()),
                 LiteralKind::Bool(b) => hir::LiteralKind::Bool(*b),
             },
+        }
+    }
+
+    pub fn lower_identifier_path(&mut self, path: &IdentifierPath) -> hir::IdentifierPath {
+        hir::IdentifierPath {
+            path: path.path.iter().map(|i| self.lower_identifier(i)).collect(),
         }
     }
 

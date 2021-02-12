@@ -162,11 +162,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn new_token(&self, t: TokenType, start: usize, txt: String) -> Option<Token> {
-        return Some(Token {
+        Some(Token {
             t,
             span: self.ctx.new_span(start, self.cur_idx - 1),
             txt,
-        });
+        })
     }
 
     fn match_consume(&mut self, s: &str, t: TokenType, end: Sep) -> Option<Token> {
@@ -178,7 +178,7 @@ impl<'a> Lexer<'a> {
             .skip(self.cur_idx)
             .take(s.len())
             .collect::<String>()
-            == s.to_string()
+            == *s
         {
             if !self.has_separator(s.len(), end) {
                 return None;
@@ -191,7 +191,7 @@ impl<'a> Lexer<'a> {
             return self.new_token(t, start, s.to_string());
         }
 
-        return None;
+        None
     }
 
     // Actual lexer methods

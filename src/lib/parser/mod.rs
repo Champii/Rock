@@ -1,11 +1,11 @@
 mod lexer;
-mod parser;
+mod parser_impl;
 mod parsing_context;
 mod span;
 mod token;
 
 pub use lexer::*;
-pub use parser::*;
+pub use parser_impl::*;
 pub use parsing_context::*;
 pub use span::*;
 pub use token::*;

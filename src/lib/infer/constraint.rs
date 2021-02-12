@@ -26,7 +26,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
     fn visit_expression(&mut self, expr: &'a Expression) {
         match &*expr.kind {
             ExpressionKind::Lit(lit) => self.visit_literal(&lit),
-            ExpressionKind::Identifier(id) => self.visit_identifier(&id),
+            ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
             ExpressionKind::FunctionCall(op, args) => {
                 // get fn sig
                 // add constraint for each args
@@ -39,7 +39,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 // TODO: Use global resolution instead of top_level
                 // TODO: Need Arena and a way to fetch any element/item/node
                 if let Some(top_id) = self.hir.resolutions.get(op_hir_id.clone()) {
-                    if let Some(top) = self.hir.get_top_level(top_id.clone()) {
+                    if let Some(top) = self.hir.get_top_level(top_id) {
                         match &top.kind {
                             TopLevelKind::Function(f) => {
                                 self.state.add_constraint(Constraint::Eq(
@@ -47,16 +47,13 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     self.state.get_type_id(f.hir_id.clone()).unwrap(),
                                 ));
 
-                                let mut i = 0;
-                                for arg in &f.arguments {
+                                for (i, arg) in f.arguments.iter().enumerate() {
                                     self.state.add_constraint(Constraint::Eq(
                                         self.state.get_type_id(arg.name.hir_id.clone()).unwrap(),
                                         self.state
                                             .get_type_id(args.get(i).unwrap().get_terminal_hir_id())
                                             .unwrap(),
                                     ));
-
-                                    i += 1;
                                 }
                             }
                         }

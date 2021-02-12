@@ -17,7 +17,7 @@ mod builder;
 fn build(config: Config) -> bool {
     info!(" -> Building");
 
-    let mut builder = builder::Builder::new(config.clone(), ".".to_string());
+    let mut builder = builder::Builder::new(config, '.'.to_string());
 
     builder.populate();
 
@@ -44,7 +44,7 @@ fn compile(config: Config) -> bool {
     let mut out = vec![];
 
     for file in &config.files {
-        let mut splitted: Vec<String> = file.split(".").map(|x| x.to_string()).collect();
+        let mut splitted: Vec<String> = file.split('.').map(|x| x.to_string()).collect();
         let len = splitted.len();
         let ext = splitted[len - 1].clone();
 

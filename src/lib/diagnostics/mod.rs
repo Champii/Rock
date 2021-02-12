@@ -33,10 +33,7 @@ impl Diagnostic {
     pub fn print(&self, file: &SourceFile) {
         let input: Vec<char> = file.content.chars().collect();
 
-        let line = input[..self.span.start]
-            .split(|c| *c == '\n')
-            .collect::<Vec<_>>()
-            .len();
+        let line = input[..self.span.start].split(|c| *c == '\n').count();
 
         let lines: Vec<_> = input.split(|c| *c == '\n').collect();
 

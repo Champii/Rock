@@ -16,7 +16,7 @@ pub enum Constraint {
     Eq(TypeId, TypeId),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InferState {
     named_types: BTreeMap<String, TypeId>,
     node_types: BTreeMap<HirId, TypeId>,
@@ -26,12 +26,7 @@ pub struct InferState {
 
 impl InferState {
     pub fn new() -> Self {
-        Self {
-            named_types: BTreeMap::new(),
-            node_types: BTreeMap::new(),
-            types: BTreeMap::new(),
-            constraints: vec![],
-        }
+        Self::default()
     }
 
     pub fn new_named_annotation(&mut self, name: String, hir_id: HirId) -> TypeId {
@@ -154,7 +149,7 @@ impl InferState {
 
             i += 1;
 
-            if res.len() == 0 || i > 2 {
+            if res.is_empty() || i > 2 {
                 break;
             }
 
@@ -170,7 +165,7 @@ impl InferState {
     pub fn get_types(&self) -> BTreeMap<TypeId, Type> {
         self.types
             .iter()
-            .map(|(t_id, t)| (t_id.clone(), t.clone().unwrap()))
+            .map(|(t_id, t)| (*t_id, t.clone().unwrap()))
             .collect()
     }
 }

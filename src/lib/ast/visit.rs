@@ -35,6 +35,7 @@ generate_visitor_trait!(
     TopLevel, top_level
     FunctionDecl, function_decl
     Identifier, identifier
+    IdentifierPath, identifier_path
     ArgumentDecl, argument_decl
     Body, body
     Statement, statement
@@ -73,6 +74,13 @@ pub fn walk_function_decl<'a, V: Visitor<'a>>(visitor: &mut V, function_decl: &'
     walk_list!(visitor, visit_argument_decl, &function_decl.arguments);
 
     visitor.visit_body(&function_decl.body);
+}
+
+pub fn walk_identifier_path<'a, V: Visitor<'a>>(
+    visitor: &mut V,
+    identifier_path: &'a IdentifierPath,
+) {
+    walk_list!(visitor, visit_identifier, &identifier_path.path);
 }
 
 pub fn walk_identifier<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a Identifier) {
@@ -144,7 +152,7 @@ pub fn walk_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a Operat
 pub fn walk_operand<'a, V: Visitor<'a>>(visitor: &mut V, operand: &'a Operand) {
     match &operand.kind {
         OperandKind::Literal(l) => visitor.visit_literal(&l),
-        OperandKind::Identifier(i) => visitor.visit_identifier(&i),
+        OperandKind::Identifier(i) => visitor.visit_identifier_path(&i),
         OperandKind::Expression(e) => visitor.visit_expression(&*e),
     }
 }

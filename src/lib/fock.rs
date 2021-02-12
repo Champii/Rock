@@ -47,7 +47,7 @@ pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(
     parse_str(
         SourceFile {
             file_path: PathBuf::from(in_name.clone()),
-            mod_path: PathBuf::from(in_name.clone()),
+            mod_path: PathBuf::from(in_name),
             content: file,
         },
         out_name,
@@ -70,7 +70,7 @@ pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Res
 
     // Debug trees
     if config.show_ast {
-        AstPrintContext::new(tokens.clone(), input.clone()).visit_root(&ast);
+        AstPrintContext::new(tokens, input).visit_root(&ast);
     }
 
     ast::resolve(&mut ast, &mut parsing_ctx);
@@ -105,7 +105,7 @@ pub fn parse_crate(_config: Config) -> Result<(), Error> {
 }
 
 pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
-    let _builder = parse_file(in_name, out_name.clone(), config)?;
+    let _builder = parse_file(in_name, out_name, config)?;
 
     // builder.write(&out_name);
 
@@ -113,7 +113,7 @@ pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result
 }
 
 pub fn run(in_name: String, entry: String, config: Config) -> Result<u64, Error> {
-    let _builder = parse_file(in_name, entry.clone(), config)?;
+    let _builder = parse_file(in_name, entry, config)?;
 
     // Ok(builder.run(&entry))
     Ok(0)
@@ -128,7 +128,7 @@ pub fn run_str(input: String, entry: String, config: Config) -> Result<u64, Erro
         content: input,
     };
 
-    let _builder = parse_str(source, entry.clone(), config)?;
+    let _builder = parse_str(source, entry, config)?;
 
     Ok(0)
     // Ok(builder.run(&entry))

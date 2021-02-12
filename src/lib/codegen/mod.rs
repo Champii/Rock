@@ -42,13 +42,13 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_hir(&mut self, root: &'a Root, builder: &'a Builder) {
-        for (_, item) in &root.top_levels {
+        for item in root.top_levels.values() {
             match &item.kind {
                 TopLevelKind::Function(f) => self.lower_function_decl(&f, builder),
             }
         }
 
-        for (_, body) in &root.bodies {
+        for body in root.bodies.values() {
             self.lower_body(&body, builder);
         }
     }
@@ -80,32 +80,29 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_body(&mut self, body: &'a Body, builder: &'a Builder) {
-        match self.module.get_function(&body.name.name) {
-            Some(f) => {
-                let hir_top_reso = self.hir.resolutions.get(body.name.hir_id.clone()).unwrap();
-                let hir_top = self.hir.get_top_level(hir_top_reso).unwrap();
+        if let Some(f) = self.module.get_function(&body.name.name) {
+            let hir_top_reso = self.hir.resolutions.get(body.name.hir_id.clone()).unwrap();
+            let hir_top = self.hir.get_top_level(hir_top_reso).unwrap();
 
-                match &hir_top.kind {
-                    TopLevelKind::Function(hir_f) => {
-                        let mut i = 0;
-                        for arg in &hir_f.arguments {
-                            self.scopes
-                                .add(arg.name.hir_id.clone(), f.get_nth_param(i).unwrap());
+            match &hir_top.kind {
+                TopLevelKind::Function(hir_f) => {
+                    let mut i = 0;
+                    for arg in &hir_f.arguments {
+                        self.scopes
+                            .add(arg.name.hir_id.clone(), f.get_nth_param(i).unwrap());
 
-                            i += 1;
-                        }
+                        i += 1;
                     }
                 }
-
-                let basic_block = self.context.append_basic_block(f, "entry");
-
-                builder.position_at_end(basic_block);
-
-                let ret = self.lower_stmt(&body.stmt, builder);
-
-                builder.build_return(Some(&ret));
             }
-            None => (),
+
+            let basic_block = self.context.append_basic_block(f, "entry");
+
+            builder.position_at_end(basic_block);
+
+            let ret = self.lower_stmt(&body.stmt, builder);
+
+            builder.build_return(Some(&ret));
         }
     }
 
@@ -122,7 +119,7 @@ impl<'a> CodegenContext<'a> {
     ) -> BasicValueEnum<'a> {
         match &*expr.kind {
             ExpressionKind::Lit(l) => self.lower_literal(&l, builder),
-            ExpressionKind::Identifier(id) => self.lower_identifier(&id, builder),
+            ExpressionKind::Identifier(id) => self.lower_identifier_path(&id, builder),
             ExpressionKind::FunctionCall(callee, args) => {
                 self.lower_function_call(callee, args, builder)
             }
@@ -132,7 +129,7 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_function_call(
         &mut self,
         callee: &Expression,
-        args: &'a Vec<Expression>,
+        args: &'a [Expression],
         builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
         let terminal_hir_id = callee.get_terminal_hir_id();
@@ -169,6 +166,14 @@ impl<'a> CodegenContext<'a> {
             }
             _ => unimplemented!(),
         }
+    }
+
+    pub fn lower_identifier_path(
+        &mut self,
+        id: &IdentifierPath,
+        _builder: &'a Builder,
+    ) -> BasicValueEnum<'a> {
+        self.lower_identifier(id.path.iter().last().unwrap(), _builder)
     }
 
     pub fn lower_identifier(

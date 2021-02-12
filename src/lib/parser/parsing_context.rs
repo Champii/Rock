@@ -49,7 +49,7 @@ impl ParsingCtx {
     pub fn add_file(&mut self, file: SourceFile) {
         self.current_file = Some(file.file_path.clone());
 
-        self.files.insert(file.file_path.clone(), file.clone());
+        self.files.insert(file.file_path.clone(), file);
     }
 
     pub fn get_current_file(&self) -> SourceFile {
@@ -64,7 +64,7 @@ impl ParsingCtx {
     }
 
     pub fn new_span(&self, start: usize, end: usize) -> Span {
-        Span::new(self.get_current_file().file_path.clone(), start, end)
+        Span::new(self.get_current_file().file_path, start, end)
     }
 
     pub fn resolve_and_add_file(&mut self, name: String) -> Result<SourceFile, Diagnostic> {

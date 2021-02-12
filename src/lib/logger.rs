@@ -29,7 +29,7 @@ pub fn init_logger(level: u8) {
             Level::Error => Color::Red,
         };
 
-        style.set_color(color.clone());
+        style.set_color(color);
 
         if level == Level::Error {
             style.set_bold(true);

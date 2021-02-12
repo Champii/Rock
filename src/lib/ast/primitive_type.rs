@@ -26,8 +26,8 @@ impl PrimitiveType {
         }
     }
 
-    pub fn from_name(s: &String) -> Option<PrimitiveType> {
-        match s.as_ref() {
+    pub fn from_name(s: &str) -> Option<PrimitiveType> {
+        match s {
             "Void" => Some(Self::Void),
             "Bool" => Some(Self::Bool),
             "Int8" => Some(Self::Int8),
