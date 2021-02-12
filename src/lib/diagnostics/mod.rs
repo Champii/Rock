@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, fmt::Display, path::PathBuf};
 
 use crate::parser::SourceFile;
 use crate::parser::Span;
@@ -91,15 +91,17 @@ pub enum DiagnosticKind {
     UnusedFunction,
 }
 
-impl DiagnosticKind {
-    pub fn to_string(&self) -> String {
-        match self {
+impl Display for DiagnosticKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
             Self::UnexpectedToken => "UnexpectedToken".to_string(),
             Self::SyntaxError(msg) => format!("SyntaxError: {}", msg),
             Self::UnknownIdentifier => "UnknownIdentifier".to_string(),
             Self::ModuleNotFound => "ModuleNotFound".to_string(),
             _ => "ERROR TBD".to_string(),
-        }
+        };
+
+        write!(f, "{}", s)
     }
 }
 

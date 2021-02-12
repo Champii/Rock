@@ -73,9 +73,7 @@ impl<'a> Lexer<'a> {
 
     pub fn next(&mut self) -> Token {
         if self.end {
-            return self
-                .new_token(TokenType::EOF, self.cur_idx, "".to_string())
-                .unwrap(); // safe to unwrap here
+            return self.new_token(TokenType::EOF, self.cur_idx, "".to_string());
         }
 
         if let Some(t) = self.try_indent() {
@@ -124,9 +122,7 @@ impl<'a> Lexer<'a> {
         }
 
         if self.cur_idx >= self.input.len() - 1 {
-            return self
-                .new_token(TokenType::EOF, self.cur_idx, "".to_string())
-                .unwrap(); // safe to unwrap here
+            return self.new_token(TokenType::EOF, self.cur_idx, "".to_string());
         }
 
         self.ctx.diagnostics.push(Diagnostic::new_unexpected_token(
@@ -136,7 +132,6 @@ impl<'a> Lexer<'a> {
         self.end = true;
 
         self.new_token(TokenType::EOF, self.cur_idx, "".to_string())
-            .unwrap()
     }
 
     fn discard_comment(&mut self) {
@@ -161,12 +156,12 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn new_token(&self, t: TokenType, start: usize, txt: String) -> Option<Token> {
-        Some(Token {
+    fn new_token(&self, t: TokenType, start: usize, txt: String) -> Token {
+        Token {
             t,
             span: self.ctx.new_span(start, self.cur_idx - 1),
             txt,
-        })
+        }
     }
 
     fn match_consume(&mut self, s: &str, t: TokenType, end: Sep) -> Option<Token> {
@@ -188,7 +183,7 @@ impl<'a> Lexer<'a> {
 
             self.forward(s.len());
 
-            return self.new_token(t, start, s.to_string());
+            return Some(self.new_token(t, start, s.to_string()));
         }
 
         None
@@ -262,11 +257,11 @@ impl<'a> Lexer<'a> {
 
             // if is_keyword, return None
 
-            return self.new_token(
+            return Some(self.new_token(
                 TokenType::Identifier(identifier.iter().collect()),
                 start,
                 identifier.iter().collect(),
-            );
+            ));
         }
 
         None
@@ -336,7 +331,7 @@ impl<'a> Lexer<'a> {
                 "this".to_string(),
             );
 
-            return res;
+            return Some(res);
         }
 
         None
@@ -396,7 +391,7 @@ impl<'a> Lexer<'a> {
 
             // if is_keyword, return None
 
-            return self.new_token(TokenType::Number(nb), start, nb_str);
+            return Some(self.new_token(TokenType::Number(nb), start, nb_str));
         }
 
         None
@@ -439,7 +434,7 @@ impl<'a> Lexer<'a> {
             }
 
             if indent > 0 {
-                return self.new_token(TokenType::Indent(indent), save, " ".to_string());
+                return Some(self.new_token(TokenType::Indent(indent), save, " ".to_string()));
             }
 
             self.cur_idx = save;
@@ -466,7 +461,7 @@ impl<'a> Lexer<'a> {
 
             let res: String = s.iter().collect();
 
-            return self.new_token(TokenType::String(res.clone()), start, res);
+            return Some(self.new_token(TokenType::String(res.clone()), start, res));
         }
 
         None
@@ -486,11 +481,11 @@ impl<'a> Lexer<'a> {
 
             // if is_keyword, return None
 
-            return self.new_token(
+            return Some(self.new_token(
                 TokenType::Type(identifier.iter().collect()),
                 start,
                 identifier.iter().collect(),
-            );
+            ));
         }
 
         None

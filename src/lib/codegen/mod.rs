@@ -33,10 +33,7 @@ impl<'a> CodegenContext<'a> {
 
     pub fn lower_type(&mut self, t: &Type) -> BasicTypeEnum<'a> {
         match t {
-            Type::Primitive(p) => match p {
-                PrimitiveType::Int64 => self.context.i64_type().into(),
-                _ => self.context.i64_type().into(),
-            },
+            Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
             _ => self.context.i64_type().into(),
         }
     }
@@ -86,12 +83,11 @@ impl<'a> CodegenContext<'a> {
 
             match &hir_top.kind {
                 TopLevelKind::Function(hir_f) => {
-                    let mut i = 0;
-                    for arg in &hir_f.arguments {
-                        self.scopes
-                            .add(arg.name.hir_id.clone(), f.get_nth_param(i).unwrap());
-
-                        i += 1;
+                    for (i, arg) in hir_f.arguments.iter().enumerate() {
+                        self.scopes.add(
+                            arg.name.hir_id.clone(),
+                            f.get_nth_param(i.try_into().unwrap()).unwrap(),
+                        );
                     }
                 }
             }
