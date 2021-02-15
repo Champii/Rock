@@ -25,18 +25,15 @@ mod ast_lowering;
 mod codegen;
 pub mod config;
 mod diagnostics;
-mod error;
 mod hir;
 pub mod logger;
 mod parser;
 mod scopes;
 mod tests;
-// mod visit_macro;
 
 use crate::ast::ast_print::*;
 use crate::ast::visit::*;
 pub use crate::config::Config;
-// use crate::error::Error;
 type Error = Diagnostic;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {

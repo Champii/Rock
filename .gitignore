@@ -1,3 +1,6 @@
 /target
 **/*.rs.bk
 *.o
+a.out
+project
+Cargo.lock
