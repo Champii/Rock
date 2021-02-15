@@ -40,8 +40,6 @@ pub use crate::config::Config;
 type Error = Diagnostic;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
-    info!("   -> Parsing {}", in_name);
-
     let file = fs::read_to_string(in_name.clone()).expect("Woot");
 
     parse_str(
@@ -59,6 +57,8 @@ pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Res
     let mut parsing_ctx = ParsingCtx::default();
     parsing_ctx.add_file(input.clone());
 
+    info!("    -> Parsing");
+
     // Text to Ast
     let (mut ast, tokens) = parser::parse(&mut parsing_ctx)?;
 
@@ -73,6 +73,8 @@ pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Res
         AstPrintContext::new(tokens, input).visit_root(&ast);
     }
 
+    info!("    -> Resolving");
+
     ast::resolve(&mut ast, &mut parsing_ctx);
 
     if parsing_ctx.diagnostics.must_stop {
@@ -80,6 +82,9 @@ pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Res
 
         std::process::exit(-1);
     }
+
+    info!("    -> Lowering to HIR");
+
     // Ast to Hir
     let mut hir = ast_lowering::lower_crate(&ast);
 
@@ -87,8 +92,12 @@ pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Res
         println!("{:#?}", hir);
     }
 
+    info!("    -> Infer HIR");
+
     // Infer Hir
     infer::infer(&mut hir);
+
+    info!("    -> Lower to LLVM IR");
 
     // Generate code
     codegen::generate(&config, &hir);

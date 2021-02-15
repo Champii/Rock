@@ -39,6 +39,13 @@ macro_rules! expect_or_restore {
 
 macro_rules! error_expect {
     ($expected:expr, $self:expr) => {
+        trace!(
+            "Error expect: want {:?} got {:?}",
+            $expected,
+            $self.cur_tok().t
+        );
+
+        // This is not the error! macro from env_logger, see below
         error!(
             format!("Expected {:?} but got {:?}", $expected, $self.cur_tok().t),
             $self
@@ -67,12 +74,6 @@ macro_rules! try_or_restore {
         }
     };
 }
-
-// macro_rules! try_or_restore_expect {
-//     ($expr:expr, $expected:expr, $self:expr) => {
-//         try_or_restore_and!($expr, error_expect!($expected, $self), $self);
-//     };
-// }
 
 macro_rules! try_or_restore_and {
     ($expr:expr, $and:expr, $self:expr) => {
@@ -134,18 +135,26 @@ impl<'a> Parser<'a> {
     }
 
     pub fn consume(&mut self) {
+        trace!("Consume token {:?}", self.cur_tok());
+
         self.cur_tok_id += 1;
     }
 
     pub fn save(&mut self) {
+        debug!("Save()");
+
         self.save.push(self.cur_tok_id);
     }
 
     pub fn save_pop(&mut self) {
+        debug!("Save_pop()");
+
         self.save.pop().unwrap();
     }
 
     pub fn restore(&mut self) {
+        debug!("Restore()");
+
         let save = self.save.pop().unwrap();
 
         self.cur_tok_id = save;
@@ -178,6 +187,7 @@ impl Parse for Mod {
                 Ok(top) => res.push(top),
                 Err(e) => {
                     ctx.ctx.diagnostics.push(e.clone());
+
                     return Err(e);
                 }
             };
@@ -333,38 +343,18 @@ impl Parse for Body {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let stmt = Statement::parse(ctx)?;
 
-        Ok(Body {
-            // identity: Identity::new(stmt.identity.token_id),
-            stmt,
-        })
+        Ok(Body { stmt })
     }
 }
 
 impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        // let token = ctx.cur_tok_id;
-
-        let kind = Box::new(match If::parse(ctx) {
-            Ok(if_) => StatementKind::If(if_),
-            Err(_e) => match Expression::parse(ctx) {
-                Ok(expr) => StatementKind::Expression(expr),
-                Err(_e) => error!("Expected statement".to_string(), ctx),
-            },
+        let kind = Box::new(match Expression::parse(ctx) {
+            Ok(expr) => StatementKind::Expression(expr),
+            Err(_e) => error!("Expected statement".to_string(), ctx),
         });
-        // } else if let Ok(for_) = For::parse(ctx) {
-        //     StatementKind::For(for_)
-        // } else if let Ok(assign) = Assignation::parse(ctx) {
-        //     StatementKind::Assignation(assign)
-        // } else if let Ok(expr) = Expression::parse(ctx) {
-        //     StatementKind::Expression(expr)
-        // } else {
-        //     error!("Expected statement".to_string(), ctx);
-        // });
 
-        Ok(Statement {
-            kind,
-            // identity: Identity::new(token),
-        })
+        Ok(Statement { kind })
     }
 }
 

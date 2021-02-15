@@ -7,22 +7,10 @@ use crate::ast::resolve::ResolutionMap;
 pub struct Root {
     pub r#mod: Mod,
     pub resolutions: ResolutionMap<NodeId>,
-    // pub identity: Identity,
-}
-
-#[derive(Debug, Clone)]
-pub struct Path {
-    pub segments: Vec<Segment>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Segment {
-    pub name: Identifier,
 }
 
 #[derive(Debug, Clone)]
 pub struct Mod {
-    // pub name: Path,
     pub top_levels: Vec<TopLevel>,
     pub identity: Identity,
 }
@@ -37,7 +25,6 @@ pub struct TopLevel {
 pub enum TopLevelKind {
     Function(FunctionDecl),
     Mod(Identifier, Mod),
-    // Use(Path),
 }
 
 #[derive(Debug, Clone)]
@@ -50,15 +37,72 @@ pub struct FunctionDecl {
 
 generate_has_name!(FunctionDecl);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct IdentifierPath {
     pub path: Vec<Identifier>,
 }
 
-#[derive(Debug, Clone)]
+impl IdentifierPath {
+    pub fn new_root() -> Self {
+        Self {
+            path: vec![Identifier {
+                name: "root".to_string(),
+                identity: Identity::new_placeholder(),
+            }],
+        }
+    }
+
+    pub fn parent(&self) -> Self {
+        let mut parent = self.clone();
+
+        if parent.path.len() > 1 {
+            parent.path.pop();
+        }
+
+        parent
+    }
+
+    pub fn child(&self, name: Identifier) -> Self {
+        let mut child = self.clone();
+
+        child.path.push(name);
+
+        child
+    }
+
+    pub fn last_segment(&self) -> Identifier {
+        self.path.iter().last().unwrap().clone()
+    }
+
+    pub fn last_segment_ref(&self) -> &Identifier {
+        self.path.iter().last().unwrap()
+    }
+
+    pub fn prepend_mod(&self, path: IdentifierPath) -> Self {
+        let mut path = path.clone();
+
+        path.path.extend::<_>(self.path.clone());
+
+        path
+    }
+}
+
+#[derive(Debug, Clone, Eq)]
 pub struct Identifier {
     pub name: String,
     pub identity: Identity,
+}
+
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl std::hash::Hash for Identifier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
 }
 
 impl std::ops::Deref for Identifier {
@@ -81,21 +125,16 @@ pub struct ArgumentDecl {
 #[derive(Debug, Clone)]
 pub struct Body {
     pub stmt: Statement,
-    // pub identity: Identity,
 }
 
 #[derive(Debug, Clone)]
 pub struct Statement {
     pub kind: Box<StatementKind>,
-    // pub identity: Identity,
 }
 
 #[derive(Debug, Clone)]
 pub enum StatementKind {
-    If(If),
-    // For(For),
     Expression(Expression),
-    // Assignation(Assignation),
 }
 
 #[derive(Debug, Clone)]
@@ -108,7 +147,6 @@ pub struct If {
 #[derive(Debug, Clone)]
 pub struct Expression {
     pub kind: ExpressionKind,
-    // pub identity: Identity,
 }
 
 impl Expression {
@@ -125,13 +163,6 @@ impl Expression {
             _ => false,
         }
     }
-
-    // pub fn get_identifier(&self) -> Option<String> {
-    //     match &self.kind {
-    //         ExpressionKind::UnaryExpr(unary) => unary.get_identifier(),
-    //         _ => None,
-    //     }
-    // }
 }
 
 #[derive(Debug, Clone)]
@@ -174,24 +205,6 @@ impl UnaryExpr {
             _ => false,
         }
     }
-
-    // pub fn get_identifier(&self) -> Option<String> {
-    //     match self {
-    //         UnaryExpr::PrimaryExpr(p) => match p {
-    //             PrimaryExpr::PrimaryExpr(operand, vec) => match &operand.kind {
-    //                 OperandKind::Identifier(i) => {
-    //                     if vec.len() == 0 {
-    //                         Some(i.name.clone())
-    //                     } else {
-    //                         None
-    //                     }
-    //                 }
-    //                 _ => None,
-    //             },
-    //         },
-    //         _ => None,
-    //     }
-    // }
 }
 
 #[derive(Debug, Clone)]
@@ -222,38 +235,22 @@ impl PrimaryExpr {
             PrimaryExpr::PrimaryExpr(_, vec) => !vec.is_empty(),
         }
     }
-
-    // pub fn get_identifier(&self) -> Option<String> {
-    //     match self {
-    //         PrimaryExpr::PrimaryExpr(op, _) => {
-    //             if let OperandKind::Identifier(ident) = &op.kind {
-    //                 Some(ident.name.clone())
-    //             } else {
-    //                 None
-    //             }
-    //         }
-    //     }
-    // }
 }
 
 #[derive(Debug, Clone)]
 pub struct Operand {
     pub kind: OperandKind,
-    // pub identity: Identity,
 }
 
 #[derive(Debug, Clone)]
 pub enum OperandKind {
     Literal(Literal),
     Identifier(IdentifierPath),
-    // ClassInstance(ClassInstance),
-    // Array(Array),
     Expression(Box<Expression>), // parenthesis
 }
 
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
-    // Selector(Selector), // . Identifier  // u8 is the attribute index in struct // option<Type> is the class type if needed // RealFullName
     Arguments(Vec<Argument>), // (Expr, Expr, ...)
                               // Index(Box<Expression>), // [Expr]
 }
@@ -276,5 +273,4 @@ pub type Arguments = Vec<Argument>;
 #[derive(Debug, Clone)]
 pub struct Argument {
     pub arg: Expression,
-    // pub identity: Identity,
 }

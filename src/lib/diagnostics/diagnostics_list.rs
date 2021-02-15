@@ -14,6 +14,8 @@ impl Diagnostics {
     pub fn push(&mut self, diag: Diagnostic) {
         self.must_stop = true;
 
+        trace!("Push diagnostic: {:#?}", diag);
+
         self.list.push(diag);
     }
 

@@ -24,6 +24,7 @@ use crate::diagnostics::Diagnostic;
 pub fn parse(ctx: &mut ParsingCtx) -> Result<(crate::ast::Root, Vec<Token>), Diagnostic> {
     // let preprocessed = preprocess(input.clone());
 
+    info!("      -> Parsing Root");
     // let input: Vec<char> = ctx.get_current_file().chars().collect();
 
     let tokens = Lexer::new(ctx).collect();
@@ -58,6 +59,8 @@ pub fn parse_mod(
     // let preprocessed = preprocess(input.clone());
 
     // let input: Vec<char> = ctx.get_current_file().chars().collect();
+
+    info!("      -> Parsing Mod {}", name);
 
     ctx.resolve_and_add_file(name)?;
 

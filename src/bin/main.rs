@@ -91,8 +91,8 @@ fn run_file(config: Config) {
     }
 }
 
-fn run() {
-    if !build(Config::default()) {
+fn run(config: Config) {
+    if !build(config) {
         return;
     }
 
@@ -124,6 +124,24 @@ fn main() {
                 .short("v")
                 .help("Verbose level"),
         )
+        .arg(
+            Arg::with_name("ast")
+                .short("a")
+                .takes_value(false)
+                .help("Show ast"),
+        )
+        .arg(
+            Arg::with_name("hir")
+                .short("h")
+                .takes_value(false)
+                .help("Show hir"),
+        )
+        .arg(
+            Arg::with_name("ir")
+                .short("i")
+                .takes_value(false)
+                .help("Show the generated IR"),
+        )
         .subcommand(
             SubCommand::with_name("build")
                 .about("Build the current project directory")
@@ -141,25 +159,7 @@ fn main() {
                 .about("Run given files")
                 .version("0.0.1")
                 .author("Champii <contact@champii.io>")
-                .arg(Arg::with_name("files").multiple(true).help("Files to run"))
-                .arg(
-                    Arg::with_name("ast")
-                        .short("a")
-                        .takes_value(false)
-                        .help("Show ast"),
-                )
-                .arg(
-                    Arg::with_name("hir")
-                        .short("h")
-                        .takes_value(false)
-                        .help("Show hir"),
-                )
-                .arg(
-                    Arg::with_name("ir")
-                        .short("i")
-                        .takes_value(false)
-                        .help("Show the generated IR"),
-                ),
+                .arg(Arg::with_name("files").multiple(true).help("Files to run")),
         )
         .subcommand(
             SubCommand::with_name("compile")
@@ -170,30 +170,15 @@ fn main() {
                     Arg::with_name("files")
                         .multiple(true)
                         .help("Files to compile"),
-                )
-                .arg(
-                    Arg::with_name("ast")
-                        .short("a")
-                        .takes_value(false)
-                        .help("Show ast"),
-                )
-                .arg(
-                    Arg::with_name("hir")
-                        .short("h")
-                        .takes_value(false)
-                        .help("Show hir"),
-                )
-                .arg(
-                    Arg::with_name("ir")
-                        .short("i")
-                        .takes_value(false)
-                        .help("Show the generated IR"),
                 ),
         )
         .get_matches();
 
     let mut config = fock::Config {
-        verbose: 5,
+        verbose: 2,
+        show_ast: matches.is_present("ast"),
+        show_hir: matches.is_present("hir"),
+        show_ir: matches.is_present("ir"),
         ..Default::default()
     };
 
@@ -210,15 +195,12 @@ fn main() {
     }
 
     if let Some(_matches) = matches.subcommand_matches("run") {
-        run();
+        run(config);
 
         return;
     }
 
     if let Some(matches) = matches.subcommand_matches("runfile") {
-        config.show_ast = matches.is_present("ast");
-        config.show_hir = matches.is_present("hir");
-        config.show_ir = matches.is_present("ir");
         config.files = matches
             .values_of("files")
             .unwrap()
@@ -231,9 +213,6 @@ fn main() {
     }
 
     if let Some(matches) = matches.subcommand_matches("compile") {
-        config.show_ast = matches.is_present("ast");
-        config.show_hir = matches.is_present("hir");
-        config.show_ir = matches.is_present("ir");
         config.files = matches
             .values_of("files")
             .unwrap()

@@ -46,6 +46,10 @@ impl<'a> Visitor<'a> for AnnotateContext {
         };
     }
 
+    fn visit_identifier_path(&mut self, id: &IdentifierPath) {
+        self.visit_identifier(id.path.iter().last().unwrap());
+    }
+
     fn visit_identifier(&mut self, id: &Identifier) {
         self.state
             .new_named_annotation(id.name.clone(), id.hir_id.clone());

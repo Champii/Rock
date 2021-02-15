@@ -118,11 +118,9 @@ impl AstLoweringContext {
     pub fn lower_statement(&mut self, stmt: &Statement) -> hir::Statement {
         hir::Statement {
             kind: match &*stmt.kind {
-                // StatementKind::If(i) => hir::StatementKind::If(self.lower_if(i)),
                 StatementKind::Expression(e) => {
                     Box::new(hir::StatementKind::Expression(self.lower_expression(&e)))
                 }
-                _ => unimplemented!(),
             },
         }
     }

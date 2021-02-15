@@ -7,9 +7,7 @@ macro_rules! generate_visitor_trait {
         $name:ident, $method:ident
     )*) => {
         pub trait Visitor<'ast>: Sized {
-            fn visit_name(&mut self, _name: String) {
-                // Nothing
-            }
+            fn visit_name(&mut self, _name: String) {}
 
             fn visit_primitive<T>(&mut self, _val: T)
             where
@@ -40,7 +38,6 @@ generate_visitor_trait!(
     Body, body
     Statement, statement
     Expression, expression
-    If, r#if
     UnaryExpr, unary
     Operator, operator
     PrimaryExpr, primary
@@ -97,14 +94,8 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
 
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
-        StatementKind::If(i) => visitor.visit_if(&i),
         StatementKind::Expression(expr) => visitor.visit_expression(&expr),
     }
-}
-
-pub fn walk_if<'a, V: Visitor<'a>>(_visitor: &mut V, _if: &'a If) {
-    // TODO
-    // visitor.visit_(body.stmt);
 }
 
 pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression) {

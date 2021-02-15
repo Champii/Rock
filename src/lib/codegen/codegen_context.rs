@@ -176,7 +176,7 @@ impl<'a> CodegenContext<'a> {
         id: &Identifier,
         _builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
-        let reso = self.hir.resolutions.get(id.hir_id.clone()).unwrap();
+        let reso = self.hir.resolutions.get((&id.hir_id).clone()).unwrap();
 
         self.scopes.get(reso).unwrap()
     }

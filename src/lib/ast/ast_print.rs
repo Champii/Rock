@@ -97,7 +97,6 @@ impl_visitor_trait!(
     Body, body
     Statement, statement
     Expression, expression
-    If, r#if
     UnaryExpr, unary
     Operator, operator
     PrimaryExpr, primary

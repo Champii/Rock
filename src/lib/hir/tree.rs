@@ -66,9 +66,7 @@ pub struct FunctionDecl {
 
 #[derive(Debug, Clone)]
 pub struct ArgumentDecl {
-    // pub hir_id: HirId,
     pub name: Identifier,
-    // pub t: Option<Type>,
 }
 
 #[derive(Debug, Clone)]
@@ -116,7 +114,6 @@ impl Statement {
 
 #[derive(Debug, Clone)]
 pub enum StatementKind {
-    // If(If),
     Expression(Expression),
 }
 
@@ -128,10 +125,7 @@ pub struct If {
 }
 
 #[derive(Debug, Clone)]
-pub enum Else {
-    // If(If),
-// Body(Body),
-}
+pub enum Else {}
 
 #[derive(Debug, Clone)]
 pub struct Expression {
@@ -166,7 +160,6 @@ impl Expression {
 
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
-    // Binop(Expression, Operator, Expression),
     Lit(Literal),
     Identifier(IdentifierPath),
     FunctionCall(Expression, Vec<Expression>),
