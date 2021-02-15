@@ -206,7 +206,6 @@ main ->
 
 ### Todo Dependency graph
   - Modules
-    - Path
     - Rename/mangle fns before codegen
   - Polymophism
     - Mark generic functions
