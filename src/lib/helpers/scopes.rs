@@ -39,7 +39,6 @@ where
         }
 
         None
-        // self.scopes.last().unwrap()
     }
 
     pub fn add(&mut self, s: K, val: T) {
@@ -48,13 +47,6 @@ where
 
         scope.insert(s, val);
     }
-
-    // pub fn remove(&mut self, s: K) {
-    //     // Here need reverse scopes
-    //     let scope = self.scopes.last_mut().unwrap();
-
-    //     scope.remove(s);
-    // }
 
     pub fn push(&mut self) {
         self.scopes.push(Scope::new())
@@ -87,19 +79,4 @@ where
         self.items.insert(s.clone(), v);
         self.ordering.push(s);
     }
-
-    // pub fn remove(&mut self, s: K) {
-    //     self.items.remove(&s);
-    //     self.ordering = self.ordering.iter().filter(|x| **x != s).cloned().collect();
-    // }
-
-    // pub fn get_ordered(&self) -> Vec<T> {
-    //     let mut res = vec![];
-
-    //     for key in &self.ordering {
-    //         res.push(self.items.get(key).unwrap().clone());
-    //     }
-
-    //     res
-    // }
 }

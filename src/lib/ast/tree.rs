@@ -1,7 +1,9 @@
 use crate::ast::identity::Identity;
-use crate::{ast::helper::*, NodeId};
+use crate::NodeId;
 
 use crate::ast::resolve::ResolutionMap;
+use crate::generate_has_name;
+use crate::helpers::*;
 
 #[derive(Debug, Clone)]
 pub struct Root {

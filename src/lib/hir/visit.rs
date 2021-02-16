@@ -2,6 +2,7 @@ use concat_idents::concat_idents;
 
 // use crate::ast::helper::*;
 use crate::hir::*;
+use crate::walk_list;
 
 macro_rules! generate_visitor_trait {
     ($(

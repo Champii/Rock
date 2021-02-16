@@ -7,8 +7,8 @@ use inkwell::{context::Context, types::BasicTypeEnum};
 
 use crate::{
     ast::{PrimitiveType, Type},
+    helpers::scopes::Scopes,
     hir::*,
-    scopes::Scopes,
 };
 
 pub struct CodegenContext<'a> {

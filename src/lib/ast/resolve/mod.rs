@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub use resolution_map::*;
 pub use resolve_ctx::*;
 
-use crate::{ast::visit::*, parser::ParsingCtx, scopes::Scopes};
+use crate::{ast::visit::*, helpers::scopes::Scopes, parser::ParsingCtx};
 
 use super::{IdentifierPath, Root};
 

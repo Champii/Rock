@@ -1,4 +1,5 @@
 use super::{Constraint, InferState};
+use crate::walk_list;
 use crate::{ast::FuncType, hir::*};
 use crate::{ast::Type, hir::visit::*};
 

@@ -16,6 +16,8 @@ use std::{fs, path::PathBuf};
 pub mod ast;
 #[macro_use]
 pub mod infer;
+#[macro_use]
+pub mod helpers;
 
 use diagnostics::Diagnostic;
 use parser::{ParsingCtx, SourceFile};
@@ -23,17 +25,14 @@ use parser::{ParsingCtx, SourceFile};
 pub use crate::infer::*;
 mod ast_lowering;
 mod codegen;
-pub mod config;
 mod diagnostics;
 mod hir;
-pub mod logger;
 mod parser;
-mod scopes;
 mod tests;
 
 use crate::ast::ast_print::*;
 use crate::ast::visit::*;
-pub use crate::config::Config;
+pub use crate::helpers::config::Config;
 type Error = Diagnostic;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
@@ -102,26 +101,15 @@ pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Res
     Ok(())
 }
 
-pub fn parse_mod(_config: Config) -> Result<(), Error> {
-    Ok(())
-}
-
-pub fn parse_crate(_config: Config) -> Result<(), Error> {
-    Ok(())
-}
-
 pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result<(), Error> {
     let _builder = parse_file(in_name, out_name, config)?;
-
-    // builder.write(&out_name);
 
     Ok(())
 }
 
 pub fn run(in_name: String, entry: String, config: Config) -> Result<u64, Error> {
-    let _builder = parse_file(in_name, entry, config)?;
+    parse_file(in_name, entry, config)?;
 
-    // Ok(builder.run(&entry))
     Ok(0)
 }
 
@@ -134,8 +122,7 @@ pub fn run_str(input: String, entry: String, config: Config) -> Result<u64, Erro
         content: input,
     };
 
-    let _builder = parse_str(source, entry, config)?;
+    parse_str(source, entry, config)?;
 
     Ok(0)
-    // Ok(builder.run(&entry))
 }

@@ -7,7 +7,7 @@ extern crate log;
 use clap::{App, Arg, SubCommand};
 use std::process::Command;
 
-use fock::logger;
+pub mod logger;
 
 pub(crate) use fock::*;
 

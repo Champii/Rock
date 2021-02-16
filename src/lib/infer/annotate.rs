@@ -2,6 +2,7 @@ use super::InferState;
 use crate::ast::{PrimitiveType, Type};
 use crate::hir::visit::*;
 use crate::hir::*;
+use crate::walk_list;
 
 #[derive(Debug)]
 pub struct AnnotateContext {

@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use crate::walk_list;
 use crate::{
     ast::resolve::ResolutionMap, ast::visit::*, ast::*, diagnostics::Diagnostic,
-    parser::ParsingCtx, scopes::*, NodeId,
+    helpers::scopes::*, parser::ParsingCtx, NodeId,
 };
+// use crate::{helpers::class_name::generate_has_name, walk_list};
 
 #[derive(Debug)]
 pub struct ResolveCtx<'a> {
