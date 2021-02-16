@@ -165,23 +165,6 @@ pub enum ExpressionKind {
     FunctionCall(Expression, Vec<Expression>),
 }
 
-// #[derive(Debug, Clone)]
-// pub enum Operator {
-//     Add,
-//     Sub,
-//     Sum,
-//     Div,
-//     Mod,
-
-//     Less,
-//     LessOrEqual,
-//     More,
-//     MoreOrEqual,
-
-//     EqualEqual,
-//     DashEqual,
-// }
-
 #[derive(Debug, Clone)]
 pub struct Literal {
     pub hir_id: HirId,

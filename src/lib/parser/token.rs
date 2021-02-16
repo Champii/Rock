@@ -58,9 +58,6 @@ impl Default for TokenType {
 pub struct Token {
     pub t: TokenType,
     pub span: Span,
-    // pub line: usize,
-    // pub start: usize,
-    // pub end: usize,
     pub txt: String,
 }
 

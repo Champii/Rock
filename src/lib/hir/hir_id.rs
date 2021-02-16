@@ -1,10 +1,6 @@
 use paste::paste;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-// pub type CrateId = u64;
-// pub type DefIndex = u64;
-// pub type LocalId = u64;
-
 macro_rules! def_id {
     ($name:ident) => {
         paste! {
@@ -29,35 +25,3 @@ macro_rules! def_id {
 
 def_id!(HirId);
 def_id!(BodyId);
-
-// impl LocalId {
-//     fn next() -> Self {
-//         AtomicUInt64;
-//     }
-// }
-
-// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-// pub struct DefId {
-//     root: CrateId,
-//     index: DefIndex,
-// }
-
-// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-// pub struct HirId {
-//     pub owner: DefId,
-//     pub local_id: LocalId,
-// }
-
-// impl HirId {
-//     pub fn new(owner: DefId) -> Self {
-//         Self {
-//             owner,
-//             local_id: LocalId::next(owner),
-//         }
-//     }
-// }
-
-// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-// pub struct BodyId {
-//     pub id: u64,
-// }

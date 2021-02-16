@@ -1,6 +1,5 @@
 use concat_idents::concat_idents;
 
-// use crate::ast::helper::*;
 use crate::hir::*;
 use crate::walk_list;
 
@@ -9,9 +8,7 @@ macro_rules! generate_visitor_trait {
         $name:ident, $method:ident
     )*) => {
         pub trait Visitor<'ast>: Sized {
-            fn visit_name(&mut self, _name: String) {
-                // Nothing
-            }
+            fn visit_name(&mut self, _name: String) {}
 
             fn visit_primitive<T>(&mut self, _val: T)
             {}
@@ -31,7 +28,6 @@ macro_rules! generate_visitor_trait {
 
 generate_visitor_trait!(
     Root, root
-    // Mod, r#mod
     TopLevel, top_level
     FunctionDecl, function_decl
     ArgumentDecl, argument_decl
@@ -40,7 +36,6 @@ generate_visitor_trait!(
     Body, body
     Statement, statement
     Expression, expression
-    // If, r#if
     Literal, literal
 );
 
@@ -48,8 +43,6 @@ pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     walk_map!(visitor, visit_top_level, &root.top_levels);
     walk_map!(visitor, visit_body, &root.bodies);
 }
-
-// pub fn _walk_mod<'a, V: Visitor<'a>>(_visitor: &mut V, _mod: &'a Mod) {}
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {
@@ -80,7 +73,6 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
 
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
-        // StatementKind::If(i) => visitor.visit_if(&i),
         StatementKind::Expression(expr) => visitor.visit_expression(&expr),
     }
 }

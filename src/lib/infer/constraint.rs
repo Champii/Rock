@@ -29,9 +29,6 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             ExpressionKind::Lit(lit) => self.visit_literal(&lit),
             ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
             ExpressionKind::FunctionCall(op, args) => {
-                // get fn sig
-                // add constraint for each args
-
                 self.visit_expression(&op);
 
                 walk_list!(self, visit_expression, args);

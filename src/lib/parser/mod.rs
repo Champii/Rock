@@ -12,20 +12,11 @@ pub use token::*;
 
 use crate::diagnostics::Diagnostic;
 
-// pub fn preprocess(input: String) -> String {
-//     // Add a '.' after a '@' if it is followed by some word
-//     // This is a dirty trick to ditch having to modiffy the parser for that sugar
-//     let re = Regex::new(r"@(\w)").unwrap();
-//     let out = re.replace_all(&input, "@.$1");
-
-//     out.to_string()
-// }
-
-pub fn parse(ctx: &mut ParsingCtx) -> Result<(crate::ast::Root, Vec<Token>), Diagnostic> {
-    // let preprocessed = preprocess(input.clone());
-
+fn parse_generic<F, R>(ctx: &mut ParsingCtx, mut f: F) -> Result<(R, Vec<Token>), Diagnostic>
+where
+    F: FnMut(&mut Parser) -> Result<R, Diagnostic>,
+{
     info!("      -> Parsing Root");
-    // let input: Vec<char> = ctx.get_current_file().chars().collect();
 
     let tokens = Lexer::new(ctx).collect();
 
@@ -35,7 +26,9 @@ pub fn parse(ctx: &mut ParsingCtx) -> Result<(crate::ast::Root, Vec<Token>), Dia
         std::process::exit(-1);
     }
 
-    let ast = match Parser::new(tokens.clone(), ctx).run_root() {
+    let mut parser = Parser::new(tokens.clone(), ctx);
+
+    let ast = match f(&mut parser) {
         Ok(ast) => ast,
         Err(e) => {
             ctx.print_diagnostics();
@@ -50,40 +43,19 @@ pub fn parse(ctx: &mut ParsingCtx) -> Result<(crate::ast::Root, Vec<Token>), Dia
 
     Ok((ast, tokens))
 }
+pub fn parse_root(ctx: &mut ParsingCtx) -> Result<(crate::ast::Root, Vec<Token>), Diagnostic> {
+    info!("      -> Parsing Root");
 
-// TODO: Deduplicate
+    parse_generic(ctx, |p| p.run_root())
+}
+
 pub fn parse_mod(
     name: String,
     ctx: &mut ParsingCtx,
 ) -> Result<(crate::ast::Mod, Vec<Token>), Diagnostic> {
-    // let preprocessed = preprocess(input.clone());
-
-    // let input: Vec<char> = ctx.get_current_file().chars().collect();
-
     info!("      -> Parsing Mod {}", name);
 
     ctx.resolve_and_add_file(name)?;
 
-    let tokens = Lexer::new(ctx).collect();
-
-    if ctx.diagnostics.must_stop {
-        ctx.print_diagnostics();
-
-        std::process::exit(-1);
-    }
-
-    let ast = match Parser::new(tokens.clone(), ctx).run_mod() {
-        Ok(ast) => ast,
-        Err(e) => {
-            ctx.print_diagnostics();
-
-            if ctx.diagnostics.must_stop {
-                std::process::exit(-1);
-            }
-
-            return Err(e);
-        }
-    };
-
-    Ok((ast, tokens))
+    parse_generic(ctx, |p| p.run_mod())
 }

@@ -30,8 +30,6 @@ impl Type {
             Self::Class(c) => c.clone(),
             Self::ForAll(_) => String::new(),
             Self::Undefined(s) => s.to_string(),
-            // Type::Name(s) => s.clone(),
-            // Type::Array(a, _) => "[]".to_string() + &a.get_name(),
         }
     }
 }

@@ -5,12 +5,10 @@ use crate::{
     ast::resolve::ResolutionMap, ast::visit::*, ast::*, diagnostics::Diagnostic,
     helpers::scopes::*, parser::ParsingCtx, NodeId,
 };
-// use crate::{helpers::class_name::generate_has_name, walk_list};
 
 #[derive(Debug)]
 pub struct ResolveCtx<'a> {
     pub parsing_ctx: &'a mut ParsingCtx,
-    // scopes: Scopes<String, Identity>,
     pub scopes: HashMap<IdentifierPath, Scopes<String, Identity>>, // <ModPath, ModScopes>
     pub cur_scope: IdentifierPath,
     pub resolutions: ResolutionMap<NodeId>,

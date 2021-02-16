@@ -13,11 +13,9 @@ pub struct SourceFile {
     pub file_path: PathBuf,
     pub mod_path: PathBuf,
     pub content: String,
-    // pub tokens: Vec<Token>,
 }
 
 impl SourceFile {
-    // pub fn
     pub fn resolve_new(&self, name: String) -> Result<Self, ()> {
         let mut file_path = self.file_path.parent().unwrap().join(Path::new(&name));
 

@@ -1,7 +1,5 @@
 #![feature(const_fn, associated_type_bounds)]
 
-// extern crate llvm_sys as llvm;
-
 #[macro_use]
 extern crate bitflags;
 
@@ -56,7 +54,7 @@ pub fn parse_str(input: SourceFile, _output_name: String, config: Config) -> Res
     info!("    -> Parsing");
 
     // Text to Ast
-    let (mut ast, tokens) = parser::parse(&mut parsing_ctx)?;
+    let (mut ast, tokens) = parser::parse_root(&mut parsing_ctx)?;
 
     if parsing_ctx.diagnostics.must_stop {
         parsing_ctx.print_diagnostics();

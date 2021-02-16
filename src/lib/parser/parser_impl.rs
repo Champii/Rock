@@ -8,8 +8,6 @@ type Error = Diagnostic;
 macro_rules! expect {
     ($tok:expr, $self:expr) => {
         if $tok != $self.cur_tok().t {
-            // panic!("Expected {:?} but found {:?}", $expr, $tok);
-
             error_expect!($tok, $self);
         } else {
             let cur_tok = $self.cur_tok();
@@ -172,7 +170,6 @@ impl Parse for Root {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         Ok(Root {
             resolutions: ResolutionMap::default(),
-            // identity: Identity::new(ctx.cur_tok_id),
             r#mod: Mod::parse(ctx)?,
         })
     }
@@ -411,13 +408,10 @@ impl Parse for If {
 
 impl Parse for Expression {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        // let token = ctx.cur_tok_id;
-
         let left = UnaryExpr::parse(ctx)?;
 
         let mut res = Expression {
             kind: ExpressionKind::UnaryExpr(left.clone()),
-            // identity: Identity::new(token),
         };
 
         ctx.save();
@@ -514,16 +508,10 @@ impl Parse for PrimaryExpr {
 
 impl Parse for Operand {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        // let mut token = ctx.cur_tok_id;
-
         let kind = if let Ok(lit) = Literal::parse(ctx) {
             OperandKind::Literal(lit)
         } else if let Ok(ident) = IdentifierPath::parse(ctx) {
             OperandKind::Identifier(ident)
-        // } else if let Ok(c) = ClassInstance::parse(ctx) {
-        //     OperandKind::ClassInstance(c)
-        // } else if let Ok(array) = Array::parse(ctx) {
-        //     OperandKind::Array(array)
         } else if ctx.cur_tok().t == TokenType::OpenParens {
             ctx.save();
 
@@ -535,30 +523,17 @@ impl Parse for Operand {
 
             ctx.save_pop();
 
-            // token = expr.identity.token_id;
-
             OperandKind::Expression(Box::new(expr))
         } else {
             error!("Expected operand".to_string(), ctx);
         };
 
-        Ok(Operand {
-            kind,
-            // identity: Identity::new(token),
-        })
+        Ok(Operand { kind })
     }
 }
 
 impl Parse for SecondaryExpr {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        // if let Ok(idx) = Self::index(ctx) {
-        //     return Ok(SecondaryExpr::Index(idx));
-        // }
-
-        // if let Ok(sel) = Selector::parse(ctx) {
-        //     return Ok(SecondaryExpr::Selector(sel));
-        // }
-
         if let Ok(args) = Arguments::parse(ctx) {
             return Ok(SecondaryExpr::Arguments(args));
         }
@@ -631,11 +606,8 @@ impl Parse for Arguments {
 
 impl Parse for Argument {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        // let token = ctx.cur_tok_id;
-
         Ok(Argument {
             arg: Expression::parse(ctx)?,
-            // identity: Identity::new(token),
         })
     }
 }

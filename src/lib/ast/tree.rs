@@ -253,8 +253,7 @@ pub enum OperandKind {
 
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
-    Arguments(Vec<Argument>), // (Expr, Expr, ...)
-                              // Index(Box<Expression>), // [Expr]
+    Arguments(Vec<Argument>),
 }
 
 #[derive(Debug, Clone)]

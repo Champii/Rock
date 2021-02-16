@@ -17,7 +17,6 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) {
 
     let mut ctx = ResolveCtx {
         parsing_ctx,
-        // scopes: Scopes::new(),
         scopes,
         cur_scope: IdentifierPath::new_root(),
         resolutions: ResolutionMap::default(),

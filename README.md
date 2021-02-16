@@ -13,25 +13,12 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 
 ## Example
 
-```coffee
-class Foo              # Class declaration
-    bar :: Int         # Type Integer
-    def: 32            # Default value (type inference)
-    def2 :: Int: 32    # Default value (explicit type)
-    f -> @bar + @def   # Method
+```haskell
+mod other_file
 
-add a, b -> a + b      # Polymorphism by default
-
-main ->                # Main function
-    x = 1
-    y = 2
-
-    add x, y           # Call to function
-
-    a = Foo            # Class instance
-        bar: 10        # 'def' property is ommited
-
-    a.f()              # Returns 42
+main = foo 42
+foo a = bar a
+bar a = a
 ```
 
 ## Usage
@@ -150,10 +137,6 @@ main ->
   - Use the simpliest syntax possible
   - Custom operators
   - If/Else
-  - Ultra basic HIR-MIR
-  - Typing + inference
-  - Crate/Mod
-  - Basic LLVM compile
 
 ## 2
 
