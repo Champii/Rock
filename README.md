@@ -46,74 +46,28 @@ Champii <contact@champii.io>
 Simple toy language
 
 USAGE:
-    rock [SUBCOMMAND]
-
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-
-SUBCOMMANDS:
-    build      Build the current project directory
-    compile    Compile given files
-    help       Prints this message or the help of the given subcommand(s)
-    run        Run the current project directory
-```
-
-### Compile
-
-Compile each given files individualy, does not link them afterward.
-
-```
-Compile given files
-
-USAGE:
-    rock compile [FLAGS] [files]...
+    fock [FLAGS] [OPTIONS] [SUBCOMMAND]
 
 FLAGS:
     -a               Show ast
-    -h, --help       Prints help information
+        --help       Prints help information
+    -h               Show hir
     -i               Show the generated IR
     -V, --version    Prints version information
 
-ARGS:
-    <files>...    Files to compile
+OPTIONS:
+    -v <verbose>        Verbose level
+
+SUBCOMMANDS:
+    build    Build the current project directory
+    help     Prints this message or the help of the given subcommand(s)
+    run      Run the current project directory
 ```
 
-### Build (TODO)
-
-Treat the current working directory as a project, and will descend recursively into it to compile each ".rk" file it encounters.
-It will then link them together.
-
-```
-Build the current project directory
-
-USAGE:
-    rock build
-
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-```
-
-### Run (TODO)
-
-Same as 'build' but it runs the created binary afterwards.
-
-```
-Run the current project directory
-
-USAGE:
-    rock run
-
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-```
 
 ## TODO (by order):
 
 - v0.1.0
-    - Replace llvm-sys with Inkwell
     - escaped chars
     - immutable by default
     - mut keyword
@@ -121,7 +75,6 @@ FLAGS:
     - floats
     - sub, mul div and mod
     - while/for_in
-    - modules/multi-file
     - enums
     - type aliasing
 - v1.0.0
