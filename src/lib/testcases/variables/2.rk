@@ -1,4 +1,0 @@
-main :: Int32 ->
-    a: Int32 = 10
-    b: Int32 = 32
-    c: Int32 = a + b

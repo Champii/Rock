@@ -16,6 +16,16 @@ pub struct SourceFile {
 }
 
 impl SourceFile {
+    pub fn from_file(in_name: String) -> Self {
+        let file = fs::read_to_string(in_name.clone()).expect("Woot");
+
+        SourceFile {
+            file_path: PathBuf::from(in_name.clone()),
+            mod_path: PathBuf::from(in_name),
+            content: file,
+        }
+    }
+
     pub fn resolve_new(&self, name: String) -> Result<Self, ()> {
         let mut file_path = self.file_path.parent().unwrap().join(Path::new(&name));
 
@@ -59,6 +69,16 @@ impl ParsingCtx {
 
     pub fn print_diagnostics(&self) {
         self.diagnostics.print(&self.files);
+    }
+
+    pub fn return_if_error(&self) -> Result<(), Diagnostic> {
+        if self.diagnostics.must_stop {
+            self.print_diagnostics();
+
+            return Err(Diagnostic::new_empty());
+        }
+
+        Ok(())
     }
 
     pub fn new_span(&self, start: usize, end: usize) -> Span {

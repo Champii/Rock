@@ -1,5 +1,0 @@
-toto b -> 42
-
-log a -> toto a
-
-main -> log 42

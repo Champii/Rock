@@ -16,26 +16,16 @@ fn parse_generic<F, R>(ctx: &mut ParsingCtx, mut f: F) -> Result<(R, Vec<Token>)
 where
     F: FnMut(&mut Parser) -> Result<R, Diagnostic>,
 {
-    info!("      -> Parsing Root");
-
     let tokens = Lexer::new(ctx).collect();
 
-    if ctx.diagnostics.must_stop {
-        ctx.print_diagnostics();
-
-        std::process::exit(-1);
-    }
+    ctx.return_if_error()?;
 
     let mut parser = Parser::new(tokens.clone(), ctx);
 
     let ast = match f(&mut parser) {
         Ok(ast) => ast,
         Err(e) => {
-            ctx.print_diagnostics();
-
-            if ctx.diagnostics.must_stop {
-                std::process::exit(-1);
-            }
+            ctx.return_if_error()?;
 
             return Err(e);
         }
@@ -43,6 +33,7 @@ where
 
     Ok((ast, tokens))
 }
+
 pub fn parse_root(ctx: &mut ParsingCtx) -> Result<(crate::ast::Root, Vec<Token>), Diagnostic> {
     info!("      -> Parsing Root");
 

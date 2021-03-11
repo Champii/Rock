@@ -64,6 +64,8 @@ SUBCOMMANDS:
     - while/for_in
     - enums
     - type aliasing
+    - Technical
+      - Return diagnostic list as error instead of a single one
 - v1.0.0
     - desugar
     - operator overload

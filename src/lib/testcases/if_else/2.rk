@@ -1,6 +1,0 @@
-main :: Int32 ->
-    if false
-        1
-    else
-        2
-    42

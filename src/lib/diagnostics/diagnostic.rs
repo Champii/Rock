@@ -14,6 +14,13 @@ impl Diagnostic {
         Self { span, kind }
     }
 
+    pub fn new_empty() -> Self {
+        Self {
+            span: Span::new_placeholder(),
+            kind: DiagnosticKind::NoError,
+        }
+    }
+
     pub fn new_unexpected_token(span: Span) -> Self {
         Self::new(span, DiagnosticKind::UnexpectedToken)
     }
@@ -89,6 +96,7 @@ pub enum DiagnosticKind {
     NotAFunction,
     UnusedParameter,
     UnusedFunction,
+    NoError, //TODO: remove that
 }
 
 impl Display for DiagnosticKind {
