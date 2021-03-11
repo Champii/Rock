@@ -1,0 +1,3 @@
+mod mymod
+
+main = mymod::myfunc 42

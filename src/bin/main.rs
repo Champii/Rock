@@ -1,5 +1,5 @@
 extern crate clap;
-extern crate fock;
+extern crate rock;
 
 #[macro_use]
 extern crate log;
@@ -9,14 +9,14 @@ use std::process::Command;
 
 pub mod logger;
 
-pub(crate) use fock::*;
+pub(crate) use rock::*;
 
 fn build(config: Config) -> bool {
     info!(" -> Building");
 
     let entry_file = "./src/main.rk";
 
-    if let Err(_e) = fock::file_to_file(entry_file.to_string(), "".to_string(), config.clone()) {
+    if let Err(_e) = rock::file_to_file(entry_file.to_string(), "".to_string(), config.clone()) {
         return false;
     }
 
@@ -58,7 +58,7 @@ fn run(config: Config) {
 }
 
 fn main() {
-    let matches = App::new("fock")
+    let matches = App::new("rock")
         .version("0.0.1")
         .author("Champii <contact@champii.io>")
         .about("Simple toy language")
@@ -100,7 +100,7 @@ fn main() {
         )
         .get_matches();
 
-    let mut config = fock::Config {
+    let mut config = rock::Config {
         verbose: 2,
         show_ast: matches.is_present("ast"),
         show_hir: matches.is_present("hir"),

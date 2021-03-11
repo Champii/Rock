@@ -33,7 +33,7 @@ Champii <contact@champii.io>
 Simple toy language
 
 USAGE:
-    fock [FLAGS] [OPTIONS] [SUBCOMMAND]
+    rock [FLAGS] [OPTIONS] [SUBCOMMAND]
 
 FLAGS:
     -a               Show ast

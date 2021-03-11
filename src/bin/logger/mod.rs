@@ -50,7 +50,7 @@ pub fn init_logger(level: u8) {
     });
 
     builder.filter_level(LevelFilter::Warn);
-    builder.filter_module("fock", level_filter);
+    builder.filter_module("rock", level_filter);
 
     builder.init();
 }

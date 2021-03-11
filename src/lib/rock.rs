@@ -8,8 +8,6 @@ extern crate log;
 #[macro_use]
 extern crate concat_idents;
 
-use std::{fs, path::PathBuf, process::Command};
-
 #[macro_use]
 pub mod ast;
 #[macro_use]
@@ -103,41 +101,47 @@ pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result
 
 // TEST
 
-fn build(input: String, config: Config) -> bool {
-    let file = SourceFile {
-        file_path: PathBuf::from(""),
-        mod_path: PathBuf::from(""),
-        content: input,
-    };
+pub mod test {
+    use super::*;
+    use crate::{parser::SourceFile, Config};
+    use std::{path::PathBuf, process::Command};
 
-    if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
-        return false;
+    fn build(input: String, config: Config) -> bool {
+        let file = SourceFile {
+            file_path: PathBuf::from(""),
+            mod_path: PathBuf::from(""),
+            content: input,
+        };
+
+        if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
+            return false;
+        }
+
+        Command::new("llc")
+            .args(&["out.ir"])
+            .output()
+            .expect("failed to execute process");
+
+        Command::new("clang")
+            .args(&["out.ir.s"])
+            .output()
+            .expect("failed to execute process");
+
+        true
     }
 
-    Command::new("llc")
-        .args(&["out.ir"])
-        .output()
-        .expect("failed to execute process");
+    pub fn run(input: String, config: Config) -> i64 {
+        if !build(input, config) {
+            return -1;
+        }
 
-    Command::new("clang")
-        .args(&["out.ir.s"])
-        .output()
-        .expect("failed to execute process");
+        let cmd = Command::new("./a.out")
+            .output()
+            .expect("failed to execute process");
 
-    true
-}
-
-fn run(input: String, config: Config) -> i64 {
-    if !build(input, config) {
-        return -1;
-    }
-
-    let cmd = Command::new("./a.out")
-        .output()
-        .expect("failed to execute process");
-
-    match cmd.status.code() {
-        Some(code) => code.into(),
-        None => -1,
+        match cmd.status.code() {
+            Some(code) => code.into(),
+            None => -1,
+        }
     }
 }

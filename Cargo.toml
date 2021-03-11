@@ -1,5 +1,5 @@
 [package]
-name = "fock"
+name = "rock"
 version = "0.0.1"
 authors = ["champii <contact@champii>"]
 edition = "2018"
@@ -16,9 +16,9 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", feat
 paste = "1.0"
 
 [lib]
-name = "fock"
-path = "src/lib/fock.rs"
+name = "rock"
+path = "src/lib/rock.rs"
 
 [[bin]]
-name = "fock"
+name = "rock"
 path = "src/bin/main.rs"
