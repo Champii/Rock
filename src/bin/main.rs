@@ -16,7 +16,7 @@ fn build(config: Config) -> bool {
 
     let entry_file = "./src/main.rk";
 
-    if let Err(_e) = rock::file_to_file(entry_file.to_string(), "".to_string(), config.clone()) {
+    if let Err(_e) = rock::parse_file(entry_file.to_string(), "".to_string(), config.clone()) {
         return false;
     }
 

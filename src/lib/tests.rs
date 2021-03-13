@@ -16,10 +16,10 @@ fn testcases_basic_main() {
 }
 
 #[test]
-fn testcases_basic_fn() {
+fn testcases_basic_0_arg_fn() {
     use super::Config;
 
-    let input = include_str!("./testcases/basic/fn.rk");
+    let input = include_str!("./testcases/basic/0_arg_fn.rk");
     let expected_output = 42;
 
     let config = Config::default();

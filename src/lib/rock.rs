@@ -73,34 +73,6 @@ pub fn parse_str(
     Ok(())
 }
 
-pub fn file_to_file(in_name: String, out_name: String, config: Config) -> Result<(), Diagnostic> {
-    let _builder = parse_file(in_name, out_name, config)?;
-
-    Ok(())
-}
-
-// pub fn run(in_name: String, entry: String, config: Config) -> Result<u64, Diagnostic> {
-//     parse_file(in_name, entry, config)?;
-
-//     Ok(0)
-// }
-
-// pub fn run_str(input: String, entry: String, config: Config) -> Result<u64, Diagnostic> {
-//     info!("Parsing StdIn");
-
-//     let source = SourceFile {
-//         file_path: PathBuf::from(""),
-//         mod_path: PathBuf::from(""),
-//         content: input,
-//     };
-
-//     parse_str(source, entry, config)?;
-
-//     Ok(0)
-// }
-
-// TEST
-
 pub mod test {
     use super::*;
     use crate::{parser::SourceFile, Config};
