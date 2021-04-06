@@ -16,9 +16,15 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 ```haskell
 mod other_file
 
-main = foo 42
++ a b = ~Add a b
+- a b = ~Sub a b
+* a b = ~Mul a b
+/ a b = ~Div a b
+
 foo a = bar a
 bar a = a
+
+main = foo (/ (* (- (+ 10, 20), 5), 10), 5)
 ```
 
 ## Usage
