@@ -1,9 +1,9 @@
 use std::convert::TryInto;
 
-use inkwell::module::Module;
 use inkwell::types::BasicType;
 use inkwell::{builder::Builder, values::BasicValueEnum};
 use inkwell::{context::Context, types::BasicTypeEnum};
+use inkwell::{module::Module, values::BasicValue};
 
 use crate::{
     ast::{PrimitiveType, Type},
@@ -118,6 +118,9 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::FunctionCall(callee, args) => {
                 self.lower_function_call(callee, args, builder)
             }
+            ExpressionKind::NativeOperation(op, left, right) => {
+                self.lower_native_operation(op, left, right, builder)
+            }
         }
     }
 
@@ -179,5 +182,24 @@ impl<'a> CodegenContext<'a> {
         let reso = self.hir.resolutions.get((&id.hir_id).clone()).unwrap();
 
         self.scopes.get(reso).unwrap()
+    }
+
+    pub fn lower_native_operation(
+        &mut self,
+        op: &NativeOperator,
+        left: &Identifier,
+        right: &Identifier,
+        builder: &'a Builder,
+    ) -> BasicValueEnum<'a> {
+        let left = self.lower_identifier(left, builder).into_int_value();
+        let right = self.lower_identifier(right, builder).into_int_value();
+
+        match op.kind {
+            NativeOperatorKind::Add => builder.build_int_add(left, right, ""),
+            NativeOperatorKind::Sub => builder.build_int_sub(left, right, ""),
+            NativeOperatorKind::Mul => builder.build_int_mul(left, right, ""),
+            NativeOperatorKind::Div => builder.build_int_signed_div(left, right, ""),
+        }
+        .as_basic_value_enum()
     }
 }

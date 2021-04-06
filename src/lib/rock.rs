@@ -40,6 +40,12 @@ pub fn parse_str(
     config: Config,
 ) -> Result<(), Diagnostic> {
     let mut parsing_ctx = ParsingCtx::default();
+
+    //     input.content = r#"__compiler_add a b = __compiler_add a b
+    // "#
+    //     .to_owned()
+    //         + &input.content;
+
     parsing_ctx.add_file(input.clone());
 
     // Text to Ast

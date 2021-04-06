@@ -54,4 +54,9 @@ impl<'a> Visitor<'a> for AnnotateContext {
         self.state
             .new_named_annotation(id.name.clone(), id.hir_id.clone());
     }
+
+    fn visit_native_operator(&mut self, op: &NativeOperator) {
+        self.state
+            .new_type_solved(op.hir_id.clone(), Type::Primitive(PrimitiveType::Int64));
+    }
 }

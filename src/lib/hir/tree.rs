@@ -148,12 +148,18 @@ impl Expression {
             kind: Box::new(ExpressionKind::FunctionCall(op, args)),
         }
     }
+    pub fn new_native_operation(op: NativeOperator, left: Identifier, right: Identifier) -> Self {
+        Self {
+            kind: Box::new(ExpressionKind::NativeOperation(op, left, right)),
+        }
+    }
 
     pub fn get_terminal_hir_id(&self) -> HirId {
         match &*self.kind {
             ExpressionKind::Lit(l) => l.hir_id.clone(),
             ExpressionKind::Identifier(i) => i.path.iter().last().unwrap().hir_id.clone(),
             ExpressionKind::FunctionCall(op, _args) => op.get_terminal_hir_id(),
+            ExpressionKind::NativeOperation(op, _left, _right) => op.hir_id.clone(),
         }
     }
 }
@@ -163,6 +169,7 @@ pub enum ExpressionKind {
     Lit(Literal),
     Identifier(IdentifierPath),
     FunctionCall(Expression, Vec<Expression>),
+    NativeOperation(NativeOperator, Identifier, Identifier),
 }
 
 #[derive(Debug, Clone)]
@@ -176,4 +183,18 @@ pub enum LiteralKind {
     Number(i64),
     String(String),
     Bool(u64),
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeOperator {
+    pub hir_id: HirId,
+    pub kind: NativeOperatorKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum NativeOperatorKind {
+    Add,
+    Sub,
+    Mul,
+    Div,
 }

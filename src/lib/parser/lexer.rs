@@ -29,6 +29,7 @@ pub struct Lexer<'a> {
     last_char: char,
     cur_line: usize,
     end: bool,
+    accepted_operator_chars: Vec<char>,
 }
 
 impl<'a> Lexer<'a> {
@@ -44,31 +45,8 @@ impl<'a> Lexer<'a> {
             cur_idx: 0,
             cur_line: 1,
             end: false,
+            accepted_operator_chars: super::accepted_operator_chars(),
         }
-    }
-
-    fn has_separator(&self, token_len: usize, sep: Sep) -> bool {
-        if sep == Sep::empty() {
-            return true;
-        }
-
-        let mut seps = vec![];
-
-        if sep & Sep::WS == Sep::WS {
-            seps.push(' ');
-        }
-
-        if sep & Sep::EOL == Sep::EOL {
-            seps.push('\n');
-        }
-
-        if sep & Sep::NOTALPHANUM == Sep::NOTALPHANUM
-            && !self.input[self.cur_idx + token_len].is_alphanumeric()
-        {
-            seps.push(self.input[self.cur_idx + token_len]);
-        }
-
-        seps.contains(&self.input[self.cur_idx + token_len])
     }
 
     pub fn next(&mut self) -> Token {
@@ -103,13 +81,16 @@ impl<'a> Lexer<'a> {
             Self::try_bool,
             Self::try_ident,
             Self::try_arrow,
+            Self::try_operator_ident,
+            Self::try_native_operator,
+            // Self::try_primitive_operator,
             Self::try_digit,
             Self::try_coma,
             Self::try_dot,
             Self::try_double_semi_colon,
             Self::try_semi_colon,
-            Self::try_operator,
             Self::try_equal,
+            // Self::try_operator,
             Self::try_this,
             Self::try_string,
             Self::try_end_of,
@@ -132,6 +113,30 @@ impl<'a> Lexer<'a> {
         self.end = true;
 
         self.new_token(TokenType::EOF, self.cur_idx, "".to_string())
+    }
+
+    fn has_separator(&self, token_len: usize, sep: Sep) -> bool {
+        if sep == Sep::empty() {
+            return true;
+        }
+
+        let mut seps = vec![];
+
+        if sep & Sep::WS == Sep::WS {
+            seps.push(' ');
+        }
+
+        if sep & Sep::EOL == Sep::EOL {
+            seps.push('\n');
+        }
+
+        if sep & Sep::NOTALPHANUM == Sep::NOTALPHANUM
+            && !self.input[self.cur_idx + token_len].is_alphanumeric()
+        {
+            seps.push(self.input[self.cur_idx + token_len]);
+        }
+
+        seps.contains(&self.input[self.cur_idx + token_len])
     }
 
     fn discard_comment(&mut self) {
@@ -337,31 +342,31 @@ impl<'a> Lexer<'a> {
         None
     }
 
-    fn try_operator(&mut self) -> Option<Token> {
-        if self.last_char == '+' {
-            self.match_consume(
-                "+",
-                TokenType::Operator(self.last_char.to_string()),
-                Sep::empty(),
-            )
-        } else if self.last_char == '-' {
-            self.match_consume("-", TokenType::Operator("-".to_string()), Sep::empty())
-        } else if self.last_char == '=' && self.input[self.cur_idx + 1] == '=' {
-            self.match_consume("==", TokenType::Operator("==".to_string()), Sep::empty())
-        } else if self.last_char == '!' && self.input[self.cur_idx + 1] == '=' {
-            self.match_consume("!=", TokenType::Operator("!=".to_string()), Sep::empty())
-        } else if self.last_char == '<' && self.input[self.cur_idx + 1] == '=' {
-            self.match_consume("<=", TokenType::Operator("<=".to_string()), Sep::empty())
-        } else if self.last_char == '<' {
-            self.match_consume("<", TokenType::Operator("<".to_string()), Sep::empty())
-        } else if self.last_char == '>' && self.input[self.cur_idx + 1] == '=' {
-            self.match_consume(">=", TokenType::Operator(">=".to_string()), Sep::empty())
-        } else if self.last_char == '>' {
-            self.match_consume(">", TokenType::Operator(">".to_string()), Sep::empty())
-        } else {
-            None
-        }
-    }
+    // fn try_operator(&mut self) -> Option<Token> {
+    //     if self.last_char == '+' {
+    //         self.match_consume(
+    //             "+",
+    //             TokenType::Operator(self.last_char.to_string()),
+    //             Sep::empty(),
+    //         )
+    //     } else if self.last_char == '-' {
+    //         self.match_consume("-", TokenType::Operator("-".to_string()), Sep::empty())
+    //     } else if self.last_char == '=' && self.input[self.cur_idx + 1] == '=' {
+    //         self.match_consume("==", TokenType::Operator("==".to_string()), Sep::empty())
+    //     } else if self.last_char == '!' && self.input[self.cur_idx + 1] == '=' {
+    //         self.match_consume("!=", TokenType::Operator("!=".to_string()), Sep::empty())
+    //     } else if self.last_char == '<' && self.input[self.cur_idx + 1] == '=' {
+    //         self.match_consume("<=", TokenType::Operator("<=".to_string()), Sep::empty())
+    //     } else if self.last_char == '<' {
+    //         self.match_consume("<", TokenType::Operator("<".to_string()), Sep::empty())
+    //     } else if self.last_char == '>' && self.input[self.cur_idx + 1] == '=' {
+    //         self.match_consume(">=", TokenType::Operator(">=".to_string()), Sep::empty())
+    //     } else if self.last_char == '>' {
+    //         self.match_consume(">", TokenType::Operator(">".to_string()), Sep::empty())
+    //     } else {
+    //         None
+    //     }
+    // }
 
     fn try_digit(&mut self) -> Option<Token> {
         let start = self.cur_idx;
@@ -395,6 +400,59 @@ impl<'a> Lexer<'a> {
         }
 
         None
+    }
+
+    fn try_operator_ident(&mut self) -> Option<Token> {
+        let start = self.cur_idx;
+
+        let mut identifier = vec![];
+
+        if self
+            .accepted_operator_chars
+            .iter()
+            .find(|c| **c == self.last_char)
+            .is_some()
+        {
+            while self
+                .accepted_operator_chars
+                .iter()
+                .find(|c| **c == self.last_char)
+                .is_some()
+            {
+                identifier.push(self.last_char);
+
+                self.forward(1);
+            }
+
+            // if is_keyword, return None
+
+            return Some(self.new_token(
+                TokenType::Identifier(identifier.iter().collect()),
+                start,
+                identifier.iter().collect(),
+            ));
+        }
+
+        None
+    }
+
+    fn try_native_operator(&mut self) -> Option<Token> {
+        if self.last_char == '~' {
+            let mut res = None;
+            let ops = vec!["~Add", "~Sub", "~Mul", "~Div"];
+
+            for op in ops {
+                res = self.match_consume(op, TokenType::NativeOperator(op.to_string()), Sep::WS);
+
+                if res.is_some() {
+                    break;
+                }
+            }
+
+            res
+        } else {
+            None
+        }
     }
 
     fn try_end_of(&mut self) -> Option<Token> {

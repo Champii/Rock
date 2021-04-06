@@ -46,6 +46,7 @@ generate_visitor_trait!(
     Operand, operand
     Argument, argument
     Literal, literal
+    NativeOperator, native_operator
 );
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
@@ -107,6 +108,11 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
             visitor.visit_expression(&*expr);
         }
         ExpressionKind::UnaryExpr(unary) => visitor.visit_unary(&unary),
+        ExpressionKind::NativeOperation(op, left, right) => {
+            visitor.visit_native_operator(&op);
+            visitor.visit_identifier(&left);
+            visitor.visit_identifier(&right);
+        }
     }
 }
 
@@ -159,4 +165,8 @@ pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
         LiteralKind::String(s) => visitor.visit_primitive(s),
         LiteralKind::Bool(b) => visitor.visit_primitive(b),
     }
+}
+
+pub fn walk_native_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a NativeOperator) {
+    // Nothing to do
 }

@@ -1,5 +1,9 @@
 use super::Span;
 
+pub fn accepted_operator_chars() -> Vec<char> {
+    return vec!['+', '-', '/', '*'];
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     // keywords
@@ -32,6 +36,7 @@ pub enum TokenType {
 
     //Operator
     Operator(String),
+    NativeOperator(String),
 
     // primitives
     Identifier(String),

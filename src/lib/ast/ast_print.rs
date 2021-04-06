@@ -104,4 +104,5 @@ impl_visitor_trait!(
     Operand, operand
     Argument, argument
     Literal, literal
+    NativeOperator, native_operator
 );

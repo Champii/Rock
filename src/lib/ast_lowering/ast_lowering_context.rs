@@ -128,6 +128,9 @@ impl AstLoweringContext {
     pub fn lower_expression(&mut self, expr: &Expression) -> hir::Expression {
         match &expr.kind {
             ExpressionKind::UnaryExpr(unary) => self.lower_unary(&unary),
+            ExpressionKind::NativeOperation(op, left, right) => {
+                self.lower_native_operation(&op, &left, &right)
+            }
             _ => unimplemented!(),
         }
     }
@@ -202,5 +205,31 @@ impl AstLoweringContext {
             hir_id,
             name: id.name.clone(),
         }
+    }
+
+    pub fn lower_native_operation(
+        &mut self,
+        op: &NativeOperator,
+        left: &Identifier,
+        right: &Identifier,
+    ) -> hir::Expression {
+        hir::Expression::new_native_operation(
+            self.lower_native_operator(op),
+            self.lower_identifier(left),
+            self.lower_identifier(right),
+        )
+    }
+
+    pub fn lower_native_operator(&mut self, op: &NativeOperator) -> hir::NativeOperator {
+        let hir_id = self.hir_map.next_hir_id(op.identity.clone());
+
+        let kind = match op.kind {
+            NativeOperatorKind::Add => hir::NativeOperatorKind::Add,
+            NativeOperatorKind::Sub => hir::NativeOperatorKind::Sub,
+            NativeOperatorKind::Mul => hir::NativeOperatorKind::Mul,
+            NativeOperatorKind::Div => hir::NativeOperatorKind::Div,
+        };
+
+        hir::NativeOperator { hir_id, kind }
     }
 }

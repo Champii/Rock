@@ -171,6 +171,7 @@ impl Expression {
 pub enum ExpressionKind {
     BinopExpr(UnaryExpr, Operator, Box<Expression>),
     UnaryExpr(UnaryExpr),
+    NativeOperation(NativeOperator, Identifier, Identifier),
 }
 
 #[derive(Debug, Clone)]
@@ -274,4 +275,18 @@ pub type Arguments = Vec<Argument>;
 #[derive(Debug, Clone)]
 pub struct Argument {
     pub arg: Expression,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeOperator {
+    pub kind: NativeOperatorKind,
+    pub identity: Identity,
+}
+
+#[derive(Debug, Clone)]
+pub enum NativeOperatorKind {
+    Add,
+    Sub,
+    Mul,
+    Div,
 }

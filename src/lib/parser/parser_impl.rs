@@ -408,6 +408,20 @@ impl Parse for If {
 
 impl Parse for Expression {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        if ctx.cur_tok().t == TokenType::NativeOperator(ctx.cur_tok().txt) {
+            ctx.save();
+
+            let op = NativeOperator::parse(ctx)?;
+            let left = Identifier::parse(ctx)?;
+            let right = Identifier::parse(ctx)?;
+
+            ctx.save_pop();
+
+            return Ok(Expression {
+                kind: ExpressionKind::NativeOperation(op, left, right),
+            });
+        }
+
         let left = UnaryExpr::parse(ctx)?;
 
         let mut res = Expression {
@@ -608,6 +622,33 @@ impl Parse for Argument {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         Ok(Argument {
             arg: Expression::parse(ctx)?,
+        })
+    }
+}
+
+impl Parse for NativeOperator {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
+
+        let op = match ctx.cur_tok().t {
+            TokenType::NativeOperator(op) => op,
+            _ => error!("Expected native operator".to_string(), ctx),
+        };
+
+        let kind = match op.as_ref() {
+            "~Add" => NativeOperatorKind::Add,
+            "~Sub" => NativeOperatorKind::Sub,
+            "~Mul" => NativeOperatorKind::Mul,
+            "~Div" => NativeOperatorKind::Div,
+            _ => error!("Unknown native operator".to_string(), ctx),
+        };
+
+        ctx.consume();
+
+        Ok(NativeOperator {
+            kind,
+            identity: Identity::new(token_id, token.span),
         })
     }
 }

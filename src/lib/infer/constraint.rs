@@ -28,6 +28,17 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
         match &*expr.kind {
             ExpressionKind::Lit(lit) => self.visit_literal(&lit),
             ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
+            ExpressionKind::NativeOperation(op, left, right) => {
+                self.state.add_constraint(Constraint::Eq(
+                    self.state.get_type_id(op.hir_id.clone()).unwrap(),
+                    self.state.get_type_id(left.hir_id.clone()).unwrap(),
+                ));
+
+                self.state.add_constraint(Constraint::Eq(
+                    self.state.get_type_id(left.hir_id.clone()).unwrap(),
+                    self.state.get_type_id(right.hir_id.clone()).unwrap(),
+                ));
+            }
             ExpressionKind::FunctionCall(op, args) => {
                 self.visit_expression(&op);
 
