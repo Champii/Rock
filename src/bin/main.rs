@@ -43,7 +43,7 @@ fn run(config: Config) {
         return;
     }
 
-    let cmd = Command::new("./a.out")
+    let cmd = Command::new("./build/a.out")
         .output()
         .expect("failed to execute process");
 

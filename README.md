@@ -2,7 +2,7 @@
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
-It is highly inspired from Livescript, and will borrow some features and syntax from Crystal, from functional languages like Haskell, or even Rust itself.
+It's highly inspired from Livescript, and will borrow (pun intended) some features and syntaxes from Crystal, from functional languages like Haskell, or even from Rust itself.
 
 ## Features
 
@@ -17,18 +17,13 @@ It is highly inspired from Livescript, and will borrow some features and syntax 
 ```haskell
 mod other_file
 
-infix + 6
-infix - 6
-infix * 7
-infix / 7
+infix + 0
 
-+ a b = ~Add a b
-- a b = ~Sub a b
-* a b = ~Mul a b
-/ a b = ~Div a b
++ a b = ~Add a b #Native Add
 
-main = /(*(-(+(10, 20), 5), 10), 5)
-main2 = 10 + 20 - 5 * 10 / 5
+add a b = +(a, b)
+add2 a = +(a, 2)
+main = add(add2(2), 2) #6
 ```
 
 ## Usage
@@ -60,8 +55,8 @@ SUBCOMMANDS:
     build    Build the current project directory
     help     Prints this message or the help of the given subcommand(s)
     run      Run the current project directory
-``
 
+```
 
 ## TODO (by order):
 

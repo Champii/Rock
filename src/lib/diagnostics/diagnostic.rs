@@ -111,6 +111,7 @@ impl Display for DiagnosticKind {
             Self::SyntaxError(msg) => format!("SyntaxError: {}", msg),
             Self::UnknownIdentifier => "UnknownIdentifier".to_string(),
             Self::ModuleNotFound => "ModuleNotFound".to_string(),
+            Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
             _ => "ERROR TBD".to_string(),
         };
 

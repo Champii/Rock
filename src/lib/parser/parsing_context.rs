@@ -69,16 +69,18 @@ impl ParsingCtx {
     }
 
     pub fn add_operator(&mut self, name: &Identifier, precedence: u8) -> Result<(), Diagnostic> {
-        if self.operators_list.contains_key(&name.name) {
-            let diag = Diagnostic::new_duplicated_operator(name.identity.span.clone());
-
-            self.diagnostics.push(diag.clone());
-
-            return Err(diag);
+        if self.operator_exists(name) {
+            return Err(Diagnostic::new_duplicated_operator(
+                name.identity.span.clone(),
+            ));
         }
 
         self.operators_list.insert(name.name.clone(), precedence);
 
         Ok(())
+    }
+
+    pub fn operator_exists(&self, name: &Identifier) -> bool {
+        self.operators_list.contains_key(&name.name)
     }
 }
