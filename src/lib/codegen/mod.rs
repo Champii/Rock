@@ -20,5 +20,5 @@ pub fn generate(config: &Config, hir: &Root) {
 
     codegen_ctx
         .module
-        .write_bitcode_to_path(&std::path::Path::new("./out.ir"));
+        .write_bitcode_to_path(&std::path::Path::new("./build/out.ir"));
 }

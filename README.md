@@ -1,7 +1,7 @@
 # Rock 0.1.0
 
 Little toy language made with Rust and LLVM.  
-Aim to follow the Rust model with safeness, no GC but a Borrow Checker instead, and of course native performances thanks to LLVM.  
+Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
 It is highly inspired from Livescript, and will borrow some features and syntax from Crystal, from functional languages like Haskell, or even Rust itself.
 
 ## Features
@@ -38,7 +38,7 @@ main2 = 10 + 20 - 5 * 10 / 5
 ```
 #> cargo build
 #> ./target/debug/rock -h
-rock 0.0.1
+rock 0.1.0
 Champii <contact@champii.io>
 Simple toy language
 
@@ -46,10 +46,11 @@ USAGE:
     rock [FLAGS] [OPTIONS] [SUBCOMMAND]
 
 FLAGS:
-    -a               Show ast
         --help       Prints help information
+    -a               Show ast
     -h               Show hir
     -i               Show the generated IR
+    -t               Show tokens
     -V, --version    Prints version information
 
 OPTIONS:
@@ -59,21 +60,21 @@ SUBCOMMANDS:
     build    Build the current project directory
     help     Prints this message or the help of the given subcommand(s)
     run      Run the current project directory
-```
+``
 
 
 ## TODO (by order):
 
 - v0.1.0
-    - escaped chars
-    - immutable by default
-    - mut keyword
     - operator precedence
-    - floats
     - sub, mul div and mod
     - while/for_in
-    - enums
+    - immutable by default
+    - mut keyword
     - type aliasing
+    - floats
+    - enums
+    - escaped chars
     - Technical
       - Return diagnostic list as error instead of a single one
 - v1.0.0
@@ -87,15 +88,10 @@ SUBCOMMANDS:
 
 # Done
 - Functions
-- If/ElseIf/Else
-- Arrays
-- Assignation
 - Type inference
 - Parametric Polymophism
-- Class
-- Methods
-- Simple 'for'
 - Returnable statement
+- Custom Operators
 
 # Goal
 
@@ -113,8 +109,8 @@ trait Num
     *: A -> A
     /: A -> A
 
-impl Num for Int
-    +: -> ~#compiler_add @, it
+impl Num for UInt_8: Int
+    +: -> ~#compiler_add_uint_8 @, it
 
 impl Num for Foo
     +: -> Foo @val + it.val

@@ -5,6 +5,7 @@ extern crate rock;
 extern crate log;
 
 use clap::{App, Arg, SubCommand};
+use std::fs;
 use std::process::Command;
 
 pub mod logger;
@@ -16,6 +17,8 @@ fn build(config: Config) -> bool {
 
     let entry_file = "./src/main.rk";
 
+    fs::create_dir_all("./build").unwrap();
+
     if let Err(_e) = rock::parse_file(entry_file.to_string(), "".to_string(), config.clone()) {
         return false;
     }
@@ -23,12 +26,12 @@ fn build(config: Config) -> bool {
     info!(" -> Linking");
 
     Command::new("llc")
-        .args(&["out.ir"])
+        .args(&["./build/out.ir"])
         .output()
         .expect("failed to execute process");
 
     Command::new("clang")
-        .args(&["out.ir.s"])
+        .args(&["-o", "./build/a.out", "./build/out.ir.s"])
         .output()
         .expect("failed to execute process");
 
