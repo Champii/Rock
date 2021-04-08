@@ -26,8 +26,6 @@ mod hir;
 mod parser;
 mod tests;
 
-use crate::ast::ast_print::*;
-use crate::ast::visit::*;
 pub use crate::helpers::config::Config;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Diagnostic> {
@@ -39,34 +37,20 @@ pub fn parse_str(
     _output_name: String,
     config: Config,
 ) -> Result<(), Diagnostic> {
-    let mut parsing_ctx = ParsingCtx::default();
-
-    //     input.content = r#"__compiler_add a b = __compiler_add a b
-    // "#
-    //     .to_owned()
-    //         + &input.content;
+    let mut parsing_ctx = ParsingCtx::new(&config);
 
     parsing_ctx.add_file(input.clone());
 
     // Text to Ast
     info!("    -> Parsing");
-    let (mut ast, tokens) = parser::parse_root(&mut parsing_ctx)?;
-
-    // Debug trees
-    if config.show_ast {
-        AstPrintContext::new(tokens, input).visit_root(&ast);
-    }
+    let mut ast = parser::parse_root(&mut parsing_ctx)?;
 
     info!("    -> Resolving");
     ast::resolve(&mut ast, &mut parsing_ctx)?;
 
     info!("    -> Lowering to HIR");
     // Ast to Hir
-    let mut hir = ast_lowering::lower_crate(&ast);
-
-    if config.show_hir {
-        println!("{:#?}", hir);
-    }
+    let mut hir = ast_lowering::lower_crate(&config, &ast);
 
     // Infer Hir
     info!("    -> Infer HIR");

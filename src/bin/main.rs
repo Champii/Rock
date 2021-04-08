@@ -69,6 +69,12 @@ fn main() {
                 .help("Verbose level"),
         )
         .arg(
+            Arg::with_name("tokens")
+                .short("t")
+                .takes_value(false)
+                .help("Show tokens"),
+        )
+        .arg(
             Arg::with_name("ast")
                 .short("a")
                 .takes_value(false)
@@ -102,6 +108,7 @@ fn main() {
 
     let mut config = rock::Config {
         verbose: 2,
+        show_tokens: matches.is_present("tokens"),
         show_ast: matches.is_present("ast"),
         show_hir: matches.is_present("hir"),
         show_ir: matches.is_present("ir"),

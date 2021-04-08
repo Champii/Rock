@@ -7,6 +7,7 @@ pub struct ProjectConfig {
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub project_config: ProjectConfig,
+    pub show_tokens: bool,
     pub show_ast: bool,
     pub show_hir: bool,
     pub show_ir: bool,
