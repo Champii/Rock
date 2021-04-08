@@ -64,6 +64,7 @@ pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLev
             visitor.visit_mod(&m);
         }
         TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
+        TopLevelKind::Infix(ident, _) => visitor.visit_identifier(&ident),
     };
 }
 
@@ -104,7 +105,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
     match &expr.kind {
         ExpressionKind::BinopExpr(unary, operator, expr) => {
             visitor.visit_unary(&unary);
-            visitor.visit_operator(&operator);
+            visitor.visit_identifier(&operator);
             visitor.visit_expression(&*expr);
         }
         ExpressionKind::UnaryExpr(unary) => visitor.visit_unary(&unary),

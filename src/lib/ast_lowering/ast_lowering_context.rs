@@ -59,6 +59,7 @@ impl AstLoweringContext {
         let id = self.hir_map.next_hir_id(top_level.identity.clone());
 
         match &top_level.kind {
+            TopLevelKind::Infix(_, _) => id,
             TopLevelKind::Function(f) => {
                 let mut top_level = hir::TopLevel {
                     kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),

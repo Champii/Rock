@@ -37,6 +37,10 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::ModuleNotFound)
     }
 
+    pub fn new_duplicated_operator(span: Span) -> Self {
+        Self::new(span, DiagnosticKind::DuplicatedOperator)
+    }
+
     pub fn print(&self, file: &SourceFile) {
         let input: Vec<char> = file.content.chars().collect();
 
@@ -96,6 +100,7 @@ pub enum DiagnosticKind {
     NotAFunction,
     UnusedParameter,
     UnusedFunction,
+    DuplicatedOperator,
     NoError, //TODO: remove that
 }
 

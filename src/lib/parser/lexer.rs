@@ -73,6 +73,7 @@ impl<'a> Lexer<'a> {
             Self::try_then_keyword,
             Self::try_for_keyword,
             Self::try_class_keyword,
+            Self::try_infix_keyword,
             Self::try_parens,
             Self::try_braces,
             Self::try_array,
@@ -201,41 +202,45 @@ impl<'a> Lexer<'a> {
     }
 
     fn try_fn_keyword(&mut self) -> Option<Token> {
-        self.match_consume("fn", TokenType::FnKeyword, Sep::WS)
+        self.match_consume("fn", TokenType::Fn, Sep::WS)
     }
 
     fn try_mod_keyword(&mut self) -> Option<Token> {
-        self.match_consume("mod", TokenType::ModKeyword, Sep::WS)
+        self.match_consume("mod", TokenType::Mod, Sep::WS)
     }
 
     fn try_extern_keyword(&mut self) -> Option<Token> {
-        self.match_consume("extern", TokenType::ExternKeyword, Sep::WS)
+        self.match_consume("extern", TokenType::Extern, Sep::WS)
     }
 
     fn try_if_keyword(&mut self) -> Option<Token> {
-        self.match_consume("if", TokenType::IfKeyword, Sep::WS)
+        self.match_consume("if", TokenType::If, Sep::WS)
     }
 
     fn try_else_keyword(&mut self) -> Option<Token> {
-        self.match_consume("else", TokenType::ElseKeyword, Sep::WS | Sep::EOL)
+        self.match_consume("else", TokenType::Else, Sep::WS | Sep::EOL)
     }
 
     fn try_for_keyword(&mut self) -> Option<Token> {
-        self.match_consume("for", TokenType::ForKeyword, Sep::WS | Sep::EOL)
+        self.match_consume("for", TokenType::For, Sep::WS | Sep::EOL)
     }
 
     fn try_class_keyword(&mut self) -> Option<Token> {
-        self.match_consume("class", TokenType::ClassKeyword, Sep::WS)
+        self.match_consume("class", TokenType::Class, Sep::WS)
     }
 
     fn try_then_keyword(&mut self) -> Option<Token> {
         if self.last_char == 't' {
-            self.match_consume("then", TokenType::ThenKeyword, Sep::WS)
+            self.match_consume("then", TokenType::Then, Sep::WS)
         } else if self.last_char == '=' {
-            self.match_consume("=>", TokenType::ThenKeyword, Sep::empty())
+            self.match_consume("=>", TokenType::Then, Sep::empty())
         } else {
             None
         }
+    }
+
+    fn try_infix_keyword(&mut self) -> Option<Token> {
+        self.match_consume("infix", TokenType::Infix, Sep::WS)
     }
 
     fn try_bool(&mut self) -> Option<Token> {

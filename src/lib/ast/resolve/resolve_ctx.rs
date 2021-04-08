@@ -53,6 +53,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         for top in &m.top_levels {
             match &top.kind {
                 TopLevelKind::Mod(_, _m) => (),
+                TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {
                     self.add_to_current_scope((*f.name).clone(), f.identity.clone());
                 }
@@ -64,6 +65,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top.kind {
+            TopLevelKind::Infix(_, _) => (),
             TopLevelKind::Function(f) => {
                 self.push_scope();
 

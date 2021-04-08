@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::ast::*;
 use crate::{ast::resolve::ResolutionMap, diagnostics::Diagnostic};
 // use crate::error::Error;
@@ -205,14 +207,33 @@ impl Parse for TopLevel {
         let token = ctx.cur_tok();
 
         let kind = match ctx.cur_tok().t {
-            TokenType::ModKeyword => {
+            TokenType::Mod => {
                 ctx.consume(); // mod keyword
+
                 let name = Identifier::parse(ctx)?;
 
-                let (mod_, _) = super::parse_mod(name.name.clone(), ctx.ctx)
+                let mod_node = super::parse_mod(name.name.clone(), ctx.ctx)
                     .map_err(|diag| Diagnostic::new(token.span.clone(), diag.get_kind()))?;
 
-                TopLevelKind::Mod(name, mod_)
+                TopLevelKind::Mod(name, mod_node)
+            }
+            TokenType::Infix => {
+                ctx.consume(); // infix keyword
+
+                let identifier = Identifier::parse(ctx)?;
+
+                let precedence = if let TokenType::Number(num) = ctx.cur_tok().t {
+                    ctx.consume();
+
+                    num
+                } else {
+                    panic!("Bad infix syntax");
+                };
+
+                ctx.ctx
+                    .add_operator(&identifier, precedence.try_into().unwrap())?;
+
+                TopLevelKind::Infix(identifier, precedence as u8)
             }
             _ => TopLevelKind::Function(FunctionDecl::parse(ctx)?),
         };
@@ -357,7 +378,7 @@ impl Parse for Statement {
 
 impl Parse for If {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        expect!(TokenType::IfKeyword, ctx);
+        expect!(TokenType::If, ctx);
 
         ctx.save();
 
@@ -365,7 +386,7 @@ impl Parse for If {
 
         let mut is_multi = true;
 
-        if ctx.cur_tok().t == TokenType::ThenKeyword {
+        if ctx.cur_tok().t == TokenType::Then {
             is_multi = false;
 
             ctx.consume();
@@ -380,7 +401,7 @@ impl Parse for If {
 
         let next = ctx.seek(1);
 
-        if next.t != TokenType::ElseKeyword {
+        if next.t != TokenType::Else {
             ctx.save_pop();
 
             return Ok(If {
@@ -392,7 +413,7 @@ impl Parse for If {
 
         expect_or_restore!(TokenType::Indent(ctx.block_indent), ctx);
 
-        expect_or_restore!(TokenType::ElseKeyword, ctx);
+        expect_or_restore!(TokenType::Else, ctx);
 
         let else_ = try_or_restore!(Else::parse(ctx), ctx);
 
@@ -430,7 +451,7 @@ impl Parse for Expression {
 
         ctx.save();
 
-        let op = try_or_restore_and!(Operator::parse(ctx), Ok(res), ctx);
+        let op = try_or_restore_and!(Identifier::parse(ctx), Ok(res), ctx);
 
         let right = try_or_restore_and!(Expression::parse(ctx), Ok(res), ctx);
 
@@ -445,7 +466,7 @@ impl Parse for Expression {
 impl Parse for Else {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         Ok(match ctx.cur_tok().t {
-            TokenType::IfKeyword => Else::If(If::parse(ctx)?),
+            TokenType::If => Else::If(If::parse(ctx)?),
             _ => Else::Body(Body::parse(ctx)?),
         })
     }
@@ -600,6 +621,8 @@ impl Parse for Arguments {
 
         ctx.save();
 
+        expect_or_restore!(TokenType::OpenParens, ctx);
+
         loop {
             let arg = try_or_restore!(Argument::parse(ctx), ctx);
 
@@ -611,6 +634,8 @@ impl Parse for Arguments {
 
             ctx.consume();
         }
+
+        expect_or_restore!(TokenType::CloseParens, ctx);
 
         ctx.save_pop();
 

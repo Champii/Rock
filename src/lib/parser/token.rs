@@ -7,15 +7,16 @@ pub fn accepted_operator_chars() -> Vec<char> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     // keywords
-    FnKeyword,
-    ModKeyword,
-    ExternKeyword,
-    IfKeyword,
-    ThenKeyword,
-    ElseKeyword,
-    ForKeyword,
-    InKeyword,
-    ClassKeyword,
+    Fn,
+    Mod,
+    Extern,
+    If,
+    Then,
+    Else,
+    For,
+    In,
+    Class,
+    Infix,
 
     // punct
     Arrow,

@@ -27,6 +27,7 @@ pub struct TopLevel {
 pub enum TopLevelKind {
     Function(FunctionDecl),
     Mod(Identifier, Mod),
+    Infix(Identifier, u8),
 }
 
 #[derive(Debug, Clone)]
@@ -169,7 +170,7 @@ impl Expression {
 
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
-    BinopExpr(UnaryExpr, Operator, Box<Expression>),
+    BinopExpr(UnaryExpr, Identifier, Box<Expression>),
     UnaryExpr(UnaryExpr),
     NativeOperation(NativeOperator, Identifier, Identifier),
 }
