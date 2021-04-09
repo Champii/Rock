@@ -62,7 +62,7 @@ fn run(config: Config) {
 
 fn main() {
     let matches = App::new("rock")
-        .version("0.0.1")
+        .version("0.1.0")
         .author("Champii <contact@champii.io>")
         .about("Simple toy language")
         .arg(
