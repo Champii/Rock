@@ -45,11 +45,12 @@ pub fn parse_str(
     info!("    -> Parsing");
     let mut ast = parser::parse_root(&mut parsing_ctx)?;
 
+    // Name resolving
     info!("    -> Resolving");
     ast::resolve(&mut ast, &mut parsing_ctx)?;
 
+    // Lowering to HIR
     info!("    -> Lowering to HIR");
-    // Ast to Hir
     let mut hir = ast_lowering::lower_crate(&config, &ast);
 
     // Infer Hir
@@ -66,12 +67,17 @@ pub fn parse_str(
 pub mod test {
     use super::*;
     use crate::{parser::SourceFile, Config};
-    use std::{path::PathBuf, process::Command};
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        process::Command,
+    };
 
-    fn build(input: String, config: Config) -> bool {
+    // TODO: compile in each separated folder OR make tests sync
+    fn build(build_path: &PathBuf, input: String, config: Config) -> bool {
         let file = SourceFile {
-            file_path: PathBuf::from(""),
-            mod_path: PathBuf::from(""),
+            file_path: PathBuf::from("./src/lib/testcases/mods/main.rk"), // trick for module testing
+            mod_path: PathBuf::from("main"),
             content: input,
         };
 
@@ -80,26 +86,45 @@ pub mod test {
         }
 
         Command::new("llc")
-            .args(&["out.ir"])
+            .args(&[build_path.join("out.ir").to_str().unwrap()])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute IR -> ASM");
+
+        println!("WESH");
 
         Command::new("clang")
-            .args(&["out.ir.s"])
+            .args(&[
+                "-o",
+                build_path.join("a.out").to_str().unwrap(),
+                build_path.join("out.ir.s").to_str().unwrap(),
+            ])
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute ASM -> BINARY");
 
         true
     }
 
-    pub fn run(input: String, config: Config) -> i64 {
-        if !build(input, config) {
+    pub fn run(path: &str, input: String, config: Config) -> i64 {
+        let path = Path::new("./src/lib/").join(path);
+
+        let build_path = path.with_extension("").join("build");
+
+        let mut config = config.clone();
+        config.build_folder = build_path.clone();
+
+        println!("BUILDPATH {:#?}", build_path);
+
+        fs::create_dir_all(build_path.clone()).unwrap();
+
+        if !build(&build_path, input, config) {
             return -1;
         }
 
-        let cmd = Command::new("./a.out")
+        let cmd = Command::new(build_path.join("a.out").to_str().unwrap())
             .output()
-            .expect("failed to execute process");
+            .expect("failed to execute BINARY");
+
+        fs::remove_dir_all(build_path.parent().unwrap()).unwrap();
 
         match cmd.status.code() {
             Some(code) => code.into(),

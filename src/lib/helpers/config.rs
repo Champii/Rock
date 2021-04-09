@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, Clone, Default)]
 pub struct ProjectConfig {
     pub name: String,
@@ -13,4 +15,5 @@ pub struct Config {
     pub show_ir: bool,
     pub files: Vec<String>,
     pub verbose: u8,
+    pub build_folder: PathBuf,
 }

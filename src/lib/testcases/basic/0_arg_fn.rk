@@ -1,2 +1,2 @@
 f = 42
-main = f
+main = f()

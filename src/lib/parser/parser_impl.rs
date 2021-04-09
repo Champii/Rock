@@ -623,6 +623,14 @@ impl Parse for Arguments {
 
         expect_or_restore!(TokenType::OpenParens, ctx);
 
+        if TokenType::CloseParens == ctx.cur_tok().t {
+            ctx.consume();
+
+            ctx.save_pop();
+
+            return Ok(res);
+        }
+
         loop {
             let arg = try_or_restore!(Argument::parse(ctx), ctx);
 

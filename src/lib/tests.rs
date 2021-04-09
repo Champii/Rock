@@ -2,20 +2,6 @@
 
 
 #[test]
-fn testcases_basic_2_arg_fn() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/2_arg_fn.rk");
-    let expected_output = 42;
-
-    let config = Config::default();
-
-    let actual_output = super::test::run(input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
-}
-
-#[test]
 fn testcases_basic_main() {
     use super::Config;
 
@@ -24,7 +10,7 @@ fn testcases_basic_main() {
 
     let config = Config::default();
 
-    let actual_output = super::test::run(input.to_string(), config.clone());
+    let actual_output = super::test::run("./testcases/basic/main.rk", input.to_string(), config.clone());
 
     assert_eq!(expected_output, actual_output);
 }
@@ -38,7 +24,7 @@ fn testcases_basic_0_arg_fn() {
 
     let config = Config::default();
 
-    let actual_output = super::test::run(input.to_string(), config.clone());
+    let actual_output = super::test::run("./testcases/basic/0_arg_fn.rk", input.to_string(), config.clone());
 
     assert_eq!(expected_output, actual_output);
 }
@@ -52,21 +38,7 @@ fn testcases_basic_1_arg_fn() {
 
     let config = Config::default();
 
-    let actual_output = super::test::run(input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
-}
-
-#[test]
-fn testcases_mods_mymod() {
-    use super::Config;
-
-    let input = include_str!("./testcases/mods/mymod.rk");
-    let expected_output = 42;
-
-    let config = Config::default();
-
-    let actual_output = super::test::run(input.to_string(), config.clone());
+    let actual_output = super::test::run("./testcases/basic/1_arg_fn.rk", input.to_string(), config.clone());
 
     assert_eq!(expected_output, actual_output);
 }
@@ -80,7 +52,7 @@ fn testcases_mods_main() {
 
     let config = Config::default();
 
-    let actual_output = super::test::run(input.to_string(), config.clone());
+    let actual_output = super::test::run("./testcases/mods/main.rk", input.to_string(), config.clone());
 
     assert_eq!(expected_output, actual_output);
 }

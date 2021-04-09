@@ -8,7 +8,7 @@ fn {name}() {{
 
     let config = Config::default();
 
-    let actual_output = super::test::run(input.to_string(), config.clone());
+    let actual_output = super::test::run("{path}", input.to_string(), config.clone());
 
     assert_eq!(expected_output, actual_output);
 }}

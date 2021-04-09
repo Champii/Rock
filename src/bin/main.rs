@@ -5,8 +5,8 @@ extern crate rock;
 extern crate log;
 
 use clap::{App, Arg, SubCommand};
-use std::fs;
 use std::process::Command;
+use std::{fs, path::PathBuf};
 
 pub mod logger;
 
@@ -95,6 +95,13 @@ fn main() {
                 .takes_value(false)
                 .help("Show the generated IR"),
         )
+        .arg(
+            Arg::with_name("output-folder")
+                .short("o")
+                .takes_value(true)
+                .default_value("./build")
+                .help("Choose a different output folder"),
+        )
         .subcommand(
             SubCommand::with_name("build")
                 .about("Build the current project directory")
@@ -115,6 +122,7 @@ fn main() {
         show_ast: matches.is_present("ast"),
         show_hir: matches.is_present("hir"),
         show_ir: matches.is_present("ir"),
+        build_folder: PathBuf::from(matches.value_of("output-folder").unwrap()),
         ..Default::default()
     };
 
