@@ -1,0 +1,3 @@
+func a = a
+exec f a = f(a)
+main = exec(func, 42)

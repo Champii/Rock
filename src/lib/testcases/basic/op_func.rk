@@ -1,0 +1,3 @@
++ a b = ~Add a b
+add a b = +(a, b)
+main = add(20, 22)

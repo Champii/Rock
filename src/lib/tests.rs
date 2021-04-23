@@ -2,6 +2,34 @@
 
 
 #[test]
+fn testcases_basic_2_arg_fn() {
+    use super::Config;
+
+    let input = include_str!("./testcases/basic/2_arg_fn.rk");
+    let expected_output = 42;
+
+    let config = Config::default();
+
+    let actual_output = super::test::run("./testcases/basic/2_arg_fn.rk", input.to_string(), config.clone());
+
+    assert_eq!(expected_output, actual_output);
+}
+
+#[test]
+fn testcases_basic_fn_arg() {
+    use super::Config;
+
+    let input = include_str!("./testcases/basic/fn_arg.rk");
+    let expected_output = 42;
+
+    let config = Config::default();
+
+    let actual_output = super::test::run("./testcases/basic/fn_arg.rk", input.to_string(), config.clone());
+
+    assert_eq!(expected_output, actual_output);
+}
+
+#[test]
 fn testcases_basic_main() {
     use super::Config;
 
@@ -11,6 +39,20 @@ fn testcases_basic_main() {
     let config = Config::default();
 
     let actual_output = super::test::run("./testcases/basic/main.rk", input.to_string(), config.clone());
+
+    assert_eq!(expected_output, actual_output);
+}
+
+#[test]
+fn testcases_basic_op_func() {
+    use super::Config;
+
+    let input = include_str!("./testcases/basic/op_func.rk");
+    let expected_output = 42;
+
+    let config = Config::default();
+
+    let actual_output = super::test::run("./testcases/basic/op_func.rk", input.to_string(), config.clone());
 
     assert_eq!(expected_output, actual_output);
 }
