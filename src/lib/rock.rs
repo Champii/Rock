@@ -51,11 +51,11 @@ pub fn parse_str(
 
     // Lowering to HIR
     info!("    -> Lowering to HIR");
-    let mut hir = ast_lowering::lower_crate(&config, &ast);
+    let mut hir = ast_lowering::lower_crate(&ast);
 
     // Infer Hir
     info!("    -> Infer HIR");
-    infer::infer(&mut hir);
+    infer::infer(&mut hir, &config);
 
     // Generate code
     info!("    -> Lower to LLVM IR");

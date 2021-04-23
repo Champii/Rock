@@ -12,10 +12,16 @@ pub fn generate(config: &Config, hir: &Root) {
     let mut codegen_ctx = CodegenContext::new(&context, &hir);
     codegen_ctx.lower_hir(hir, &builder);
 
-    codegen_ctx.module.verify().unwrap();
-
     if config.show_ir {
         codegen_ctx.module.print_to_stderr();
+    }
+
+    match codegen_ctx.module.verify() {
+        Ok(_) => (),
+        Err(e) => {
+            println!("{:#?}", e);
+            return;
+        }
     }
 
     codegen_ctx

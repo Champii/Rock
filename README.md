@@ -21,13 +21,15 @@ This project, its syntax and its APIs are subject to change at any moment. This 
 ```haskell
 mod other_file
 
-infix + 5 #Operator declaration with precedence
+#Operator declaration with precedence
+infix + 5 
 
-+ a b = ~Add a b #Native Add
+#Native Add
++ a b = ~Add a b 
 
 add a b = +(a, b)
 add2 a = +(a, 2)
-main = add(add2(2), 2) #6
+main = add(add2(2), 2)
 ```
 
 ## Usage
@@ -37,16 +39,15 @@ main = add(add2(2), 2) #6
 ```
 #> cargo build
 #> ./target/debug/rock -h
-rock 0.1.0
-Champii <contact@champii.io>
+Rock 0.1.0
 Simple toy language
 
 USAGE:
     rock [FLAGS] [OPTIONS] [SUBCOMMAND]
 
 FLAGS:
-        --help       Prints help information
     -a               Show ast
+        --help       Prints help information
     -h               Show hir
     -i               Show the generated IR
     -t               Show tokens
@@ -60,6 +61,5 @@ SUBCOMMANDS:
     build    Build the current project directory
     help     Prints this message or the help of the given subcommand(s)
     run      Run the current project directory
-
 ```
 

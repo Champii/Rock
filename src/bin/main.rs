@@ -66,9 +66,8 @@ fn run(config: Config) {
 }
 
 fn main() {
-    let matches = App::new("rock")
+    let matches = App::new("Rock")
         .version("0.1.0")
-        .author("Champii <contact@champii.io>")
         .about("Simple toy language")
         .arg(
             Arg::with_name("verbose")
@@ -107,18 +106,8 @@ fn main() {
                 .default_value("./build")
                 .help("Choose a different output folder"),
         )
-        .subcommand(
-            SubCommand::with_name("build")
-                .about("Build the current project directory")
-                .version("0.0.1")
-                .author("Champii <contact@champii.io>"),
-        )
-        .subcommand(
-            SubCommand::with_name("run")
-                .about("Run the current project directory")
-                .version("0.0.1")
-                .author("Champii <contact@champii.io>"),
-        )
+        .subcommand(SubCommand::with_name("build").about("Build the current project directory"))
+        .subcommand(SubCommand::with_name("run").about("Run the current project directory"))
         .get_matches();
 
     let mut config = rock::Config {
@@ -141,11 +130,11 @@ fn main() {
         build(&config);
 
         return;
-    }
-
-    if let Some(_matches) = matches.subcommand_matches("run") {
+    } else if let Some(_matches) = matches.subcommand_matches("run") {
         run(config);
 
         return;
+    } else {
+        println!("{}", matches.usage());
     }
 }
