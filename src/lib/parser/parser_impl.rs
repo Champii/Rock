@@ -517,18 +517,25 @@ impl Parse for Operator {
 
 impl Parse for PrimaryExpr {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
+
         let operand = Operand::parse(ctx)?;
 
-        let mut secondarys = vec![];
+        let mut secondaries = vec![];
 
         if ctx.cur_tok().t == TokenType::Operator(ctx.cur_tok().txt)
             || ctx.cur_tok().t == TokenType::Equal
         {
-            return Ok(PrimaryExpr::PrimaryExpr(operand, secondarys));
+            return Ok(PrimaryExpr {
+                identity: Identity::new(token_id, token.span),
+                op: operand,
+                secondaries: None,
+            });
         }
 
         while let Ok(second) = SecondaryExpr::parse(ctx) {
-            secondarys.push(second);
+            secondaries.push(second);
 
             if ctx.cur_tok().t == TokenType::Operator(ctx.cur_tok().txt.clone())
                 || ctx.cur_tok().t == TokenType::Equal
@@ -537,7 +544,17 @@ impl Parse for PrimaryExpr {
             }
         }
 
-        Ok(PrimaryExpr::PrimaryExpr(operand, secondarys))
+        let secondaries = if secondaries.is_empty() {
+            None
+        } else {
+            Some(secondaries)
+        };
+
+        Ok(PrimaryExpr {
+            identity: Identity::new(token_id, token.span),
+            op: operand,
+            secondaries,
+        })
     }
 }
 

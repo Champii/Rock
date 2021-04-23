@@ -21,8 +21,6 @@ pub fn infer(root: &mut crate::hir::Root) {
 
     infer_state.solve();
 
-    // println!("INFER {:#?}", infer_state);
-
     root.node_types = infer_state.get_node_types();
     root.types = infer_state.get_types();
 }

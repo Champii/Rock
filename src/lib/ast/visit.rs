@@ -128,11 +128,10 @@ pub fn walk_unary<'a, V: Visitor<'a>>(visitor: &mut V, unary: &'a UnaryExpr) {
 }
 
 pub fn walk_primary<'a, V: Visitor<'a>>(visitor: &mut V, primary: &'a PrimaryExpr) {
-    match primary {
-        PrimaryExpr::PrimaryExpr(operand, secondaries) => {
-            visitor.visit_operand(operand);
-            walk_list!(visitor, visit_secondary, secondaries);
-        }
+    visitor.visit_operand(&primary.op);
+
+    if let Some(secondaries) = &primary.secondaries {
+        walk_list!(visitor, visit_secondary, secondaries);
     }
 }
 

@@ -81,7 +81,7 @@ impl AstLoweringContext {
         let id = self.hir_map.next_hir_id(f.identity.clone());
         let ident = self.lower_identifier(&f.name);
 
-        let body = self.lower_body(&f.body, ident.clone());
+        let body = self.lower_body(&f.body, ident.clone(), body_id.clone());
 
         self.bodies.insert(body_id.clone(), body);
 
@@ -109,8 +109,9 @@ impl AstLoweringContext {
         }
     }
 
-    pub fn lower_body(&mut self, body: &Body, name: hir::Identifier) -> hir::Body {
+    pub fn lower_body(&mut self, body: &Body, name: hir::Identifier, body_id: BodyId) -> hir::Body {
         hir::Body {
+            id: body_id,
             name,
             stmt: self.lower_statement(&body.stmt),
         }
@@ -144,21 +145,22 @@ impl AstLoweringContext {
     }
 
     pub fn lower_primary(&mut self, primary: &PrimaryExpr) -> hir::Expression {
-        match &primary {
-            PrimaryExpr::PrimaryExpr(op, secs) => {
-                if secs.is_empty() {
-                    return self.lower_operand(&op);
-                }
-
-                hir::Expression::new_function_call(
-                    self.lower_operand(&op),
-                    secs.iter()
-                        .map(|sec| self.lower_secondary(&sec))
-                        .flatten()
-                        .collect(),
-                )
-            }
+        if primary.secondaries.is_none() {
+            return self.lower_operand(&primary.op);
         }
+
+        hir::Expression::new_function_call(hir::FunctionCall {
+            hir_id: self.hir_map.next_hir_id(primary.identity.clone()),
+            op: self.lower_operand(&primary.op),
+            args: primary
+                .secondaries
+                .clone()
+                .unwrap()
+                .iter()
+                .map(|sec| self.lower_secondary(&sec))
+                .flatten() // FIX: This is bad, we mix secondaries with arguments and we flatten.
+                .collect(),
+        })
     }
 
     pub fn lower_operand(&mut self, operand: &Operand) -> hir::Expression {

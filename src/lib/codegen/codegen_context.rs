@@ -1,9 +1,13 @@
+use either::Either;
 use std::convert::TryInto;
 
-use inkwell::types::BasicType;
-use inkwell::{builder::Builder, values::BasicValueEnum};
+use inkwell::{
+    builder::Builder,
+    values::{BasicValueEnum, FunctionValue, PointerValue},
+};
 use inkwell::{context::Context, types::BasicTypeEnum};
 use inkwell::{module::Module, values::BasicValue};
+use inkwell::{types::BasicType, AddressSpace};
 
 use crate::{
     ast::{PrimitiveType, Type},
@@ -33,6 +37,10 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_type(&mut self, t: &Type) -> BasicTypeEnum<'a> {
         match t {
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
+            Type::FuncType(f) => {
+                let f2 = self.module.get_function(&f.name).unwrap();
+                f2.get_type().ptr_type(AddressSpace::Generic).into()
+            }
             _ => self.context.i64_type().into(),
         }
     }
@@ -65,7 +73,15 @@ impl<'a> CodegenContext<'a> {
 
             let fn_type = ret.fn_type(args.as_slice(), false);
 
-            self.module.add_function(&f.name.name, fn_type, None);
+            let fn_value = self.module.add_function(&f.name.name, fn_type, None);
+
+            self.scopes.add(
+                f.hir_id.clone(),
+                fn_value
+                    .as_global_value()
+                    .as_pointer_value()
+                    .as_basic_value_enum(),
+            );
         }
     }
 
@@ -115,9 +131,7 @@ impl<'a> CodegenContext<'a> {
         match &*expr.kind {
             ExpressionKind::Lit(l) => self.lower_literal(&l, builder),
             ExpressionKind::Identifier(id) => self.lower_identifier_path(&id, builder),
-            ExpressionKind::FunctionCall(callee, args) => {
-                self.lower_function_call(callee, args, builder)
-            }
+            ExpressionKind::FunctionCall(fc) => self.lower_function_call(fc, builder),
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.lower_native_operation(op, left, right, builder)
             }
@@ -126,33 +140,34 @@ impl<'a> CodegenContext<'a> {
 
     pub fn lower_function_call(
         &mut self,
-        callee: &Expression,
-        args: &'a [Expression],
+        fc: &'a FunctionCall,
         builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
-        let terminal_hir_id = callee.get_terminal_hir_id();
+        let terminal_hir_id = fc.op.get_terminal_hir_id();
 
-        let f_id = self.hir.resolutions.get(terminal_hir_id).unwrap();
-        if let Some(top) = self.hir.get_top_level(f_id) {
-            match &top.kind {
-                TopLevelKind::Function(f) => {
-                    let f_value = self.module.get_function(&f.name.to_string()).unwrap();
+        let f_id = self.hir.resolutions.get(terminal_hir_id.clone()).unwrap();
 
-                    let arguments = args
-                        .iter()
-                        .map(|arg: &'a _| self.lower_expression(arg, builder))
-                        .collect::<Vec<_>>();
+        let f_value: Either<FunctionValue, PointerValue> =
+            match self.hir.get_top_level(f_id.clone()) {
+                Some(top) => match &top.kind {
+                    TopLevelKind::Function(f) => {
+                        Either::Left(self.module.get_function(&f.name.to_string()).unwrap())
+                    }
+                },
+                None => Either::Right(self.lower_expression(&fc.op, builder).into_pointer_value()),
+            };
 
-                    builder
-                        .build_call(f_value, arguments.as_slice(), "call")
-                        .try_as_basic_value()
-                        .left()
-                        .unwrap()
-                }
-            }
-        } else {
-            panic!("Fn not found")
-        }
+        let arguments = fc
+            .args
+            .iter()
+            .map(|arg: &'a _| self.lower_expression(arg, builder))
+            .collect::<Vec<_>>();
+
+        builder
+            .build_call(f_value, arguments.as_slice(), "call")
+            .try_as_basic_value()
+            .left()
+            .unwrap()
     }
 
     pub fn lower_literal(&mut self, lit: &Literal, _builder: &'a Builder) -> BasicValueEnum<'a> {

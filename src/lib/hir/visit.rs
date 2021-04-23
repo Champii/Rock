@@ -36,6 +36,7 @@ generate_visitor_trait!(
     Body, body
     Statement, statement
     Expression, expression
+    FunctionCall, function_call
     Literal, literal
     NativeOperator, native_operator
 );
@@ -82,16 +83,18 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
     match &*expr.kind {
         ExpressionKind::Lit(lit) => visitor.visit_literal(&lit),
         ExpressionKind::Identifier(id) => visitor.visit_identifier_path(&id),
-        ExpressionKind::FunctionCall(op, args) => {
-            visitor.visit_expression(&op);
-            walk_list!(visitor, visit_expression, args);
-        }
+        ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(&fc),
         ExpressionKind::NativeOperation(op, left, right) => {
             visitor.visit_native_operator(&op);
             visitor.visit_identifier(&left);
             visitor.visit_identifier(&right);
         }
     }
+}
+
+pub fn walk_function_call<'a, V: Visitor<'a>>(visitor: &mut V, fc: &'a FunctionCall) {
+    visitor.visit_expression(&fc.op);
+    walk_list!(visitor, visit_expression, &fc.args);
 }
 
 pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {

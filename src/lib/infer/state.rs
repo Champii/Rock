@@ -14,6 +14,7 @@ static GLOBAL_NEXT_TYPE_ID: AtomicU64 = AtomicU64::new(1);
 #[derive(Debug, Clone)]
 pub enum Constraint {
     Eq(TypeId, TypeId),
+    Callable(TypeId, TypeId), //(fnType, returnType)
 }
 
 #[derive(Debug, Default)]
@@ -30,6 +31,7 @@ impl InferState {
     }
 
     pub fn new_named_annotation(&mut self, name: String, hir_id: HirId) -> TypeId {
+        // TODO: check if type already exists ?
         match self.named_types.get(&name) {
             Some(t) => {
                 self.node_types.insert(hir_id, *t);
@@ -85,10 +87,27 @@ impl InferState {
         let right_t = self.types.get(&right).unwrap();
 
         if right_t.is_none() && left_t.is_some() {
-            self.types.insert(right, self.get_ret(left));
+            self.types.insert(right, self.get_type(left));
 
             true
         } else if left_t.is_none() && right_t.is_some() {
+            self.types.insert(left, self.get_type(right));
+
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn replace_type_ret(&mut self, left: TypeId, right: TypeId) -> bool {
+        let left_t = self.types.get(&left).unwrap();
+        let right_t = self.types.get(&right).unwrap();
+
+        if left_t.is_some() && right_t.is_none() {
+            self.types.insert(right, self.get_ret(left));
+
+            true
+        } else if right_t.is_some() && left_t.is_none() {
             self.types.insert(left, self.get_ret(right));
 
             true
@@ -125,6 +144,7 @@ impl InferState {
                     return;
                 }
             }
+            Constraint::Callable(_, _) => (),
         };
 
         self.constraints.push(constraint);
@@ -141,6 +161,11 @@ impl InferState {
                 match constraint {
                     Constraint::Eq(left, right) => {
                         if !self.replace_type(left, right) {
+                            res.push(constraint.clone());
+                        }
+                    }
+                    Constraint::Callable(f, ret) => {
+                        if !self.replace_type_ret(f, ret) {
                             res.push(constraint.clone());
                         }
                     }

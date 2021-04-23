@@ -190,22 +190,14 @@ pub enum UnaryExpr {
 impl UnaryExpr {
     pub fn is_literal(&self) -> bool {
         match self {
-            UnaryExpr::PrimaryExpr(p) => match p {
-                PrimaryExpr::PrimaryExpr(operand, _) => {
-                    matches!(&operand.kind, OperandKind::Literal(_))
-                }
-            },
+            UnaryExpr::PrimaryExpr(p) => matches!(&p.op.kind, OperandKind::Literal(_)),
             _ => false,
         }
     }
 
     pub fn is_identifier(&self) -> bool {
         match self {
-            UnaryExpr::PrimaryExpr(p) => match p {
-                PrimaryExpr::PrimaryExpr(operand, _) => {
-                    matches!(&operand.kind, OperandKind::Identifier(_))
-                }
-            },
+            UnaryExpr::PrimaryExpr(p) => matches!(&p.op.kind, OperandKind::Identifier(_)),
             _ => false,
         }
     }
@@ -229,15 +221,15 @@ pub enum Operator {
 }
 
 #[derive(Debug, Clone)]
-pub enum PrimaryExpr {
-    PrimaryExpr(Operand, Vec<SecondaryExpr>),
+pub struct PrimaryExpr {
+    pub identity: Identity,
+    pub op: Operand,
+    pub secondaries: Option<Vec<SecondaryExpr>>,
 }
 
 impl PrimaryExpr {
     pub fn has_secondaries(&self) -> bool {
-        match self {
-            PrimaryExpr::PrimaryExpr(_, vec) => !vec.is_empty(),
-        }
+        self.secondaries.is_some()
     }
 }
 

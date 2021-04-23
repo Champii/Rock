@@ -89,6 +89,7 @@ impl std::ops::Deref for Identifier {
 
 #[derive(Debug, Clone)]
 pub struct Body {
+    pub id: BodyId,
     pub name: Identifier,
     pub stmt: Statement,
 }
@@ -143,9 +144,9 @@ impl Expression {
             kind: Box::new(ExpressionKind::Identifier(id)),
         }
     }
-    pub fn new_function_call(op: Expression, args: Vec<Expression>) -> Self {
+    pub fn new_function_call(f: FunctionCall) -> Self {
         Self {
-            kind: Box::new(ExpressionKind::FunctionCall(op, args)),
+            kind: Box::new(ExpressionKind::FunctionCall(f)),
         }
     }
     pub fn new_native_operation(op: NativeOperator, left: Identifier, right: Identifier) -> Self {
@@ -158,7 +159,7 @@ impl Expression {
         match &*self.kind {
             ExpressionKind::Lit(l) => l.hir_id.clone(),
             ExpressionKind::Identifier(i) => i.path.iter().last().unwrap().hir_id.clone(),
-            ExpressionKind::FunctionCall(op, _args) => op.get_terminal_hir_id(),
+            ExpressionKind::FunctionCall(fc) => fc.hir_id.clone(),
             ExpressionKind::NativeOperation(op, _left, _right) => op.hir_id.clone(),
         }
     }
@@ -168,8 +169,15 @@ impl Expression {
 pub enum ExpressionKind {
     Lit(Literal),
     Identifier(IdentifierPath),
-    FunctionCall(Expression, Vec<Expression>),
+    FunctionCall(FunctionCall),
     NativeOperation(NativeOperator, Identifier, Identifier),
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionCall {
+    pub hir_id: HirId,
+    pub op: Expression,
+    pub args: Vec<Expression>,
 }
 
 #[derive(Debug, Clone)]

@@ -12,40 +12,45 @@ pub mod logger;
 
 pub(crate) use rock::*;
 
-fn build(config: Config) -> bool {
+fn build(config: &Config) -> bool {
     info!(" -> Building");
 
     let entry_file = "./src/main.rk";
 
-    fs::create_dir_all("./build").unwrap();
+    fs::create_dir_all(config.build_folder.clone()).unwrap();
 
     if let Err(_e) = rock::parse_file(entry_file.to_string(), "".to_string(), config.clone()) {
         return false;
     }
 
-    info!(" -> Linking");
-
     Command::new("llc")
-        .args(&["./build/out.ir"])
+        .args(&[
+            "--relocation-model=pic",
+            config.build_folder.join("out.ir").to_str().unwrap(),
+        ])
         .output()
-        .expect("failed to execute process");
+        .expect("failed to compile to ir");
 
     Command::new("clang")
-        .args(&["-o", "./build/a.out", "./build/out.ir.s"])
+        .args(&[
+            "-o",
+            config.build_folder.join("a.out").to_str().unwrap(),
+            config.build_folder.join("out.ir.s").to_str().unwrap(),
+        ])
         .output()
-        .expect("failed to execute process");
+        .expect("failed to compile to binary");
 
     true
 }
 
 fn run(config: Config) {
-    if !build(config) {
+    if !build(&config) {
         return;
     }
 
-    let cmd = Command::new("./build/a.out")
+    let cmd = Command::new(config.build_folder.join("a.out").to_str().unwrap())
         .output()
-        .expect("failed to execute process");
+        .expect("failed to execute binary");
 
     print!("{}", String::from_utf8(cmd.stdout).unwrap());
 
@@ -133,7 +138,7 @@ fn main() {
     logger::init_logger(config.verbose);
 
     if let Some(_matches) = matches.subcommand_matches("build") {
-        build(config);
+        build(&config);
 
         return;
     }
