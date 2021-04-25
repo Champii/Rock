@@ -44,6 +44,20 @@ fn testcases_basic_main() {
 }
 
 #[test]
+fn testcases_basic_operator_precedence() {
+    use super::Config;
+
+    let input = include_str!("./testcases/basic/operator_precedence.rk");
+    let expected_output = 42;
+
+    let config = Config::default();
+
+    let actual_output = super::test::run("./testcases/basic/operator_precedence.rk", input.to_string(), config.clone());
+
+    assert_eq!(expected_output, actual_output);
+}
+
+#[test]
 fn testcases_basic_op_func() {
     use super::Config;
 

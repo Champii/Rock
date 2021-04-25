@@ -1,26 +1,28 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     ast::*,
     hir::{self, BodyId, HirId},
 };
 
-use super::hir_map::HirMap;
+use super::{hir_map::HirMap, InfixDesugar};
 
 pub struct AstLoweringContext {
     hir_map: HirMap,
     top_levels: BTreeMap<HirId, hir::TopLevel>,
     modules: BTreeMap<HirId, hir::Mod>,
     bodies: BTreeMap<BodyId, hir::Body>,
+    operators_list: HashMap<String, u8>,
 }
 
 impl AstLoweringContext {
-    pub fn new() -> Self {
+    pub fn new(operators_list: HashMap<String, u8>) -> Self {
         Self {
             hir_map: HirMap::new(),
             top_levels: BTreeMap::new(),
             modules: BTreeMap::new(),
             bodies: BTreeMap::new(),
+            operators_list,
         }
     }
 
@@ -133,7 +135,11 @@ impl AstLoweringContext {
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.lower_native_operation(&op, &left, &right)
             }
-            _ => unimplemented!(),
+            ExpressionKind::BinopExpr(_unary, _op, _expr22) => {
+                let mut infix = InfixDesugar::new(self.operators_list.clone());
+
+                self.lower_expression(&infix.desugar(expr))
+            }
         }
     }
 

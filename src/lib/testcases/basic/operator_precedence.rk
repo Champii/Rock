@@ -1,0 +1,10 @@
+infix + 4
+infix - 4
+infix * 5
+infix / 5
+
++ a b = ~Add a b
+- a b = ~Sub a b
+* a b = ~Mul a b
+/ a b = ~Div a b
+main = 3 + 10 * 2 * 2 - 2 + 1

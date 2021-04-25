@@ -170,9 +170,12 @@ impl<'a> Parser<'a> {
 
 impl Parse for Root {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let r#mod = Mod::parse(ctx)?;
+
         Ok(Root {
             resolutions: ResolutionMap::default(),
-            r#mod: Mod::parse(ctx)?,
+            operators_list: ctx.ctx.operators_list.clone(),
+            r#mod,
         })
     }
 }

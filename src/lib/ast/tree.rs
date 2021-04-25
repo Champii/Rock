@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::ast::identity::Identity;
 use crate::NodeId;
 
@@ -9,6 +11,7 @@ use crate::helpers::*;
 pub struct Root {
     pub r#mod: Mod,
     pub resolutions: ResolutionMap<NodeId>,
+    pub operators_list: HashMap<String, u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -166,6 +169,32 @@ impl Expression {
             _ => false,
         }
     }
+
+    pub fn is_binop(&self) -> bool {
+        match &self.kind {
+            ExpressionKind::BinopExpr(_, _, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn from_unary(unary: &UnaryExpr) -> Expression {
+        Expression {
+            kind: ExpressionKind::UnaryExpr(unary.clone()),
+        }
+    }
+
+    pub fn create_2_args_func_call(op: Operand, arg1: Expression, arg2: Expression) -> Expression {
+        Expression {
+            kind: ExpressionKind::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+                identity: Identity::new_placeholder(),
+                op,
+                secondaries: Some(vec![SecondaryExpr::Arguments(vec![
+                    Argument { arg: arg1 },
+                    Argument { arg: arg2 },
+                ])]),
+            })),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -236,6 +265,16 @@ impl PrimaryExpr {
 #[derive(Debug, Clone)]
 pub struct Operand {
     pub kind: OperandKind,
+}
+
+impl Operand {
+    pub fn from_identifier(id: &Identifier) -> Self {
+        Self {
+            kind: OperandKind::Identifier(IdentifierPath {
+                path: vec![id.clone()],
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

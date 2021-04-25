@@ -20,6 +20,7 @@ pub fn generate(config: &Config, hir: &Root) {
         Ok(_) => (),
         Err(e) => {
             println!("{:#?}", e);
+
             return;
         }
     }
