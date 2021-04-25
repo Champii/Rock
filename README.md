@@ -1,4 +1,4 @@
-# Rock 0.1.0
+# Rock 0.1.1
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -22,13 +22,13 @@ This project, its syntax and its APIs are subject to change at any moment. This 
 mod other_file
 
 #Operator declaration with precedence
-infix + 5 
+infix + 4 
 
 #Native Add
 + a b = ~Add a b 
 
-add a b = +(a, b)
-add2 a = +(a, 2)
+add a b = a + b
+add2 a = a + 2
 main = add(add2(2), 2)
 ```
 
@@ -39,7 +39,7 @@ main = add(add2(2), 2)
 ```
 #> cargo build
 #> ./target/debug/rock -h
-Rock 0.1.0
+Rock 0.1.1
 Simple toy language
 
 USAGE:

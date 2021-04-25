@@ -67,7 +67,7 @@ fn run(config: Config) {
 
 fn main() {
     let matches = App::new("Rock")
-        .version("0.1.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .about("Simple toy language")
         .arg(
             Arg::with_name("verbose")
