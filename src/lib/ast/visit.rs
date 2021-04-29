@@ -105,7 +105,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
     match &expr.kind {
         ExpressionKind::BinopExpr(unary, operator, expr) => {
             visitor.visit_unary(&unary);
-            visitor.visit_identifier(&operator);
+            visitor.visit_operator(&operator);
             visitor.visit_expression(&*expr);
         }
         ExpressionKind::UnaryExpr(unary) => visitor.visit_unary(&unary),
@@ -143,8 +143,8 @@ pub fn walk_secondary<'a, V: Visitor<'a>>(visitor: &mut V, secondary: &'a Second
     }
 }
 
-pub fn walk_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a Operator) {
-    // Nothing to do
+pub fn walk_operator<'a, V: Visitor<'a>>(visitor: &mut V, operator: &'a Operator) {
+    visitor.visit_identifier(&operator.0)
 }
 
 pub fn walk_operand<'a, V: Visitor<'a>>(visitor: &mut V, operand: &'a Operand) {

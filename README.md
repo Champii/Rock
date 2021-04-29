@@ -29,7 +29,7 @@ infix + 4
 
 add a b = a + b
 add2 a = a + 2
-main = add(add2(2), 2)
+main = add add2(2), 2
 ```
 
 ## Usage

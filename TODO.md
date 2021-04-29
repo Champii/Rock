@@ -93,3 +93,9 @@ main ->
     - Operator as Identifier (special syntax)
     - Infix notation 
     - Custom precedence definition
+
+### TO FIXE
+
+  - Function that takes a function as parameter must be declared before that function
+  - Functions with same arguments name mess with inference 
+  - Make unused funcs to pass the infer

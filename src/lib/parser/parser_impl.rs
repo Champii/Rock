@@ -314,10 +314,16 @@ impl Parse for Identifier {
         let token_id = ctx.cur_tok_id;
         let token = ctx.cur_tok();
 
-        let token_res = expect!(TokenType::Identifier(ctx.cur_tok().txt), ctx);
+        let txt = match ctx.cur_tok().t {
+            TokenType::Identifier(id) => id,
+            TokenType::Operator(op) => op,
+            _ => error!("Not an operator".to_string(), ctx),
+        };
+
+        ctx.consume();
 
         Ok(Self {
-            name: token_res.txt,
+            name: txt,
             identity: Identity::new(token_id, token.span),
         })
     }
@@ -452,9 +458,15 @@ impl Parse for Expression {
             kind: ExpressionKind::UnaryExpr(left.clone()),
         };
 
+        // FIXME
+        match ctx.cur_tok().t {
+            TokenType::Operator(_) => (),
+            _ => return Ok(res),
+        };
+
         ctx.save();
 
-        let op = try_or_restore_and!(Identifier::parse(ctx), Ok(res), ctx);
+        let op = try_or_restore_and!(Operator::parse(ctx), Ok(res), ctx);
 
         let right = try_or_restore_and!(Expression::parse(ctx), Ok(res), ctx);
 
@@ -495,26 +507,7 @@ impl Parse for UnaryExpr {
 
 impl Parse for Operator {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let op = match ctx.cur_tok().t {
-            TokenType::Operator(op) => op,
-            _ => error!("Expected operator".to_string(), ctx),
-        };
-
-        let op = match op.as_ref() {
-            "+" => Operator::Add,
-            "-" => Operator::Sub,
-            "==" => Operator::EqualEqual,
-            "!=" => Operator::DashEqual,
-            "<" => Operator::Less,
-            "<=" => Operator::LessOrEqual,
-            ">" => Operator::More,
-            ">=" => Operator::MoreOrEqual,
-            _ => Operator::Add,
-        };
-
-        ctx.consume();
-
-        Ok(op)
+        Ok(Operator(Identifier::parse(ctx)?))
     }
 }
 
@@ -641,9 +634,15 @@ impl Parse for Arguments {
 
         ctx.save();
 
-        expect_or_restore!(TokenType::OpenParens, ctx);
+        let mut has_parens = false;
 
-        if TokenType::CloseParens == ctx.cur_tok().t {
+        if TokenType::OpenParens == ctx.cur_tok().t {
+            ctx.consume();
+
+            has_parens = true;
+        }
+
+        if has_parens && TokenType::CloseParens == ctx.cur_tok().t {
             ctx.consume();
 
             ctx.save_pop();
@@ -663,7 +662,9 @@ impl Parse for Arguments {
             ctx.consume();
         }
 
-        expect_or_restore!(TokenType::CloseParens, ctx);
+        if has_parens {
+            expect_or_restore!(TokenType::CloseParens, ctx);
+        }
 
         ctx.save_pop();
 

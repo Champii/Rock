@@ -432,7 +432,7 @@ impl<'a> Lexer<'a> {
             // if is_keyword, return None
 
             return Some(self.new_token(
-                TokenType::Identifier(identifier.iter().collect()),
+                TokenType::Operator(identifier.iter().collect()),
                 start,
                 identifier.iter().collect(),
             ));

@@ -59,9 +59,11 @@ impl InfixDesugar {
                 self.output
                     .push(ExprOrIdentifier::Expr(Expression::from_unary(&unary)));
 
-                self.pop_higher_operators(*self.operators_list.get(&op.name.to_string()).unwrap());
+                self.pop_higher_operators(
+                    *self.operators_list.get(&op.0.name.to_string()).unwrap(),
+                );
 
-                self.opstack.push(op.clone());
+                self.opstack.push(op.0.clone());
 
                 self.desugar(expr2);
             }

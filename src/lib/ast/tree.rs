@@ -199,7 +199,7 @@ impl Expression {
 
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
-    BinopExpr(UnaryExpr, Identifier, Box<Expression>),
+    BinopExpr(UnaryExpr, Operator, Box<Expression>),
     UnaryExpr(UnaryExpr),
     NativeOperation(NativeOperator, Identifier, Identifier),
 }
@@ -233,21 +233,7 @@ impl UnaryExpr {
 }
 
 #[derive(Debug, Clone)]
-pub enum Operator {
-    Add,
-    Sub,
-    Sum,
-    Div,
-    Mod,
-
-    Less,
-    LessOrEqual,
-    More,
-    MoreOrEqual,
-
-    EqualEqual,
-    DashEqual,
-}
+pub struct Operator(pub Identifier);
 
 #[derive(Debug, Clone)]
 pub struct PrimaryExpr {
@@ -274,6 +260,14 @@ impl Operand {
                 path: vec![id.clone()],
             }),
         }
+    }
+
+    pub fn is_literal(&self) -> bool {
+        matches!(&self.kind, OperandKind::Literal(_))
+    }
+
+    pub fn is_identifier(&self) -> bool {
+        matches!(&self.kind, OperandKind::Identifier(_))
     }
 }
 
