@@ -634,20 +634,18 @@ impl Parse for Arguments {
 
         ctx.save();
 
-        let mut has_parens = false;
-
         if TokenType::OpenParens == ctx.cur_tok().t {
             ctx.consume();
 
-            has_parens = true;
-        }
+            if TokenType::CloseParens == ctx.cur_tok().t {
+                ctx.consume();
 
-        if has_parens && TokenType::CloseParens == ctx.cur_tok().t {
-            ctx.consume();
+                ctx.save_pop();
 
-            ctx.save_pop();
+                return Ok(res);
+            }
 
-            return Ok(res);
+            error!("Function call cannot have parenthesis".to_string(), ctx);
         }
 
         loop {
@@ -660,10 +658,6 @@ impl Parse for Arguments {
             }
 
             ctx.consume();
-        }
-
-        if has_parens {
-            expect_or_restore!(TokenType::CloseParens, ctx);
         }
 
         ctx.save_pop();
