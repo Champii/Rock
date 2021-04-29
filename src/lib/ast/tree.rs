@@ -183,7 +183,7 @@ impl Expression {
         }
     }
 
-    pub fn create_2_args_func_call(op: Operand, arg1: Expression, arg2: Expression) -> Expression {
+    pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> Expression {
         Expression {
             kind: ExpressionKind::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 identity: Identity::new_placeholder(),
@@ -229,6 +229,17 @@ impl UnaryExpr {
             UnaryExpr::PrimaryExpr(p) => matches!(&p.op.kind, OperandKind::Identifier(_)),
             _ => false,
         }
+    }
+
+    pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> UnaryExpr {
+        UnaryExpr::PrimaryExpr(PrimaryExpr {
+            identity: Identity::new_placeholder(),
+            op,
+            secondaries: Some(vec![SecondaryExpr::Arguments(vec![
+                Argument { arg: arg1 },
+                Argument { arg: arg2 },
+            ])]),
+        })
     }
 }
 
@@ -300,7 +311,7 @@ pub type Arguments = Vec<Argument>;
 
 #[derive(Debug, Clone)]
 pub struct Argument {
-    pub arg: Expression,
+    pub arg: UnaryExpr,
 }
 
 #[derive(Debug, Clone)]

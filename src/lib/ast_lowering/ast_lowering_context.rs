@@ -181,10 +181,9 @@ impl AstLoweringContext {
 
     pub fn lower_secondary(&mut self, secondary: &SecondaryExpr) -> Vec<hir::Expression> {
         match secondary {
-            SecondaryExpr::Arguments(args) => args
-                .iter()
-                .map(|arg| self.lower_expression(&arg.arg))
-                .collect(),
+            SecondaryExpr::Arguments(args) => {
+                args.iter().map(|arg| self.lower_unary(&arg.arg)).collect()
+            }
         }
     }
 

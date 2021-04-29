@@ -675,7 +675,7 @@ impl Parse for Arguments {
 impl Parse for Argument {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         Ok(Argument {
-            arg: Expression::parse(ctx)?,
+            arg: UnaryExpr::parse(ctx)?,
         })
     }
 }
