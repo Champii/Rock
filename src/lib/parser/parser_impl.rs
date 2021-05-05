@@ -141,19 +141,19 @@ impl<'a> Parser<'a> {
     }
 
     pub fn save(&mut self) {
-        debug!("Save()");
+        trace!("Save()");
 
         self.save.push(self.cur_tok_id);
     }
 
     pub fn save_pop(&mut self) {
-        debug!("Save_pop()");
+        trace!("Save_pop()");
 
         self.save.pop().unwrap();
     }
 
     pub fn restore(&mut self) {
-        debug!("Restore()");
+        trace!("Restore()");
 
         let save = self.save.pop().unwrap();
 
@@ -280,50 +280,6 @@ impl Parse for FunctionDecl {
             name,
             arguments,
             body,
-            identity: Identity::new(token_id, token.span),
-        })
-    }
-}
-
-impl Parse for IdentifierPath {
-    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let mut path = vec![];
-
-        ctx.save();
-
-        loop {
-            let tok = try_or_restore!(Identifier::parse(ctx), ctx);
-
-            path.push(tok.clone());
-
-            if TokenType::DoubleSemiColon != ctx.cur_tok().t {
-                break;
-            }
-
-            expect!(TokenType::DoubleSemiColon, ctx);
-        }
-
-        ctx.save_pop();
-
-        Ok(Self { path })
-    }
-}
-
-impl Parse for Identifier {
-    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let token_id = ctx.cur_tok_id;
-        let token = ctx.cur_tok();
-
-        let txt = match ctx.cur_tok().t {
-            TokenType::Identifier(id) => id,
-            TokenType::Operator(op) => op,
-            _ => error!("Not an operator".to_string(), ctx),
-        };
-
-        ctx.consume();
-
-        Ok(Self {
-            name: txt,
             identity: Identity::new(token_id, token.span),
         })
     }
@@ -628,6 +584,50 @@ impl Parse for LiteralKind {
     }
 }
 
+impl Parse for IdentifierPath {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let mut path = vec![];
+
+        ctx.save();
+
+        loop {
+            let tok = try_or_restore!(Identifier::parse(ctx), ctx);
+
+            path.push(tok.clone());
+
+            if TokenType::DoubleSemiColon != ctx.cur_tok().t {
+                break;
+            }
+
+            expect!(TokenType::DoubleSemiColon, ctx);
+        }
+
+        ctx.save_pop();
+
+        Ok(Self { path })
+    }
+}
+
+impl Parse for Identifier {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
+
+        let txt = match ctx.cur_tok().t {
+            TokenType::Identifier(id) => id,
+            TokenType::Operator(op) => op,
+            _ => error!("Not an operator".to_string(), ctx),
+        };
+
+        ctx.consume();
+
+        Ok(Self {
+            name: txt,
+            identity: Identity::new(token_id, token.span),
+        })
+    }
+}
+
 impl Parse for Arguments {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut res = vec![];
@@ -635,17 +635,14 @@ impl Parse for Arguments {
         ctx.save();
 
         if TokenType::OpenParens == ctx.cur_tok().t {
-            ctx.consume();
-
-            if TokenType::CloseParens == ctx.cur_tok().t {
+            if TokenType::CloseParens == ctx.seek(1).t {
+                ctx.consume();
                 ctx.consume();
 
                 ctx.save_pop();
 
                 return Ok(res);
             }
-
-            error!("Function call cannot have parenthesis".to_string(), ctx);
         }
 
         loop {
