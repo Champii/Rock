@@ -634,6 +634,7 @@ impl Parse for Arguments {
 
         ctx.save();
 
+        // TODO: factorise this with a match! macro ?
         if TokenType::OpenParens == ctx.cur_tok().t {
             if TokenType::CloseParens == ctx.seek(1).t {
                 ctx.consume();

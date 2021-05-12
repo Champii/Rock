@@ -21,15 +21,18 @@ This project, its syntax and its APIs are subject to change at any moment. This 
 ```haskell
 mod other_file
 
-#Operator declaration with precedence
-infix + 4 
+infix + 4
+infix * 5
+infix |> 1
 
-#Native Add
-+ a b = ~Add a b 
+f a = a + 2
+g a = a * 2
 
-add a b = a + b
-add2 a = a + 2
-main = add add2(2), 2
++ a b = ~Add a b
+* a b = ~Mul a b
+|> c h = h c
+
+main = g (1 + 2) |> f
 ```
 
 ## Usage

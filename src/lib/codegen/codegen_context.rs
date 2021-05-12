@@ -37,6 +37,7 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_type(&mut self, t: &Type) -> BasicTypeEnum<'a> {
         match t {
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
+            Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
             Type::FuncType(f) => {
                 let f2 = self.module.get_function(&f.name).unwrap();
                 f2.get_type().ptr_type(AddressSpace::Generic).into()
@@ -176,6 +177,11 @@ impl<'a> CodegenContext<'a> {
                 let i64_type = self.context.i64_type();
 
                 i64_type.const_int((*n).try_into().unwrap(), false).into()
+            }
+            LiteralKind::Bool(b) => {
+                let bool_type = self.context.bool_type();
+
+                bool_type.const_int((*b).try_into().unwrap(), false).into()
             }
             _ => unimplemented!(),
         }
