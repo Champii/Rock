@@ -40,9 +40,10 @@ impl<'a> CodegenContext<'a> {
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
             Type::FuncType(f) => {
                 let f2 = self.module.get_function(&f.name).unwrap();
+
                 f2.get_type().ptr_type(AddressSpace::Generic).into()
             }
-            _ => self.context.i64_type().into(),
+            _ => unimplemented!(),
         }
     }
 

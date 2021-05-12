@@ -4,7 +4,7 @@ fn {name}() {{
     use super::Config;
 
     let input = include_str!("{path}");
-    let expected_output = 42;
+    let expected_output = include_str!("{path}.out").parse::<i64>().unwrap();
 
     let config = Config::default();
 
