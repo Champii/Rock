@@ -4,9 +4,7 @@ use std::convert::TryInto;
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
-    values::{
-        AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, InstructionValue, PointerValue,
-    },
+    values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, PointerValue},
 };
 use inkwell::{context::Context, types::BasicTypeEnum};
 use inkwell::{module::Module, values::BasicValue};
@@ -120,7 +118,7 @@ impl<'a> CodegenContext<'a> {
                 }
             }
 
-            self.lower_body(&fn_body.body, builder);
+            self.lower_body(&fn_body.body, "entry", builder);
         } else {
             panic!("Cannot find function {}", fn_body.name.name);
         }
@@ -129,11 +127,12 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_body(
         &mut self,
         body: &'a Body,
+        name: &str,
         builder: &'a Builder,
     ) -> (AnyValueEnum<'a>, BasicBlock<'a>) {
         let basic_block = self
             .context
-            .append_basic_block(self.cur_func.clone().unwrap(), "entry");
+            .append_basic_block(self.cur_func.clone().unwrap(), name);
 
         builder.position_at_end(basic_block);
 
@@ -156,7 +155,7 @@ impl<'a> CodegenContext<'a> {
 
         let predicat = self.lower_expression(&r#if.predicat, builder);
 
-        let (_, then_block) = self.lower_body(&r#if.body, builder);
+        let (_, then_block) = self.lower_body(&r#if.body, "then", builder);
 
         let else_block = if let Some(e) = &r#if.else_ {
             self.lower_else(e, builder)
@@ -177,7 +176,7 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_else(&mut self, r#else: &'a Else, builder: &'a Builder) -> BasicBlock<'a> {
         match &r#else {
             Else::If(i) => self.lower_if(i, builder).1,
-            Else::Body(b) => self.lower_body(b, builder).1,
+            Else::Body(b) => self.lower_body(b, "else", builder).1,
         }
     }
 
