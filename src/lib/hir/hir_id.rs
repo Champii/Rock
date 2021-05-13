@@ -24,4 +24,4 @@ macro_rules! def_id {
 }
 
 def_id!(HirId);
-def_id!(BodyId);
+def_id!(FnBodyId);

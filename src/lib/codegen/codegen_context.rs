@@ -2,8 +2,11 @@ use either::Either;
 use std::convert::TryInto;
 
 use inkwell::{
+    basic_block::BasicBlock,
     builder::Builder,
-    values::{BasicValueEnum, FunctionValue, PointerValue},
+    values::{
+        AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, InstructionValue, PointerValue,
+    },
 };
 use inkwell::{context::Context, types::BasicTypeEnum};
 use inkwell::{module::Module, values::BasicValue};
@@ -20,6 +23,7 @@ pub struct CodegenContext<'a> {
     pub hir: &'a Root,
     pub module: Module<'a>,
     pub scopes: Scopes<HirId, BasicValueEnum<'a>>,
+    pub cur_func: Option<FunctionValue<'a>>,
 }
 
 impl<'a> CodegenContext<'a> {
@@ -31,6 +35,7 @@ impl<'a> CodegenContext<'a> {
             module,
             hir,
             scopes: Scopes::new(),
+            cur_func: None,
         }
     }
 
@@ -55,7 +60,7 @@ impl<'a> CodegenContext<'a> {
         }
 
         for body in root.bodies.values() {
-            self.lower_body(&body, builder);
+            self.lower_fn_body(&body, builder);
         }
     }
 
@@ -93,9 +98,15 @@ impl<'a> CodegenContext<'a> {
         self.lower_type(&t)
     }
 
-    pub fn lower_body(&mut self, body: &'a Body, builder: &'a Builder) {
-        if let Some(f) = self.module.get_function(&body.name.name) {
-            let hir_top_reso = self.hir.resolutions.get(body.name.hir_id.clone()).unwrap();
+    pub fn lower_fn_body(&mut self, fn_body: &'a FnBody, builder: &'a Builder) {
+        if let Some(f) = self.module.get_function(&fn_body.name.name) {
+            self.cur_func = Some(f);
+
+            let hir_top_reso = self
+                .hir
+                .resolutions
+                .get(fn_body.name.hir_id.clone())
+                .unwrap();
             let hir_top = self.hir.get_top_level(hir_top_reso).unwrap();
 
             match &hir_top.kind {
@@ -109,19 +120,64 @@ impl<'a> CodegenContext<'a> {
                 }
             }
 
-            let basic_block = self.context.append_basic_block(f, "entry");
-
-            builder.position_at_end(basic_block);
-
-            let ret = self.lower_stmt(&body.stmt, builder);
-
-            builder.build_return(Some(&ret));
+            self.lower_body(&fn_body.body, builder);
+        } else {
+            panic!("Cannot find function {}", fn_body.name.name);
         }
     }
 
-    pub fn lower_stmt(&mut self, stmt: &'a Statement, builder: &'a Builder) -> BasicValueEnum<'a> {
+    pub fn lower_body(
+        &mut self,
+        body: &'a Body,
+        builder: &'a Builder,
+    ) -> (AnyValueEnum<'a>, BasicBlock<'a>) {
+        let basic_block = self
+            .context
+            .append_basic_block(self.cur_func.clone().unwrap(), "entry");
+
+        builder.position_at_end(basic_block);
+
+        (self.lower_stmt(&body.stmt, builder), basic_block)
+    }
+
+    pub fn lower_stmt(&mut self, stmt: &'a Statement, builder: &'a Builder) -> AnyValueEnum<'a> {
         match &*stmt.kind {
-            StatementKind::Expression(e) => self.lower_expression(&e, builder),
+            StatementKind::Expression(e) => self.lower_expression(&e, builder).as_any_value_enum(),
+            StatementKind::If(e) => self.lower_if(&e, builder).0,
+        }
+    }
+
+    pub fn lower_if(
+        &mut self,
+        r#if: &'a If,
+        builder: &'a Builder,
+    ) -> (AnyValueEnum<'a>, BasicBlock<'a>) {
+        let block = builder.get_insert_block().unwrap();
+
+        let predicat = self.lower_expression(&r#if.predicat, builder);
+
+        let (_, then_block) = self.lower_body(&r#if.body, builder);
+
+        let else_block = if let Some(e) = &r#if.else_ {
+            self.lower_else(e, builder)
+        } else {
+            //new empty block
+            let f = self.module.get_last_function().unwrap();
+            self.context.append_basic_block(f, "else")
+        };
+
+        builder.position_at_end(block);
+
+        let if_value =
+            builder.build_conditional_branch(predicat.into_int_value(), then_block, else_block);
+
+        (if_value.as_any_value_enum(), then_block)
+    }
+
+    pub fn lower_else(&mut self, r#else: &'a Else, builder: &'a Builder) -> BasicBlock<'a> {
+        match &r#else {
+            Else::If(i) => self.lower_if(i, builder).1,
+            Else::Body(b) => self.lower_body(b, builder).1,
         }
     }
 
@@ -136,6 +192,13 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::FunctionCall(fc) => self.lower_function_call(fc, builder),
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.lower_native_operation(op, left, right, builder)
+            }
+            ExpressionKind::Return(expr) => {
+                let val = self.lower_expression(expr, builder);
+
+                builder.build_return(Some(&val.into_int_value()));
+
+                val
             }
         }
     }

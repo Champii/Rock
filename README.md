@@ -32,7 +32,10 @@ g a = a * 2
 * a b = ~Mul a b
 |> c h = h c
 
-main = g (1 + 2) |> f
+main =
+    if true
+        then g (1 + 2) |> f 
+        else 2
 ```
 
 ## Usage

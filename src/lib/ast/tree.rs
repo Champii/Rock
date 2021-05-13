@@ -141,13 +141,21 @@ pub struct Statement {
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
+    If(If),
 }
 
 #[derive(Debug, Clone)]
 pub struct If {
+    pub identity: Identity,
     pub predicat: Expression,
     pub body: Body,
     pub else_: Option<Box<Else>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Else {
+    If(If),
+    Body(Body),
 }
 
 #[derive(Debug, Clone)]
@@ -196,18 +204,12 @@ impl Expression {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
     BinopExpr(UnaryExpr, Operator, Box<Expression>),
     UnaryExpr(UnaryExpr),
     NativeOperation(NativeOperator, Identifier, Identifier),
-}
-
-#[derive(Debug, Clone)]
-pub enum Else {
-    If(If),
-    Body(Body),
+    Return(Box<Expression>),
 }
 
 #[derive(Debug, Clone)]

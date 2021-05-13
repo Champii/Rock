@@ -11,7 +11,7 @@ pub struct Root {
     pub types: BTreeMap<TypeId, Type>,
     pub top_levels: BTreeMap<HirId, TopLevel>,
     pub modules: BTreeMap<HirId, Mod>,
-    pub bodies: BTreeMap<BodyId, Body>,
+    pub bodies: BTreeMap<FnBodyId, FnBody>,
 }
 
 impl Root {
@@ -19,7 +19,7 @@ impl Root {
         self.top_levels.get(&hir_id)
     }
 
-    pub fn get_body(&self, body_id: BodyId) -> Option<&Body> {
+    pub fn get_body(&self, body_id: FnBodyId) -> Option<&FnBody> {
         self.bodies.get(&body_id)
     }
 
@@ -60,7 +60,7 @@ pub struct FunctionDecl {
     pub name: Identifier,
     pub arguments: Vec<ArgumentDecl>,
     pub ret: Type,
-    pub body_id: BodyId,
+    pub body_id: FnBodyId,
     pub hir_id: HirId,
 }
 
@@ -88,9 +88,20 @@ impl std::ops::Deref for Identifier {
 }
 
 #[derive(Debug, Clone)]
-pub struct Body {
-    pub id: BodyId,
+pub struct FnBody {
+    pub id: FnBodyId,
     pub name: Identifier,
+    pub body: Body,
+}
+
+impl FnBody {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.body.get_terminal_hir_id()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Body {
     pub stmt: Statement,
 }
 
@@ -109,6 +120,7 @@ impl Statement {
     pub fn get_terminal_hir_id(&self) -> HirId {
         match &*self.kind {
             StatementKind::Expression(e) => e.get_terminal_hir_id(),
+            StatementKind::If(e) => e.get_terminal_hir_id(),
         }
     }
 }
@@ -116,17 +128,28 @@ impl Statement {
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
+    If(If),
 }
 
 #[derive(Debug, Clone)]
 pub struct If {
+    pub hir_id: HirId,
     pub predicat: Expression,
-    pub body: Expression,
+    pub body: Body,
     pub else_: Option<Box<Else>>,
 }
 
+impl If {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.hir_id.clone()
+    }
+}
+
 #[derive(Debug, Clone)]
-pub enum Else {}
+pub enum Else {
+    If(If),
+    Body(Body),
+}
 
 #[derive(Debug, Clone)]
 pub struct Expression {
@@ -161,6 +184,7 @@ impl Expression {
             ExpressionKind::Identifier(i) => i.path.iter().last().unwrap().hir_id.clone(),
             ExpressionKind::FunctionCall(fc) => fc.hir_id.clone(),
             ExpressionKind::NativeOperation(op, _left, _right) => op.hir_id.clone(),
+            ExpressionKind::Return(expr) => expr.get_terminal_hir_id(),
         }
     }
 }
@@ -171,6 +195,7 @@ pub enum ExpressionKind {
     Identifier(IdentifierPath),
     FunctionCall(FunctionCall),
     NativeOperation(NativeOperator, Identifier, Identifier),
+    Return(Expression),
 }
 
 #[derive(Debug, Clone)]

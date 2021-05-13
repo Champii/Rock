@@ -39,6 +39,8 @@ generate_visitor_trait!(
     Body, body
     Statement, statement
     Expression, expression
+    If, r#if
+    Else, r#else
     UnaryExpr, unary
     Operator, operator
     PrimaryExpr, primary
@@ -98,6 +100,22 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
         StatementKind::Expression(expr) => visitor.visit_expression(&expr),
+        StatementKind::If(expr) => visitor.visit_if(&expr),
+    }
+}
+
+pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {
+    visitor.visit_expression(&r#if.predicat);
+    visitor.visit_body(&r#if.body);
+    if let Some(r#else) = &r#if.else_ {
+        visitor.visit_else(&r#else);
+    }
+}
+
+pub fn walk_else<'a, V: Visitor<'a>>(visitor: &mut V, r#else: &'a Else) {
+    match r#else {
+        Else::If(expr) => visitor.visit_if(&expr),
+        Else::Body(expr) => visitor.visit_body(&expr),
     }
 }
 
@@ -113,6 +131,9 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
             visitor.visit_native_operator(&op);
             visitor.visit_identifier(&left);
             visitor.visit_identifier(&right);
+        }
+        ExpressionKind::Return(expr) => {
+            visitor.visit_expression(&expr);
         }
     }
 }

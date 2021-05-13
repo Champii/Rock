@@ -33,9 +33,12 @@ generate_visitor_trait!(
     ArgumentDecl, argument_decl
     IdentifierPath, identifier_path
     Identifier, identifier
+    FnBody, fn_body
     Body, body
     Statement, statement
     Expression, expression
+    If, r#if
+    Else, r#else
     FunctionCall, function_call
     Literal, literal
     NativeOperator, native_operator
@@ -43,7 +46,7 @@ generate_visitor_trait!(
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     walk_map!(visitor, visit_top_level, &root.top_levels);
-    walk_map!(visitor, visit_body, &root.bodies);
+    walk_map!(visitor, visit_fn_body, &root.bodies);
 }
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
@@ -69,6 +72,10 @@ pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a Arg
     visitor.visit_identifier(&argument.name);
 }
 
+pub fn walk_fn_body<'a, V: Visitor<'a>>(visitor: &mut V, fn_body: &'a FnBody) {
+    visitor.visit_body(&fn_body.body);
+}
+
 pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
     visitor.visit_statement(&body.stmt);
 }
@@ -76,6 +83,7 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
         StatementKind::Expression(expr) => visitor.visit_expression(&expr),
+        StatementKind::If(expr) => visitor.visit_if(&expr),
     }
 }
 
@@ -89,6 +97,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
             visitor.visit_identifier(&left);
             visitor.visit_identifier(&right);
         }
+        ExpressionKind::Return(expr) => visitor.visit_expression(expr),
     }
 }
 
@@ -107,4 +116,19 @@ pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
 
 pub fn walk_native_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a NativeOperator) {
     // Nothing to do
+}
+
+pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {
+    visitor.visit_expression(&r#if.predicat);
+    visitor.visit_body(&r#if.body);
+    if let Some(r#else) = &r#if.else_ {
+        visitor.visit_else(&r#else);
+    }
+}
+
+pub fn walk_else<'a, V: Visitor<'a>>(visitor: &mut V, r#else: &'a Else) {
+    match r#else {
+        Else::If(expr) => visitor.visit_if(&expr),
+        Else::Body(expr) => visitor.visit_body(&expr),
+    }
 }

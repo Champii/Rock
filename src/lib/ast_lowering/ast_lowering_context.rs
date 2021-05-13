@@ -2,16 +2,16 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     ast::*,
-    hir::{self, BodyId, HirId},
+    hir::{self, FnBodyId, HirId},
 };
 
-use super::{hir_map::HirMap, InfixDesugar};
+use super::{hir_map::HirMap, return_placement::ReturnInserter, InfixDesugar};
 
 pub struct AstLoweringContext {
     hir_map: HirMap,
     top_levels: BTreeMap<HirId, hir::TopLevel>,
     modules: BTreeMap<HirId, hir::Mod>,
-    bodies: BTreeMap<BodyId, hir::Body>,
+    bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
 }
 
@@ -79,11 +79,11 @@ impl AstLoweringContext {
     }
 
     pub fn lower_function_decl(&mut self, f: &FunctionDecl) -> hir::FunctionDecl {
-        let body_id = BodyId::next();
+        let body_id = FnBodyId::next();
         let id = self.hir_map.next_hir_id(f.identity.clone());
         let ident = self.lower_identifier(&f.name);
 
-        let body = self.lower_body(&f.body, ident.clone(), body_id.clone());
+        let body = self.lower_fn_body(&f.body, ident.clone(), body_id.clone());
 
         self.bodies.insert(body_id.clone(), body);
 
@@ -111,10 +111,25 @@ impl AstLoweringContext {
         }
     }
 
-    pub fn lower_body(&mut self, body: &Body, name: hir::Identifier, body_id: BodyId) -> hir::Body {
-        hir::Body {
+    pub fn lower_fn_body(
+        &mut self,
+        fn_body: &Body,
+        name: hir::Identifier,
+        body_id: FnBodyId,
+    ) -> hir::FnBody {
+        let body = ReturnInserter { body: &fn_body }.run();
+
+        let body = self.lower_body(&body);
+
+        hir::FnBody {
             id: body_id,
             name,
+            body,
+        }
+    }
+
+    pub fn lower_body(&mut self, body: &Body) -> hir::Body {
+        hir::Body {
             stmt: self.lower_statement(&body.stmt),
         }
     }
@@ -125,6 +140,7 @@ impl AstLoweringContext {
                 StatementKind::Expression(e) => {
                     Box::new(hir::StatementKind::Expression(self.lower_expression(&e)))
                 }
+                StatementKind::If(e) => Box::new(hir::StatementKind::If(self.lower_if(&e))),
             },
         }
     }
@@ -140,6 +156,25 @@ impl AstLoweringContext {
 
                 self.lower_expression(&infix.desugar(expr))
             }
+            ExpressionKind::Return(expr) => hir::Expression {
+                kind: Box::new(hir::ExpressionKind::Return(self.lower_expression(&*expr))),
+            },
+        }
+    }
+
+    pub fn lower_if(&mut self, r#if: &If) -> hir::If {
+        hir::If {
+            hir_id: self.hir_map.next_hir_id(r#if.identity.clone()),
+            predicat: self.lower_expression(&r#if.predicat),
+            body: self.lower_body(&r#if.body),
+            else_: r#if.else_.as_ref().map(|e| Box::new(self.lower_else(&e))),
+        }
+    }
+
+    pub fn lower_else(&mut self, r#else: &Else) -> hir::Else {
+        match r#else {
+            Else::If(e) => hir::Else::If(self.lower_if(e)),
+            Else::Body(b) => hir::Else::Body(self.lower_body(b)),
         }
     }
 

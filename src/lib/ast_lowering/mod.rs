@@ -1,6 +1,7 @@
 mod ast_lowering_context;
 mod hir_map;
 mod infix_desugar;
+mod return_placement;
 
 use crate::{ast::Root, hir};
 use ast_lowering_context::AstLoweringContext;

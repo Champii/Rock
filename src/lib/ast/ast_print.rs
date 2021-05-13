@@ -75,8 +75,8 @@ macro_rules! impl_visitor_trait {
 
                         self.increment();
 
-                        concat_idents!(fn2_name = walk_, $method {
-                            fn2_name(self, $method);
+                        concat_idents!(walk_fn_name = walk_, $method {
+                            walk_fn_name(self, $method);
                         });
 
                         self.decrement();
@@ -97,6 +97,8 @@ impl_visitor_trait!(
     Body, body
     Statement, statement
     Expression, expression
+    If, r#if
+    Else, r#else
     UnaryExpr, unary
     Operator, operator
     PrimaryExpr, primary

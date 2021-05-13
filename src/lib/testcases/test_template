@@ -1,14 +1,4 @@
-
 #[test]
 fn {name}() {{
-    use super::Config;
-
-    let input = include_str!("{path}");
-    let expected_output = include_str!("{path}.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("{path}", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("{path}", include_str!("{path}"), include_str!("{path}.out"));
 }}

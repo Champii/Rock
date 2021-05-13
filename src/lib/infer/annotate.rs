@@ -55,6 +55,23 @@ impl<'a> Visitor<'a> for AnnotateContext {
             .new_named_annotation(id.name.clone(), id.hir_id.clone());
     }
 
+    fn visit_if(&mut self, r#if: &If) {
+        self.state.new_type_id(r#if.hir_id.clone());
+
+        self.visit_expression(&r#if.predicat);
+
+        self.state.new_type_solved(
+            r#if.predicat.get_terminal_hir_id(),
+            Type::Primitive(PrimitiveType::Bool),
+        );
+
+        self.visit_body(&r#if.body);
+
+        if let Some(e) = &r#if.else_ {
+            self.visit_else(e);
+        }
+    }
+
     fn visit_function_call(&mut self, fc: &FunctionCall) {
         self.state.new_type_id(fc.hir_id.clone());
 

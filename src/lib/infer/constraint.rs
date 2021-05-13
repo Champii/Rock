@@ -7,7 +7,7 @@ use crate::{ast::Type, hir::visit::*};
 pub struct ConstraintContext<'a> {
     hir: &'a Root,
     state: InferState,
-    current_body: Option<BodyId>,
+    current_body: Option<FnBodyId>,
 }
 
 impl<'a> ConstraintContext<'a> {
@@ -29,14 +29,46 @@ impl<'a> ConstraintContext<'a> {
 }
 
 impl<'a> Visitor<'a> for ConstraintContext<'a> {
+    fn visit_fn_body(&mut self, fn_body: &'a FnBody) {
+        self.current_body = Some(fn_body.id.clone());
+        self.visit_body(&fn_body.body);
+    }
+
     fn visit_body(&mut self, body: &'a Body) {
-        self.current_body = Some(body.id.clone());
         self.visit_statement(&body.stmt);
+    }
+
+    fn visit_if(&mut self, r#if: &'a If) {
+        self.visit_expression(&r#if.predicat);
+
+        self.visit_body(&r#if.body);
+
+        self.state.add_constraint(Constraint::Eq(
+            self.state
+                .get_type_id(r#if.body.get_terminal_hir_id())
+                .unwrap(),
+            self.state.get_type_id(r#if.hir_id.clone()).unwrap(),
+        ));
+
+        if let Some(e) = &r#if.else_ {
+            match &**e {
+                Else::Body(b) => self.state.add_constraint(Constraint::Eq(
+                    self.state
+                        .get_type_id(r#if.body.get_terminal_hir_id())
+                        .unwrap(),
+                    self.state.get_type_id(b.get_terminal_hir_id()).unwrap(),
+                )),
+                Else::If(i) => {
+                    self.visit_if(i);
+                }
+            }
+        }
     }
 
     fn visit_expression(&mut self, expr: &'a Expression) {
         match &*expr.kind {
             ExpressionKind::Lit(lit) => self.visit_literal(&lit),
+            ExpressionKind::Return(expr) => self.visit_expression(&expr),
             ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.state.add_constraint(Constraint::Eq(

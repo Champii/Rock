@@ -1,128 +1,49 @@
+fn run(path: &str, input: &str, expected_output: &str) {
+    let config = super::Config::default();
 
+    let expected_output = expected_output.parse::<i64>().unwrap();
 
+    let actual_output = super::test::run(path, input.to_string(), config.clone());
 
+    assert_eq!(expected_output, actual_output);
+}
 #[test]
 fn testcases_basic_2_arg_fn() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/2_arg_fn.rk");
-    let expected_output = include_str!("./testcases/basic/2_arg_fn.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/basic/2_arg_fn.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("./testcases/basic/2_arg_fn.rk", include_str!("./testcases/basic/2_arg_fn.rk"), include_str!("./testcases/basic/2_arg_fn.rk.out"));
 }
-
 #[test]
 fn testcases_basic_fn_arg() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/fn_arg.rk");
-    let expected_output = include_str!("./testcases/basic/fn_arg.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/basic/fn_arg.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("./testcases/basic/fn_arg.rk", include_str!("./testcases/basic/fn_arg.rk"), include_str!("./testcases/basic/fn_arg.rk.out"));
 }
-
-#[test]
-fn testcases_basic_bool() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/bool.rk");
-    let expected_output = include_str!("./testcases/basic/bool.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/basic/bool.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
-}
-
 #[test]
 fn testcases_basic_main() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/main.rk");
-    let expected_output = include_str!("./testcases/basic/main.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/basic/main.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("./testcases/basic/main.rk", include_str!("./testcases/basic/main.rk"), include_str!("./testcases/basic/main.rk.out"));
 }
-
 #[test]
 fn testcases_basic_operator_precedence() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/operator_precedence.rk");
-    let expected_output = include_str!("./testcases/basic/operator_precedence.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/basic/operator_precedence.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("./testcases/basic/operator_precedence.rk", include_str!("./testcases/basic/operator_precedence.rk"), include_str!("./testcases/basic/operator_precedence.rk.out"));
 }
-
 #[test]
 fn testcases_basic_op_func() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/op_func.rk");
-    let expected_output = include_str!("./testcases/basic/op_func.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/basic/op_func.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("./testcases/basic/op_func.rk", include_str!("./testcases/basic/op_func.rk"), include_str!("./testcases/basic/op_func.rk.out"));
 }
-
+#[test]
+fn testcases_basic_bool_true() {
+    run("./testcases/basic/bool_true.rk", include_str!("./testcases/basic/bool_true.rk"), include_str!("./testcases/basic/bool_true.rk.out"));
+}
 #[test]
 fn testcases_basic_0_arg_fn() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/0_arg_fn.rk");
-    let expected_output = include_str!("./testcases/basic/0_arg_fn.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/basic/0_arg_fn.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("./testcases/basic/0_arg_fn.rk", include_str!("./testcases/basic/0_arg_fn.rk"), include_str!("./testcases/basic/0_arg_fn.rk.out"));
 }
-
+#[test]
+fn testcases_basic_bool_false() {
+    run("./testcases/basic/bool_false.rk", include_str!("./testcases/basic/bool_false.rk"), include_str!("./testcases/basic/bool_false.rk.out"));
+}
 #[test]
 fn testcases_basic_1_arg_fn() {
-    use super::Config;
-
-    let input = include_str!("./testcases/basic/1_arg_fn.rk");
-    let expected_output = include_str!("./testcases/basic/1_arg_fn.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/basic/1_arg_fn.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("./testcases/basic/1_arg_fn.rk", include_str!("./testcases/basic/1_arg_fn.rk"), include_str!("./testcases/basic/1_arg_fn.rk.out"));
 }
-
 #[test]
 fn testcases_mods_main() {
-    use super::Config;
-
-    let input = include_str!("./testcases/mods/main.rk");
-    let expected_output = include_str!("./testcases/mods/main.rk.out").parse::<i64>().unwrap();
-
-    let config = Config::default();
-
-    let actual_output = super::test::run("./testcases/mods/main.rk", input.to_string(), config.clone());
-
-    assert_eq!(expected_output, actual_output);
+    run("./testcases/mods/main.rk", include_str!("./testcases/mods/main.rk"), include_str!("./testcases/mods/main.rk.out"));
 }

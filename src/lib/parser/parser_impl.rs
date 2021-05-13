@@ -163,7 +163,11 @@ impl<'a> Parser<'a> {
     pub fn seek(&self, distance: usize) -> Token {
         match self.tokens.get(self.cur_tok_id as usize + distance) {
             Some(a) => a.clone(),
-            _ => unreachable!(),
+            _ => Token {
+                t: TokenType::EOF,
+                span: Span::new_placeholder(),
+                txt: "".to_string(),
+            },
         }
     }
 }
@@ -324,7 +328,23 @@ impl Parse for ArgumentDecl {
 
 impl Parse for Body {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let mut multi = false;
+
+        if ctx.cur_tok().t == TokenType::EOL {
+            multi = true;
+
+            ctx.block_indent += 1;
+
+            ctx.consume();
+
+            expect_or_restore!(TokenType::Indent(ctx.block_indent), ctx);
+        }
+
         let stmt = Statement::parse(ctx)?;
+
+        if multi {
+            ctx.block_indent -= 1;
+        }
 
         Ok(Body { stmt })
     }
@@ -332,36 +352,44 @@ impl Parse for Body {
 
 impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let kind = Box::new(match Expression::parse(ctx) {
-            Ok(expr) => StatementKind::Expression(expr),
-            Err(_e) => error!("Expected statement".to_string(), ctx),
-        });
+        let kind = if ctx.cur_tok().t == TokenType::If {
+            match If::parse(ctx) {
+                Ok(expr) => StatementKind::If(expr),
+                Err(_e) => error!("Expected if".to_string(), ctx),
+            }
+        } else {
+            match Expression::parse(ctx) {
+                Ok(expr) => StatementKind::Expression(expr),
+                Err(_e) => error!("Expected expression".to_string(), ctx),
+            }
+        };
 
-        Ok(Statement { kind })
+        Ok(Statement {
+            kind: Box::new(kind),
+        })
     }
 }
 
 impl Parse for If {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        expect!(TokenType::If, ctx);
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
 
         ctx.save();
 
+        expect_or_restore!(TokenType::If, ctx);
+
         let expr = try_or_restore!(Expression::parse(ctx), ctx);
 
-        let mut is_multi = true;
-
-        if ctx.cur_tok().t == TokenType::Then {
-            is_multi = false;
-
-            ctx.consume();
-        }
+        expect_or_restore!(TokenType::EOL, ctx);
+        expect_or_restore!(TokenType::Indent(ctx.block_indent + 1), ctx);
+        expect_or_restore!(TokenType::Then, ctx);
 
         let body = try_or_restore!(Body::parse(ctx), ctx);
-
         // in case of single line body
-        if !is_multi || ctx.cur_tok().t == TokenType::EOL {
+        if ctx.cur_tok().t == TokenType::EOL {
             expect!(TokenType::EOL, ctx);
+            // expect_or_restore!(TokenType::Indent(ctx.block_indent + 2), ctx);
         }
 
         let next = ctx.seek(1);
@@ -373,10 +401,11 @@ impl Parse for If {
                 predicat: expr,
                 body,
                 else_: None,
+                identity: Identity::new(token_id, token.span),
             });
         }
 
-        expect_or_restore!(TokenType::Indent(ctx.block_indent), ctx);
+        expect_or_restore!(TokenType::Indent(ctx.block_indent + 1), ctx);
 
         expect_or_restore!(TokenType::Else, ctx);
 
@@ -388,6 +417,7 @@ impl Parse for If {
             predicat: expr,
             body,
             else_: Some(Box::new(else_)),
+            identity: Identity::new(token_id, token.span),
         })
     }
 }
