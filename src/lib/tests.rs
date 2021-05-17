@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 fn run(path: &str, input: &str, expected_output: &str) {
     let config = super::Config::default();
 
@@ -38,6 +39,10 @@ fn testcases_basic_0_arg_fn() {
 #[test]
 fn testcases_basic_bool_false() {
     run("./testcases/basic/bool_false.rk", include_str!("./testcases/basic/bool_false.rk"), include_str!("./testcases/basic/bool_false.rk.out"));
+}
+#[test]
+fn testcases_basic_if_else() {
+    run("./testcases/basic/if_else.rk", include_str!("./testcases/basic/if_else.rk"), include_str!("./testcases/basic/if_else.rk.out"));
 }
 #[test]
 fn testcases_basic_1_arg_fn() {

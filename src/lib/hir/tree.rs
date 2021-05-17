@@ -230,4 +230,9 @@ pub enum NativeOperatorKind {
     Sub,
     Mul,
     Div,
+    Eq,
+    GT,
+    GE,
+    LT,
+    LE,
 }

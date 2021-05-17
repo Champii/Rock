@@ -71,7 +71,8 @@ fn write_test(output_file: &mut File, path: &String) {
 fn write_header(output_file: &mut File) {
     write!(
         output_file,
-        r##"fn run(path: &str, input: &str, expected_output: &str) {{
+        r##"#[allow(dead_code)]
+fn run(path: &str, input: &str, expected_output: &str) {{
     let config = super::Config::default();
 
     let expected_output = expected_output.parse::<i64>().unwrap();

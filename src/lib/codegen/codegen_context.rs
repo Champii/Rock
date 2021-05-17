@@ -5,6 +5,7 @@ use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, PointerValue},
+    IntPredicate,
 };
 use inkwell::{context::Context, types::BasicTypeEnum};
 use inkwell::{module::Module, values::BasicValue};
@@ -279,10 +280,25 @@ impl<'a> CodegenContext<'a> {
         let right = self.lower_identifier(right, builder).into_int_value();
 
         match op.kind {
-            NativeOperatorKind::Add => builder.build_int_add(left, right, ""),
-            NativeOperatorKind::Sub => builder.build_int_sub(left, right, ""),
-            NativeOperatorKind::Mul => builder.build_int_mul(left, right, ""),
-            NativeOperatorKind::Div => builder.build_int_signed_div(left, right, ""),
+            NativeOperatorKind::Add => builder.build_int_add(left, right, "add"),
+            NativeOperatorKind::Sub => builder.build_int_sub(left, right, "sub"),
+            NativeOperatorKind::Mul => builder.build_int_mul(left, right, "mul"),
+            NativeOperatorKind::Div => builder.build_int_signed_div(left, right, "div"),
+            NativeOperatorKind::Eq => {
+                builder.build_int_compare(IntPredicate::EQ, left, right, "eq")
+            }
+            NativeOperatorKind::GT => {
+                builder.build_int_compare(IntPredicate::SGT, left, right, "sgt")
+            }
+            NativeOperatorKind::GE => {
+                builder.build_int_compare(IntPredicate::SGE, left, right, "sge")
+            }
+            NativeOperatorKind::LT => {
+                builder.build_int_compare(IntPredicate::SLT, left, right, "slt")
+            }
+            NativeOperatorKind::LE => {
+                builder.build_int_compare(IntPredicate::SLE, left, right, "sle")
+            }
         }
         .as_basic_value_enum()
     }

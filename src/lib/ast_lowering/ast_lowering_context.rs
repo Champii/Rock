@@ -271,6 +271,11 @@ impl AstLoweringContext {
             NativeOperatorKind::Sub => hir::NativeOperatorKind::Sub,
             NativeOperatorKind::Mul => hir::NativeOperatorKind::Mul,
             NativeOperatorKind::Div => hir::NativeOperatorKind::Div,
+            NativeOperatorKind::Eq => hir::NativeOperatorKind::Eq,
+            NativeOperatorKind::GT => hir::NativeOperatorKind::GT,
+            NativeOperatorKind::GE => hir::NativeOperatorKind::GE,
+            NativeOperatorKind::LT => hir::NativeOperatorKind::LT,
+            NativeOperatorKind::LE => hir::NativeOperatorKind::LE,
         };
 
         hir::NativeOperator { hir_id, kind }

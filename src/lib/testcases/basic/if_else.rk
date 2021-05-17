@@ -1,0 +1,4 @@
+main =
+    if true
+        then 42
+        else 43

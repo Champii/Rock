@@ -274,7 +274,7 @@ impl Parse for FunctionDecl {
             arguments = ArgumentsDecl::parse(ctx)?;
         }
 
-        expect_or_restore!(TokenType::Equal, ctx);
+        expect_or_restore!(TokenType::Operator("=".to_string()), ctx);
 
         let body = try_or_restore!(Body::parse(ctx), ctx);
 
@@ -717,6 +717,11 @@ impl Parse for NativeOperator {
             "~Sub" => NativeOperatorKind::Sub,
             "~Mul" => NativeOperatorKind::Mul,
             "~Div" => NativeOperatorKind::Div,
+            "~Eq" => NativeOperatorKind::Eq,
+            "~GT" => NativeOperatorKind::GT,
+            "~GE" => NativeOperatorKind::GE,
+            "~LT" => NativeOperatorKind::LT,
+            "~LE" => NativeOperatorKind::LE,
             _ => error!("Unknown native operator".to_string(), ctx),
         };
 

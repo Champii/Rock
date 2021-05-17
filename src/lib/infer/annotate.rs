@@ -60,11 +60,6 @@ impl<'a> Visitor<'a> for AnnotateContext {
 
         self.visit_expression(&r#if.predicat);
 
-        self.state.new_type_solved(
-            r#if.predicat.get_terminal_hir_id(),
-            Type::Primitive(PrimitiveType::Bool),
-        );
-
         self.visit_body(&r#if.body);
 
         if let Some(e) = &r#if.else_ {
@@ -81,7 +76,16 @@ impl<'a> Visitor<'a> for AnnotateContext {
     }
 
     fn visit_native_operator(&mut self, op: &NativeOperator) {
+        let t = match op.kind {
+            NativeOperatorKind::Eq
+            | NativeOperatorKind::GT
+            | NativeOperatorKind::GE
+            | NativeOperatorKind::LT
+            | NativeOperatorKind::LE => PrimitiveType::Bool,
+            _ => PrimitiveType::Int64,
+        };
+
         self.state
-            .new_type_solved(op.hir_id.clone(), Type::Primitive(PrimitiveType::Int64));
+            .new_type_solved(op.hir_id.clone(), Type::Primitive(t));
     }
 }

@@ -1,7 +1,7 @@
 use super::Span;
 
 pub fn accepted_operator_chars() -> Vec<char> {
-    return vec!['+', '-', '/', '*', '|', '>'];
+    return vec!['+', '-', '/', '*', '|', '<', '>', '=', '!'];
 }
 
 #[derive(Clone, Debug, PartialEq)]

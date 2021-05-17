@@ -53,6 +53,10 @@ impl InferState {
 
         self.types.insert(new_type, None);
 
+        if self.node_types.contains_key(&hir_id) {
+            panic!("ALREADY DEFINED TYPE");
+        }
+
         self.node_types.insert(hir_id, new_type);
 
         new_type

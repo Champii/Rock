@@ -444,7 +444,9 @@ impl<'a> Lexer<'a> {
     fn try_native_operator(&mut self) -> Option<Token> {
         if self.last_char == '~' {
             let mut res = None;
-            let ops = vec!["~Add", "~Sub", "~Mul", "~Div"];
+            let ops = vec![
+                "~Add", "~Sub", "~Mul", "~Div", "~Eq", "~GT", "~GE", "~LT", "~LE",
+            ];
 
             for op in ops {
                 res = self.match_consume(op, TokenType::NativeOperator(op.to_string()), Sep::WS);

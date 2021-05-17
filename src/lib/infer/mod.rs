@@ -24,6 +24,7 @@ pub fn infer(root: &mut crate::hir::Root, config: &Config) {
     infer_state.solve();
 
     root.node_types = infer_state.get_node_types();
+
     root.types = infer_state.get_types();
 
     if config.show_hir {
