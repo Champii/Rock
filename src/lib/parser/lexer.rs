@@ -29,6 +29,7 @@ pub struct Lexer<'a> {
     last_char: char,
     cur_line: usize,
     end: bool,
+    base_indent: u8,
     accepted_operator_chars: Vec<char>,
 }
 
@@ -45,6 +46,7 @@ impl<'a> Lexer<'a> {
             cur_idx: 0,
             cur_line: 1,
             end: false,
+            base_indent: 0,
             accepted_operator_chars: super::accepted_operator_chars(),
         }
     }
@@ -488,12 +490,20 @@ impl<'a> Lexer<'a> {
 
             while self.input[self.cur_idx] == ' ' {
                 let mut count = 0;
-                while self.input[self.cur_idx] == ' ' && count < 4 {
+
+                while self.input[self.cur_idx] == ' '
+                    && (count < self.base_indent || self.base_indent == 0)
+                {
                     self.forward(1);
 
                     count += 1;
                 }
-                if count == 4 {
+
+                if self.base_indent == 0 {
+                    self.base_indent = count;
+                }
+
+                if count == self.base_indent {
                     indent += 1;
                 }
             }
