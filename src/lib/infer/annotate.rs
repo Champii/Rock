@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use super::InferState;
 use crate::ast::{PrimitiveType, Type};
 use crate::hir::visit::*;
@@ -7,11 +9,15 @@ use crate::walk_list;
 #[derive(Debug)]
 pub struct AnnotateContext {
     state: InferState,
+    body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
 }
 
 impl AnnotateContext {
     pub fn new(state: InferState) -> Self {
-        Self { state }
+        Self {
+            state,
+            body_arguments: BTreeMap::new(),
+        }
     }
 
     pub fn annotate(&mut self, root: &Root) {
@@ -28,7 +34,20 @@ impl<'a> Visitor<'a> for AnnotateContext {
         self.state
             .new_named_annotation(f.name.to_string(), f.hir_id.clone());
 
-        walk_list!(self, visit_argument_decl, &f.arguments);
+        self.body_arguments
+            .insert(f.body_id.clone(), f.arguments.clone());
+    }
+
+    fn visit_fn_body(&mut self, fn_body: &FnBody) {
+        let args = self.body_arguments.get(&fn_body.id).unwrap().clone();
+
+        self.state.named_types.push();
+
+        walk_list!(self, visit_argument_decl, &args);
+
+        self.visit_body(&fn_body.body);
+
+        self.state.named_types.pop();
     }
 
     fn visit_literal(&mut self, lit: &Literal) {

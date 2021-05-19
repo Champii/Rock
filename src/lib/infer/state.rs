@@ -3,7 +3,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::{ast::Type, hir::HirId};
+use crate::{ast::Type, helpers::scopes::Scopes, hir::HirId};
 
 pub type NodeId = u64;
 
@@ -19,7 +19,8 @@ pub enum Constraint {
 
 #[derive(Debug, Default)]
 pub struct InferState {
-    named_types: BTreeMap<String, TypeId>,
+    // named_types: BTreeMap<String, TypeId>,
+    pub named_types: Scopes<String, TypeId>,
     node_types: BTreeMap<HirId, TypeId>,
     types: BTreeMap<TypeId, Option<Type>>,
     constraints: Vec<Constraint>,
@@ -32,16 +33,18 @@ impl InferState {
 
     pub fn new_named_annotation(&mut self, name: String, hir_id: HirId) -> TypeId {
         // TODO: check if type already exists ?
-        match self.named_types.get(&name) {
+        match self.named_types.get(name.clone()) {
             Some(t) => {
-                self.node_types.insert(hir_id, *t);
+                // // TODO: build some scoped declarations
+                // panic!("ALREADY DEFINED NAMED TYPE: {}", name);
+                self.node_types.insert(hir_id, t);
 
-                *t
+                t
             }
             None => {
                 let new_type = self.new_type_id(hir_id);
 
-                self.named_types.insert(name, new_type);
+                self.named_types.add(name, new_type);
 
                 new_type
             }
@@ -79,7 +82,7 @@ impl InferState {
     }
 
     pub fn get_named_type_id(&self, name: String) -> Option<TypeId> {
-        self.named_types.get(&name).cloned()
+        self.named_types.get(name)
     }
 
     pub fn remove_node_id(&mut self, hir_id: HirId) {
