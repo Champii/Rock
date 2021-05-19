@@ -382,7 +382,7 @@ impl Parse for If {
         let expr = try_or_restore!(Expression::parse(ctx), ctx);
 
         expect_or_restore!(TokenType::EOL, ctx);
-        expect_or_restore!(TokenType::Indent(ctx.block_indent + 1), ctx);
+        expect_or_restore!(TokenType::Indent(ctx.block_indent), ctx);
         expect_or_restore!(TokenType::Then, ctx);
 
         let body = try_or_restore!(Body::parse(ctx), ctx);
@@ -405,7 +405,7 @@ impl Parse for If {
             });
         }
 
-        expect_or_restore!(TokenType::Indent(ctx.block_indent + 1), ctx);
+        expect_or_restore!(TokenType::Indent(ctx.block_indent), ctx);
 
         expect_or_restore!(TokenType::Else, ctx);
 
