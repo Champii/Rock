@@ -57,6 +57,7 @@ pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLev
 
 pub fn walk_function_decl<'a, V: Visitor<'a>>(visitor: &mut V, function_decl: &'a FunctionDecl) {
     visitor.visit_identifier(&function_decl.name);
+
     walk_list!(visitor, visit_argument_decl, &function_decl.arguments);
 }
 
@@ -103,6 +104,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
 
 pub fn walk_function_call<'a, V: Visitor<'a>>(visitor: &mut V, fc: &'a FunctionCall) {
     visitor.visit_expression(&fc.op);
+
     walk_list!(visitor, visit_expression, &fc.args);
 }
 
@@ -121,6 +123,7 @@ pub fn walk_native_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a
 pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {
     visitor.visit_expression(&r#if.predicat);
     visitor.visit_body(&r#if.body);
+
     if let Some(r#else) = &r#if.else_ {
         visitor.visit_else(&r#else);
     }
