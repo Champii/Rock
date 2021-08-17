@@ -2,16 +2,17 @@
 ## TODO (by order):
 
 - v0.1.1
-    - operator precedence
-    - sub, mul div and mod for ints
+    - extern
+    - float, char, lists
 - v0.1.2
     - while/for_in
 - v0.1.3
+    - multiline functions
+    - variables
     - immutable by default
     - mut keyword
 - v0.1.4
     - type aliasing
-    - floats
 - v0.1.5
     - enums
     - escaped chars
