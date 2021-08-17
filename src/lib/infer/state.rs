@@ -19,7 +19,7 @@ pub enum Constraint {
 
 #[derive(Debug, Default)]
 pub struct InferState {
-    // named_types: BTreeMap<String, TypeId>,
+    pub named_types_flat: Scopes<String, TypeId>,
     pub named_types: Scopes<String, TypeId>,
     node_types: BTreeMap<HirId, TypeId>,
     types: BTreeMap<TypeId, Option<Type>>,
@@ -33,18 +33,20 @@ impl InferState {
 
     pub fn new_named_annotation(&mut self, name: String, hir_id: HirId) -> TypeId {
         // TODO: check if type already exists ?
-        match self.named_types.get(name.clone()) {
+        match self.named_types_flat.get(name.clone()) {
             Some(t) => {
                 // // TODO: build some scoped declarations
                 // panic!("ALREADY DEFINED NAMED TYPE: {}", name);
                 self.node_types.insert(hir_id, t);
+                self.named_types_flat.add(name, t);
 
                 t
             }
             None => {
                 let new_type = self.new_type_id(hir_id);
 
-                self.named_types.add(name, new_type);
+                self.named_types.add(name.clone(), new_type);
+                self.named_types_flat.add(name, new_type);
 
                 new_type
             }
@@ -82,7 +84,7 @@ impl InferState {
     }
 
     pub fn get_named_type_id(&self, name: String) -> Option<TypeId> {
-        self.named_types.get(name)
+        self.named_types_flat.get(name)
     }
 
     pub fn remove_node_id(&mut self, hir_id: HirId) {

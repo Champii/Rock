@@ -42,6 +42,7 @@ impl<'a> Visitor<'a> for AnnotateContext {
         let args = self.body_arguments.get(&fn_body.id).unwrap().clone();
 
         self.state.named_types.push();
+        self.state.named_types_flat.push();
 
         walk_list!(self, visit_argument_decl, &args);
 

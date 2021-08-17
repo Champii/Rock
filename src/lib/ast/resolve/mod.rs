@@ -26,5 +26,7 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
 
     root.resolutions = ctx.resolutions;
 
+    // TODO: find unused functions here and mark them as such to let them pass infer (to avoid crash)
+
     parsing_ctx.return_if_error()
 }

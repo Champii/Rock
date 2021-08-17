@@ -199,7 +199,7 @@ impl AstLoweringContext {
                 .unwrap()
                 .iter()
                 .map(|sec| self.lower_secondary(&sec))
-                .flatten() // FIX: This is bad, we mix secondaries with arguments and we flatten.
+                .flatten() // FIXME: This is bad, we mix secondaries with arguments and we flatten.
                 .collect(),
         })
     }

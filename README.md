@@ -7,9 +7,9 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 ## Features
 
 - Strongly typed
-- Custom operators
-- Type inference
 - Parametric Polymorphism
+- Type inference
+- Custom operators
 - Compile to LLVM IR
 
 ## Ongoing development
@@ -34,8 +34,8 @@ g a = a * 2
 
 main =
     if true
-        then g (1 + 2) |> f 
-        else 2
+    then g (1 + 2) |> f 
+    else 2
 ```
 
 ## Usage
