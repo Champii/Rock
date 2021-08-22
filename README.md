@@ -18,6 +18,14 @@ This project, its syntax and its APIs are subject to change at any moment. This 
 
 ## Quickstart and Example
 
+Creating a new project folder
+
+``` sh
+mkdir -P new_project/src && cd new_project
+```
+
+Add some files like this:
+
 `./src/std.rk`
 
 ``` haskell
@@ -47,6 +55,12 @@ main =
     if true
     then g (1 + 2) |> f 
     else 2
+```
+
+Assuming you built Rock and put its binary in your PATH:
+
+``` sh
+rock run
 ```
 
 ## Usage
