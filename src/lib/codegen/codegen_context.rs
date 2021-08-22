@@ -200,29 +200,47 @@ impl<'a> CodegenContext<'a> {
     ) -> (AnyValueEnum<'a>, BasicBlock<'a>) {
         let block = builder.get_insert_block().unwrap();
 
+        builder.position_at_end(block);
+
         let predicat = self.lower_expression(&r#if.predicat, builder);
 
         let (_, then_block) = self.lower_body(&r#if.body, "then", builder);
 
         let else_block = if let Some(e) = &r#if.else_ {
-            self.lower_else(e, builder)
+            let else_block = self.lower_else(e, builder);
+
+            builder.position_at_end(block);
+
+            else_block
         } else {
             //new empty block
             let f = self.module.get_last_function().unwrap();
-            self.context.append_basic_block(f, "else")
-        };
+            let else_block = self.context.append_basic_block(f, "else");
 
-        builder.position_at_end(block);
+            builder.position_at_end(block);
+
+            else_block
+        };
 
         let if_value =
             builder.build_conditional_branch(predicat.into_int_value(), then_block, else_block);
 
-        (if_value.as_any_value_enum(), then_block)
+        builder.position_at_end(else_block);
+
+        (if_value.as_any_value_enum(), block)
     }
 
     pub fn lower_else(&mut self, r#else: &'a Else, builder: &'a Builder) -> BasicBlock<'a> {
         match &r#else {
-            Else::If(i) => self.lower_if(i, builder).1,
+            Else::If(i) => {
+                let block = self
+                    .context
+                    .append_basic_block(self.cur_func.clone().unwrap(), "if");
+
+                builder.position_at_end(block);
+
+                self.lower_if(i, builder).1
+            }
             Else::Body(b) => self.lower_body(b, "else", builder).1,
         }
     }

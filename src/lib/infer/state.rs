@@ -197,6 +197,7 @@ impl InferState {
     }
 
     pub fn get_types(&self) -> BTreeMap<TypeId, Type> {
+        println!("TYPES {:#?}", self.types);
         self.types
             .iter()
             .map(|(t_id, t)| (*t_id, t.clone().unwrap()))
