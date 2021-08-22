@@ -52,6 +52,10 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         // We add every top level first
         for top in &m.top_levels {
             match &top.kind {
+                TopLevelKind::Prototype(p) => {
+                    self.add_to_current_scope((*p.name).clone(), p.identity.clone());
+                }
+                TopLevelKind::Use(_u) => (),
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {
@@ -65,6 +69,10 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top.kind {
+            TopLevelKind::Prototype(_) => (),
+            TopLevelKind::Use(u) => {
+                self.visit_use(&u);
+            }
             TopLevelKind::Infix(_, _) => (),
             TopLevelKind::Function(f) => {
                 self.push_scope();
@@ -85,6 +93,37 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         };
     }
 
+    fn visit_use(&mut self, r#use: &'a Use) {
+        let ident = r#use.path.last_segment_ref();
+
+        if r#use.path.path.len() == 1 {
+            panic!("Unimplemented");
+        }
+
+        let mod_path = r#use.path.parent().prepend_mod(self.cur_scope.clone());
+
+        match self.scopes.get(&mod_path) {
+            Some(scopes) => match scopes.get((*ident).to_string()) {
+                Some(pointed) => {
+                    self.add_to_current_scope(r#use.path.last_segment().name, pointed);
+                }
+                None => self
+                    .parsing_ctx
+                    .diagnostics
+                    .push(Diagnostic::new_unknown_identifier(
+                        ident.identity.span.clone(),
+                    )),
+            },
+
+            None => self
+                .parsing_ctx
+                .diagnostics
+                .push(Diagnostic::new_module_not_found(
+                    ident.identity.span.clone(),
+                )),
+        };
+    }
+
     fn visit_argument_decl(&mut self, arg: &'a ArgumentDecl) {
         self.add_to_current_scope(arg.name.clone(), arg.identity.clone());
     }
@@ -99,6 +138,9 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         }
 
         let mod_path = path.parent().prepend_mod(self.cur_scope.clone());
+
+        // println!("MOD {:#?}", self.scopes);
+        // println!("NAME {:#?}", mod_path);
 
         match self.scopes.get(&mod_path) {
             Some(scopes) => match scopes.get((*ident).to_string()) {
@@ -117,7 +159,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             None => self
                 .parsing_ctx
                 .diagnostics
-                .push(Diagnostic::new_unknown_identifier(
+                .push(Diagnostic::new_module_not_found(
                     ident.identity.span.clone(),
                 )),
         };

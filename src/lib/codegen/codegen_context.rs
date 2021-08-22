@@ -38,12 +38,21 @@ impl<'a> CodegenContext<'a> {
         }
     }
 
-    pub fn lower_type(&mut self, t: &Type) -> BasicTypeEnum<'a> {
+    pub fn lower_type(&mut self, t: &Type, builder: &'a Builder) -> BasicTypeEnum<'a> {
         match t {
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
             Type::FuncType(f) => {
-                let f2 = self.module.get_function(&f.name).unwrap();
+                let f2 = match self.module.get_function(&f.name) {
+                    Some(f2) => f2,
+                    None => {
+                        let f = self.hir.get_function_by_name(&f.name).unwrap();
+
+                        self.lower_function_decl(&f, builder);
+
+                        self.module.get_function(&f.name).unwrap()
+                    }
+                };
 
                 f2.get_type().ptr_type(AddressSpace::Generic).into()
             }
@@ -54,6 +63,7 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_hir(&mut self, root: &'a Root, builder: &'a Builder) {
         for item in root.top_levels.values() {
             match &item.kind {
+                TopLevelKind::Prototype(p) => self.lower_prototype(&p, builder),
                 TopLevelKind::Function(f) => self.lower_function_decl(&f, builder),
             }
         }
@@ -63,18 +73,49 @@ impl<'a> CodegenContext<'a> {
         }
     }
 
-    pub fn lower_function_decl(&mut self, f: &'a FunctionDecl, _builder: &'a Builder) {
+    pub fn lower_prototype(&mut self, p: &'a Prototype, builder: &'a Builder) {
+        let t = self.hir.get_type(p.hir_id.clone()).unwrap();
+
+        if let Type::FuncType(f_type) = t {
+            let ret_t = self.hir.types.get(&f_type.ret).unwrap();
+
+            let ret = self.lower_type(ret_t, builder);
+
+            let args = p
+                .arguments
+                .iter()
+                .map(|arg| self.lower_argument_decl(arg, builder))
+                .collect::<Vec<_>>();
+
+            let fn_type = ret.fn_type(args.as_slice(), false);
+
+            let fn_value = self.module.add_function(&p.name.name, fn_type, None);
+
+            self.scopes.add(
+                p.hir_id.clone(),
+                fn_value
+                    .as_global_value()
+                    .as_pointer_value()
+                    .as_basic_value_enum(),
+            );
+        }
+    }
+    pub fn lower_function_decl(&mut self, f: &FunctionDecl, builder: &'a Builder) {
+        if self.module.get_function(&f.name).is_some() {
+            return;
+        }
+
         let t = self.hir.get_type(f.hir_id.clone()).unwrap();
 
         if let Type::FuncType(f_type) = t {
             let ret_t = self.hir.types.get(&f_type.ret).unwrap();
 
-            let ret = self.lower_type(ret_t);
+            let ret = self.lower_type(ret_t, builder);
 
             let args = f
                 .arguments
                 .iter()
-                .map(|arg| self.lower_argument_decl(arg))
+                .map(|arg| self.lower_argument_decl(arg, builder))
                 .collect::<Vec<_>>();
 
             let fn_type = ret.fn_type(args.as_slice(), false);
@@ -91,10 +132,14 @@ impl<'a> CodegenContext<'a> {
         }
     }
 
-    pub fn lower_argument_decl(&mut self, arg: &'a ArgumentDecl) -> BasicTypeEnum<'a> {
+    pub fn lower_argument_decl(
+        &mut self,
+        arg: &ArgumentDecl,
+        builder: &'a Builder,
+    ) -> BasicTypeEnum<'a> {
         let t = self.hir.get_type(arg.name.hir_id.clone()).unwrap();
 
-        self.lower_type(&t)
+        self.lower_type(&t, builder)
     }
 
     pub fn lower_fn_body(&mut self, fn_body: &'a FnBody, builder: &'a Builder) {
@@ -109,6 +154,7 @@ impl<'a> CodegenContext<'a> {
             let hir_top = self.hir.get_top_level(hir_top_reso).unwrap();
 
             match &hir_top.kind {
+                TopLevelKind::Prototype(_) => (),
                 TopLevelKind::Function(hir_f) => {
                     for (i, arg) in hir_f.arguments.iter().enumerate() {
                         self.scopes.add(
@@ -215,6 +261,9 @@ impl<'a> CodegenContext<'a> {
         let f_value: Either<FunctionValue, PointerValue> =
             match self.hir.get_top_level(f_id.clone()) {
                 Some(top) => match &top.kind {
+                    TopLevelKind::Prototype(p) => {
+                        Either::Left(self.module.get_function(&p.name.to_string()).unwrap())
+                    }
                     TopLevelKind::Function(f) => {
                         Either::Left(self.module.get_function(&f.name.to_string()).unwrap())
                     }

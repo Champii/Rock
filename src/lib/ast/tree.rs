@@ -28,9 +28,24 @@ pub struct TopLevel {
 
 #[derive(Debug, Clone)]
 pub enum TopLevelKind {
+    Prototype(Prototype),
     Function(FunctionDecl),
     Mod(Identifier, Mod),
+    Use(Use),
     Infix(Identifier, u8),
+}
+
+#[derive(Debug, Clone)]
+pub struct Prototype {
+    pub name: Identifier,
+    pub arguments: Vec<ArgumentDecl>,
+    pub identity: Identity,
+}
+
+#[derive(Debug, Clone)]
+pub struct Use {
+    pub path: IdentifierPath,
+    pub identity: Identity,
 }
 
 #[derive(Debug, Clone)]

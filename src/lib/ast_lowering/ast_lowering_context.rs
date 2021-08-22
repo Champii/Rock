@@ -61,6 +61,19 @@ impl AstLoweringContext {
         let id = self.hir_map.next_hir_id(top_level.identity.clone());
 
         match &top_level.kind {
+            TopLevelKind::Prototype(p) => {
+                let mut top_level = hir::TopLevel {
+                    kind: hir::TopLevelKind::Prototype(self.lower_prototype(&p)),
+                    hir_id: id,
+                };
+
+                let child_id = top_level.get_child_hir();
+                top_level.hir_id = child_id.clone();
+
+                self.top_levels.insert(child_id.clone(), top_level);
+                child_id
+            }
+            TopLevelKind::Use(_u) => id,
             TopLevelKind::Infix(_, _) => id,
             TopLevelKind::Function(f) => {
                 let mut top_level = hir::TopLevel {
@@ -75,6 +88,22 @@ impl AstLoweringContext {
                 child_id
             }
             TopLevelKind::Mod(_name, mod_) => self.lower_mod(&mod_),
+        }
+    }
+
+    pub fn lower_prototype(&mut self, p: &Prototype) -> hir::Prototype {
+        let id = self.hir_map.next_hir_id(p.identity.clone());
+        let ident = self.lower_identifier(&p.name);
+
+        hir::Prototype {
+            name: ident,
+            arguments: p
+                .arguments
+                .iter()
+                .map(|arg| self.lower_argument_decl(&arg))
+                .collect(),
+            ret: Type::Undefined(0),
+            hir_id: id,
         }
     }
 

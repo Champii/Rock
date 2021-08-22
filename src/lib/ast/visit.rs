@@ -32,6 +32,8 @@ generate_visitor_trait!(
     Root, root
     Mod, r#mod
     TopLevel, top_level
+    Prototype, prototype
+    Use, r#use
     FunctionDecl, function_decl
     Identifier, identifier
     IdentifierPath, identifier_path
@@ -61,6 +63,8 @@ pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {
+        TopLevelKind::Prototype(p) => visitor.visit_prototype(&p),
+        TopLevelKind::Use(u) => visitor.visit_use(&u),
         TopLevelKind::Mod(name, m) => {
             visitor.visit_identifier(&name);
             visitor.visit_mod(&m);
@@ -68,6 +72,16 @@ pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLev
         TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
         TopLevelKind::Infix(ident, _) => visitor.visit_identifier(&ident),
     };
+}
+
+pub fn walk_prototype<'a, V: Visitor<'a>>(visitor: &mut V, prototype: &'a Prototype) {
+    visitor.visit_identifier(&prototype.name);
+
+    walk_list!(visitor, visit_argument_decl, &prototype.arguments);
+}
+
+pub fn walk_use<'a, V: Visitor<'a>>(visitor: &mut V, r#use: &'a Use) {
+    visitor.visit_identifier_path(&r#use.path);
 }
 
 pub fn walk_function_decl<'a, V: Visitor<'a>>(visitor: &mut V, function_decl: &'a FunctionDecl) {

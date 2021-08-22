@@ -29,6 +29,7 @@ macro_rules! generate_visitor_trait {
 generate_visitor_trait!(
     Root, root
     TopLevel, top_level
+    Prototype, prototype
     FunctionDecl, function_decl
     ArgumentDecl, argument_decl
     IdentifierPath, identifier_path
@@ -51,8 +52,15 @@ pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {
+        TopLevelKind::Prototype(p) => visitor.visit_prototype(&p),
         TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
     };
+}
+
+pub fn walk_prototype<'a, V: Visitor<'a>>(visitor: &mut V, prototype: &'a Prototype) {
+    visitor.visit_identifier(&prototype.name);
+
+    walk_list!(visitor, visit_argument_decl, &prototype.arguments);
 }
 
 pub fn walk_function_decl<'a, V: Visitor<'a>>(visitor: &mut V, function_decl: &'a FunctionDecl) {

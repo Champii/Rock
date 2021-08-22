@@ -19,6 +19,19 @@ impl Root {
         self.top_levels.get(&hir_id)
     }
 
+    pub fn get_function_by_name(&self, name: &str) -> Option<FunctionDecl> {
+        self.top_levels
+            .iter()
+            .find(|(_, top)| match &top.kind {
+                TopLevelKind::Function(f) => (*f.name) == name,
+                _ => false,
+            })
+            .map(|(_, top)| match &top.kind {
+                TopLevelKind::Function(f) => f.clone(),
+                _ => unimplemented!(),
+            })
+    }
+
     pub fn get_body(&self, body_id: FnBodyId) -> Option<&FnBody> {
         self.bodies.get(&body_id)
     }
@@ -45,6 +58,7 @@ pub struct TopLevel {
 impl TopLevel {
     pub fn get_child_hir(&self) -> HirId {
         match &self.kind {
+            TopLevelKind::Prototype(p) => p.hir_id.clone(),
             TopLevelKind::Function(f) => f.hir_id.clone(),
         }
     }
@@ -53,6 +67,15 @@ impl TopLevel {
 #[derive(Debug, Clone)]
 pub enum TopLevelKind {
     Function(FunctionDecl),
+    Prototype(Prototype),
+}
+
+#[derive(Debug, Clone)]
+pub struct Prototype {
+    pub name: Identifier,
+    pub arguments: Vec<ArgumentDecl>,
+    pub ret: Type,
+    pub hir_id: HirId,
 }
 
 #[derive(Debug, Clone)]

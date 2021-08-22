@@ -9,6 +9,7 @@ pub enum TokenType {
     // keywords
     Fn,
     Mod,
+    Use,
     Extern,
     If,
     Then,

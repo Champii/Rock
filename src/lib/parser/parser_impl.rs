@@ -58,7 +58,7 @@ macro_rules! error {
         return Err(Diagnostic::new_syntax_error(
             $self.cur_tok().span.clone(),
             $msg,
-        ));
+        ))
     };
 }
 
@@ -214,6 +214,11 @@ impl Parse for TopLevel {
         let token = ctx.cur_tok();
 
         let kind = match ctx.cur_tok().t {
+            TokenType::Extern => {
+                ctx.consume(); // extern keyword
+
+                TopLevelKind::Prototype(Prototype::parse(ctx)?)
+            }
             TokenType::Mod => {
                 ctx.consume(); // mod keyword
 
@@ -223,6 +228,11 @@ impl Parse for TopLevel {
                     .map_err(|diag| Diagnostic::new(token.span.clone(), diag.get_kind()))?;
 
                 TopLevelKind::Mod(name, mod_node)
+            }
+            TokenType::Use => {
+                ctx.consume(); // use keyword
+
+                TopLevelKind::Use(Use::parse(ctx)?)
             }
             TokenType::Infix => {
                 ctx.consume(); // infix keyword
@@ -251,6 +261,46 @@ impl Parse for TopLevel {
 
         Ok(TopLevel {
             kind,
+            identity: Identity::new(token_id, token.span),
+        })
+    }
+}
+
+impl Parse for Prototype {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let mut arguments = vec![];
+
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
+
+        ctx.save();
+
+        let name = try_or_restore!(Identifier::parse(ctx), ctx);
+
+        if TokenType::OpenParens == ctx.cur_tok().t
+            || TokenType::Identifier(ctx.cur_tok().txt) == ctx.cur_tok().t
+        {
+            // manage error and restore here
+            arguments = ArgumentsDecl::parse(ctx)?;
+        }
+
+        ctx.save_pop();
+
+        Ok(Prototype {
+            name,
+            arguments,
+            identity: Identity::new(token_id, token.span),
+        })
+    }
+}
+
+impl Parse for Use {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
+
+        Ok(Use {
+            path: IdentifierPath::parse(ctx)?,
             identity: Identity::new(token_id, token.span),
         })
     }

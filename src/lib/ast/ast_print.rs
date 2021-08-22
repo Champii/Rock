@@ -91,6 +91,7 @@ impl_visitor_trait!(
     Root, root
     Mod, r#mod
     TopLevel, top_level
+    Use, r#use
     FunctionDecl, function_decl
     Identifier, identifier
     ArgumentDecl, argument_decl

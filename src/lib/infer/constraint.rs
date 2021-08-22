@@ -87,6 +87,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 if let Some(top_id) = self.hir.resolutions.get(op_hir_id.clone()) {
                     if let Some(top) = self.hir.get_top_level(top_id.clone()) {
                         match &top.kind {
+                            TopLevelKind::Prototype(_) => {}
                             TopLevelKind::Function(f) => {
                                 let body = self.hir.get_body(f.body_id.clone()).unwrap();
 
