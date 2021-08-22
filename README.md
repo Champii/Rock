@@ -7,7 +7,7 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 ## Features
 
 - Strongly typed
-- Parametric Polymorphism
+- Parametric Polymorphism(Soon(tm))
 - Type inference
 - Custom operators
 - Compile to LLVM IR
@@ -16,21 +16,32 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 
 This project, its syntax and its APIs are subject to change at any moment. This is a personal project, please bear with me :)
 
-## Example
+## Quickstart and Example
+
+`./src/std.rk`
+
+``` haskell
+infix + 4
++ a b = ~Add a b
+
+infix * 5
+* a b = ~Mul a b
+
+infix |> 1
+|> c h = h c
+```
+
+`./src/main.rk`
 
 ```haskell
-mod other_file
+mod std
 
-infix + 4
-infix * 5
-infix |> 1
+use std::*
+use std::+
+use std::|>
 
 f a = a + 2
 g a = a * 2
-
-+ a b = ~Add a b
-* a b = ~Mul a b
-|> c h = h c
 
 main =
     if true
