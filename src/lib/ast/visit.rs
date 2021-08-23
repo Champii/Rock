@@ -197,6 +197,7 @@ pub fn walk_argument<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a Argument
 pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
     match &literal.kind {
         LiteralKind::Number(n) => visitor.visit_primitive(n),
+        LiteralKind::Float(f) => visitor.visit_primitive(f),
         LiteralKind::String(s) => visitor.visit_primitive(s),
         LiteralKind::Bool(b) => visitor.visit_primitive(b),
     }

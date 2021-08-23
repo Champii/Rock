@@ -390,25 +390,36 @@ impl<'a> Lexer<'a> {
             self.forward(1);
         }
 
+        let mut is_float = false;
+
         if self.last_char.is_digit(10) {
             let mut number = vec![];
 
-            while self.last_char.is_digit(10) {
+            while self.last_char.is_digit(10) || self.last_char == '.' {
+                if self.last_char == '.' {
+                    is_float = true;
+                }
+
                 number.push(self.last_char);
 
                 self.forward(1);
             }
 
-            let nb_str: String = number.iter().collect();
-            let mut nb: i64 = nb_str.parse().unwrap();
+            let mut nb_str: String = number.iter().collect();
 
             if is_neg {
-                nb = -nb;
+                nb_str.insert(0, '-');
             }
+
+            let nb = if is_float {
+                TokenType::Float(nb_str.parse::<f64>().unwrap())
+            } else {
+                TokenType::Number(nb_str.parse::<i64>().unwrap())
+            };
 
             // if is_keyword, return None
 
-            return Some(self.new_token(TokenType::Number(nb), start, nb_str));
+            return Some(self.new_token(nb, start, nb_str));
         }
 
         None
@@ -452,7 +463,8 @@ impl<'a> Lexer<'a> {
         if self.last_char == '~' {
             let mut res = None;
             let ops = vec![
-                "~Add", "~Sub", "~Mul", "~Div", "~Eq", "~GT", "~GE", "~LT", "~LE",
+                "~IAdd", "~ISub", "~IMul", "~IDiv", "~Eq", "~GT", "~GE", "~LT", "~LE", "~FAdd",
+                "~FSub", "~FMul", "~FDiv",
             ];
 
             for op in ops {

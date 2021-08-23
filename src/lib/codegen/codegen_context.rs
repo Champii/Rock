@@ -41,6 +41,7 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_type(&mut self, t: &Type, builder: &'a Builder) -> BasicTypeEnum<'a> {
         match t {
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
+            Type::Primitive(PrimitiveType::Float64) => self.context.f64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
             Type::FuncType(f) => {
                 let f2 = match self.module.get_function(&f.name) {
@@ -260,7 +261,7 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::Return(expr) => {
                 let val = self.lower_expression(expr, builder);
 
-                builder.build_return(Some(&val.into_int_value()));
+                builder.build_return(Some(&val.as_basic_value_enum()));
 
                 val
             }
@@ -309,6 +310,11 @@ impl<'a> CodegenContext<'a> {
 
                 i64_type.const_int((*n).try_into().unwrap(), false).into()
             }
+            LiteralKind::Float(n) => {
+                let f64_type = self.context.f64_type();
+
+                f64_type.const_float((*n).try_into().unwrap()).into()
+            }
             LiteralKind::Bool(b) => {
                 let bool_type = self.context.bool_type();
 
@@ -343,30 +349,116 @@ impl<'a> CodegenContext<'a> {
         right: &Identifier,
         builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
-        let left = self.lower_identifier(left, builder).into_int_value();
-        let right = self.lower_identifier(right, builder).into_int_value();
+        // let left = self.lower_identifier(left, builder).into_int_value();
+        // let right = self.lower_identifier(right, builder).into_int_value();
 
         match op.kind {
-            NativeOperatorKind::Add => builder.build_int_add(left, right, "add"),
-            NativeOperatorKind::Sub => builder.build_int_sub(left, right, "sub"),
-            NativeOperatorKind::Mul => builder.build_int_mul(left, right, "mul"),
-            NativeOperatorKind::Div => builder.build_int_signed_div(left, right, "div"),
+            NativeOperatorKind::IAdd => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_add(left, right, "iadd")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::ISub => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_sub(left, right, "isub")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::IMul => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_mul(left, right, "imul")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::IDiv => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_signed_div(left, right, "idiv")
+                    .as_basic_value_enum()
+            }
             NativeOperatorKind::Eq => {
-                builder.build_int_compare(IntPredicate::EQ, left, right, "eq")
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::EQ, left, right, "ieq")
+                    .as_basic_value_enum()
             }
             NativeOperatorKind::GT => {
-                builder.build_int_compare(IntPredicate::SGT, left, right, "sgt")
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::SGT, left, right, "isgt")
+                    .as_basic_value_enum()
             }
             NativeOperatorKind::GE => {
-                builder.build_int_compare(IntPredicate::SGE, left, right, "sge")
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::SGE, left, right, "isge")
+                    .as_basic_value_enum()
             }
             NativeOperatorKind::LT => {
-                builder.build_int_compare(IntPredicate::SLT, left, right, "slt")
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::SLT, left, right, "islt")
+                    .as_basic_value_enum()
             }
             NativeOperatorKind::LE => {
-                builder.build_int_compare(IntPredicate::SLE, left, right, "sle")
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::SLE, left, right, "isle")
+                    .as_basic_value_enum()
+            }
+
+            // float
+            NativeOperatorKind::FAdd => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_add(left, right, "iadd")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FSub => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_sub(left, right, "isub")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FMul => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_mul(left, right, "imul")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FDiv => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_div(left, right, "idiv")
+                    .as_basic_value_enum()
             }
         }
-        .as_basic_value_enum()
     }
 }

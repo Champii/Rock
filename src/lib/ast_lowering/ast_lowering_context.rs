@@ -258,6 +258,7 @@ impl AstLoweringContext {
             hir_id,
             kind: match &lit.kind {
                 LiteralKind::Number(n) => hir::LiteralKind::Number(*n),
+                LiteralKind::Float(f) => hir::LiteralKind::Float(*f),
                 LiteralKind::String(s) => hir::LiteralKind::String(s.clone()),
                 LiteralKind::Bool(b) => hir::LiteralKind::Bool(*b),
             },
@@ -296,15 +297,19 @@ impl AstLoweringContext {
         let hir_id = self.hir_map.next_hir_id(op.identity.clone());
 
         let kind = match op.kind {
-            NativeOperatorKind::Add => hir::NativeOperatorKind::Add,
-            NativeOperatorKind::Sub => hir::NativeOperatorKind::Sub,
-            NativeOperatorKind::Mul => hir::NativeOperatorKind::Mul,
-            NativeOperatorKind::Div => hir::NativeOperatorKind::Div,
+            NativeOperatorKind::IAdd => hir::NativeOperatorKind::IAdd,
+            NativeOperatorKind::ISub => hir::NativeOperatorKind::ISub,
+            NativeOperatorKind::IMul => hir::NativeOperatorKind::IMul,
+            NativeOperatorKind::IDiv => hir::NativeOperatorKind::IDiv,
             NativeOperatorKind::Eq => hir::NativeOperatorKind::Eq,
             NativeOperatorKind::GT => hir::NativeOperatorKind::GT,
             NativeOperatorKind::GE => hir::NativeOperatorKind::GE,
             NativeOperatorKind::LT => hir::NativeOperatorKind::LT,
             NativeOperatorKind::LE => hir::NativeOperatorKind::LE,
+            NativeOperatorKind::FAdd => hir::NativeOperatorKind::FAdd,
+            NativeOperatorKind::FSub => hir::NativeOperatorKind::FSub,
+            NativeOperatorKind::FMul => hir::NativeOperatorKind::FMul,
+            NativeOperatorKind::FDiv => hir::NativeOperatorKind::FDiv,
         };
 
         hir::NativeOperator { hir_id, kind }

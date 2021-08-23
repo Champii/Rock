@@ -56,6 +56,9 @@ impl<'a> Visitor<'a> for AnnotateContext {
             LiteralKind::Number(_n) => self
                 .state
                 .new_type_solved(lit.hir_id.clone(), Type::Primitive(PrimitiveType::Int64)),
+            LiteralKind::Float(_f) => self
+                .state
+                .new_type_solved(lit.hir_id.clone(), Type::Primitive(PrimitiveType::Float64)),
             LiteralKind::String(s) => self.state.new_type_solved(
                 lit.hir_id.clone(),
                 Type::Primitive(PrimitiveType::String(s.len())),

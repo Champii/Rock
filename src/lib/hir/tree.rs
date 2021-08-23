@@ -237,6 +237,7 @@ pub struct Literal {
 #[derive(Debug, Clone)]
 pub enum LiteralKind {
     Number(i64),
+    Float(f64),
     String(String),
     Bool(u64),
 }
@@ -249,10 +250,14 @@ pub struct NativeOperator {
 
 #[derive(Debug, Clone)]
 pub enum NativeOperatorKind {
-    Add,
-    Sub,
-    Mul,
-    Div,
+    IAdd,
+    ISub,
+    IMul,
+    IDiv,
+    FAdd,
+    FSub,
+    FMul,
+    FDiv,
     Eq,
     GT,
     GE,

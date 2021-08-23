@@ -646,6 +646,12 @@ impl Parse for LiteralKind {
             return Ok(LiteralKind::Number(num));
         }
 
+        if let TokenType::Float(float) = ctx.cur_tok().t {
+            ctx.consume();
+
+            return Ok(LiteralKind::Float(float));
+        }
+
         if let TokenType::Bool(b) = ctx.cur_tok().t {
             ctx.consume();
 
@@ -763,15 +769,19 @@ impl Parse for NativeOperator {
         };
 
         let kind = match op.as_ref() {
-            "~Add" => NativeOperatorKind::Add,
-            "~Sub" => NativeOperatorKind::Sub,
-            "~Mul" => NativeOperatorKind::Mul,
-            "~Div" => NativeOperatorKind::Div,
+            "~IAdd" => NativeOperatorKind::IAdd,
+            "~ISub" => NativeOperatorKind::ISub,
+            "~IMul" => NativeOperatorKind::IMul,
+            "~IDiv" => NativeOperatorKind::IDiv,
             "~Eq" => NativeOperatorKind::Eq,
             "~GT" => NativeOperatorKind::GT,
             "~GE" => NativeOperatorKind::GE,
             "~LT" => NativeOperatorKind::LT,
             "~LE" => NativeOperatorKind::LE,
+            "~FAdd" => NativeOperatorKind::FAdd,
+            "~FSub" => NativeOperatorKind::FSub,
+            "~FMul" => NativeOperatorKind::FMul,
+            "~FDiv" => NativeOperatorKind::FDiv,
             _ => error!("Unknown native operator".to_string(), ctx),
         };
 
