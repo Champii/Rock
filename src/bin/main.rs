@@ -13,7 +13,7 @@ pub mod logger;
 pub(crate) use rock::*;
 
 fn build(config: &Config) -> bool {
-    info!(" -> Building");
+    debug!(" -> Building");
 
     let entry_file = "./src/main.rk";
 
@@ -124,7 +124,7 @@ fn main() {
         config.verbose = value.parse::<u8>().unwrap();
     }
 
-    logger::init_logger(config.verbose);
+    logger::init_logger();
 
     if let Some(_matches) = matches.subcommand_matches("build") {
         build(&config);

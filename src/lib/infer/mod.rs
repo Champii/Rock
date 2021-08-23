@@ -22,6 +22,8 @@ pub fn infer(root: &mut crate::hir::Root, config: &Config) {
     infer_state = constraint_ctx.get_state();
 
     infer_state.solve();
+    // println!("STATE {:#?}", infer_state);
+    // println!("LOL {:#?}", root);
 
     root.node_types = infer_state.get_node_types();
 

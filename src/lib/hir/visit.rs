@@ -125,7 +125,7 @@ pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
 }
 
 pub fn walk_native_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a NativeOperator) {
-    // Nothing to do
+    //
 }
 
 pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {

@@ -42,23 +42,23 @@ pub fn parse_str(
     parsing_ctx.add_file(input.clone());
 
     // Text to Ast
-    info!("    -> Parsing");
+    debug!("    -> Parsing");
     let mut ast = parser::parse_root(&mut parsing_ctx)?;
 
     // Name resolving
-    info!("    -> Resolving");
+    debug!("    -> Resolving");
     ast::resolve(&mut ast, &mut parsing_ctx)?;
 
     // Lowering to HIR
-    info!("    -> Lowering to HIR");
+    debug!("    -> Lowering to HIR");
     let mut hir = ast_lowering::lower_crate(&ast);
 
     // Infer Hir
-    info!("    -> Infer HIR");
+    debug!("    -> Infer HIR");
     infer::infer(&mut hir, &config);
 
     // Generate code
-    info!("    -> Lower to LLVM IR");
+    debug!("    -> Lower to LLVM IR");
     codegen::generate(&config, &hir);
 
     Ok(())

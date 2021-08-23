@@ -43,7 +43,7 @@ where
 }
 
 pub fn parse_root(ctx: &mut ParsingCtx) -> Result<crate::ast::Root, Diagnostic> {
-    info!("      -> Parsing Root");
+    debug!("      -> Parsing Root");
 
     let (ast, tokens) = parse_generic(ctx, |p| p.run_root())?;
 
@@ -56,7 +56,7 @@ pub fn parse_root(ctx: &mut ParsingCtx) -> Result<crate::ast::Root, Diagnostic> 
 }
 
 pub fn parse_mod(name: String, ctx: &mut ParsingCtx) -> Result<crate::ast::Mod, Diagnostic> {
-    info!("      -> Parsing Mod {}", name);
+    debug!("      -> Parsing Mod {}", name);
 
     ctx.resolve_and_add_file(name)?;
 

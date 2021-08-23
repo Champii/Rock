@@ -70,11 +70,16 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             ExpressionKind::Lit(lit) => self.visit_literal(&lit),
             ExpressionKind::Return(expr) => self.visit_expression(&expr),
             ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
-            ExpressionKind::NativeOperation(_op, left, right) => {
+            ExpressionKind::NativeOperation(op, left, right) => {
+                self.visit_identifier(&left);
+                self.visit_identifier(&right);
+
                 self.state.add_constraint(Constraint::Eq(
                     self.state.get_type_id(left.hir_id.clone()).unwrap(),
                     self.state.get_type_id(right.hir_id.clone()).unwrap(),
                 ));
+
+                self.visit_native_operator(&op);
             }
             ExpressionKind::FunctionCall(fc) => {
                 self.visit_expression(&fc.op);

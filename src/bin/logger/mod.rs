@@ -1,19 +1,9 @@
 use env_logger::{Builder, Color, Env};
-use log::{Level, LevelFilter};
+use log::Level;
 use std::io::Write;
 
-pub fn init_logger(level: u8) {
+pub fn init_logger() {
     let env = Env::default();
-
-    let level_filter = match level {
-        0 => LevelFilter::Off,
-        1 => LevelFilter::Error,
-        2 => LevelFilter::Warn,
-        3 => LevelFilter::Info,
-        4 => LevelFilter::Debug,
-        5 => LevelFilter::Trace,
-        _ => LevelFilter::Off,
-    };
 
     let mut builder = Builder::from_env(env);
 
@@ -48,9 +38,6 @@ pub fn init_logger(level: u8) {
 
         Ok(())
     });
-
-    builder.filter_level(LevelFilter::Warn);
-    builder.filter_module("rock", level_filter);
 
     builder.init();
 }
