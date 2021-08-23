@@ -87,6 +87,30 @@ impl InferState {
         self.named_types_flat.get(name)
     }
 
+    pub fn get_type_id_by_type(&mut self, t: &Type) -> Option<TypeId> {
+        let mut res = self
+            .types
+            .iter()
+            .find(|(t_id, t2)| {
+                let t2 = t2.as_ref();
+                match t2 {
+                    Some(t2) => t2 == t,
+                    None => false,
+                }
+            })
+            .map(|(t_id, _)| t_id.clone());
+
+        if res.is_none() {
+            let new_type = GLOBAL_NEXT_TYPE_ID.fetch_add(1, Ordering::SeqCst);
+
+            self.types.insert(new_type, Some(t.clone()));
+
+            res = Some(new_type)
+        }
+
+        res
+    }
+
     pub fn remove_node_id(&mut self, hir_id: HirId) {
         self.node_types.remove(&hir_id);
     }

@@ -1,2 +1,2 @@
-f a b = ~Add a b
+f a b = ~IAdd a b
 main = f 20, 22

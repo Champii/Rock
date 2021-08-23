@@ -268,8 +268,6 @@ impl Parse for TopLevel {
 
 impl Parse for Prototype {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let mut arguments = vec![];
-
         let token_id = ctx.cur_tok_id;
         let token = ctx.cur_tok();
 
@@ -277,18 +275,13 @@ impl Parse for Prototype {
 
         let name = try_or_restore!(Identifier::parse(ctx), ctx);
 
-        if TokenType::OpenParens == ctx.cur_tok().t
-            || TokenType::Identifier(ctx.cur_tok().txt) == ctx.cur_tok().t
-        {
-            // manage error and restore here
-            arguments = ArgumentsDecl::parse(ctx)?;
-        }
+        let signature = try_or_restore!(TypeSignature::parse(ctx), ctx);
 
         ctx.save_pop();
 
         Ok(Prototype {
             name,
-            arguments,
+            signature,
             identity: Identity::new(token_id, token.span),
         })
     }
@@ -791,5 +784,45 @@ impl Parse for NativeOperator {
             kind,
             identity: Identity::new(token_id, token.span),
         })
+    }
+}
+
+impl Parse for Type {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let token = ctx.cur_tok();
+
+        if let TokenType::Type(_t) = token.t {
+            ctx.consume();
+
+            if let Some(prim) = PrimitiveType::from_name(&token.txt) {
+                return Ok(Type::Primitive(prim));
+            } else {
+                return Ok(Type::Undefined(0));
+            }
+        } else {
+            panic!("Not a type");
+        }
+    }
+}
+
+impl Parse for TypeSignature {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let mut args = vec![];
+
+        loop {
+            let t = Type::parse(ctx)?;
+
+            args.push(t);
+
+            if ctx.cur_tok().t != TokenType::Arrow {
+                break;
+            }
+
+            ctx.consume();
+        }
+
+        let ret = args.pop().unwrap();
+
+        Ok(TypeSignature { args, ret })
     }
 }

@@ -1,10 +1,12 @@
 use either::Either;
+
 use std::convert::TryInto;
 
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
-    values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, PointerValue},
+    types::VectorType,
+    values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, GenericValue, PointerValue},
     IntPredicate,
 };
 use inkwell::{context::Context, types::BasicTypeEnum};
@@ -40,9 +42,16 @@ impl<'a> CodegenContext<'a> {
 
     pub fn lower_type(&mut self, t: &Type, builder: &'a Builder) -> BasicTypeEnum<'a> {
         match t {
+            Type::Primitive(PrimitiveType::Int8) => self.context.i8_type().into(),
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
             Type::Primitive(PrimitiveType::Float64) => self.context.f64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
+            Type::Primitive(PrimitiveType::String(n)) => self
+                .context
+                .i8_type()
+                .vec_type(6)
+                .ptr_type(AddressSpace::Generic)
+                .into(),
             Type::FuncType(f) => {
                 let f2 = match self.module.get_function(&f.name) {
                     Some(f2) => f2,
@@ -80,15 +89,19 @@ impl<'a> CodegenContext<'a> {
         if let Type::FuncType(f_type) = t {
             let ret_t = self.hir.types.get(&f_type.ret).unwrap();
 
-            let ret = self.lower_type(ret_t, builder);
-
             let args = p
-                .arguments
+                .signature
+                .args
                 .iter()
-                .map(|arg| self.lower_argument_decl(arg, builder))
+                .map(|arg| self.lower_type(arg, builder))
                 .collect::<Vec<_>>();
 
-            let fn_type = ret.fn_type(args.as_slice(), false);
+            let fn_type = if let Type::Primitive(PrimitiveType::Void) = ret_t {
+                self.context.void_type().fn_type(args.as_slice(), false)
+            } else {
+                self.lower_type(ret_t, builder)
+                    .fn_type(args.as_slice(), false)
+            };
 
             let fn_value = self.module.add_function(&p.name.name, fn_type, None);
 
@@ -111,15 +124,18 @@ impl<'a> CodegenContext<'a> {
         if let Type::FuncType(f_type) = t {
             let ret_t = self.hir.types.get(&f_type.ret).unwrap();
 
-            let ret = self.lower_type(ret_t, builder);
-
             let args = f
                 .arguments
                 .iter()
                 .map(|arg| self.lower_argument_decl(arg, builder))
                 .collect::<Vec<_>>();
 
-            let fn_type = ret.fn_type(args.as_slice(), false);
+            let fn_type = if let Type::Primitive(PrimitiveType::Void) = ret_t {
+                self.context.void_type().fn_type(args.as_slice(), false)
+            } else {
+                self.lower_type(ret_t, builder)
+                    .fn_type(args.as_slice(), false)
+            };
 
             let fn_value = self.module.add_function(&f.name.name, fn_type, None);
 
@@ -303,7 +319,7 @@ impl<'a> CodegenContext<'a> {
             .unwrap()
     }
 
-    pub fn lower_literal(&mut self, lit: &Literal, _builder: &'a Builder) -> BasicValueEnum<'a> {
+    pub fn lower_literal(&mut self, lit: &Literal, builder: &'a Builder) -> BasicValueEnum<'a> {
         match &lit.kind {
             LiteralKind::Number(n) => {
                 let i64_type = self.context.i64_type();
@@ -319,6 +335,21 @@ impl<'a> CodegenContext<'a> {
                 let bool_type = self.context.bool_type();
 
                 bool_type.const_int((*b).try_into().unwrap(), false).into()
+            }
+            LiteralKind::String(s) => {
+                let i8_type = self.context.i8_type();
+                let vector_type = i8_type.vec_type(s.len() as u32);
+
+                let v = VectorType::const_vector(
+                    s.chars()
+                        .map(|c| i8_type.const_int(c.into(), false))
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                );
+
+                let ptr = builder.build_alloca(vector_type, "str");
+                builder.build_store(ptr, v);
+                ptr.into()
             }
             _ => unimplemented!(),
         }

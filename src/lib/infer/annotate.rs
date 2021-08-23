@@ -37,6 +37,10 @@ impl<'a> Visitor<'a> for AnnotateContext {
         self.body_arguments
             .insert(f.body_id.clone(), f.arguments.clone());
     }
+    fn visit_prototype(&mut self, p: &Prototype) {
+        self.state
+            .new_named_annotation(p.name.to_string(), p.hir_id.clone());
+    }
 
     fn visit_fn_body(&mut self, fn_body: &FnBody) {
         let args = self.body_arguments.get(&fn_body.id).unwrap().clone();

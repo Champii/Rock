@@ -56,3 +56,9 @@ impl FuncType {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct TypeSignature {
+    pub args: Vec<Type>,
+    pub ret: Type,
+}

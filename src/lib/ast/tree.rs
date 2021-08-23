@@ -7,6 +7,8 @@ use crate::ast::resolve::ResolutionMap;
 use crate::generate_has_name;
 use crate::helpers::*;
 
+use super::{Type, TypeSignature};
+
 #[derive(Debug, Clone)]
 pub struct Root {
     pub r#mod: Mod,
@@ -38,7 +40,7 @@ pub enum TopLevelKind {
 #[derive(Debug, Clone)]
 pub struct Prototype {
     pub name: Identifier,
-    pub arguments: Vec<ArgumentDecl>,
+    pub signature: TypeSignature,
     pub identity: Identity,
 }
 

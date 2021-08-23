@@ -69,7 +69,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top.kind {
-            TopLevelKind::Prototype(_) => (),
+            TopLevelKind::Prototype(p) => walk_prototype(self, p),
             TopLevelKind::Use(u) => {
                 self.visit_use(&u);
             }

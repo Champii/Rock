@@ -61,6 +61,10 @@ macro_rules! impl_visitor_trait {
                 self.print_primitive(name);
             }
 
+            fn visit_type(&mut self, t: &Type) {
+                self.print_primitive(t);
+            }
+
             fn visit_primitive<T>(&mut self, val: T)
             where
                 T: Debug,
@@ -108,4 +112,5 @@ impl_visitor_trait!(
     Argument, argument
     Literal, literal
     NativeOperator, native_operator
+    TypeSignature, type_signature
 );

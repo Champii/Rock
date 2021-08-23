@@ -92,7 +92,25 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 if let Some(top_id) = self.hir.resolutions.get(op_hir_id.clone()) {
                     if let Some(top) = self.hir.get_top_level(top_id.clone()) {
                         match &top.kind {
-                            TopLevelKind::Prototype(_) => {}
+                            TopLevelKind::Prototype(p) => {
+                                let constraint = Constraint::Callable(
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                    self.state.get_type_id_by_type(&p.signature.ret).unwrap(),
+                                );
+
+                                for (i, arg) in p.signature.args.iter().enumerate() {
+                                    let constraint = Constraint::Eq(
+                                        self.state.get_type_id_by_type(arg).unwrap(),
+                                        self.state
+                                            .get_type_id(
+                                                fc.args.get(i).unwrap().get_terminal_hir_id(),
+                                            )
+                                            .unwrap(),
+                                    );
+                                    self.state.add_constraint(constraint);
+                                }
+                                self.state.add_constraint(constraint);
+                            }
                             TopLevelKind::Function(f) => {
                                 let body = self.hir.get_body(f.body_id.clone()).unwrap();
 
@@ -146,5 +164,22 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 Type::FuncType(FuncType::new((*f.name).clone(), args, body_type_id)),
             );
         }
+    }
+
+    fn visit_prototype(&mut self, p: &Prototype) {
+        let args = p
+            .signature
+            .args
+            .iter()
+            .map(|t| self.state.get_type_id_by_type(t).unwrap())
+            .collect();
+
+        let f = Type::FuncType(FuncType::new(
+            (*p.name).clone(),
+            args,
+            self.state.get_type_id_by_type(&p.signature.ret).unwrap(),
+        ));
+
+        self.state.solve_type(p.hir_id.clone(), f);
     }
 }

@@ -97,12 +97,7 @@ impl AstLoweringContext {
 
         hir::Prototype {
             name: ident,
-            arguments: p
-                .arguments
-                .iter()
-                .map(|arg| self.lower_argument_decl(&arg))
-                .collect(),
-            ret: Type::Undefined(0),
+            signature: p.signature.clone(),
             hir_id: id,
         }
     }

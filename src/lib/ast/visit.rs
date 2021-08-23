@@ -51,6 +51,8 @@ generate_visitor_trait!(
     Argument, argument
     Literal, literal
     NativeOperator, native_operator
+    TypeSignature, type_signature
+    Type, r#type
 );
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
@@ -77,7 +79,7 @@ pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLev
 pub fn walk_prototype<'a, V: Visitor<'a>>(visitor: &mut V, prototype: &'a Prototype) {
     visitor.visit_identifier(&prototype.name);
 
-    walk_list!(visitor, visit_argument_decl, &prototype.arguments);
+    visitor.visit_type_signature(&prototype.signature);
 }
 
 pub fn walk_use<'a, V: Visitor<'a>>(visitor: &mut V, r#use: &'a Use) {
@@ -204,5 +206,15 @@ pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
 }
 
 pub fn walk_native_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a NativeOperator) {
+    // Nothing to do
+}
+
+pub fn walk_type_signature<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a TypeSignature) {
+    walk_list!(visitor, visit_type, &signature.args);
+
+    visitor.visit_type(&signature.ret);
+}
+
+pub fn walk_type<'a, V: Visitor<'a>>(_visitor: &mut V, _t: &'a Type) {
     // Nothing to do
 }

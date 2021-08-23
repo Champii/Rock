@@ -1,7 +1,11 @@
 use std::collections::BTreeMap;
 
-use crate::{ast::resolve::ResolutionMap, hir::hir_id::*, TypeId};
 use crate::{ast::Type, ast_lowering::HirMap};
+use crate::{
+    ast::{resolve::ResolutionMap, TypeSignature},
+    hir::hir_id::*,
+    TypeId,
+};
 
 #[derive(Debug, Clone)]
 pub struct Root {
@@ -73,8 +77,7 @@ pub enum TopLevelKind {
 #[derive(Debug, Clone)]
 pub struct Prototype {
     pub name: Identifier,
-    pub arguments: Vec<ArgumentDecl>,
-    pub ret: Type,
+    pub signature: TypeSignature,
     pub hir_id: HirId,
 }
 
