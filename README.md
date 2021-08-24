@@ -1,4 +1,4 @@
-# Rock 0.1.1
+# Rock 0.1.2
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  

@@ -1,19 +1,17 @@
 
 ## TODO (by order):
 
-- v0.1.1
-    - extern
-    - float, char, lists
-- v0.1.2
-    - while/for_in
 - v0.1.3
+    - lists
+    - while/for_in
+- v0.1.4
     - multiline functions
     - variables
     - immutable by default
     - mut keyword
-- v0.1.4
-    - type aliasing
 - v0.1.5
+    - type aliasing
+- v0.1.6
     - enums
     - escaped chars
 - v1.0.0
@@ -66,7 +64,7 @@ impl IntoIterator for Foo
     iter: -> Iterator @
 
 main ->
-  a = Foo 1
+  a = Foo 2
   b = Foo 2
   a + b
 ```
@@ -75,10 +73,7 @@ main ->
 
 ## 1
   - Use the simpliest syntax possible
-  - Custom operators
-  - If/Else
 
-## 2
 
 ### Todo Dependency graph
   - Modules
