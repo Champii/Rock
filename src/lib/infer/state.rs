@@ -91,7 +91,7 @@ impl InferState {
         let mut res = self
             .types
             .iter()
-            .find(|(t_id, t2)| {
+            .find(|(_t_id, t2)| {
                 let t2 = t2.as_ref();
                 match t2 {
                     Some(t2) => t2 == t,

@@ -109,7 +109,14 @@ impl<'a> Visitor<'a> for AnnotateContext {
             | NativeOperatorKind::GE
             | NativeOperatorKind::LT
             | NativeOperatorKind::LE => PrimitiveType::Bool,
-            _ => PrimitiveType::Int64,
+            NativeOperatorKind::IAdd
+            | NativeOperatorKind::ISub
+            | NativeOperatorKind::IDiv
+            | NativeOperatorKind::IMul => PrimitiveType::Int64,
+            NativeOperatorKind::FAdd
+            | NativeOperatorKind::FSub
+            | NativeOperatorKind::FDiv
+            | NativeOperatorKind::FMul => PrimitiveType::Float64,
         };
 
         self.state

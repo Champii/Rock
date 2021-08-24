@@ -5,8 +5,7 @@ use std::convert::TryInto;
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
-    types::VectorType,
-    values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, GenericValue, PointerValue},
+    values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, PointerValue},
     IntPredicate,
 };
 use inkwell::{context::Context, types::BasicTypeEnum};
@@ -46,10 +45,9 @@ impl<'a> CodegenContext<'a> {
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
             Type::Primitive(PrimitiveType::Float64) => self.context.f64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
-            Type::Primitive(PrimitiveType::String(n)) => self
+            Type::Primitive(PrimitiveType::String(_)) => self
                 .context
                 .i8_type()
-                .vec_type(6)
                 .ptr_type(AddressSpace::Generic)
                 .into(),
             Type::FuncType(f) => {
@@ -337,21 +335,10 @@ impl<'a> CodegenContext<'a> {
                 bool_type.const_int((*b).try_into().unwrap(), false).into()
             }
             LiteralKind::String(s) => {
-                let i8_type = self.context.i8_type();
-                let vector_type = i8_type.vec_type(s.len() as u32);
+                let global_str = builder.build_global_string_ptr(s, "str");
 
-                let v = VectorType::const_vector(
-                    s.chars()
-                        .map(|c| i8_type.const_int(c.into(), false))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                );
-
-                let ptr = builder.build_alloca(vector_type, "str");
-                builder.build_store(ptr, v);
-                ptr.into()
+                global_str.as_basic_value_enum()
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -380,9 +367,6 @@ impl<'a> CodegenContext<'a> {
         right: &Identifier,
         builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
-        // let left = self.lower_identifier(left, builder).into_int_value();
-        // let right = self.lower_identifier(right, builder).into_int_value();
-
         match op.kind {
             NativeOperatorKind::IAdd => {
                 let left = self.lower_identifier(left, builder).into_int_value();

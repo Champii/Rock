@@ -7,7 +7,7 @@ use crate::ast::resolve::ResolutionMap;
 use crate::generate_has_name;
 use crate::helpers::*;
 
-use super::{Type, TypeSignature};
+use super::TypeSignature;
 
 #[derive(Debug, Clone)]
 pub struct Root {
@@ -306,6 +306,16 @@ pub enum OperandKind {
     Literal(Literal),
     Identifier(IdentifierPath),
     Expression(Box<Expression>), // parenthesis
+}
+
+impl OperandKind {
+    pub fn to_identifier_path(&self) -> IdentifierPath {
+        if let OperandKind::Identifier(id) = self {
+            id.clone()
+        } else {
+            panic!("Not an identifier path")
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
