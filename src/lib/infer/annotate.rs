@@ -37,6 +37,7 @@ impl<'a> Visitor<'a> for AnnotateContext {
         self.body_arguments
             .insert(f.body_id.clone(), f.arguments.clone());
     }
+
     fn visit_prototype(&mut self, p: &Prototype) {
         self.state
             .new_named_annotation(p.name.to_string(), p.hir_id.clone());

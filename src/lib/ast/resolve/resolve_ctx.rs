@@ -69,7 +69,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top.kind {
-            TopLevelKind::Prototype(p) => walk_prototype(self, p),
+            TopLevelKind::Prototype(p) => self.visit_prototype(&p),
             TopLevelKind::Use(u) => {
                 self.visit_use(&u);
             }
@@ -77,7 +77,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             TopLevelKind::Function(f) => {
                 self.push_scope();
 
-                walk_function_decl(self, f);
+                self.visit_function_decl(&f);
 
                 self.pop_scope();
             }
