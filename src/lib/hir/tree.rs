@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{ast::Type, ast_lowering::HirMap};
 use crate::{
@@ -13,6 +13,8 @@ pub struct Root {
     pub resolutions: ResolutionMap<HirId>,
     pub node_types: BTreeMap<HirId, TypeId>,
     pub types: BTreeMap<TypeId, Type>,
+    pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
+    pub trait_methods: HashMap<Identifier, HashMap<TypeSignature, FunctionDecl>>,
     pub top_levels: BTreeMap<HirId, TopLevel>,
     pub modules: BTreeMap<HirId, Mod>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
@@ -22,6 +24,27 @@ impl Root {
     pub fn get_top_level(&self, hir_id: HirId) -> Option<&TopLevel> {
         self.top_levels.get(&hir_id)
     }
+
+    pub fn get_trait_method(
+        &self,
+        ident: &Identifier,
+        sig: &TypeSignature,
+    ) -> Option<FunctionDecl> {
+        //
+        None
+        // self.trait_methods.
+    }
+
+    // pub fn get_trait(&self, hir_id: HirId) -> Option<Trait> {
+    //     self.traits.get(&hir_id).map(|(r#trait, _)| r#trait.clone())
+    // }
+
+    // pub fn get_impl(&self, hir_id: HirId, t: TypeId) -> Option<Impl> {
+    //     self.traits
+    //         .get(&hir_id)
+    //         .and_then(|(_, impls)| impls.get(&t).clone())
+    //         .cloned()
+    // }
 
     pub fn get_function_by_name(&self, name: &str) -> Option<FunctionDecl> {
         self.top_levels
@@ -51,6 +74,21 @@ impl Root {
 pub struct Mod {
     pub top_levels: Vec<HirId>,
     pub hir_id: HirId,
+}
+
+#[derive(Debug, Clone)]
+pub struct Trait {
+    pub name: Type,
+    pub types: Vec<Type>,
+    // pub impls: HashMap<Identifier, HashMap<Type, FunctionDecl>>,
+    pub defs: Vec<Prototype>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Impl {
+    pub name: Type,
+    pub types: Vec<Type>,
+    pub defs: Vec<FunctionDecl>,
 }
 
 #[derive(Debug, Clone)]
@@ -100,7 +138,35 @@ pub struct IdentifierPath {
     pub path: Vec<Identifier>,
 }
 
-#[derive(Debug, Clone)]
+impl IdentifierPath {
+    pub fn parent(&self) -> Self {
+        let mut parent = self.clone();
+
+        if parent.path.len() > 1 {
+            parent.path.pop();
+        }
+
+        parent
+    }
+
+    pub fn child(&self, name: Identifier) -> Self {
+        let mut child = self.clone();
+
+        child.path.push(name);
+
+        child
+    }
+
+    pub fn last_segment(&self) -> Identifier {
+        self.path.iter().last().unwrap().clone()
+    }
+
+    pub fn last_segment_ref(&self) -> &Identifier {
+        self.path.iter().last().unwrap()
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Identifier {
     pub hir_id: HirId,
     pub name: String,
@@ -213,6 +279,14 @@ impl Expression {
             ExpressionKind::Return(expr) => expr.get_terminal_hir_id(),
         }
     }
+
+    pub fn as_identifier(&self) -> Identifier {
+        if let ExpressionKind::Identifier(i) = &*self.kind {
+            i.last_segment().clone()
+        } else {
+            panic!("Not an identifier");
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -231,6 +305,18 @@ pub struct FunctionCall {
     pub args: Vec<Expression>,
 }
 
+impl FunctionCall {
+    pub fn mangle(&mut self, prefix: String) {
+        match &mut *self.op.kind {
+            ExpressionKind::Identifier(id) => {
+                let identifier = id.path.iter_mut().last().unwrap();
+
+                identifier.name = prefix + "_" + &identifier.name
+            }
+            _ => (),
+        }
+    }
+}
 #[derive(Debug, Clone)]
 pub struct Literal {
     pub hir_id: HirId,

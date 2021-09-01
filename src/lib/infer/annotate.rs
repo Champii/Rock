@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use super::InferState;
-use crate::ast::{PrimitiveType, Type};
+use crate::ast::{PrimitiveType, Type, TypeSignature};
 use crate::hir::visit::*;
 use crate::hir::*;
 use crate::walk_list;
@@ -9,13 +9,19 @@ use crate::walk_list;
 #[derive(Debug)]
 pub struct AnnotateContext {
     state: InferState,
+    // traits: Vec<Trait>,
+    trait_methods: HashMap<Identifier, HashMap<TypeSignature, FunctionDecl>>,
     body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
 }
 
 impl AnnotateContext {
-    pub fn new(state: InferState) -> Self {
+    pub fn new(
+        state: InferState,
+        trait_methods: HashMap<Identifier, HashMap<TypeSignature, FunctionDecl>>,
+    ) -> Self {
         Self {
             state,
+            trait_methods,
             body_arguments: BTreeMap::new(),
         }
     }
@@ -30,6 +36,30 @@ impl AnnotateContext {
 }
 
 impl<'a> Visitor<'a> for AnnotateContext {
+    fn visit_impl(&mut self, i: &Impl) {
+        self.visit_type(&i.name);
+
+        walk_list!(self, visit_type, &i.types);
+
+        // let r#trait = self.hir.get_trait(i.name).unwrap();
+
+        for (method_name, list) in &self.trait_methods {
+            for (sig, f_decl) in list {
+                // self.visit_function_decl(f_decl);
+
+                for (i, arg) in f_decl.arguments.iter().enumerate() {
+                    self.state
+                        .new_type_solved(arg.name.hir_id.clone(), sig.args[i].clone());
+                }
+
+                self.state
+                    .new_type_solved(f_decl.hir_id.clone(), sig.ret.clone());
+            }
+        }
+
+        walk_list!(self, visit_function_decl, &i.defs);
+    }
+
     fn visit_function_decl(&mut self, f: &FunctionDecl) {
         self.state
             .new_named_annotation(f.name.to_string(), f.hir_id.clone());

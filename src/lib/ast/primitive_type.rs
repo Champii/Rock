@@ -1,6 +1,6 @@
 use crate::ast::Type;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum PrimitiveType {
     Void,
     Bool,

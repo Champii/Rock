@@ -219,6 +219,16 @@ impl Parse for TopLevel {
 
                 TopLevelKind::Prototype(Prototype::parse(ctx)?)
             }
+            TokenType::Trait => {
+                ctx.consume();
+
+                TopLevelKind::Trait(Trait::parse(ctx)?)
+            }
+            TokenType::Impl => {
+                ctx.consume();
+
+                TopLevelKind::Impl(Impl::parse(ctx)?)
+            }
             TokenType::Mod => {
                 ctx.consume(); // mod keyword
 
@@ -263,6 +273,75 @@ impl Parse for TopLevel {
             kind,
             identity: Identity::new(token_id, token.span),
         })
+    }
+}
+
+impl Parse for Trait {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let mut types = vec![];
+        let mut defs = vec![];
+
+        ctx.save();
+
+        let name = try_or_restore!(Type::parse(ctx), ctx);
+
+        while ctx.cur_tok().t != TokenType::EOL {
+            types.push(Type::parse(ctx)?);
+        }
+
+        ctx.consume(); // EOL
+
+        loop {
+            if let TokenType::Indent(_) = ctx.cur_tok().t {
+                ctx.consume(); // indent
+
+                let mut f = Prototype::parse(ctx)?;
+
+                // f.mangle(name.get_name());
+
+                defs.push(f);
+            } else {
+                break;
+            }
+        }
+
+        ctx.save_pop();
+
+        Ok(Trait { name, types, defs })
+    }
+}
+
+impl Parse for Impl {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let mut types = vec![];
+        let mut defs = vec![];
+
+        ctx.save();
+
+        let name = try_or_restore!(Type::parse(ctx), ctx);
+
+        while ctx.cur_tok().t != TokenType::EOL {
+            types.push(Type::parse(ctx)?);
+        }
+
+        ctx.consume(); // EOL
+
+        loop {
+            if let TokenType::Indent(_) = ctx.cur_tok().t {
+                ctx.consume(); // indent
+                let mut f = FunctionDecl::parse(ctx)?;
+
+                f.mangle(&types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
+
+                defs.push(f);
+            } else {
+                break;
+            }
+        }
+
+        ctx.save_pop();
+
+        Ok(Impl { name, types, defs })
     }
 }
 
@@ -797,8 +876,12 @@ impl Parse for Type {
             if let Some(prim) = PrimitiveType::from_name(&token.txt) {
                 return Ok(Type::Primitive(prim));
             } else {
-                return Ok(Type::Undefined(0));
+                return Ok(Type::Trait(token.txt));
             }
+        } else if token.txt.len() == 1 && token.txt.chars().nth(0).unwrap().is_lowercase() {
+            ctx.consume();
+
+            return Ok(Type::ForAll(token.txt));
         } else {
             panic!("Not a type");
         }

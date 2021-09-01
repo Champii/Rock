@@ -18,6 +18,8 @@ pub enum TokenType {
     In,
     Class,
     Infix,
+    Trait,
+    Impl,
 
     // punct
     Arrow,

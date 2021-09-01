@@ -107,8 +107,10 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                             )
                                             .unwrap(),
                                     );
+
                                     self.state.add_constraint(constraint);
                                 }
+
                                 self.state.add_constraint(constraint);
                             }
                             TopLevelKind::Function(f) => {
@@ -136,10 +138,15 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                             }
                         }
                     } else {
+                        // if let Some(r#trait) = self.hir.get_trait_method(fc.op.to_identifier()) {
+                        //     println!("TRAIT ! {:#?}", r#trait);
+                        // } else {
+                        println!("No top level");
                         self.state.add_constraint(Constraint::Callable(
                             self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                             self.state.get_type_id(top_id).unwrap(),
                         ));
+                        // }
                     }
                 } else {
                     panic!("No reso");

@@ -24,6 +24,7 @@ impl ParsingCtx {
             ..Default::default()
         }
     }
+
     pub fn add_file(&mut self, file: SourceFile) {
         self.current_file = Some(file.file_path.clone());
 

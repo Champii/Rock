@@ -56,6 +56,16 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     self.add_to_current_scope((*p.name).clone(), p.identity.clone());
                 }
                 TopLevelKind::Use(_u) => (),
+                TopLevelKind::Trait(t) => {
+                    for proto in &t.defs {
+                        self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
+                    }
+                }
+                TopLevelKind::Impl(i) => {
+                    for proto in &i.defs {
+                        self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
+                    }
+                }
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {
@@ -74,13 +84,9 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 self.visit_use(&u);
             }
             TopLevelKind::Infix(_, _) => (),
-            TopLevelKind::Function(f) => {
-                self.push_scope();
-
-                self.visit_function_decl(&f);
-
-                self.pop_scope();
-            }
+            TopLevelKind::Trait(t) => self.visit_trait(&t),
+            TopLevelKind::Impl(i) => self.visit_impl(&i),
+            TopLevelKind::Function(f) => self.visit_function_decl(&f),
             TopLevelKind::Mod(name, m) => {
                 let current_mod = self.cur_scope.clone();
 
@@ -92,6 +98,28 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             }
         };
     }
+
+    fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
+        self.push_scope();
+
+        walk_function_decl(self, f);
+
+        self.pop_scope();
+    }
+
+    // fn visit_impl(&mut self, i: &'a Impl) {
+    //     self.visit_type(&i.name);
+
+    //     walk_list!(self, visit_type, &i.types);
+
+    //     for f in &i.defs {
+    //         let mut f = f.clone();
+
+    //         f.mangle(i.name.get_name());
+
+    //         self.visit_function_decl(&f);
+    //     }
+    // }
 
     fn visit_use(&mut self, r#use: &'a Use) {
         let ident = r#use.path.last_segment_ref();

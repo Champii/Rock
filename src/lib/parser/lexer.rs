@@ -77,6 +77,8 @@ impl<'a> Lexer<'a> {
             Self::try_class_keyword,
             Self::try_infix_keyword,
             Self::try_use_keyword,
+            Self::try_trait_keyword,
+            Self::try_impl_keyword,
             Self::try_parens,
             Self::try_braces,
             Self::try_array,
@@ -248,6 +250,14 @@ impl<'a> Lexer<'a> {
 
     fn try_use_keyword(&mut self) -> Option<Token> {
         self.match_consume("use", TokenType::Use, Sep::WS)
+    }
+
+    fn try_trait_keyword(&mut self) -> Option<Token> {
+        self.match_consume("trait", TokenType::Trait, Sep::WS)
+    }
+
+    fn try_impl_keyword(&mut self) -> Option<Token> {
+        self.match_consume("impl", TokenType::Impl, Sep::WS)
     }
 
     fn try_bool(&mut self) -> Option<Token> {

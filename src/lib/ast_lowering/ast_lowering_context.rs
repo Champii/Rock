@@ -13,6 +13,8 @@ pub struct AstLoweringContext {
     modules: BTreeMap<HirId, hir::Mod>,
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
+    traits: HashMap<Type, hir::Trait>,
+    trait_methods: HashMap<hir::Identifier, HashMap<TypeSignature, hir::FunctionDecl>>,
 }
 
 impl AstLoweringContext {
@@ -22,6 +24,8 @@ impl AstLoweringContext {
             top_levels: BTreeMap::new(),
             modules: BTreeMap::new(),
             bodies: BTreeMap::new(),
+            traits: HashMap::new(),
+            trait_methods: HashMap::new(),
             operators_list,
         }
     }
@@ -37,6 +41,8 @@ impl AstLoweringContext {
             top_levels: self.top_levels.clone(),
             modules: self.modules.clone(),
             bodies: self.bodies.clone(),
+            traits: self.traits.clone(),
+            trait_methods: self.trait_methods.clone(),
         }
     }
 
@@ -74,6 +80,16 @@ impl AstLoweringContext {
                 child_id
             }
             TopLevelKind::Use(_u) => id,
+            TopLevelKind::Trait(t) => {
+                self.lower_trait(t);
+
+                id
+            }
+            TopLevelKind::Impl(i) => {
+                self.lower_impl(&i);
+
+                id
+            }
             TopLevelKind::Infix(_, _) => id,
             TopLevelKind::Function(f) => {
                 let mut top_level = hir::TopLevel {
@@ -88,6 +104,45 @@ impl AstLoweringContext {
                 child_id
             }
             TopLevelKind::Mod(_name, mod_) => self.lower_mod(&mod_),
+        }
+    }
+
+    pub fn lower_trait(&mut self, t: &Trait) -> hir::Trait {
+        let hir_t = hir::Trait {
+            name: t.name.clone(),
+            types: t.types.clone(),
+            defs: t
+                .defs
+                .iter()
+                .map(|proto| self.lower_prototype(&proto))
+                .collect(),
+        };
+
+        self.traits.insert(t.name.clone(), hir_t.clone());
+
+        hir_t
+    }
+
+    pub fn lower_impl(&mut self, i: &Impl) {
+        for f in &i.defs {
+            let hir_f = self.lower_function_decl(f);
+            let r#trait = self.traits.get(&i.name).unwrap();
+            let type_sig = r#trait
+                .defs
+                .iter()
+                .find(|proto| *proto.name == *hir_f.name)
+                .unwrap()
+                .signature
+                .clone();
+
+            let type_sig = type_sig.apply_types(&r#trait.types, &i.types);
+
+            let mut fn_decls = self
+                .trait_methods
+                .entry(hir_f.name.clone())
+                .or_insert(HashMap::new());
+
+            (*fn_decls).insert(type_sig, hir_f);
         }
     }
 

@@ -29,6 +29,8 @@ macro_rules! generate_visitor_trait {
 generate_visitor_trait!(
     Root, root
     TopLevel, top_level
+    Trait, r#trait
+    Impl, r#impl
     Prototype, prototype
     FunctionDecl, function_decl
     ArgumentDecl, argument_decl
@@ -49,6 +51,15 @@ generate_visitor_trait!(
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     walk_map!(visitor, visit_top_level, &root.top_levels);
+    for (_, r#trait) in &root.traits {
+        visitor.visit_trait(r#trait);
+
+        // walk_map!(visitor, visit_impl, impls);
+    }
+    for (_, impls) in &root.trait_methods {
+        walk_map!(visitor, visit_function_decl, impls);
+    }
+
     walk_map!(visitor, visit_fn_body, &root.bodies);
 }
 
@@ -57,6 +68,22 @@ pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLev
         TopLevelKind::Prototype(p) => visitor.visit_prototype(&p),
         TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
     };
+}
+
+pub fn walk_trait<'a, V: Visitor<'a>>(visitor: &mut V, t: &'a Trait) {
+    visitor.visit_type(&t.name);
+
+    walk_list!(visitor, visit_type, &t.types);
+
+    walk_list!(visitor, visit_prototype, &t.defs);
+}
+
+pub fn walk_impl<'a, V: Visitor<'a>>(visitor: &mut V, i: &'a Impl) {
+    visitor.visit_type(&i.name);
+
+    walk_list!(visitor, visit_type, &i.types);
+
+    walk_list!(visitor, visit_function_decl, &i.defs);
 }
 
 pub fn walk_prototype<'a, V: Visitor<'a>>(visitor: &mut V, prototype: &'a Prototype) {

@@ -11,7 +11,7 @@ pub use self::state::*;
 pub fn infer(root: &mut crate::hir::Root, config: &Config) {
     let mut infer_state = InferState::new();
 
-    let mut annotate_ctx = AnnotateContext::new(infer_state);
+    let mut annotate_ctx = AnnotateContext::new(infer_state, root.trait_methods.clone());
 
     annotate_ctx.annotate(root);
 
@@ -21,9 +21,12 @@ pub fn infer(root: &mut crate::hir::Root, config: &Config) {
 
     infer_state = constraint_ctx.get_state();
 
+    println!("STATE {:#?}", infer_state);
     infer_state.solve();
+    println!("STATE 2 {:#?}", infer_state);
     // println!("LOL {:#?}", root);
-    // println!("STATE {:#?}", infer_state);
+
+    // Here add trait solving
 
     root.node_types = infer_state.get_node_types();
 

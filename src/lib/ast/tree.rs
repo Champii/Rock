@@ -7,7 +7,7 @@ use crate::ast::resolve::ResolutionMap;
 use crate::generate_has_name;
 use crate::helpers::*;
 
-use super::TypeSignature;
+use super::{Type, TypeSignature};
 
 #[derive(Debug, Clone)]
 pub struct Root {
@@ -32,9 +32,25 @@ pub struct TopLevel {
 pub enum TopLevelKind {
     Prototype(Prototype),
     Function(FunctionDecl),
+    Trait(Trait),
+    Impl(Impl),
     Mod(Identifier, Mod),
     Use(Use),
     Infix(Identifier, u8),
+}
+
+#[derive(Debug, Clone)]
+pub struct Trait {
+    pub name: Type,
+    pub types: Vec<Type>,
+    pub defs: Vec<Prototype>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Impl {
+    pub name: Type,
+    pub types: Vec<Type>,
+    pub defs: Vec<FunctionDecl>,
 }
 
 #[derive(Debug, Clone)]
@@ -42,6 +58,12 @@ pub struct Prototype {
     pub name: Identifier,
     pub signature: TypeSignature,
     pub identity: Identity,
+}
+
+impl Prototype {
+    pub fn mangle(&mut self, prefix: String) {
+        self.name.name = prefix + "_" + &self.name.name;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +78,12 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
     pub identity: Identity,
+}
+
+impl FunctionDecl {
+    pub fn mangle(&mut self, prefixes: &[String]) {
+        self.name.name = prefixes.join("_") + "_" + &self.name.name;
+    }
 }
 
 generate_has_name!(FunctionDecl);

@@ -1,4 +1,4 @@
-#![feature(associated_type_bounds)]
+#![feature(associated_type_bounds, destructuring_assignment)]
 
 #[macro_use]
 extern crate bitflags;
