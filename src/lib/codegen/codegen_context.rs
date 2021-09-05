@@ -144,7 +144,7 @@ impl<'a> CodegenContext<'a> {
             let fn_value = self.module.add_function(&mangled_name, fn_type, None);
 
             self.scopes.add(
-                f.name.hir_id.clone(),
+                f.name.hir_id.clone(), // FIXME: here the hir_id can ba taken from f.hir_id
                 fn_value
                     .as_global_value()
                     .as_pointer_value()
@@ -179,13 +179,6 @@ impl<'a> CodegenContext<'a> {
                     TopLevelKind::Prototype(_) => panic!(),
                 }
             } else {
-                println!("HIR_TOP_RESO {:?}", hir_top_reso);
-                println!("BODY HIR {:?}", fn_body);
-                // let hir_top_reso = self
-                //     .hir
-                //     .resolutions
-                //     .get(fn_body.name.hir_id.clone())
-                //     .unwrap();
                 self.hir
                     .trait_methods
                     .get(&fn_body.name.name)
@@ -196,17 +189,12 @@ impl<'a> CodegenContext<'a> {
                     .unwrap()
             };
 
-            // match &hir_top.kind {
-            //     TopLevelKind::Prototype(_) => (),
-            //     TopLevelKind::Function(hir_f) => {
             for (i, arg) in hir_top.arguments.iter().enumerate() {
                 self.scopes.add(
                     arg.name.hir_id.clone(),
                     f.get_nth_param(i.try_into().unwrap()).unwrap(),
                 );
             }
-            //     }
-            // }
 
             self.lower_body(&fn_body.body, "entry", builder);
         } else {
@@ -384,8 +372,6 @@ impl<'a> CodegenContext<'a> {
         _builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
         let reso = self.hir.resolutions.get((&id.hir_id).clone()).unwrap();
-
-        println!("IDENT {:?} {:?}", id, reso);
 
         self.scopes.get(reso).unwrap()
     }

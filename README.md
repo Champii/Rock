@@ -30,31 +30,33 @@ Add some files like this:
 
 ``` haskell
 infix + 4
-+ a b = ~Add a b
-
 infix * 5
-* a b = ~Mul a b
 
-infix |> 1
-|> c h = h c
+trait Num a
+    + a -> a -> a
+    * a -> a -> a
+
+impl Num Int64
+    + a b = ~IAdd a b
+    * a b = ~IMul a b
+
+impl Num Float64
+    + c d = ~FAdd c d
+    * c d = ~FMul c d
+
 ```
 
 `./src/main.rk`
 
 ```haskell
+extern printf String -> Int64 -> Int64 -> Float64 -> Float64 -> Int64
+
 mod std
 
-use std::*
 use std::+
-use std::|>
+use std::*
 
-f a = a + 2
-g a = a * 2
-
-main =
-    if true
-    then g (1 + 2) |> f 
-    else 2
+main = printf "%d, %d, %f, %f", (1 + 1), (2 * 2), (3.3 + 3.3), (4.4 * 4.4)
 ```
 
 Assuming you built Rock and put its binary in your PATH:

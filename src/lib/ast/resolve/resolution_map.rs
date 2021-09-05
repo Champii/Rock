@@ -19,7 +19,6 @@ impl<T: Eq + Clone + std::hash::Hash> ResolutionMap<T> {
 
 impl ResolutionMap<NodeId> {
     pub fn lower_resolution_map(&self, hir_map: &HirMap) -> ResolutionMap<HirId> {
-        println!("map {:#?}", hir_map);
         ResolutionMap(
             self.0
                 .iter()

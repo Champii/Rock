@@ -300,6 +300,8 @@ impl Parse for Trait {
                 // f.mangle(name.get_name());
 
                 defs.push(f);
+
+                expect!(TokenType::EOL, ctx);
             } else {
                 break;
             }
@@ -334,6 +336,8 @@ impl Parse for Impl {
                 // f.mangle(&types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
 
                 defs.push(f);
+
+                expect!(TokenType::EOL, ctx);
             } else {
                 break;
             }
