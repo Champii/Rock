@@ -153,7 +153,7 @@ impl AstLoweringContext {
                 .entry(hir_f.name.name.clone())
                 .or_insert(HashMap::new());
 
-            let hir_id = self.hir_map.next_hir_id(f.identity.clone());
+            let _hir_id = self.hir_map.next_hir_id(f.identity.clone());
 
             // self.top_levels.insert(
             //     hir_id.clone(),

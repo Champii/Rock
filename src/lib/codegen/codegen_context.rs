@@ -191,7 +191,7 @@ impl<'a> CodegenContext<'a> {
                     .get(&fn_body.name.name)
                     .unwrap()
                     .iter()
-                    .find(|(applied_to, func_decl)| func_decl.name.hir_id == fn_body.name.hir_id)
+                    .find(|(_applied_to, func_decl)| func_decl.name.hir_id == fn_body.name.hir_id)
                     .map(|tuple| tuple.1)
                     .unwrap()
             };

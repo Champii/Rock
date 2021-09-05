@@ -295,7 +295,7 @@ impl Parse for Trait {
             if let TokenType::Indent(_) = ctx.cur_tok().t {
                 ctx.consume(); // indent
 
-                let mut f = Prototype::parse(ctx)?;
+                let f = Prototype::parse(ctx)?;
 
                 // f.mangle(name.get_name());
 
@@ -329,7 +329,7 @@ impl Parse for Impl {
         loop {
             if let TokenType::Indent(_) = ctx.cur_tok().t {
                 ctx.consume(); // indent
-                let mut f = FunctionDecl::parse(ctx)?;
+                let f = FunctionDecl::parse(ctx)?;
 
                 // f.mangle(&types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
 

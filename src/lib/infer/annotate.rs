@@ -36,7 +36,7 @@ impl AnnotateContext {
 }
 
 impl<'a> Visitor<'a> for AnnotateContext {
-    fn visit_trait(&mut self, t: &Trait) {}
+    fn visit_trait(&mut self, _t: &Trait) {}
     fn visit_impl(&mut self, i: &Impl) {
         self.visit_type(&i.name);
 
@@ -44,7 +44,7 @@ impl<'a> Visitor<'a> for AnnotateContext {
 
         // let r#trait = self.hir.get_trait(i.name).unwrap();
 
-        for (method_name, list) in &self.trait_methods {
+        for (_method_name, list) in &self.trait_methods {
             for (sig, f_decl) in list {
                 // self.visit_function_decl(f_decl);
 
