@@ -196,14 +196,12 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     vec![r#trait.name.get_name(), applied_type.get_name()],
                                 );
                             } else {
-                                println!("No top level");
                                 self.state.add_constraint(Constraint::Callable(
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                                     self.state.get_type_id(top_id).unwrap(),
                                 ));
                             }
                         } else {
-                            println!("No top level");
                             self.state.add_constraint(Constraint::Callable(
                                 self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                                 self.state.get_type_id(top_id).unwrap(),

@@ -381,8 +381,6 @@ impl<'a> CodegenContext<'a> {
     ) -> BasicValueEnum<'a> {
         let reso = self.hir.resolutions.get((&id.hir_id).clone()).unwrap();
 
-        println!("ID {:#?} RESO {:?}", id, reso);
-
         self.scopes.get(reso).unwrap()
     }
 
