@@ -26,47 +26,6 @@ mkdir -P new_project/src && cd new_project
 
 Add some files like this:
 
-`./src/std.rk`
-
-``` haskell
-infix + 4
-infix * 5
-
-trait Num a
-    + a -> a -> a
-    * a -> a -> a
-
-impl Num Int64
-    + a b = ~IAdd a b
-    * a b = ~IMul a b
-
-impl Num Float64
-    + c d = ~FAdd c d
-    * c d = ~FMul c d
-
-infix == 3
-
-trait Eq a
-    == a -> a -> a
-
-impl Eq Int64
-    == e f = ~IEq e f
-
-impl Eq Float64
-    == g h = ~FEq g h
-
-impl Eq Bool
-    == i j = ~BEq i j
-
-placeholder = 2.2 == 2.2
-
-infix >> 2
->> x y = y
-
-infix << 2
-<< x y = x
-```
-
 `./src/main.rk`
 
 ```haskell
@@ -79,12 +38,77 @@ use std::*
 use std::>>
 use std::<<
 use std::==
+use std::<=
+use std::>=
+use std::<
+use std::>
+
 
 main =
-    if true == (1 == 1)
+    if true == (true == (1 <= 2))
     then 1 + 2 << printf "%f", (299.2 + 33.2)
     else printf "%f", (12.3 * 12.2) >> 23 * 2
 ```
+
+`./src/std.rk`:
+
+``` haskell
+infix + 4
+infix * 5
+infix == 3
+infix <= 3
+infix >= 3
+infix < 3
+infix > 3
+infix >> 2
+infix << 2
+
+# Num trait
+trait Num a
+    + a -> a -> a
+    * a -> a -> a
+
+impl Num Int64
+    + a b = ~IAdd a b
+    * a b = ~IMul a b
+
+impl Num Float64
+    + c d = ~FAdd c d
+    * c d = ~FMul c d
+
+# Eq trait
+trait Eq a
+    == a -> a -> Bool
+    <= a -> a -> Bool
+    >= a -> a -> Bool
+    < a -> a -> Bool
+    > a -> a -> Bool
+
+impl Eq Int64
+    == e f = ~IEq e f
+    <= e f = ~ILE e f
+    >= e f = ~IGE e f
+    < e f = ~ILT e f
+    > e f = ~IGT e f
+
+impl Eq Float64
+    == g h = ~FEq g h
+    <= g h = ~FLE g h
+    >= g h = ~FGE g h
+    < g h = ~FLT g h
+    > g h = ~FGT g h
+
+impl Eq Bool
+    == i j = ~BEq i j
+
+placeholder = 2.2 == 2.2
+
+# Helpers
+>> x y = y
+
+<< x y = x
+```
+
 
 Assuming you built Rock and put its binary in your PATH:
 

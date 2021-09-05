@@ -431,7 +431,7 @@ impl<'a> CodegenContext<'a> {
                 let right = self.lower_identifier(right, builder).into_float_value();
 
                 builder
-                    .build_float_add(left, right, "iadd")
+                    .build_float_add(left, right, "fadd")
                     .as_basic_value_enum()
             }
             NativeOperatorKind::FSub => {
@@ -439,7 +439,7 @@ impl<'a> CodegenContext<'a> {
                 let right = self.lower_identifier(right, builder).into_float_value();
 
                 builder
-                    .build_float_sub(left, right, "isub")
+                    .build_float_sub(left, right, "fsub")
                     .as_basic_value_enum()
             }
             NativeOperatorKind::FMul => {
@@ -447,7 +447,7 @@ impl<'a> CodegenContext<'a> {
                 let right = self.lower_identifier(right, builder).into_float_value();
 
                 builder
-                    .build_float_mul(left, right, "imul")
+                    .build_float_mul(left, right, "fmul")
                     .as_basic_value_enum()
             }
             NativeOperatorKind::FDiv => {
@@ -455,7 +455,7 @@ impl<'a> CodegenContext<'a> {
                 let right = self.lower_identifier(right, builder).into_float_value();
 
                 builder
-                    .build_float_div(left, right, "idiv")
+                    .build_float_div(left, right, "fdiv")
                     .as_basic_value_enum()
             }
             NativeOperatorKind::IEq => {
