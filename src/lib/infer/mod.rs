@@ -26,7 +26,7 @@ pub fn infer(root: &mut crate::hir::Root, config: &Config) {
         root.resolutions.insert(k.clone(), v.clone());
     }
 
-    println!("STATE {:#?}", infer_state);
+    // println!("STATE {:#?}", infer_state);
     infer_state.solve();
 
     let mut mangle_ctx = MangleContext {
