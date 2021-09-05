@@ -473,8 +473,8 @@ impl<'a> Lexer<'a> {
         if self.last_char == '~' {
             let mut res = None;
             let ops = vec![
-                "~IAdd", "~ISub", "~IMul", "~IDiv", "~Eq", "~GT", "~GE", "~LT", "~LE", "~FAdd",
-                "~FSub", "~FMul", "~FDiv",
+                "~IAdd", "~ISub", "~IMul", "~IDiv", "~FAdd", "~FSub", "~FMul", "~FDiv", "~IEq",
+                "~IGT", "~IGE", "~ILT", "~ILE", "~FEq", "~FGT", "~FGE", "~FLT", "~FLE", "~BEq",
             ];
 
             for op in ops {

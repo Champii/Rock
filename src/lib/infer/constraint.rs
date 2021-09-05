@@ -56,12 +56,16 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
 
         if let Some(e) = &r#if.else_ {
             match &**e {
-                Else::Body(b) => self.state.add_constraint(Constraint::Eq(
-                    self.state
-                        .get_type_id(r#if.body.get_terminal_hir_id())
-                        .unwrap(),
-                    self.state.get_type_id(b.get_terminal_hir_id()).unwrap(),
-                )),
+                Else::Body(b) => {
+                    self.state.add_constraint(Constraint::Eq(
+                        self.state
+                            .get_type_id(r#if.body.get_terminal_hir_id())
+                            .unwrap(),
+                        self.state.get_type_id(b.get_terminal_hir_id()).unwrap(),
+                    ));
+
+                    self.visit_body(b);
+                }
                 Else::If(i) => {
                     self.visit_if(i);
                 }
@@ -202,9 +206,10 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                 ));
                             }
                         } else {
+                            println!("ELSE CALLABLE {:?}, {:?}", fc.hir_id, top_id);
                             self.state.add_constraint(Constraint::Callable(
                                 self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                self.state.get_type_id(top_id).unwrap(),
+                                self.state.get_type_id(top_id.clone()).unwrap(),
                             ));
                         }
                     }

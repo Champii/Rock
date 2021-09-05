@@ -44,19 +44,46 @@ impl Num Float64
     + c d = ~FAdd c d
     * c d = ~FMul c d
 
+infix == 3
+
+trait Eq a
+    == a -> a -> a
+
+impl Eq Int64
+    == e f = ~IEq e f
+
+impl Eq Float64
+    == g h = ~FEq g h
+
+impl Eq Bool
+    == i j = ~BEq i j
+
+placeholder = 2.2 == 2.2
+
+infix >> 2
+>> x y = y
+
+infix << 2
+<< x y = x
 ```
 
 `./src/main.rk`
 
 ```haskell
-extern printf String -> Int64 -> Int64 -> Float64 -> Float64 -> Int64
+extern printf String -> Float64 -> Int64
 
 mod std
 
 use std::+
 use std::*
+use std::>>
+use std::<<
+use std::==
 
-main = printf "%d, %d, %f, %f", (1 + 1), (2 * 2), (3.3 + 3.3), (4.4 * 4.4)
+main =
+    if true == (1 == 1)
+    then 1 + 2 << printf "%f", (299.2 + 33.2)
+    else printf "%f", (12.3 * 12.2) >> 23 * 2
 ```
 
 Assuming you built Rock and put its binary in your PATH:

@@ -136,11 +136,17 @@ impl<'a> Visitor<'a> for AnnotateContext {
 
     fn visit_native_operator(&mut self, op: &NativeOperator) {
         let t = match op.kind {
-            NativeOperatorKind::Eq
-            | NativeOperatorKind::GT
-            | NativeOperatorKind::GE
-            | NativeOperatorKind::LT
-            | NativeOperatorKind::LE => PrimitiveType::Bool,
+            NativeOperatorKind::IEq
+            | NativeOperatorKind::IGT
+            | NativeOperatorKind::IGE
+            | NativeOperatorKind::ILT
+            | NativeOperatorKind::ILE
+            | NativeOperatorKind::FEq
+            | NativeOperatorKind::FGT
+            | NativeOperatorKind::FGE
+            | NativeOperatorKind::FLT
+            | NativeOperatorKind::FLE
+            | NativeOperatorKind::BEq => PrimitiveType::Bool,
             NativeOperatorKind::IAdd
             | NativeOperatorKind::ISub
             | NativeOperatorKind::IDiv

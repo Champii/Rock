@@ -6,7 +6,7 @@ use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, PointerValue},
-    IntPredicate,
+    FloatPredicate, IntPredicate,
 };
 use inkwell::{context::Context, types::BasicTypeEnum};
 use inkwell::{module::Module, values::BasicValue};
@@ -424,46 +424,6 @@ impl<'a> CodegenContext<'a> {
                     .build_int_signed_div(left, right, "idiv")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::Eq => {
-                let left = self.lower_identifier(left, builder).into_int_value();
-                let right = self.lower_identifier(right, builder).into_int_value();
-
-                builder
-                    .build_int_compare(IntPredicate::EQ, left, right, "ieq")
-                    .as_basic_value_enum()
-            }
-            NativeOperatorKind::GT => {
-                let left = self.lower_identifier(left, builder).into_int_value();
-                let right = self.lower_identifier(right, builder).into_int_value();
-
-                builder
-                    .build_int_compare(IntPredicate::SGT, left, right, "isgt")
-                    .as_basic_value_enum()
-            }
-            NativeOperatorKind::GE => {
-                let left = self.lower_identifier(left, builder).into_int_value();
-                let right = self.lower_identifier(right, builder).into_int_value();
-
-                builder
-                    .build_int_compare(IntPredicate::SGE, left, right, "isge")
-                    .as_basic_value_enum()
-            }
-            NativeOperatorKind::LT => {
-                let left = self.lower_identifier(left, builder).into_int_value();
-                let right = self.lower_identifier(right, builder).into_int_value();
-
-                builder
-                    .build_int_compare(IntPredicate::SLT, left, right, "islt")
-                    .as_basic_value_enum()
-            }
-            NativeOperatorKind::LE => {
-                let left = self.lower_identifier(left, builder).into_int_value();
-                let right = self.lower_identifier(right, builder).into_int_value();
-
-                builder
-                    .build_int_compare(IntPredicate::SLE, left, right, "isle")
-                    .as_basic_value_enum()
-            }
 
             // float
             NativeOperatorKind::FAdd => {
@@ -496,6 +456,94 @@ impl<'a> CodegenContext<'a> {
 
                 builder
                     .build_float_div(left, right, "idiv")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::IEq => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::EQ, left, right, "ieq")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::IGT => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::SGT, left, right, "isgt")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::IGE => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::SGE, left, right, "isge")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::ILT => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::SLT, left, right, "islt")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::ILE => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::SLE, left, right, "isle")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FEq => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_compare(FloatPredicate::OEQ, left, right, "feq")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FGT => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_compare(FloatPredicate::OGT, left, right, "fsgt")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FGE => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_compare(FloatPredicate::OGE, left, right, "fsge")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FLT => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_compare(FloatPredicate::OLT, left, right, "fslt")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FLE => {
+                let left = self.lower_identifier(left, builder).into_float_value();
+                let right = self.lower_identifier(right, builder).into_float_value();
+
+                builder
+                    .build_float_compare(FloatPredicate::OLE, left, right, "fsle")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::BEq => {
+                let left = self.lower_identifier(left, builder).into_int_value();
+                let right = self.lower_identifier(right, builder).into_int_value();
+
+                builder
+                    .build_int_compare(IntPredicate::EQ, left, right, "beq")
                     .as_basic_value_enum()
             }
         }
