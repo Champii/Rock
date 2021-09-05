@@ -10,14 +10,14 @@ use crate::walk_list;
 pub struct AnnotateContext {
     state: InferState,
     // traits: Vec<Trait>,
-    trait_methods: HashMap<Identifier, HashMap<TypeSignature, FunctionDecl>>,
+    trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
     body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
 }
 
 impl AnnotateContext {
     pub fn new(
         state: InferState,
-        trait_methods: HashMap<Identifier, HashMap<TypeSignature, FunctionDecl>>,
+        trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
     ) -> Self {
         Self {
             state,
@@ -36,6 +36,7 @@ impl AnnotateContext {
 }
 
 impl<'a> Visitor<'a> for AnnotateContext {
+    fn visit_trait(&mut self, t: &Trait) {}
     fn visit_impl(&mut self, i: &Impl) {
         self.visit_type(&i.name);
 
@@ -62,7 +63,7 @@ impl<'a> Visitor<'a> for AnnotateContext {
 
     fn visit_function_decl(&mut self, f: &FunctionDecl) {
         self.state
-            .new_named_annotation(f.name.to_string(), f.hir_id.clone());
+            .new_named_annotation(f.get_name().name, f.hir_id.clone());
 
         self.body_arguments
             .insert(f.body_id.clone(), f.arguments.clone());

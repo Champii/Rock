@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -24,6 +24,8 @@ pub struct InferState {
     node_types: BTreeMap<HirId, TypeId>,
     types: BTreeMap<TypeId, Option<Type>>,
     constraints: Vec<Constraint>,
+    // TODO: extract this in its own pass
+    pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
 }
 
 impl InferState {

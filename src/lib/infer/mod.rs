@@ -1,15 +1,16 @@
 mod annotate;
 mod constraint;
+mod mangle;
 mod state;
 
-use crate::Config;
+use crate::{hir::visit_mut::*, infer::mangle::*, Config};
 
 use self::annotate::AnnotateContext;
 use self::constraint::ConstraintContext;
 pub use self::state::*;
 
 pub fn infer(root: &mut crate::hir::Root, config: &Config) {
-    let mut infer_state = InferState::new();
+    let infer_state = InferState::new();
 
     let mut annotate_ctx = AnnotateContext::new(infer_state, root.trait_methods.clone());
 
@@ -19,11 +20,25 @@ pub fn infer(root: &mut crate::hir::Root, config: &Config) {
 
     constraint_ctx.constraint(root);
 
-    infer_state = constraint_ctx.get_state();
+    let (mut infer_state, new_resolutions) = constraint_ctx.get_state();
 
-    println!("STATE {:#?}", infer_state);
+    for (k, v) in new_resolutions {
+        root.resolutions.insert(k.clone(), v.clone());
+    }
+
+    // println!("STATE {:#?}", infer_state);
     infer_state.solve();
-    println!("STATE 2 {:#?}", infer_state);
+
+    let mut mangle_ctx = MangleContext {
+        trait_call_to_mangle: infer_state.trait_call_to_mangle.clone(),
+    };
+
+    mangle_ctx.visit_root(root);
+
+    root.trait_call_to_mangle = infer_state.trait_call_to_mangle.clone();
+
+    // println!("STATE 2 {:#?}", infer_state);
+
     // println!("LOL {:#?}", root);
 
     // Here add trait solving

@@ -69,6 +69,11 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_hir(&mut self, root: &'a Root, builder: &'a Builder) {
+        for (_, map) in &root.trait_methods {
+            for (_, func) in map {
+                self.lower_function_decl(&func, builder);
+            }
+        }
         for item in root.top_levels.values() {
             match &item.kind {
                 TopLevelKind::Prototype(p) => self.lower_prototype(&p, builder),
@@ -113,7 +118,8 @@ impl<'a> CodegenContext<'a> {
         }
     }
     pub fn lower_function_decl(&mut self, f: &FunctionDecl, builder: &'a Builder) {
-        if self.module.get_function(&f.name).is_some() {
+        let mangled_name = f.get_name();
+        if self.module.get_function(&mangled_name).is_some() {
             return;
         }
 
@@ -135,10 +141,10 @@ impl<'a> CodegenContext<'a> {
                     .fn_type(args.as_slice(), false)
             };
 
-            let fn_value = self.module.add_function(&f.name.name, fn_type, None);
+            let fn_value = self.module.add_function(&mangled_name, fn_type, None);
 
             self.scopes.add(
-                f.hir_id.clone(),
+                f.name.hir_id.clone(),
                 fn_value
                     .as_global_value()
                     .as_pointer_value()
@@ -158,7 +164,7 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_fn_body(&mut self, fn_body: &'a FnBody, builder: &'a Builder) {
-        if let Some(f) = self.module.get_function(&fn_body.name.name) {
+        if let Some(f) = self.module.get_function(&fn_body.get_name()) {
             self.cur_func = Some(f);
 
             let hir_top_reso = self
@@ -166,19 +172,41 @@ impl<'a> CodegenContext<'a> {
                 .resolutions
                 .get(fn_body.name.hir_id.clone())
                 .unwrap();
-            let hir_top = self.hir.get_top_level(hir_top_reso).unwrap();
 
-            match &hir_top.kind {
-                TopLevelKind::Prototype(_) => (),
-                TopLevelKind::Function(hir_f) => {
-                    for (i, arg) in hir_f.arguments.iter().enumerate() {
-                        self.scopes.add(
-                            arg.name.hir_id.clone(),
-                            f.get_nth_param(i.try_into().unwrap()).unwrap(),
-                        );
-                    }
+            let hir_top = if let Some(hir_top) = self.hir.get_top_level(hir_top_reso.clone()) {
+                match &hir_top.kind {
+                    TopLevelKind::Function(hir_f) => hir_f,
+                    TopLevelKind::Prototype(_) => panic!(),
                 }
+            } else {
+                println!("HIR_TOP_RESO {:?}", hir_top_reso);
+                println!("BODY HIR {:?}", fn_body);
+                // let hir_top_reso = self
+                //     .hir
+                //     .resolutions
+                //     .get(fn_body.name.hir_id.clone())
+                //     .unwrap();
+                self.hir
+                    .trait_methods
+                    .get(&fn_body.name.name)
+                    .unwrap()
+                    .iter()
+                    .find(|(applied_to, func_decl)| func_decl.name.hir_id == fn_body.name.hir_id)
+                    .map(|tuple| tuple.1)
+                    .unwrap()
+            };
+
+            // match &hir_top.kind {
+            //     TopLevelKind::Prototype(_) => (),
+            //     TopLevelKind::Function(hir_f) => {
+            for (i, arg) in hir_top.arguments.iter().enumerate() {
+                self.scopes.add(
+                    arg.name.hir_id.clone(),
+                    f.get_nth_param(i.try_into().unwrap()).unwrap(),
+                );
             }
+            //     }
+            // }
 
             self.lower_body(&fn_body.body, "entry", builder);
         } else {
@@ -356,6 +384,8 @@ impl<'a> CodegenContext<'a> {
         _builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
         let reso = self.hir.resolutions.get((&id.hir_id).clone()).unwrap();
+
+        println!("IDENT {:?} {:?}", id, reso);
 
         self.scopes.get(reso).unwrap()
     }

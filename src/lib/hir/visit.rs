@@ -53,9 +53,8 @@ pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     walk_map!(visitor, visit_top_level, &root.top_levels);
     for (_, r#trait) in &root.traits {
         visitor.visit_trait(r#trait);
-
-        // walk_map!(visitor, visit_impl, impls);
     }
+
     for (_, impls) in &root.trait_methods {
         walk_map!(visitor, visit_function_decl, impls);
     }

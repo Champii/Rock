@@ -14,7 +14,7 @@ pub struct AstLoweringContext {
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
-    trait_methods: HashMap<hir::Identifier, HashMap<TypeSignature, hir::FunctionDecl>>,
+    trait_methods: HashMap<String, HashMap<TypeSignature, hir::FunctionDecl>>,
 }
 
 impl AstLoweringContext {
@@ -43,6 +43,7 @@ impl AstLoweringContext {
             bodies: self.bodies.clone(),
             traits: self.traits.clone(),
             trait_methods: self.trait_methods.clone(),
+            trait_call_to_mangle: HashMap::new(),
         }
     }
 
@@ -125,8 +126,18 @@ impl AstLoweringContext {
 
     pub fn lower_impl(&mut self, i: &Impl) {
         for f in &i.defs {
-            let hir_f = self.lower_function_decl(f);
+            let mut hir_f = self.lower_function_decl(f);
+
+            let mut types = vec![i.name.get_name()];
+            types.extend(i.types.iter().map(|t| t.get_name()));
+
+            hir_f.mangle(&types);
+
+            let body = self.bodies.get_mut(&hir_f.body_id).unwrap();
+            body.mangle(&types);
+
             let r#trait = self.traits.get(&i.name).unwrap();
+
             let type_sig = r#trait
                 .defs
                 .iter()
@@ -137,10 +148,20 @@ impl AstLoweringContext {
 
             let type_sig = type_sig.apply_types(&r#trait.types, &i.types);
 
-            let mut fn_decls = self
+            let fn_decls = self
                 .trait_methods
-                .entry(hir_f.name.clone())
+                .entry(hir_f.name.name.clone())
                 .or_insert(HashMap::new());
+
+            let hir_id = self.hir_map.next_hir_id(f.identity.clone());
+
+            // self.top_levels.insert(
+            //     hir_id.clone(),
+            //     hir::TopLevel {
+            //         kind: hir::TopLevelKind::Function(hir_f.clone()),
+            //         hir_id: hir_f.hir_id.clone(), // TO CHECK
+            //     },
+            // );
 
             (*fn_decls).insert(type_sig, hir_f);
         }
@@ -168,6 +189,7 @@ impl AstLoweringContext {
 
         hir::FunctionDecl {
             name: ident,
+            mangled_name: None,
             arguments: f
                 .arguments
                 .iter()
@@ -203,6 +225,7 @@ impl AstLoweringContext {
         hir::FnBody {
             id: body_id,
             name,
+            mangled_name: None,
             body,
         }
     }

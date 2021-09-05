@@ -14,10 +14,11 @@ pub struct Root {
     pub node_types: BTreeMap<HirId, TypeId>,
     pub types: BTreeMap<TypeId, Type>,
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
-    pub trait_methods: HashMap<Identifier, HashMap<TypeSignature, FunctionDecl>>,
+    pub trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
     pub top_levels: BTreeMap<HirId, TopLevel>,
     pub modules: BTreeMap<HirId, Mod>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
+    pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
 }
 
 impl Root {
@@ -25,14 +26,33 @@ impl Root {
         self.top_levels.get(&hir_id)
     }
 
+    pub fn get_trait_by_method(&self, ident: String) -> Option<Trait> {
+        self.traits
+            .iter()
+            .find(|(_, r#trait)| {
+                r#trait
+                    .defs
+                    .iter()
+                    .find(|proto| *proto.name == ident)
+                    .is_some()
+            })
+            .map(|(_, r#trait)| r#trait.clone())
+    }
+
     pub fn get_trait_method(
         &self,
-        ident: &Identifier,
-        sig: &TypeSignature,
+        ident: String,
+        applied_type: &TypeSignature,
     ) -> Option<FunctionDecl> {
-        //
-        None
-        // self.trait_methods.
+        self.trait_methods.get(&ident)?.get(applied_type).cloned()
+    }
+
+    pub fn match_trait_method(&self, ident: String, applied_type: &Type) -> Option<FunctionDecl> {
+        let map = self.trait_methods.get(&ident)?;
+
+        map.iter()
+            .find(|(sig, _)| sig.args[0] == *applied_type)
+            .map(|(_, fn_decl)| fn_decl.clone())
     }
 
     // pub fn get_trait(&self, hir_id: HirId) -> Option<Trait> {
@@ -68,6 +88,12 @@ impl Root {
 
         self.types.get(&t_id).cloned()
     }
+
+    // pub fn mangle_trait_calls(&mut self) {
+    //     self.trait_call_to_mangle.iter().for_each(|(fc_hir_id, prefixes)| {
+
+    //     });
+    // };
 }
 
 #[derive(Debug, Clone)]
@@ -122,10 +148,26 @@ pub struct Prototype {
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
     pub name: Identifier,
+    pub mangled_name: Option<Identifier>,
     pub arguments: Vec<ArgumentDecl>,
     pub ret: Type,
     pub body_id: FnBodyId,
     pub hir_id: HirId,
+}
+
+impl FunctionDecl {
+    pub fn mangle(&mut self, prefixes: &[String]) {
+        self.mangled_name = Some(Identifier {
+            name: prefixes.join("_") + "_" + &self.name.name,
+            hir_id: self.name.hir_id.clone(),
+        });
+    }
+    pub fn get_name(&self) -> Identifier {
+        match &self.mangled_name {
+            Some(name) => name.clone(),
+            None => self.name.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -183,12 +225,25 @@ impl std::ops::Deref for Identifier {
 pub struct FnBody {
     pub id: FnBodyId,
     pub name: Identifier,
+    pub mangled_name: Option<Identifier>,
     pub body: Body,
 }
 
 impl FnBody {
     pub fn get_terminal_hir_id(&self) -> HirId {
         self.body.get_terminal_hir_id()
+    }
+    pub fn mangle(&mut self, prefixes: &[String]) {
+        self.mangled_name = Some(Identifier {
+            name: prefixes.join("_") + "_" + &self.name.name,
+            hir_id: self.name.hir_id.clone(),
+        });
+    }
+    pub fn get_name(&self) -> Identifier {
+        match &self.mangled_name {
+            Some(name) => name.clone(),
+            None => self.name.clone(),
+        }
     }
 }
 
@@ -306,14 +361,25 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub fn mangle(&mut self, prefix: String) {
+    pub fn get_mangled_name(&self, prefixes: Vec<String>) -> Option<String> {
+        match &*self.op.kind {
+            ExpressionKind::Identifier(id) => {
+                let identifier = id.path.iter().last().unwrap();
+
+                Some(prefixes.join("_") + "_" + &identifier.name)
+            }
+            _ => None, // FIXME: recurse on '(expr)' parenthesis expression
+        }
+    }
+
+    pub fn mangle(&mut self, prefixes: Vec<String>) {
         match &mut *self.op.kind {
             ExpressionKind::Identifier(id) => {
                 let identifier = id.path.iter_mut().last().unwrap();
 
-                identifier.name = prefix + "_" + &identifier.name
+                identifier.name = prefixes.join("_") + "_" + &identifier.name;
             }
-            _ => (),
+            _ => (), // FIXME: recurse on '(expr)' parenthesis expression
         }
     }
 }

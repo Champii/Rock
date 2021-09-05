@@ -83,7 +83,7 @@ impl TypeSignature {
             .enumerate()
             .find(|(_, orig_t)| **orig_t == self.ret)
         {
-            Some((i, orig_t)) => dest[i].clone(),
+            Some((i, _orig_t)) => dest[i].clone(),
             None => self.ret.clone(),
         };
         Self {

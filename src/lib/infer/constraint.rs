@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{Constraint, InferState};
 use crate::walk_list;
 use crate::{ast::FuncType, hir::*};
@@ -8,6 +10,7 @@ pub struct ConstraintContext<'a> {
     hir: &'a Root,
     state: InferState,
     current_body: Option<FnBodyId>,
+    new_resolutions: HashMap<HirId, HirId>,
 }
 
 impl<'a> ConstraintContext<'a> {
@@ -16,6 +19,7 @@ impl<'a> ConstraintContext<'a> {
             state,
             hir,
             current_body: None,
+            new_resolutions: HashMap::new(),
         }
     }
 
@@ -23,8 +27,8 @@ impl<'a> ConstraintContext<'a> {
         self.visit_root(root);
     }
 
-    pub fn get_state(self) -> InferState {
-        self.state
+    pub fn get_state(self) -> (InferState, HashMap<HirId, HirId>) {
+        (self.state, self.new_resolutions)
     }
 }
 
@@ -87,10 +91,13 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 walk_list!(self, visit_expression, &fc.args);
                 let op_hir_id = fc.op.get_terminal_hir_id();
 
+                // FIXME: Code smell
                 // TODO: Use global resolution instead of top_level
                 // TODO: Need Arena and a way to fetch any element/item/node
                 if let Some(top_id) = self.hir.resolutions.get(op_hir_id.clone()) {
+                    println!("HEUUUU");
                     if let Some(top) = self.hir.get_top_level(top_id.clone()) {
+                        println!("HEUUUU2");
                         match &top.kind {
                             TopLevelKind::Prototype(p) => {
                                 let constraint = Constraint::Callable(
@@ -138,15 +145,66 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                             }
                         }
                     } else {
-                        // if let Some(r#trait) = self.hir.get_trait_method(fc.op.to_identifier()) {
-                        //     println!("TRAIT ! {:#?}", r#trait);
-                        // } else {
-                        println!("No top level");
-                        self.state.add_constraint(Constraint::Callable(
-                            self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                            self.state.get_type_id(top_id).unwrap(),
-                        ));
-                        // }
+                        // FIXME: Apply to many types
+                        let applied_type = self
+                            .state
+                            .get_type(
+                                self.state
+                                    .get_type_id(fc.args.get(0).unwrap().get_terminal_hir_id())
+                                    .unwrap(),
+                            )
+                            .unwrap();
+
+                        // FIXME: Copy-paste of the code above
+                        if let Some(f) = self
+                            .hir
+                            .match_trait_method(fc.op.as_identifier().clone().name, &applied_type)
+                        {
+                            let body = self.hir.get_body(f.body_id.clone()).unwrap();
+
+                            let body_hir_id = body.get_terminal_hir_id();
+                            let body_type_id = self.state.get_type_id(body_hir_id.clone()).unwrap();
+
+                            self.state.add_constraint(Constraint::Callable(
+                                self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                body_type_id,
+                            ));
+
+                            self.state.add_constraint(Constraint::Eq(
+                                self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                                body_type_id,
+                            ));
+
+                            for (i, arg) in f.arguments.iter().enumerate() {
+                                self.state.add_constraint(Constraint::Eq(
+                                    self.state.get_type_id(arg.name.hir_id.clone()).unwrap(),
+                                    self.state
+                                        .get_type_id(fc.args.get(i).unwrap().get_terminal_hir_id())
+                                        .unwrap(),
+                                ));
+                            }
+
+                            let r#trait = self
+                                .hir
+                                .get_trait_by_method(fc.op.as_identifier().clone().name)
+                                .unwrap();
+
+                            self.new_resolutions
+                                .insert(fc.op.get_terminal_hir_id(), f.name.hir_id.clone());
+                            self.new_resolutions
+                                .insert(fc.hir_id.clone(), f.name.hir_id.clone());
+
+                            self.state.trait_call_to_mangle.insert(
+                                fc.hir_id.clone(),
+                                vec![r#trait.name.get_name(), applied_type.get_name()],
+                            );
+                        } else {
+                            println!("No top level");
+                            self.state.add_constraint(Constraint::Callable(
+                                self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                self.state.get_type_id(top_id).unwrap(),
+                            ));
+                        }
                     }
                 } else {
                     panic!("No reso");
@@ -168,7 +226,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
 
             self.state.solve_type(
                 f.hir_id.clone(),
-                Type::FuncType(FuncType::new((*f.name).clone(), args, body_type_id)),
+                Type::FuncType(FuncType::new(f.get_name().name, args, body_type_id)),
             );
         }
     }

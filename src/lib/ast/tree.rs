@@ -75,6 +75,7 @@ pub struct Use {
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
     pub name: Identifier,
+    // pub mangled_name: Option<Identifier>,
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
     pub identity: Identity,

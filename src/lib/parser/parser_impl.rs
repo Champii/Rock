@@ -331,7 +331,7 @@ impl Parse for Impl {
                 ctx.consume(); // indent
                 let mut f = FunctionDecl::parse(ctx)?;
 
-                f.mangle(&types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
+                // f.mangle(&types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
 
                 defs.push(f);
             } else {
