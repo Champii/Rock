@@ -121,7 +121,7 @@ pub fn walk_fn_body<'a, V: VisitorMut<'a>>(visitor: &mut V, fn_body: &'a mut FnB
 }
 
 pub fn walk_body<'a, V: VisitorMut<'a>>(visitor: &mut V, body: &'a mut Body) {
-    visitor.visit_statement(&mut body.stmt);
+    walk_list!(visitor, visit_statement, &mut body.stmts);
 }
 
 pub fn walk_statement<'a, V: VisitorMut<'a>>(visitor: &mut V, statement: &'a mut Statement) {

@@ -461,18 +461,54 @@ impl Parse for Body {
 
             ctx.block_indent += 1;
 
-            ctx.consume();
-
-            expect_or_restore!(TokenType::Indent(ctx.block_indent), ctx);
+            // ctx.consume();
         }
 
-        let stmt = Statement::parse(ctx)?;
+        let mut stmts = vec![];
+
+        if multi {
+            loop {
+                ctx.save();
+
+                if ctx.cur_tok().t == TokenType::EOL {
+                    while ctx.cur_tok().t == TokenType::EOL {
+                        ctx.consume();
+                    }
+                } else {
+                    ctx.restore();
+                    break;
+                }
+
+                if ctx.cur_tok().t != TokenType::Indent(ctx.block_indent) {
+                    ctx.restore();
+                    break;
+                } else {
+                    ctx.save_pop();
+                    ctx.consume();
+                }
+
+                ctx.save();
+                let stmt = match Statement::parse(ctx) {
+                    Ok(stmt) => stmt,
+                    Err(_) => {
+                        ctx.restore();
+                        break;
+                    }
+                };
+
+                ctx.save_pop();
+
+                stmts.push(stmt);
+            }
+        } else {
+            stmts.push(Statement::parse(ctx)?)
+        }
 
         if multi {
             ctx.block_indent -= 1;
         }
 
-        Ok(Body { stmt })
+        Ok(Body { stmts })
     }
 }
 

@@ -232,7 +232,11 @@ impl AstLoweringContext {
 
     pub fn lower_body(&mut self, body: &Body) -> hir::Body {
         hir::Body {
-            stmt: self.lower_statement(&body.stmt),
+            stmts: body
+                .stmts
+                .iter()
+                .map(|stmt| self.lower_statement(stmt))
+                .collect(),
         }
     }
 

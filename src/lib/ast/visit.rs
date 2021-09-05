@@ -130,7 +130,7 @@ pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a Arg
 }
 
 pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
-    visitor.visit_statement(&body.stmt);
+    walk_list!(visitor, visit_statement, &body.stmts);
 }
 
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {

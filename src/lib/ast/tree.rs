@@ -176,7 +176,7 @@ pub struct ArgumentDecl {
 
 #[derive(Debug, Clone)]
 pub struct Body {
-    pub stmt: Statement,
+    pub stmts: Vec<Statement>,
 }
 
 #[derive(Debug, Clone)]

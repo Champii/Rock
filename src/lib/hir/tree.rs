@@ -249,12 +249,12 @@ impl FnBody {
 
 #[derive(Debug, Clone)]
 pub struct Body {
-    pub stmt: Statement,
+    pub stmts: Vec<Statement>,
 }
 
 impl Body {
     pub fn get_terminal_hir_id(&self) -> HirId {
-        self.stmt.get_terminal_hir_id()
+        self.stmts.iter().last().unwrap().get_terminal_hir_id()
     }
 }
 

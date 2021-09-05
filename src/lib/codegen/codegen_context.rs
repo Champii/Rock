@@ -222,7 +222,13 @@ impl<'a> CodegenContext<'a> {
 
         builder.position_at_end(basic_block);
 
-        (self.lower_stmt(&body.stmt, builder), basic_block)
+        let stmt = body
+            .stmts
+            .iter()
+            .map(|stmt| self.lower_stmt(&stmt, builder))
+            .last()
+            .unwrap();
+        (stmt, basic_block)
     }
 
     pub fn lower_stmt(&mut self, stmt: &'a Statement, builder: &'a Builder) -> AnyValueEnum<'a> {
@@ -248,18 +254,27 @@ impl<'a> CodegenContext<'a> {
         let else_block = if let Some(e) = &r#if.else_ {
             let else_block = self.lower_else(e, builder);
 
-            builder.position_at_end(block);
-
             else_block
         } else {
             //new empty block
             let f = self.module.get_last_function().unwrap();
             let else_block = self.context.append_basic_block(f, "else");
 
-            builder.position_at_end(block);
-
             else_block
         };
+
+        // FIXME: Need a last block if the 'if' is not the last statement in the fn body
+        // let rest_block = self
+        //     .context
+        //     .append_basic_block(self.module.get_last_function().unwrap(), "rest");
+
+        // builder.build_unconditional_branch(rest_block);
+
+        // builder.position_at_end(then_block);
+
+        // builder.build_unconditional_branch(rest_block);
+
+        builder.position_at_end(block);
 
         let if_value =
             builder.build_conditional_branch(predicat.into_int_value(), then_block, else_block);

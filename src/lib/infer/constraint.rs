@@ -39,7 +39,9 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
     }
 
     fn visit_body(&mut self, body: &'a Body) {
-        self.visit_statement(&body.stmt);
+        body.stmts
+            .iter()
+            .for_each(|stmt| self.visit_statement(&stmt));
     }
 
     fn visit_if(&mut self, r#if: &'a If) {
