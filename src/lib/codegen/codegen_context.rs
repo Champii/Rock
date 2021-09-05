@@ -144,7 +144,15 @@ impl<'a> CodegenContext<'a> {
             let fn_value = self.module.add_function(&mangled_name, fn_type, None);
 
             self.scopes.add(
-                f.name.hir_id.clone(), // FIXME: here the hir_id can ba taken from f.hir_id
+                f.name.hir_id.clone(),
+                fn_value
+                    .as_global_value()
+                    .as_pointer_value()
+                    .as_basic_value_enum(),
+            );
+            // FIXME: Hack
+            self.scopes.add(
+                f.hir_id.clone(),
                 fn_value
                     .as_global_value()
                     .as_pointer_value()
@@ -372,6 +380,8 @@ impl<'a> CodegenContext<'a> {
         _builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
         let reso = self.hir.resolutions.get((&id.hir_id).clone()).unwrap();
+
+        println!("ID {:#?} RESO {:?}", id, reso);
 
         self.scopes.get(reso).unwrap()
     }

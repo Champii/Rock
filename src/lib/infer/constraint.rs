@@ -144,58 +144,64 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                         }
                     } else {
                         // FIXME: Apply to many types
-                        let applied_type = self
-                            .state
-                            .get_type(
-                                self.state
-                                    .get_type_id(fc.args.get(0).unwrap().get_terminal_hir_id())
-                                    .unwrap(),
-                            )
-                            .unwrap();
+                        if let Some(applied_type) = self.state.get_type(
+                            self.state
+                                .get_type_id(fc.args.get(0).unwrap().get_terminal_hir_id())
+                                .unwrap(),
+                        ) {
+                            // FIXME: Copy-paste of the code above
+                            if let Some(f) = self.hir.match_trait_method(
+                                fc.op.as_identifier().clone().name,
+                                &applied_type,
+                            ) {
+                                let body = self.hir.get_body(f.body_id.clone()).unwrap();
 
-                        // FIXME: Copy-paste of the code above
-                        if let Some(f) = self
-                            .hir
-                            .match_trait_method(fc.op.as_identifier().clone().name, &applied_type)
-                        {
-                            let body = self.hir.get_body(f.body_id.clone()).unwrap();
+                                let body_hir_id = body.get_terminal_hir_id();
+                                let body_type_id =
+                                    self.state.get_type_id(body_hir_id.clone()).unwrap();
 
-                            let body_hir_id = body.get_terminal_hir_id();
-                            let body_type_id = self.state.get_type_id(body_hir_id.clone()).unwrap();
+                                self.state.add_constraint(Constraint::Callable(
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                    body_type_id,
+                                ));
 
-                            self.state.add_constraint(Constraint::Callable(
-                                self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                body_type_id,
-                            ));
-
-                            self.state.add_constraint(Constraint::Eq(
-                                self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                                body_type_id,
-                            ));
-
-                            for (i, arg) in f.arguments.iter().enumerate() {
                                 self.state.add_constraint(Constraint::Eq(
-                                    self.state.get_type_id(arg.name.hir_id.clone()).unwrap(),
-                                    self.state
-                                        .get_type_id(fc.args.get(i).unwrap().get_terminal_hir_id())
-                                        .unwrap(),
+                                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                                    body_type_id,
+                                ));
+
+                                for (i, arg) in f.arguments.iter().enumerate() {
+                                    self.state.add_constraint(Constraint::Eq(
+                                        self.state.get_type_id(arg.name.hir_id.clone()).unwrap(),
+                                        self.state
+                                            .get_type_id(
+                                                fc.args.get(i).unwrap().get_terminal_hir_id(),
+                                            )
+                                            .unwrap(),
+                                    ));
+                                }
+
+                                let r#trait = self
+                                    .hir
+                                    .get_trait_by_method(fc.op.as_identifier().clone().name)
+                                    .unwrap();
+
+                                self.new_resolutions
+                                    .insert(fc.op.get_terminal_hir_id(), f.name.hir_id.clone());
+                                self.new_resolutions
+                                    .insert(fc.hir_id.clone(), f.name.hir_id.clone());
+
+                                self.state.trait_call_to_mangle.insert(
+                                    fc.hir_id.clone(),
+                                    vec![r#trait.name.get_name(), applied_type.get_name()],
+                                );
+                            } else {
+                                println!("No top level");
+                                self.state.add_constraint(Constraint::Callable(
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                    self.state.get_type_id(top_id).unwrap(),
                                 ));
                             }
-
-                            let r#trait = self
-                                .hir
-                                .get_trait_by_method(fc.op.as_identifier().clone().name)
-                                .unwrap();
-
-                            self.new_resolutions
-                                .insert(fc.op.get_terminal_hir_id(), f.name.hir_id.clone());
-                            self.new_resolutions
-                                .insert(fc.hir_id.clone(), f.name.hir_id.clone());
-
-                            self.state.trait_call_to_mangle.insert(
-                                fc.hir_id.clone(),
-                                vec![r#trait.name.get_name(), applied_type.get_name()],
-                            );
                         } else {
                             println!("No top level");
                             self.state.add_constraint(Constraint::Callable(

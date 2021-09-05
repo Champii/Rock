@@ -9,6 +9,10 @@ fn run(path: &str, input: &str, expected_output: &str) {
     assert_eq!(expected_output, actual_output);
 }
 #[test]
+fn testcases_trait_basic() {
+    run("./testcases/trait/basic.rk", include_str!("./testcases/trait/basic.rk"), include_str!("./testcases/trait/basic.rk.out"));
+}
+#[test]
 fn testcases_mods_main() {
     run("./testcases/mods/main.rk", include_str!("./testcases/mods/main.rk"), include_str!("./testcases/mods/main.rk.out"));
 }
