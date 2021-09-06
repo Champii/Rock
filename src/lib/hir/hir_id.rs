@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 macro_rules! def_id {
     ($name:ident) => {
         paste! {
-            #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+            #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
             pub struct $name(u64);
 
             static [<GLOBAL_NEXT_ $name:upper>]: AtomicU64 = AtomicU64::new(0);

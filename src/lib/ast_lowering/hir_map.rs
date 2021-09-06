@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{ast::*, hir::HirId, NodeId};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct HirMap {
     map: HashMap<HirId, NodeId>,
     rev_map: HashMap<NodeId, HirId>,

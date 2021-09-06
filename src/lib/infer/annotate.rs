@@ -88,21 +88,14 @@ impl<'a> Visitor<'a> for AnnotateContext {
     }
 
     fn visit_literal(&mut self, lit: &Literal) {
-        match &lit.kind {
-            LiteralKind::Number(_n) => self
-                .state
-                .new_type_solved(lit.hir_id.clone(), Type::Primitive(PrimitiveType::Int64)),
-            LiteralKind::Float(_f) => self
-                .state
-                .new_type_solved(lit.hir_id.clone(), Type::Primitive(PrimitiveType::Float64)),
-            LiteralKind::String(s) => self.state.new_type_solved(
-                lit.hir_id.clone(),
-                Type::Primitive(PrimitiveType::String(s.len())),
-            ),
-            LiteralKind::Bool(_b) => self
-                .state
-                .new_type_solved(lit.hir_id.clone(), Type::Primitive(PrimitiveType::Bool)),
+        let t = match &lit.kind {
+            LiteralKind::Number(_n) => Type::Primitive(PrimitiveType::Int64),
+            LiteralKind::Float(_f) => Type::Primitive(PrimitiveType::Float64),
+            LiteralKind::String(s) => Type::Primitive(PrimitiveType::String(s.len())),
+            LiteralKind::Bool(_b) => Type::Primitive(PrimitiveType::Bool),
         };
+
+        self.state.new_type_solved(lit.hir_id.clone(), t);
     }
 
     fn visit_identifier_path(&mut self, id: &IdentifierPath) {

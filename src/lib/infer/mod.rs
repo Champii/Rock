@@ -45,6 +45,28 @@ pub fn infer(root: &mut crate::hir::Root, config: &Config) {
     // println!("LOL {:#?}", root);
 
     // Here add trait solving
+    // And resolve state again
+    // FIXME: Dirty ineficient hack, need proper trait solving
+    // let mut constraint_ctx = ConstraintContext::new(infer_state, root);
+
+    // constraint_ctx.constraint(root);
+
+    // let (mut infer_state, new_resolutions) = constraint_ctx.get_state();
+
+    // for (k, v) in new_resolutions {
+    //     root.resolutions.insert(k.clone(), v.clone());
+    // }
+
+    // infer_state.solve();
+
+    // let mut mangle_ctx = MangleContext {
+    //     trait_call_to_mangle: infer_state.trait_call_to_mangle.clone(),
+    // };
+
+    // mangle_ctx.visit_root(root);
+
+    // root.trait_call_to_mangle = infer_state.trait_call_to_mangle.clone();
+    //
 
     root.node_types = infer_state.get_node_types();
 

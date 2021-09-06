@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use crate::{ast_lowering::HirMap, hir::HirId, NodeId};
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct ResolutionMap<T>(HashMap<T, T>)
 where
-    T: Eq + Clone + std::hash::Hash;
+    T: Eq + Clone + std::hash::Hash + Default;
 
-impl<T: Eq + Clone + std::hash::Hash> ResolutionMap<T> {
+impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
     pub fn insert(&mut self, pointer_id: T, pointee_id: T) {
         self.0.insert(pointer_id, pointee_id);
     }

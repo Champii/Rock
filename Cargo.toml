@@ -15,6 +15,9 @@ concat-idents = "1.1.2"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm11-0"] }
 paste = "1.0"
 either = "1.5"
+serde = "*"
+serde_derive = '*'
+bincode = "*"
 
 [lib]
 name = "rock"

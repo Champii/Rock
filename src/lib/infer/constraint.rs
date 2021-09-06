@@ -161,7 +161,13 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                             }
                         }
                     } else {
-                        // FIXME: Apply to many types
+                        // Trait solving
+
+                        // FIXME: Apply to list of types
+                        // FIXME: Type needs to be solved in order to be applied. There is a dependency loop here
+
+                        self.state.solve();
+
                         if let Some(applied_type) = self.state.get_type(
                             self.state
                                 .get_type_id(fc.args.get(0).unwrap().get_terminal_hir_id())
@@ -214,18 +220,25 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     vec![r#trait.name.get_name(), applied_type.get_name()],
                                 );
                             } else {
-                                self.state.add_constraint(Constraint::Callable(
-                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                    self.state.get_type_id(top_id).unwrap(),
-                                ));
+                                if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
+                                    // println!("CALLABLE UNAPPLIED {:?}, {:?}", fc.hir_id, top_id);
+                                    self.state.add_constraint(Constraint::Callable(
+                                        self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                        top_type_id,
+                                    ));
+                                } else {
+                                    error!("UNCALLABLE UNAPPLIED TOP");
+                                }
                             }
                         } else {
                             if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
-                                println!("ELSE CALLABLE {:?}, {:?}", fc.hir_id, top_id);
+                                // println!("ELSE CALLABLE {:?}, {:?}", fc.hir_id, top_id);
                                 self.state.add_constraint(Constraint::Callable(
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                                     top_type_id,
                                 ));
+                            } else {
+                                error!("UNCALLABLE");
                             }
                         }
                     }

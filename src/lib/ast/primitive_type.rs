@@ -1,6 +1,6 @@
 use crate::ast::Type;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PrimitiveType {
     Void,
     Bool,
@@ -23,7 +23,7 @@ impl PrimitiveType {
             Self::Int32 => "Int32".to_string(),
             Self::Int64 => "Int64".to_string(),
             Self::Float64 => "Float64".to_string(),
-            Self::String(size) => format!("String({})", size),
+            Self::String(_size) => format!("String"),
             Self::Array(t, size) => format!("[{}; {}]", t.get_name(), size),
         }
     }

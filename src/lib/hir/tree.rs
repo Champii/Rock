@@ -7,7 +7,7 @@ use crate::{
     TypeId,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Root {
     pub hir_map: HirMap,
     pub resolutions: ResolutionMap<HirId>,
@@ -96,13 +96,13 @@ impl Root {
     // };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Mod {
     pub top_levels: Vec<HirId>,
     pub hir_id: HirId,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Trait {
     pub name: Type,
     pub types: Vec<Type>,
@@ -117,7 +117,7 @@ pub struct Impl {
     pub defs: Vec<FunctionDecl>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopLevel {
     pub kind: TopLevelKind,
     pub hir_id: HirId,
@@ -132,20 +132,20 @@ impl TopLevel {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TopLevelKind {
     Function(FunctionDecl),
     Prototype(Prototype),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Prototype {
     pub name: Identifier,
     pub signature: TypeSignature,
     pub hir_id: HirId,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionDecl {
     pub name: Identifier,
     pub mangled_name: Option<Identifier>,
@@ -170,12 +170,12 @@ impl FunctionDecl {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArgumentDecl {
     pub name: Identifier,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentifierPath {
     pub path: Vec<Identifier>,
 }
@@ -208,7 +208,7 @@ impl IdentifierPath {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Identifier {
     pub hir_id: HirId,
     pub name: String,
@@ -221,7 +221,7 @@ impl std::ops::Deref for Identifier {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FnBody {
     pub id: FnBodyId,
     pub name: Identifier,
@@ -247,7 +247,7 @@ impl FnBody {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Body {
     pub stmts: Vec<Statement>,
 }
@@ -258,7 +258,7 @@ impl Body {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Statement {
     pub kind: Box<StatementKind>,
 }
@@ -273,14 +273,14 @@ impl Statement {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StatementKind {
     Expression(Expression),
     Assign(Assign),
     If(If),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Assign {
     // pub hir_id: HirId,
     pub name: Identifier,
@@ -289,11 +289,11 @@ pub struct Assign {
 
 impl Assign {
     pub fn get_terminal_hir_id(&self) -> HirId {
-        self.value.get_terminal_hir_id()
+        self.name.hir_id.clone()
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct If {
     pub hir_id: HirId,
     pub predicat: Expression,
@@ -307,13 +307,13 @@ impl If {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Else {
     If(If),
     Body(Body),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Expression {
     pub kind: Box<ExpressionKind>,
 }
@@ -359,7 +359,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExpressionKind {
     Lit(Literal),
     Identifier(IdentifierPath),
@@ -368,7 +368,7 @@ pub enum ExpressionKind {
     Return(Expression),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
     pub hir_id: HirId,
     pub op: Expression,
@@ -398,13 +398,13 @@ impl FunctionCall {
         }
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Literal {
     pub hir_id: HirId,
     pub kind: LiteralKind,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LiteralKind {
     Number(i64),
     Float(f64),
@@ -412,13 +412,13 @@ pub enum LiteralKind {
     Bool(u64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativeOperator {
     pub hir_id: HirId,
     pub kind: NativeOperatorKind,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NativeOperatorKind {
     IAdd,
     ISub,

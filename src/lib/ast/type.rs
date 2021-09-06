@@ -5,7 +5,7 @@ use crate::infer::*;
 use crate::ast::PrimitiveType;
 // use crate::ast::Prototype;
 
-#[derive(Debug, Clone, Hash, Eq)]
+#[derive(Debug, Clone, Hash, Eq, Serialize, Deserialize)]
 pub enum Type {
     Primitive(PrimitiveType),
     // Proto(Box<Prototype>),
@@ -42,7 +42,7 @@ impl fmt::Display for Type {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FuncType {
     pub name: String,
     pub arguments: Vec<TypeId>,
@@ -59,7 +59,7 @@ impl FuncType {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TypeSignature {
     pub args: Vec<Type>,
     pub ret: Type,

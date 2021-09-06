@@ -243,16 +243,16 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_assign(&mut self, assign: &'a Assign, builder: &'a Builder) -> AnyValueEnum<'a> {
         let value = self.lower_expression(&assign.value, builder);
 
-        let t = value.get_type();
+        // let t = value.get_type();
 
-        let ptr = builder.build_alloca(t, "assign");
+        // let ptr = builder.build_alloca(t, "assign");
 
-        builder.build_store(ptr, value);
+        // builder.build_store(ptr, value);
 
         self.scopes
-            .add(assign.name.hir_id.clone(), ptr.as_basic_value_enum());
+            .add(assign.name.hir_id.clone(), value.as_basic_value_enum());
 
-        ptr.as_any_value_enum()
+        value.as_any_value_enum()
     }
 
     pub fn lower_if(
@@ -416,17 +416,17 @@ impl<'a> CodegenContext<'a> {
         // println!("RESO {:?} {:#?}, {:#?}", id, reso, self.scopes);
         let val = self.scopes.get(reso).unwrap();
 
-        let val = if val.is_pointer_value() {
-            let ptr = val.into_pointer_value();
+        // let val = if val.is_pointer_value() {
+        //     let ptr = val.into_pointer_value();
 
-            if ptr.as_instruction_value().is_some() {
-                builder.build_load(ptr, "load")
-            } else {
-                val
-            }
-        } else {
-            val
-        };
+        //     if ptr.as_instruction_value().is_some() {
+        //         builder.build_load(ptr, "load")
+        //     } else {
+        //         val
+        //     }
+        // } else {
+        //     val
+        // };
 
         val
     }

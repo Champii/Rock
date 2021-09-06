@@ -21,8 +21,16 @@ fn testcases_basic_bool_false() {
     run("./testcases/basic/bool_false.rk", include_str!("./testcases/basic/bool_false.rk"), include_str!("./testcases/basic/bool_false.rk.out"));
 }
 #[test]
+fn testcases_basic_extern() {
+    run("./testcases/basic/extern.rk", include_str!("./testcases/basic/extern.rk"), include_str!("./testcases/basic/extern.rk.out"));
+}
+#[test]
 fn testcases_basic_main() {
     run("./testcases/basic/main.rk", include_str!("./testcases/basic/main.rk"), include_str!("./testcases/basic/main.rk.out"));
+}
+#[test]
+fn testcases_basic_let() {
+    run("./testcases/basic/let.rk", include_str!("./testcases/basic/let.rk"), include_str!("./testcases/basic/let.rk.out"));
 }
 #[test]
 fn testcases_basic_op_func() {

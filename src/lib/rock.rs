@@ -1,6 +1,9 @@
 #![feature(associated_type_bounds, destructuring_assignment)]
 
 #[macro_use]
+extern crate serde_derive;
+
+#[macro_use]
 extern crate bitflags;
 
 #[macro_use]
@@ -15,9 +18,12 @@ pub mod infer;
 #[macro_use]
 pub mod helpers;
 
+use std::path::PathBuf;
+
 use diagnostics::Diagnostic;
 use parser::{ParsingCtx, SourceFile};
 
+use crate::helpers::config::PackageMetaData;
 pub use crate::infer::*;
 mod ast_lowering;
 mod codegen;
@@ -60,6 +66,11 @@ pub fn parse_str(
     // Generate code
     debug!("    -> Lower to LLVM IR");
     codegen::generate(&config, &hir);
+
+    debug!("    -> Save MetaData");
+    PackageMetaData { hir }
+        .store(&PathBuf::from("/tmp/test.serde"))
+        .unwrap();
 
     Ok(())
 }

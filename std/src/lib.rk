@@ -6,7 +6,9 @@ extern puts String -> Int64
 
 # Binop Operators
 infix + 4
+infix - 4
 infix * 5
+infix / 5
 infix == 3
 infix <= 3
 infix >= 3
@@ -14,26 +16,33 @@ infix < 3
 infix > 3
 infix >> 2
 infix << 2
+infix |> 1
 
 # Helpers
 >> x y = y
-
 << x y = x
+|> k l = l k
 
 # Traits
 
-# Num trait
+## Num
 trait Num a
     + a -> a -> a
+    - a -> a -> a
     * a -> a -> a
+    / a -> a -> a
 
 impl Num Int64
     + a b = ~IAdd a b
+    - a b = ~ISub a b
     * a b = ~IMul a b
+    / a b = ~IDiv a b
 
 impl Num Float64
     + c d = ~FAdd c d
+    - c d = ~FSub c d
     * c d = ~FMul c d
+    / c d = ~FDiv c d
 
 ## Eq
 trait Eq a
@@ -61,7 +70,6 @@ impl Eq Bool
     == i j = ~BEq i j
 
 placeholder = 2.2 == 2.2
-
 
 ## Show
 trait Show a
