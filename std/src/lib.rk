@@ -98,3 +98,6 @@ impl Print Int64
 
 impl Print Float64
     print c = printf "%f", c
+
+impl Print String
+    print s = puts s
