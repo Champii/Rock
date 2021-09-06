@@ -247,10 +247,20 @@ impl AstLoweringContext {
                     Box::new(hir::StatementKind::Expression(self.lower_expression(&e)))
                 }
                 StatementKind::If(e) => Box::new(hir::StatementKind::If(self.lower_if(&e))),
+                StatementKind::Assign(a) => {
+                    Box::new(hir::StatementKind::Assign(self.lower_assign(&a)))
+                }
             },
         }
     }
 
+    pub fn lower_assign(&mut self, assign: &Assign) -> hir::Assign {
+        hir::Assign {
+            // hir_id: self.hir_map.next_hir_id(assign.identity.clone()),
+            name: self.lower_identifier(&assign.name),
+            value: self.lower_expression(&assign.value),
+        }
+    }
     pub fn lower_expression(&mut self, expr: &Expression) -> hir::Expression {
         match &expr.kind {
             ExpressionKind::UnaryExpr(unary) => self.lower_unary(&unary),

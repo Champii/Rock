@@ -77,6 +77,14 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         walk_list!(self, visit_top_level, &m.top_levels);
     }
 
+    fn visit_assign(&mut self, assign: &'a Assign) {
+        self.add_to_current_scope(assign.name.name.clone(), assign.name.identity.clone());
+
+        // self.visit_identifier(&assign.name);
+
+        self.visit_expression(&assign.value);
+    }
+
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top.kind {
             TopLevelKind::Prototype(p) => self.visit_prototype(&p),
@@ -128,7 +136,9 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             panic!("Unimplemented");
         }
 
-        let mod_path = r#use.path.parent().prepend_mod(self.cur_scope.clone());
+        let mut mod_path = r#use.path.parent().prepend_mod(self.cur_scope.clone());
+
+        mod_path.resolve_supers();
 
         match self.scopes.get(&mod_path) {
             Some(scopes) => match scopes.get((*ident).to_string()) {
@@ -165,10 +175,12 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             return;
         }
 
-        let mod_path = path.parent().prepend_mod(self.cur_scope.clone());
+        let mut mod_path = path.parent().prepend_mod(self.cur_scope.clone());
 
-        // println!("MOD {:#?}", self.scopes);
-        // println!("NAME {:#?}", mod_path);
+        mod_path.resolve_supers();
+
+        println!("MOD {:#?}", self.scopes);
+        println!("NAME {:#?}", mod_path);
 
         match self.scopes.get(&mod_path) {
             Some(scopes) => match scopes.get((*ident).to_string()) {

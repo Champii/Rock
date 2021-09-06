@@ -44,6 +44,18 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             .for_each(|stmt| self.visit_statement(&stmt));
     }
 
+    fn visit_assign(&mut self, assign: &'a Assign) {
+        self.visit_identifier(&assign.name);
+        self.visit_expression(&assign.value);
+
+        self.state.add_constraint(Constraint::Eq(
+            self.state.get_type_id(assign.name.hir_id.clone()).unwrap(),
+            self.state
+                .get_type_id(assign.value.get_terminal_hir_id())
+                .unwrap(),
+        ));
+    }
+
     fn visit_if(&mut self, r#if: &'a If) {
         self.visit_expression(&r#if.predicat);
 
@@ -208,11 +220,13 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                 ));
                             }
                         } else {
-                            println!("ELSE CALLABLE {:?}, {:?}", fc.hir_id, top_id);
-                            self.state.add_constraint(Constraint::Callable(
-                                self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                self.state.get_type_id(top_id.clone()).unwrap(),
-                            ));
+                            if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
+                                println!("ELSE CALLABLE {:?}, {:?}", fc.hir_id, top_id);
+                                self.state.add_constraint(Constraint::Callable(
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                    top_type_id,
+                                ));
+                            }
                         }
                     }
                 } else {
@@ -256,4 +270,23 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
 
         self.state.solve_type(p.hir_id.clone(), f);
     }
+
+    // fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
+    //     self.visit_identifier(&id.path.iter().last().unwrap());
+    // }
+
+    // fn visit_identifier(&mut self, id: &Identifier) {
+    //     if let Some(reso) = self.hir.resolutions.get(id.hir_id.clone()) {
+    //         self.state
+    //             .new_named_annotation(id.name.clone(), reso.clone());
+
+    //         self.state.add_constraint(Constraint::Callable(
+    //             self.state.get_type_id(id.hir_id.clone()).unwrap(),
+    //             self.state.get_type_id(reso).unwrap(),
+    //         ));
+    //     } else {
+    //         // self.state
+    //         //     .new_named_annotation(id.name.clone(), id.hir_id.clone());
+    //     }
+    // }
 }

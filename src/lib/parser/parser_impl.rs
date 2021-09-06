@@ -328,6 +328,7 @@ impl Parse for Impl {
 
         ctx.consume(); // EOL
 
+        ctx.block_indent += 1;
         loop {
             if let TokenType::Indent(_) = ctx.cur_tok().t {
                 ctx.consume(); // indent
@@ -342,6 +343,7 @@ impl Parse for Impl {
                 break;
             }
         }
+        ctx.block_indent -= 1;
 
         ctx.save_pop();
 
@@ -519,6 +521,8 @@ impl Parse for Statement {
                 Ok(expr) => StatementKind::If(expr),
                 Err(_e) => error!("Expected if".to_string(), ctx),
             }
+        } else if ctx.cur_tok().t == TokenType::Let {
+            StatementKind::Assign(Assign::parse(ctx)?)
         } else {
             match Expression::parse(ctx) {
                 Ok(expr) => StatementKind::Expression(expr),
@@ -528,6 +532,30 @@ impl Parse for Statement {
 
         Ok(Statement {
             kind: Box::new(kind),
+        })
+    }
+}
+
+impl Parse for Assign {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        ctx.save();
+        expect_or_restore!(TokenType::Let, ctx);
+
+        // let token_id = ctx.cur_tok_id;
+        // let token = ctx.cur_tok();
+
+        let name = try_or_restore!(Identifier::parse(ctx), ctx);
+
+        expect_or_restore!(TokenType::Operator("=".to_string()), ctx);
+
+        let value = try_or_restore!(Expression::parse(ctx), ctx);
+
+        ctx.save_pop();
+
+        Ok(Assign {
+            // identity: Identity::new(token_id, token.span),
+            name,
+            value,
         })
     }
 }

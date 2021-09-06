@@ -31,6 +31,7 @@ generate_visitor_trait!(
     TopLevel, top_level
     Trait, r#trait
     Impl, r#impl
+    Assign, assign
     Prototype, prototype
     FunctionDecl, function_decl
     ArgumentDecl, argument_decl
@@ -117,9 +118,15 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
     walk_list!(visitor, visit_statement, &body.stmts);
 }
 
+pub fn walk_assign<'a, V: Visitor<'a>>(visitor: &mut V, assign: &'a Assign) {
+    visitor.visit_identifier(&assign.name);
+    visitor.visit_expression(&assign.value);
+}
+
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
         StatementKind::Expression(expr) => visitor.visit_expression(&expr),
+        StatementKind::Assign(assign) => visitor.visit_assign(&assign),
         StatementKind::If(expr) => visitor.visit_if(&expr),
     }
 }

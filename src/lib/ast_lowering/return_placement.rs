@@ -28,6 +28,9 @@ impl<'a> ReturnInserter<'a> {
             StatementKind::If(ref mut i) => {
                 self.visit_if(i);
             }
+            StatementKind::Assign(ref mut a) => {
+                // self.visit_assign(a);
+            }
         }
     }
     fn visit_if(&mut self, r#if: &mut If) {

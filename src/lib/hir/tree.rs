@@ -267,6 +267,7 @@ impl Statement {
     pub fn get_terminal_hir_id(&self) -> HirId {
         match &*self.kind {
             StatementKind::Expression(e) => e.get_terminal_hir_id(),
+            StatementKind::Assign(a) => a.get_terminal_hir_id(),
             StatementKind::If(e) => e.get_terminal_hir_id(),
         }
     }
@@ -275,7 +276,21 @@ impl Statement {
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
+    Assign(Assign),
     If(If),
+}
+
+#[derive(Debug, Clone)]
+pub struct Assign {
+    // pub hir_id: HirId,
+    pub name: Identifier,
+    pub value: Expression,
+}
+
+impl Assign {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.value.get_terminal_hir_id()
+    }
 }
 
 #[derive(Debug, Clone)]

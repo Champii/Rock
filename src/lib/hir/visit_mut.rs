@@ -33,6 +33,7 @@ generate_visitor_mut_trait!(
     Impl, r#impl
     Prototype, prototype
     FunctionDecl, function_decl
+    Assign, assign
     ArgumentDecl, argument_decl
     IdentifierPath, identifier_path
     Identifier, identifier
@@ -127,10 +128,15 @@ pub fn walk_body<'a, V: VisitorMut<'a>>(visitor: &mut V, body: &'a mut Body) {
 pub fn walk_statement<'a, V: VisitorMut<'a>>(visitor: &mut V, statement: &'a mut Statement) {
     match &mut *statement.kind {
         StatementKind::Expression(expr) => visitor.visit_expression(expr),
+        StatementKind::Assign(assign) => visitor.visit_assign(assign),
         StatementKind::If(expr) => visitor.visit_if(expr),
     }
 }
 
+pub fn walk_assign<'a, V: VisitorMut<'a>>(visitor: &mut V, assign: &'a mut Assign) {
+    visitor.visit_identifier(&mut assign.name);
+    visitor.visit_expression(&mut assign.value);
+}
 pub fn walk_expression<'a, V: VisitorMut<'a>>(visitor: &mut V, expr: &'a mut Expression) {
     match &mut *expr.kind {
         ExpressionKind::Lit(lit) => visitor.visit_literal(lit),

@@ -32,6 +32,7 @@ generate_visitor_trait!(
     Root, root
     Mod, r#mod
     TopLevel, top_level
+    Assign, assign
     Prototype, prototype
     Use, r#use
     Trait, r#trait
@@ -136,8 +137,14 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
         StatementKind::Expression(expr) => visitor.visit_expression(&expr),
+        StatementKind::Assign(assign) => visitor.visit_assign(&assign),
         StatementKind::If(expr) => visitor.visit_if(&expr),
     }
+}
+
+pub fn walk_assign<'a, V: Visitor<'a>>(visitor: &mut V, assign: &'a Assign) {
+    visitor.visit_identifier(&assign.name);
+    visitor.visit_expression(&assign.value);
 }
 
 pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {

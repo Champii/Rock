@@ -100,6 +100,12 @@ fn main() {
                 .help("Show the generated IR"),
         )
         .arg(
+            Arg::with_name("state")
+                .short("s")
+                .takes_value(false)
+                .help("Show the InferContext state before solve"),
+        )
+        .arg(
             Arg::with_name("output-folder")
                 .short("o")
                 .takes_value(true)
@@ -116,6 +122,7 @@ fn main() {
         show_ast: matches.is_present("ast"),
         show_hir: matches.is_present("hir"),
         show_ir: matches.is_present("ir"),
+        show_state: matches.is_present("state"),
         build_folder: PathBuf::from(matches.value_of("output-folder").unwrap()),
         ..Default::default()
     };

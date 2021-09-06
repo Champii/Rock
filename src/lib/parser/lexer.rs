@@ -68,6 +68,7 @@ impl<'a> Lexer<'a> {
 
         let v = closure_vec![
             Self::try_fn_keyword,
+            Self::try_let_keyword,
             Self::try_mod_keyword,
             Self::try_extern_keyword,
             Self::try_if_keyword,
@@ -208,6 +209,10 @@ impl<'a> Lexer<'a> {
 
     fn try_fn_keyword(&mut self) -> Option<Token> {
         self.match_consume("fn", TokenType::Fn, Sep::WS)
+    }
+
+    fn try_let_keyword(&mut self) -> Option<Token> {
+        self.match_consume("let", TokenType::Let, Sep::WS)
     }
 
     fn try_mod_keyword(&mut self) -> Option<Token> {

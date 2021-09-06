@@ -228,6 +228,7 @@ impl<'a> CodegenContext<'a> {
             .map(|stmt| self.lower_stmt(&stmt, builder))
             .last()
             .unwrap();
+
         (stmt, basic_block)
     }
 
@@ -235,7 +236,23 @@ impl<'a> CodegenContext<'a> {
         match &*stmt.kind {
             StatementKind::Expression(e) => self.lower_expression(&e, builder).as_any_value_enum(),
             StatementKind::If(e) => self.lower_if(&e, builder).0,
+            StatementKind::Assign(a) => self.lower_assign(&a, builder),
         }
+    }
+
+    pub fn lower_assign(&mut self, assign: &'a Assign, builder: &'a Builder) -> AnyValueEnum<'a> {
+        let value = self.lower_expression(&assign.value, builder);
+
+        let t = value.get_type();
+
+        let ptr = builder.build_alloca(t, "assign");
+
+        builder.build_store(ptr, value);
+
+        self.scopes
+            .add(assign.name.hir_id.clone(), ptr.as_basic_value_enum());
+
+        ptr.as_any_value_enum()
     }
 
     pub fn lower_if(
@@ -392,11 +409,26 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_identifier(
         &mut self,
         id: &Identifier,
-        _builder: &'a Builder,
+        builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
         let reso = self.hir.resolutions.get((&id.hir_id).clone()).unwrap();
 
-        self.scopes.get(reso).unwrap()
+        // println!("RESO {:?} {:#?}, {:#?}", id, reso, self.scopes);
+        let val = self.scopes.get(reso).unwrap();
+
+        let val = if val.is_pointer_value() {
+            let ptr = val.into_pointer_value();
+
+            if ptr.as_instruction_value().is_some() {
+                builder.build_load(ptr, "load")
+            } else {
+                val
+            }
+        } else {
+            val
+        };
+
+        val
     }
 
     pub fn lower_native_operation(

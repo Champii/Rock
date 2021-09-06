@@ -97,6 +97,7 @@ impl_visitor_trait!(
     TopLevel, top_level
     Use, r#use
     Trait, r#trait
+    Assign, assign
     Impl, r#impl
     FunctionDecl, function_decl
     Identifier, identifier

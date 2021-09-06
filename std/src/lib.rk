@@ -1,0 +1,92 @@
+extern printf String -> Float64 -> Int64
+extern malloc Int64 -> String
+extern sprintf String -> String -> Int64 -> Int64
+extern fcvt Float64 -> Int64 -> String -> String -> String
+extern puts String -> Int64
+
+# Binop Operators
+infix + 4
+infix * 5
+infix == 3
+infix <= 3
+infix >= 3
+infix < 3
+infix > 3
+infix >> 2
+infix << 2
+
+# Helpers
+>> x y = y
+
+<< x y = x
+
+# Traits
+
+# Num trait
+trait Num a
+    + a -> a -> a
+    * a -> a -> a
+
+impl Num Int64
+    + a b = ~IAdd a b
+    * a b = ~IMul a b
+
+impl Num Float64
+    + c d = ~FAdd c d
+    * c d = ~FMul c d
+
+## Eq
+trait Eq a
+    == a -> a -> Bool
+    <= a -> a -> Bool
+    >= a -> a -> Bool
+    < a -> a -> Bool
+    > a -> a -> Bool
+
+impl Eq Int64
+    == e f = ~IEq e f
+    <= e f = ~ILE e f
+    >= e f = ~IGE e f
+    < e f = ~ILT e f
+    > e f = ~IGT e f
+
+impl Eq Float64
+    == g h = ~FEq g h
+    <= g h = ~FLE g h
+    >= g h = ~FGE g h
+    < g h = ~FLT g h
+    > g h = ~FGT g h
+
+impl Eq Bool
+    == i j = ~BEq i j
+
+placeholder = 2.2 == 2.2
+
+
+## Show
+trait Show a
+    show a -> String
+
+itoa a =
+    let s = malloc 10
+    sprintf s, "%d", a
+    s
+
+ftoa c =
+    fcvt c, 10, (malloc 4), (malloc 4)
+
+impl Show Int64
+    show a = itoa a
+
+impl Show Float64
+    show c = ftoa c
+
+## Print
+trait Print a
+    print a -> Int64
+
+impl Print Int64
+    print a = puts itoa a
+
+impl Print Float64
+    print c = printf "%f", c

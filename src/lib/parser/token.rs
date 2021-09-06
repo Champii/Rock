@@ -8,6 +8,7 @@ pub fn accepted_operator_chars() -> Vec<char> {
 pub enum TokenType {
     // keywords
     Fn,
+    Let,
     Mod,
     Use,
     Extern,

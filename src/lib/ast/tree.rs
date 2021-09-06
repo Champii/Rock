@@ -137,6 +137,40 @@ impl IdentifierPath {
 
         path
     }
+
+    pub fn resolve_supers(&mut self) {
+        let to_remove = self
+            .path
+            .iter()
+            .enumerate()
+            .filter_map(|(i, name)| {
+                if name.name == "super".to_string() {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let mut to_remove_total = vec![];
+
+        for id in to_remove {
+            to_remove_total.extend(vec![id - 1, id]);
+        }
+
+        self.path = self
+            .path
+            .iter()
+            .enumerate()
+            .filter_map(|(i, name)| {
+                if to_remove_total.contains(&i) {
+                    None
+                } else {
+                    Some(name.clone())
+                }
+            })
+            .collect::<Vec<_>>();
+    }
 }
 
 #[derive(Debug, Clone, Eq)]
@@ -187,7 +221,15 @@ pub struct Statement {
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
+    Assign(Assign),
     If(If),
+}
+
+#[derive(Debug, Clone)]
+pub struct Assign {
+    // pub identity: Identity,
+    pub name: Identifier,
+    pub value: Expression,
 }
 
 #[derive(Debug, Clone)]
