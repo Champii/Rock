@@ -62,29 +62,31 @@ impl<'a> Visitor<'a> for AnnotateContext {
     }
 
     fn visit_function_decl(&mut self, f: &FunctionDecl) {
-        self.state
-            .new_named_annotation(f.get_name().name, f.hir_id.clone());
+        self.state.new_type_id(f.hir_id.clone());
 
         self.body_arguments
             .insert(f.body_id.clone(), f.arguments.clone());
     }
 
     fn visit_prototype(&mut self, p: &Prototype) {
-        self.state
-            .new_named_annotation(p.name.to_string(), p.hir_id.clone());
+        self.state.new_type_id(p.hir_id.clone());
     }
 
     fn visit_fn_body(&mut self, fn_body: &FnBody) {
         let args = self.body_arguments.get(&fn_body.id).unwrap().clone();
 
+        // println!("State {:#?}", self.state.named_types);
         self.state.named_types.push();
-        self.state.named_types_flat.push();
+
+        // self.state.named_types_flat.push();
 
         walk_list!(self, visit_argument_decl, &args);
 
         self.visit_body(&fn_body.body);
 
         self.state.named_types.pop();
+        // println!("State {:#?}", self.state.named_types);
+        // self.state.named_types_flat.push();
     }
 
     fn visit_literal(&mut self, lit: &Literal) {
@@ -103,8 +105,7 @@ impl<'a> Visitor<'a> for AnnotateContext {
     }
 
     fn visit_identifier(&mut self, id: &Identifier) {
-        self.state
-            .new_named_annotation(id.name.clone(), id.hir_id.clone());
+        self.state.new_type_id(id.hir_id.clone());
     }
 
     fn visit_if(&mut self, r#if: &If) {

@@ -41,6 +41,10 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::DuplicatedOperator)
     }
 
+    pub fn new_type_conflict(span: Span) -> Self {
+        Self::new(span, DiagnosticKind::TypeConflict)
+    }
+
     pub fn print(&self, file: &SourceFile) {
         let input: Vec<char> = file.content.chars().collect();
 
@@ -101,6 +105,7 @@ pub enum DiagnosticKind {
     UnusedParameter,
     UnusedFunction,
     DuplicatedOperator,
+    TypeConflict,
     NoError, //TODO: remove that
 }
 
@@ -112,6 +117,7 @@ impl Display for DiagnosticKind {
             Self::UnknownIdentifier => "UnknownIdentifier".to_string(),
             Self::ModuleNotFound => "ModuleNotFound".to_string(),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
+            Self::TypeConflict => "TypeConflict".to_string(),
             _ => "ERROR TBD".to_string(),
         };
 

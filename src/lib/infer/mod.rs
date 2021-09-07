@@ -3,14 +3,16 @@ mod constraint;
 mod mangle;
 mod state;
 
-use crate::{hir::visit_mut::*, infer::mangle::*, Config};
+use crate::{diagnostics::Diagnostics, hir::visit_mut::*, infer::mangle::*, Config};
 
 use self::annotate::AnnotateContext;
 use self::constraint::ConstraintContext;
 pub use self::state::*;
 
-pub fn infer(root: &mut crate::hir::Root, config: &Config) {
-    let infer_state = InferState::new();
+pub fn infer(root: &mut crate::hir::Root, diagnostics: Diagnostics, config: &Config) {
+    let mut infer_state = InferState::new();
+
+    infer_state.diagnostics = diagnostics;
 
     let mut annotate_ctx = AnnotateContext::new(infer_state, root.trait_methods.clone());
 
@@ -22,9 +24,10 @@ pub fn infer(root: &mut crate::hir::Root, config: &Config) {
 
     let (mut infer_state, new_resolutions) = constraint_ctx.get_state();
 
-    for (k, v) in new_resolutions {
-        root.resolutions.insert(k.clone(), v.clone());
-    }
+    error!("NEW RESOLUTIONS ARE DISABLED FOR TRAIT RESOLUTION");
+    // for (k, v) in new_resolutions {
+    //     root.resolutions.insert(k.clone(), v.clone());
+    // }
 
     infer_state.solve();
     if config.show_state {

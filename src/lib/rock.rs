@@ -61,7 +61,7 @@ pub fn parse_str(
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    infer::infer(&mut hir, &config);
+    infer::infer(&mut hir, parsing_ctx.diagnostics, &config);
 
     // Generate code
     debug!("    -> Lower to LLVM IR");

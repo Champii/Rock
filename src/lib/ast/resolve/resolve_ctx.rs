@@ -115,20 +115,6 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         self.pop_scope();
     }
 
-    // fn visit_impl(&mut self, i: &'a Impl) {
-    //     self.visit_type(&i.name);
-
-    //     walk_list!(self, visit_type, &i.types);
-
-    //     for f in &i.defs {
-    //         let mut f = f.clone();
-
-    //         f.mangle(i.name.get_name());
-
-    //         self.visit_function_decl(&f);
-    //     }
-    // }
-
     fn visit_use(&mut self, r#use: &'a Use) {
         let ident = r#use.path.last_segment_ref();
 
@@ -179,8 +165,8 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
         mod_path.resolve_supers();
 
-        println!("MOD {:#?}", self.scopes);
-        println!("NAME {:#?}", mod_path);
+        // println!("MOD {:#?}", self.scopes);
+        // println!("NAME {:#?}", mod_path);
 
         match self.scopes.get(&mod_path) {
             Some(scopes) => match scopes.get((*ident).to_string()) {

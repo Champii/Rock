@@ -112,18 +112,20 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 // FIXME: Code smell
                 // TODO: Use global resolution instead of top_level
                 // TODO: Need Arena and a way to fetch any element/item/node
-                if let Some(top_id) = self.hir.resolutions.get(op_hir_id.clone()) {
+                if let Some(top_id) = self.hir.resolutions.get(&op_hir_id) {
                     if let Some(top) = self.hir.get_top_level(top_id.clone()) {
                         match &top.kind {
                             TopLevelKind::Prototype(p) => {
                                 let constraint = Constraint::Callable(
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                    self.state.get_type_id_by_type(&p.signature.ret).unwrap(),
+                                    self.state
+                                        .get_or_create_type_id_by_type(&p.signature.ret)
+                                        .unwrap(),
                                 );
 
                                 for (i, arg) in p.signature.args.iter().enumerate() {
                                     let constraint = Constraint::Eq(
-                                        self.state.get_type_id_by_type(arg).unwrap(),
+                                        self.state.get_or_create_type_id_by_type(arg).unwrap(),
                                         self.state
                                             .get_type_id(
                                                 fc.args.get(i).unwrap().get_terminal_hir_id(),
@@ -143,8 +145,13 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                 let body_type_id =
                                     self.state.get_type_id(body_hir_id.clone()).unwrap();
 
-                                self.state.add_constraint(Constraint::Callable(
+                                self.state.add_constraint(Constraint::Eq(
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                    body_type_id,
+                                ));
+
+                                self.state.add_constraint(Constraint::Callable(
+                                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
                                     body_type_id,
                                 ));
 
@@ -166,7 +173,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                         // FIXME: Apply to list of types
                         // FIXME: Type needs to be solved in order to be applied. There is a dependency loop here
 
-                        self.state.solve();
+                        // self.state.solve();
 
                         if let Some(applied_type) = self.state.get_type(
                             self.state
@@ -189,10 +196,11 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     body_type_id,
                                 ));
 
-                                self.state.add_constraint(Constraint::Eq(
-                                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                                    body_type_id,
-                                ));
+                                // FIXME: ?
+                                // self.state.add_constraint(Constraint::Eq(
+                                //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                                //     body_type_id,
+                                // ));
 
                                 for (i, arg) in f.arguments.iter().enumerate() {
                                     self.state.add_constraint(Constraint::Eq(
@@ -220,26 +228,55 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     vec![r#trait.name.get_name(), applied_type.get_name()],
                                 );
                             } else {
-                                if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
-                                    // println!("CALLABLE UNAPPLIED {:?}, {:?}", fc.hir_id, top_id);
-                                    self.state.add_constraint(Constraint::Callable(
-                                        self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                        top_type_id,
-                                    ));
-                                } else {
-                                    error!("UNCALLABLE UNAPPLIED TOP");
-                                }
+                                // self.state.add_constraint(Constraint::Callable(
+                                //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                                //     self.state.get_type_id(top_id).unwrap(),
+                                // ));
+
+                                // if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
+                                //     // println!("CALLABLE UNAPPLIED {:?}, {:?}", fc.hir_id, top_id);
+                                //     self.state.add_constraint(Constraint::Callable(
+                                //         self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                //         top_type_id,
+                                //     ));
+                                // } else {
+                                //     error!("UNCALLABLE UNAPPLIED TOP");
+                                // }
                             }
                         } else {
-                            if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
-                                // println!("ELSE CALLABLE {:?}, {:?}", fc.hir_id, top_id);
-                                self.state.add_constraint(Constraint::Callable(
-                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                    top_type_id,
-                                ));
-                            } else {
-                                error!("UNCALLABLE");
-                            }
+                            self.state.solve_type(
+                                fc.op.get_terminal_hir_id(),
+                                Type::FuncType(FuncType::new(
+                                    fc.op.as_identifier().name,
+                                    fc.args
+                                        .iter()
+                                        .map(|arg| {
+                                            self.state
+                                                .get_type_id(arg.get_terminal_hir_id())
+                                                .unwrap()
+                                        })
+                                        .collect::<Vec<_>>(),
+                                    self.state.get_type_id(top_id.clone()).unwrap(),
+                                )),
+                            );
+                            self.state.add_constraint(Constraint::Eq(
+                                self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                self.state.get_type_id(top_id.clone()).unwrap(),
+                            ));
+
+                            // self.state.add_constraint(Constraint::Eq(
+                            //     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                            //     self.state.get_type_id(top_id).unwrap(),
+                            // ));
+                            // if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
+                            //     // println!("ELSE CALLABLE {:?}, {:?}", fc.hir_id, top_id);
+                            //     self.state.add_constraint(Constraint::Callable(
+                            //         self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                            //         top_type_id,
+                            //     ));
+                            // } else {
+                            //     error!("UNCALLABLE");
+                            // }
                         }
                     }
                 } else {
@@ -260,6 +297,16 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             let body_hir_id = body.get_terminal_hir_id();
             let body_type_id = self.state.get_type_id(body_hir_id.clone()).unwrap();
 
+            self.state.add_constraint(Constraint::Callable(
+                self.state.get_type_id(f.hir_id.clone()).unwrap(),
+                body_type_id,
+            ));
+
+            self.state.add_constraint(Constraint::Callable(
+                self.state.get_type_id(f.hir_id.clone()).unwrap(),
+                body_type_id,
+            ));
+
             self.state.solve_type(
                 f.hir_id.clone(),
                 Type::FuncType(FuncType::new(f.get_name().name, args, body_type_id)),
@@ -272,34 +319,41 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             .signature
             .args
             .iter()
-            .map(|t| self.state.get_type_id_by_type(t).unwrap())
+            .map(|t| self.state.get_or_create_type_id_by_type(t).unwrap())
             .collect();
 
         let f = Type::FuncType(FuncType::new(
             (*p.name).clone(),
             args,
-            self.state.get_type_id_by_type(&p.signature.ret).unwrap(),
+            self.state
+                .get_or_create_type_id_by_type(&p.signature.ret)
+                .unwrap(),
         ));
 
         self.state.solve_type(p.hir_id.clone(), f);
     }
 
-    // fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
-    //     self.visit_identifier(&id.path.iter().last().unwrap());
-    // }
+    fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
+        self.visit_identifier(&id.path.iter().last().unwrap());
+    }
 
-    // fn visit_identifier(&mut self, id: &Identifier) {
-    //     if let Some(reso) = self.hir.resolutions.get(id.hir_id.clone()) {
-    //         self.state
-    //             .new_named_annotation(id.name.clone(), reso.clone());
+    fn visit_identifier(&mut self, id: &Identifier) {
+        if let Some(reso) = self.hir.resolutions.get(&id.hir_id) {
+            // self.state
+            //     .new_named_annotation(id.name.clone(), reso.clone());
 
-    //         self.state.add_constraint(Constraint::Callable(
-    //             self.state.get_type_id(id.hir_id.clone()).unwrap(),
-    //             self.state.get_type_id(reso).unwrap(),
-    //         ));
-    //     } else {
-    //         // self.state
-    //         //     .new_named_annotation(id.name.clone(), id.hir_id.clone());
-    //     }
-    // }
+            // if self.state.get_type_id(reso.clone()).is_none() {
+            //     self.state.new_type_id(reso.clone());
+            // }
+
+            self.state.add_constraint(Constraint::Eq(
+                self.state.get_type_id(id.hir_id.clone()).unwrap(),
+                self.state.get_type_id(reso.clone()).unwrap(),
+            ));
+        } else {
+            error!("No identifier resolution {:?}", id);
+            // self.state
+            //     .new_named_annotation(id.name.clone(), id.hir_id.clone());
+        }
+    }
 }

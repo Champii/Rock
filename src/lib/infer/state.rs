@@ -3,7 +3,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::{ast::Type, helpers::scopes::Scopes, hir::HirId};
+use crate::{ast::Type, diagnostics::Diagnostics, helpers::scopes::Scopes, hir::HirId};
 
 pub type NodeId = u64;
 
@@ -19,7 +19,8 @@ pub enum Constraint {
 
 #[derive(Debug, Default)]
 pub struct InferState {
-    pub named_types_flat: Scopes<String, TypeId>,
+    // pub named_types_flat: Scopes<String, TypeId>,
+    pub diagnostics: Diagnostics,
     pub named_types: Scopes<String, TypeId>,
     node_types: BTreeMap<HirId, TypeId>,
     types: BTreeMap<TypeId, Option<Type>>,
@@ -33,27 +34,28 @@ impl InferState {
         Self::default()
     }
 
-    pub fn new_named_annotation(&mut self, name: String, hir_id: HirId) -> TypeId {
-        // TODO: check if type already exists ?
-        match self.named_types_flat.get(name.clone()) {
-            Some(t) => {
-                // // TODO: build some scoped declarations
-                // panic!("ALREADY DEFINED NAMED TYPE: {}", name);
-                self.node_types.insert(hir_id, t);
-                self.named_types_flat.add(name, t);
+    // pub fn new_named_annotation(&mut self, name: String, hir_id: HirId) -> TypeId {
+    //     // TODO: check if type already exists ?
+    //     match self.named_types.get(name.clone()) {
+    //         Some(t) => {
+    //             // // TODO: build some scoped declarations
+    //             // panic!("ALREADY DEFINED NAMED TYPE: {}", name);
+    //             self.node_types.insert(hir_id, t);
+    //             self.named_types.add(name.clone(), t);
+    //             // self.named_types_flat.add(name, t);
 
-                t
-            }
-            None => {
-                let new_type = self.new_type_id(hir_id);
+    //             t
+    //         }
+    //         None => {
+    //             let new_type = self.new_type_id(hir_id);
 
-                self.named_types.add(name.clone(), new_type);
-                self.named_types_flat.add(name, new_type);
+    //             self.named_types.add(name.clone(), new_type);
+    //             // self.named_types_flat.add(name, new_type);
 
-                new_type
-            }
-        }
-    }
+    //             new_type
+    //         }
+    //     }
+    // }
 
     pub fn new_type_id(&mut self, hir_id: HirId) -> TypeId {
         let new_type = GLOBAL_NEXT_TYPE_ID.fetch_add(1, Ordering::SeqCst);
@@ -85,11 +87,11 @@ impl InferState {
         self.types.get(&t_id).unwrap().clone()
     }
 
-    pub fn get_named_type_id(&self, name: String) -> Option<TypeId> {
-        self.named_types_flat.get(name)
-    }
+    // pub fn get_named_type_id(&self, name: String) -> Option<TypeId> {
+    //     self.named_types.get(name)
+    // }
 
-    pub fn get_type_id_by_type(&mut self, t: &Type) -> Option<TypeId> {
+    pub fn get_or_create_type_id_by_type(&mut self, t: &Type) -> Option<TypeId> {
         let mut res = self
             .types
             .iter()
@@ -117,37 +119,127 @@ impl InferState {
         self.node_types.remove(&hir_id);
     }
 
+    // pub fn replace_type_recur(&mut self, left: TypeId, right: TypeId) -> bool {
+    //     let left_t = self.types.get(&left).unwrap();
+    //     let right_t = self.types.get(&right).unwrap();
+
+    //     match (left_t, right_t) {
+    //         (Some(_), None) => {
+    //             self.types.insert(right, self.get_type(left));
+
+    //             true
+    //         }
+    //         (None, Some(_)) => {
+    //             self.types.insert(left, self.get_type(right));
+
+    //             true
+    //         }
+    //         (Some(left), Some(right)) => {
+    //             if left != right {
+    //                 error!("Incompatible types {:?} != {:?}", left, right);
+    //             }
+    //             false
+    //         }
+    //         _ => false,
+    //     }
+    // }
+
     pub fn replace_type(&mut self, left: TypeId, right: TypeId) -> bool {
-        let left_t = self.types.get(&left).unwrap();
-        let right_t = self.types.get(&right).unwrap();
+        let left_t = self.types.get(&left).unwrap().clone();
+        let right_t = self.types.get(&right).unwrap().clone();
 
-        if right_t.is_none() && left_t.is_some() {
-            self.types.insert(right, self.get_type(left));
+        match (left_t, right_t) {
+            (Some(_), None) => {
+                self.types.insert(right, self.get_type(left));
 
-            true
-        } else if left_t.is_none() && right_t.is_some() {
-            self.types.insert(left, self.get_type(right));
+                true
+            }
+            (None, Some(_)) => {
+                self.types.insert(left, self.get_type(right));
 
-            true
-        } else {
-            false
+                true
+            }
+
+            (Some(Type::FuncType(f)), Some(Type::FuncType(f2))) => {
+                error!("RET callable return types {:?} != {:?}\n", f, f2,);
+                self.add_constraint(Constraint::Eq(f.ret, f2.ret));
+
+                f.arguments.iter().enumerate().for_each(|(i, arg)| {
+                    self.add_constraint(Constraint::Eq(*arg, *f2.arguments.get(i).unwrap()));
+                });
+
+                true
+            }
+            (Some(left), Some(right)) => {
+                if left != right {
+                    error!("Incompatible types {:?} != {:?}", left, right);
+                }
+                false
+            }
+            _ => false,
         }
     }
 
     pub fn replace_type_ret(&mut self, left: TypeId, right: TypeId) -> bool {
-        let left_t = self.types.get(&left).unwrap();
-        let right_t = self.types.get(&right).unwrap();
+        let left_t = self.types.get(&left).unwrap().clone();
+        let right_t = self.types.get(&right).unwrap().clone();
 
-        if left_t.is_some() && right_t.is_none() {
-            self.types.insert(right, self.get_ret(left));
+        match (left_t, right_t) {
+            (Some(_), None) => {
+                self.types.insert(right, self.get_ret(left));
 
-            true
-        } else if right_t.is_some() && left_t.is_none() {
-            self.types.insert(left, self.get_ret(right));
+                true
+            }
+            (None, Some(_)) => {
+                self.types.insert(left, self.get_ret(right));
 
-            true
-        } else {
-            false
+                true
+            }
+            (Some(Type::FuncType(f)), Some(Type::FuncType(f2))) => {
+                error!("RET callable return types {:?} != {:?}\n", f, f2,);
+                self.add_constraint(Constraint::Eq(f.ret, f2.ret));
+
+                // f.arguments.iter().enumerate().for_each(|(i, arg)| {
+                //     self.add_constraint(Constraint::Eq(*arg, *f2.arguments.get(i).unwrap()));
+                // });
+
+                true
+            }
+            (Some(Type::FuncType(f)), Some(other)) => {
+                // self.types.insert(f.ret, self.get_ret(left));
+
+                // match (self.get_ret_rec(left) , self.get_ret_rec(right)) {
+                //     (Some())
+                // }
+
+                if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
+                    self.add_constraint(Constraint::Eq(f.ret, right));
+                    // self.add_constraint(Constraint::Eq(f.ret, ))
+                    // self.add_constraint(Constraint::Eq(f.ret, f2.ret));
+
+                    // f.arguments.iter().enumerate().for_each(|(i, arg)| {
+                    //     self.add_constraint(Constraint::Eq(*arg, *f2.arguments.get(i).unwrap()));
+                    // });
+                    error!(
+                        "Incompatible callable return types {:?} != {:?}\n{:?} != {:?}",
+                        f.ret,
+                        other,
+                        self.get_ret_rec(left).unwrap(),
+                        self.get_ret_rec(right).unwrap()
+                    );
+
+                    false
+                } else {
+                    // self.types.insert(f.ret, self.get_ret_rec(right));
+                    true
+                }
+            }
+            (Some(_other), Some(Type::FuncType(_f))) => {
+                error!("CALLABLE NOT A FUNC");
+
+                false
+            }
+            _ => false,
         }
     }
 
@@ -164,6 +256,13 @@ impl InferState {
         self.get_type(t_id)
     }
 
+    pub fn get_ret_rec(&self, t_id: TypeId) -> Option<Type> {
+        self.get_ret(t_id).and_then(|t| match &t {
+            Type::FuncType(f) => self.get_ret_rec(f.ret).or(self.get_ret(f.ret)),
+            _ => Some(t),
+        })
+    }
+
     pub fn solve_type(&mut self, hir_id: HirId, t: Type) {
         if let Some(t_id) = self.get_type_id(hir_id) {
             if let Some(ref mut t2) = self.types.get_mut(&t_id) {
@@ -173,6 +272,7 @@ impl InferState {
     }
 
     pub fn add_constraint(&mut self, constraint: Constraint) {
+        println!("ADD CONSTRAINT {:?}", constraint);
         match constraint {
             Constraint::Eq(left, right) => {
                 if left == right || left == 0 || right == 0 {
@@ -225,7 +325,21 @@ impl InferState {
     pub fn get_types(&self) -> BTreeMap<TypeId, Type> {
         self.types
             .iter()
-            .map(|(t_id, t)| (*t_id, t.clone().unwrap()))
+            .map(|(t_id, t)| {
+                if t.is_none() {
+                    error!(
+                        "Unresolved type_id: {:?} (hir_id: {:?})",
+                        t_id,
+                        self.node_types
+                            .iter()
+                            .find(|(hir_id, t_id2)| t_id == *t_id2)
+                            .map(|x| x.0)
+                            .unwrap()
+                    )
+                }
+
+                (*t_id, t.clone().unwrap())
+            })
             .collect()
     }
 }

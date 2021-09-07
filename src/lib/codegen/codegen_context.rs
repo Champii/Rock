@@ -54,6 +54,7 @@ impl<'a> CodegenContext<'a> {
                 let f2 = match self.module.get_function(&f.name) {
                     Some(f2) => f2,
                     None => {
+                        println!("F.name {}", f.name);
                         let f = self.hir.get_function_by_name(&f.name).unwrap();
 
                         self.lower_function_decl(&f, builder);
@@ -175,11 +176,7 @@ impl<'a> CodegenContext<'a> {
         if let Some(f) = self.module.get_function(&fn_body.get_name()) {
             self.cur_func = Some(f);
 
-            let hir_top_reso = self
-                .hir
-                .resolutions
-                .get(fn_body.name.hir_id.clone())
-                .unwrap();
+            let hir_top_reso = self.hir.resolutions.get(&fn_body.name.hir_id).unwrap();
 
             let hir_top = if let Some(hir_top) = self.hir.get_top_level(hir_top_reso.clone()) {
                 match &hir_top.kind {
@@ -345,7 +342,7 @@ impl<'a> CodegenContext<'a> {
     ) -> BasicValueEnum<'a> {
         let terminal_hir_id = fc.op.get_terminal_hir_id();
 
-        let f_id = self.hir.resolutions.get(terminal_hir_id.clone()).unwrap();
+        let f_id = self.hir.resolutions.get_recur(&terminal_hir_id).unwrap();
 
         let f_value: Either<FunctionValue, PointerValue> =
             match self.hir.get_top_level(f_id.clone()) {
@@ -409,9 +406,9 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_identifier(
         &mut self,
         id: &Identifier,
-        builder: &'a Builder,
+        _builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
-        let reso = self.hir.resolutions.get((&id.hir_id).clone()).unwrap();
+        let reso = self.hir.resolutions.get_recur(&id.hir_id).unwrap();
 
         // println!("RESO {:?} {:#?}, {:#?}", id, reso, self.scopes);
         let val = self.scopes.get(reso).unwrap();
