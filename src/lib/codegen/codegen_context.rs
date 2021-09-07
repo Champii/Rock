@@ -51,6 +51,7 @@ impl<'a> CodegenContext<'a> {
                 .ptr_type(AddressSpace::Generic)
                 .into(),
             Type::FuncType(f) => {
+                // FIXME: Don't rely on names for resolution
                 let f2 = match self.module.get_function(&f.name) {
                     Some(f2) => f2,
                     None => {

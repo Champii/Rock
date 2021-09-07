@@ -7,4 +7,4 @@ infix / 5
 - a b = ~ISub a b
 * a b = ~IMul a b
 / a b = ~IDiv a b
-main = 3 + 10 * 2 * 2 - 2 + 1
+main = 3 + 20 / 2 * 2 * 2 - 2 + 1

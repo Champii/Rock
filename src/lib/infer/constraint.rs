@@ -112,7 +112,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 // FIXME: Code smell
                 // TODO: Use global resolution instead of top_level
                 // TODO: Need Arena and a way to fetch any element/item/node
-                if let Some(top_id) = self.hir.resolutions.get(&op_hir_id) {
+                if let Some(top_id) = self.hir.resolutions.get_recur(&op_hir_id) {
                     if let Some(top) = self.hir.get_top_level(top_id.clone()) {
                         match &top.kind {
                             TopLevelKind::Prototype(p) => {
@@ -192,15 +192,14 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     self.state.get_type_id(body_hir_id.clone()).unwrap();
 
                                 self.state.add_constraint(Constraint::Callable(
-                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
                                     body_type_id,
                                 ));
 
-                                // FIXME: ?
-                                // self.state.add_constraint(Constraint::Eq(
-                                //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                                //     body_type_id,
-                                // ));
+                                self.state.add_constraint(Constraint::Eq(
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                    body_type_id,
+                                ));
 
                                 for (i, arg) in f.arguments.iter().enumerate() {
                                     self.state.add_constraint(Constraint::Eq(
@@ -256,13 +255,51 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                                 .unwrap()
                                         })
                                         .collect::<Vec<_>>(),
-                                    self.state.get_type_id(top_id.clone()).unwrap(),
+                                    // FIXME: This return type is wrong
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                                 )),
                             );
-                            self.state.add_constraint(Constraint::Eq(
-                                self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                self.state.get_type_id(top_id.clone()).unwrap(),
-                            ));
+                            self.state.solve_type(
+                                top_id,
+                                Type::FuncType(FuncType::new(
+                                    fc.op.as_identifier().name,
+                                    fc.args
+                                        .iter()
+                                        .map(|arg| {
+                                            self.state
+                                                .get_type_id(arg.get_terminal_hir_id())
+                                                .unwrap()
+                                        })
+                                        .collect::<Vec<_>>(),
+                                    // FIXME: This return type is wrong
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                )),
+                            );
+                            // self.state.solve_type(
+                            //     top_id.clone(),
+                            //     Type::FuncType(FuncType::new(
+                            //         fc.op.as_identifier().name,
+                            //         fc.args
+                            //             .iter()
+                            //             .map(|arg| {
+                            //                 self.state
+                            //                     .get_type_id(arg.get_terminal_hir_id())
+                            //                     .unwrap()
+                            //             })
+                            //             .collect::<Vec<_>>(),
+                            //         self.state.get_type_id(top_id.clone()).unwrap(),
+                            //     )),
+                            // );
+                            // self.state.add_constraint(Constraint::Eq(
+                            //     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                            //     self.state.get_type_id(top_id.clone()).unwrap(),
+                            // ));
+
+                            // FIXME: Return type is wrong
+                            // self.state.add_constraint(Constraint::Callable(
+                            //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                            //     self.state.get_type_id(top_id.clone()).unwrap(),
+                            // ));
 
                             // self.state.add_constraint(Constraint::Eq(
                             //     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
@@ -297,10 +334,10 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             let body_hir_id = body.get_terminal_hir_id();
             let body_type_id = self.state.get_type_id(body_hir_id.clone()).unwrap();
 
-            self.state.add_constraint(Constraint::Callable(
-                self.state.get_type_id(f.hir_id.clone()).unwrap(),
-                body_type_id,
-            ));
+            // self.state.add_constraint(Constraint::Eq(
+            //     self.state.get_type_id(f.hir_id.clone()).unwrap(),
+            //     body_type_id,
+            // ));
 
             self.state.add_constraint(Constraint::Callable(
                 self.state.get_type_id(f.hir_id.clone()).unwrap(),

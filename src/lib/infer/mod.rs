@@ -24,10 +24,10 @@ pub fn infer(root: &mut crate::hir::Root, diagnostics: Diagnostics, config: &Con
 
     let (mut infer_state, new_resolutions) = constraint_ctx.get_state();
 
-    error!("NEW RESOLUTIONS ARE DISABLED FOR TRAIT RESOLUTION");
-    // for (k, v) in new_resolutions {
-    //     root.resolutions.insert(k.clone(), v.clone());
-    // }
+    // FIXME: don't
+    for (k, v) in new_resolutions {
+        root.resolutions.insert(k.clone(), v.clone());
+    }
 
     infer_state.solve();
     if config.show_state {

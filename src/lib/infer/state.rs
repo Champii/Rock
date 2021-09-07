@@ -119,31 +119,6 @@ impl InferState {
         self.node_types.remove(&hir_id);
     }
 
-    // pub fn replace_type_recur(&mut self, left: TypeId, right: TypeId) -> bool {
-    //     let left_t = self.types.get(&left).unwrap();
-    //     let right_t = self.types.get(&right).unwrap();
-
-    //     match (left_t, right_t) {
-    //         (Some(_), None) => {
-    //             self.types.insert(right, self.get_type(left));
-
-    //             true
-    //         }
-    //         (None, Some(_)) => {
-    //             self.types.insert(left, self.get_type(right));
-
-    //             true
-    //         }
-    //         (Some(left), Some(right)) => {
-    //             if left != right {
-    //                 error!("Incompatible types {:?} != {:?}", left, right);
-    //             }
-    //             false
-    //         }
-    //         _ => false,
-    //     }
-    // }
-
     pub fn replace_type(&mut self, left: TypeId, right: TypeId) -> bool {
         let left_t = self.types.get(&left).unwrap().clone();
         let right_t = self.types.get(&right).unwrap().clone();
@@ -161,17 +136,21 @@ impl InferState {
             }
 
             (Some(Type::FuncType(f)), Some(Type::FuncType(f2))) => {
-                error!("RET callable return types {:?} != {:?}\n", f, f2,);
-                self.add_constraint(Constraint::Eq(f.ret, f2.ret));
+                // FIXME: Don't rely on names for resolution
+                if let Some(Type::FuncType(left_f)) = self.types.get_mut(&left).unwrap() {
+                    left_f.name = f2.name.clone();
+                }
+
+                self.types.insert(f.ret, self.get_ret(f2.ret));
 
                 f.arguments.iter().enumerate().for_each(|(i, arg)| {
                     self.add_constraint(Constraint::Eq(*arg, *f2.arguments.get(i).unwrap()));
                 });
 
-                true
+                false
             }
-            (Some(left), Some(right)) => {
-                if left != right {
+            (Some(_left), Some(_right)) => {
+                if self.get_ret(left).unwrap() != self.get_ret(right).unwrap() {
                     error!("Incompatible types {:?} != {:?}", left, right);
                 }
                 false
@@ -195,31 +174,9 @@ impl InferState {
 
                 true
             }
-            (Some(Type::FuncType(f)), Some(Type::FuncType(f2))) => {
-                error!("RET callable return types {:?} != {:?}\n", f, f2,);
-                self.add_constraint(Constraint::Eq(f.ret, f2.ret));
-
-                // f.arguments.iter().enumerate().for_each(|(i, arg)| {
-                //     self.add_constraint(Constraint::Eq(*arg, *f2.arguments.get(i).unwrap()));
-                // });
-
-                true
-            }
+            (Some(Type::FuncType(f)), Some(Type::FuncType(f2))) => false,
             (Some(Type::FuncType(f)), Some(other)) => {
-                // self.types.insert(f.ret, self.get_ret(left));
-
-                // match (self.get_ret_rec(left) , self.get_ret_rec(right)) {
-                //     (Some())
-                // }
-
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
-                    self.add_constraint(Constraint::Eq(f.ret, right));
-                    // self.add_constraint(Constraint::Eq(f.ret, ))
-                    // self.add_constraint(Constraint::Eq(f.ret, f2.ret));
-
-                    // f.arguments.iter().enumerate().for_each(|(i, arg)| {
-                    //     self.add_constraint(Constraint::Eq(*arg, *f2.arguments.get(i).unwrap()));
-                    // });
                     error!(
                         "Incompatible callable return types {:?} != {:?}\n{:?} != {:?}",
                         f.ret,
@@ -272,7 +229,6 @@ impl InferState {
     }
 
     pub fn add_constraint(&mut self, constraint: Constraint) {
-        println!("ADD CONSTRAINT {:?}", constraint);
         match constraint {
             Constraint::Eq(left, right) => {
                 if left == right || left == 0 || right == 0 {
@@ -309,7 +265,7 @@ impl InferState {
 
             i += 1;
 
-            if res.is_empty() || i > 2 {
+            if res.is_empty() || i > 3 {
                 break;
             }
 
