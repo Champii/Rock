@@ -379,9 +379,9 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             // self.state
             //     .new_named_annotation(id.name.clone(), reso.clone());
 
-            // if self.state.get_type_id(reso.clone()).is_none() {
-            //     self.state.new_type_id(reso.clone());
-            // }
+            if self.state.get_type_id(reso.clone()).is_none() {
+                self.state.new_type_id(reso.clone());
+            }
 
             self.state.add_constraint(Constraint::Eq(
                 self.state.get_type_id(id.hir_id.clone()).unwrap(),

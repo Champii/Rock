@@ -409,7 +409,7 @@ impl<'a> CodegenContext<'a> {
         id: &Identifier,
         _builder: &'a Builder,
     ) -> BasicValueEnum<'a> {
-        let reso = self.hir.resolutions.get_recur(&id.hir_id).unwrap();
+        let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
         // println!("RESO {:?} {:#?}, {:#?}", id, reso, self.scopes);
         let val = self.scopes.get(reso).unwrap();
