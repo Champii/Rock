@@ -28,7 +28,7 @@ impl<'a> ReturnInserter<'a> {
             StatementKind::If(ref mut i) => {
                 self.visit_if(i);
             }
-            StatementKind::Assign(ref mut a) => {
+            StatementKind::Assign(ref mut _a) => {
                 // self.visit_assign(a);
             }
         }

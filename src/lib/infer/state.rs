@@ -174,7 +174,7 @@ impl InferState {
 
                 true
             }
-            (Some(Type::FuncType(f)), Some(Type::FuncType(f2))) => false,
+            (Some(Type::FuncType(_f)), Some(Type::FuncType(_f2))) => false,
             (Some(Type::FuncType(f)), Some(other)) => {
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     error!(
@@ -289,7 +289,7 @@ impl InferState {
                         t_id,
                         self.node_types
                             .iter()
-                            .find(|(hir_id, t_id2)| t_id == *t_id2)
+                            .find(|(_hir_id, t_id2)| t_id == *t_id2)
                             .map(|x| x.0)
                             .unwrap()
                     )

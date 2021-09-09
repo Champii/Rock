@@ -32,14 +32,14 @@ impl<'a> Visitor<'a> for UnusedCollector {
 
         for top in &m.top_levels {
             match &top.kind {
-                TopLevelKind::Prototype(p) => {}
+                TopLevelKind::Prototype(_p) => {}
                 TopLevelKind::Use(_u) => (),
                 TopLevelKind::Trait(t) => {
                     for f in &t.defs {
                         self.list.insert(f.identity.node_id.clone(), false);
                     }
                 }
-                TopLevelKind::Impl(i) => {}
+                TopLevelKind::Impl(_i) => {}
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {
@@ -58,7 +58,7 @@ impl<'a> Visitor<'a> for UnusedCollector {
     fn visit_top_level(&mut self, top_level: &'a TopLevel) {
         match &top_level.kind {
             TopLevelKind::Prototype(p) => self.visit_prototype(&p),
-            TopLevelKind::Use(u) => (),
+            TopLevelKind::Use(_u) => (),
             TopLevelKind::Trait(t) => self.visit_trait(&t),
             TopLevelKind::Impl(i) => self.visit_impl(&i),
             TopLevelKind::Mod(name, m) => {
@@ -66,7 +66,7 @@ impl<'a> Visitor<'a> for UnusedCollector {
                 self.visit_mod(&m);
             }
             TopLevelKind::Function(f) => self.visit_function_decl(&f),
-            TopLevelKind::Infix(ident, _) => (),
+            TopLevelKind::Infix(_ident, _) => (),
         };
     }
 

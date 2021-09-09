@@ -61,7 +61,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                         self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
                     }
                 }
-                TopLevelKind::Impl(i) => {
+                TopLevelKind::Impl(_i) => {
                     // for proto in &i.defs {
                     //     self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
                     // }
@@ -164,9 +164,6 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         let mut mod_path = path.parent().prepend_mod(self.cur_scope.clone());
 
         mod_path.resolve_supers();
-
-        // println!("MOD {:#?}", self.scopes);
-        // println!("NAME {:#?}", mod_path);
 
         match self.scopes.get(&mod_path) {
             Some(scopes) => match scopes.get((*ident).to_string()) {

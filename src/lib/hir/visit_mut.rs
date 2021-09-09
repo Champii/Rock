@@ -79,6 +79,7 @@ pub fn walk_trait<'a, V: VisitorMut<'a>>(visitor: &mut V, t: &'a mut Trait) {
     walk_list!(visitor, visit_prototype, &mut t.defs);
 }
 
+#[allow(dead_code)]
 pub fn walk_impl<'a, V: VisitorMut<'a>>(visitor: &mut V, i: &'a mut Impl) {
     visitor.visit_type(&mut i.name);
 
