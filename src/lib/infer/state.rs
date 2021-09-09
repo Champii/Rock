@@ -6,7 +6,6 @@ use std::{
 use crate::{
     ast::Type,
     diagnostics::Diagnostic,
-    helpers::scopes::Scopes,
     hir::{HirId, Root},
 };
 
@@ -24,13 +23,9 @@ pub enum Constraint {
 
 #[derive(Debug, Default)]
 pub struct InferState {
-    // pub named_types_flat: Scopes<String, TypeId>,
-    // pub diagnostics: Diagnostics,
-    pub named_types: Scopes<String, TypeId>,
     node_types: BTreeMap<HirId, TypeId>,
     types: BTreeMap<TypeId, Option<Type>>,
     constraints: Vec<Constraint>,
-    // TODO: extract this in its own pass
     pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
     pub root: Root,
 }
@@ -42,29 +37,6 @@ impl InferState {
             ..Self::default()
         }
     }
-
-    // pub fn new_named_annotation(&mut self, name: String, hir_id: HirId) -> TypeId {
-    //     // TODO: check if type already exists ?
-    //     match self.named_types.get(name.clone()) {
-    //         Some(t) => {
-    //             // // TODO: build some scoped declarations
-    //             // panic!("ALREADY DEFINED NAMED TYPE: {}", name);
-    //             self.node_types.insert(hir_id, t);
-    //             self.named_types.add(name.clone(), t);
-    //             // self.named_types_flat.add(name, t);
-
-    //             t
-    //         }
-    //         None => {
-    //             let new_type = self.new_type_id(hir_id);
-
-    //             self.named_types.add(name.clone(), new_type);
-    //             // self.named_types_flat.add(name, new_type);
-
-    //             new_type
-    //         }
-    //     }
-    // }
 
     pub fn new_type_id(&mut self, hir_id: HirId) -> TypeId {
         let new_type = GLOBAL_NEXT_TYPE_ID.fetch_add(1, Ordering::SeqCst);
@@ -95,10 +67,6 @@ impl InferState {
     pub fn get_type(&self, t_id: TypeId) -> Option<Type> {
         self.types.get(&t_id).unwrap().clone()
     }
-
-    // pub fn get_named_type_id(&self, name: String) -> Option<TypeId> {
-    //     self.named_types.get(name)
-    // }
 
     pub fn get_or_create_type_id_by_type(&mut self, t: &Type) -> Option<TypeId> {
         let mut res = self

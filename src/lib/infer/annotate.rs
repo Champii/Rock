@@ -75,18 +75,9 @@ impl<'a> Visitor<'a> for AnnotateContext {
     fn visit_fn_body(&mut self, fn_body: &FnBody) {
         let args = self.body_arguments.get(&fn_body.id).unwrap().clone();
 
-        // println!("State {:#?}", self.state.named_types);
-        self.state.named_types.push();
-
-        // self.state.named_types_flat.push();
-
         walk_list!(self, visit_argument_decl, &args);
 
         self.visit_body(&fn_body.body);
-
-        self.state.named_types.pop();
-        // println!("State {:#?}", self.state.named_types);
-        // self.state.named_types_flat.push();
     }
 
     fn visit_literal(&mut self, lit: &Literal) {

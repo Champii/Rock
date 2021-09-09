@@ -176,7 +176,6 @@ impl Parse for Root {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let r#mod = Mod::parse(ctx)?;
 
-        // FIXME: Check if main exists
         r#mod
             .top_levels
             .iter()
@@ -552,10 +551,8 @@ impl Parse for Statement {
 impl Parse for Assign {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         ctx.save();
-        expect_or_restore!(TokenType::Let, ctx);
 
-        // let token_id = ctx.cur_tok_id;
-        // let token = ctx.cur_tok();
+        expect_or_restore!(TokenType::Let, ctx);
 
         let name = try_or_restore!(Identifier::parse(ctx), ctx);
 
@@ -565,11 +562,7 @@ impl Parse for Assign {
 
         ctx.save_pop();
 
-        Ok(Assign {
-            // identity: Identity::new(token_id, token.span),
-            name,
-            value,
-        })
+        Ok(Assign { name, value })
     }
 }
 
