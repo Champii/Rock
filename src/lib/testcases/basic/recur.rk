@@ -1,0 +1,12 @@
+infix - 4
+- a b = ~ISub a b
+
+infix == 4
+== a b = ~IEq a b
+
+recur a =
+    if a == 0
+    then a
+    else recur (a - 1)
+
+main = recur 1

@@ -87,7 +87,7 @@ pub mod test {
     // TODO: compile in each separated folder OR make tests sync
     fn build(build_path: &PathBuf, input: String, config: Config) -> bool {
         let file = SourceFile {
-            file_path: PathBuf::from("./src/lib/testcases/mods/main.rk"), // trick for module testing
+            file_path: PathBuf::from("./src/lib").join(config.project_config.entry_point.clone()),
             mod_path: PathBuf::from("main"),
             content: input,
         };

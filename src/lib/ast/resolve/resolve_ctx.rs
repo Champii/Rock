@@ -62,9 +62,9 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     }
                 }
                 TopLevelKind::Impl(i) => {
-                    for proto in &i.defs {
-                        self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
-                    }
+                    // for proto in &i.defs {
+                    //     self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
+                    // }
                 }
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),

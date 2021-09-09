@@ -124,6 +124,13 @@ impl<'a> CodegenContext<'a> {
         if self.module.get_function(&mangled_name).is_some() {
             return;
         }
+        // Check if any argument is not solved
+        if f.arguments
+            .iter()
+            .any(|arg| self.hir.get_type(arg.name.hir_id.clone()).is_none())
+        {
+            return;
+        }
 
         let t = self.hir.get_type(f.hir_id.clone()).unwrap();
 
@@ -204,7 +211,8 @@ impl<'a> CodegenContext<'a> {
 
             self.lower_body(&fn_body.body, "entry", builder);
         } else {
-            panic!("Cannot find function {}", fn_body.name.name);
+            // FIXME: Ignoring unsolved functions for now
+            // panic!("Cannot find function {}", fn_body.name.name);
         }
     }
 

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    ast::Identifier,
+    ast::{ast_print::AstPrintContext, Identifier, Root},
     diagnostics::{Diagnostic, Diagnostics},
     Config,
 };
@@ -83,5 +83,11 @@ impl ParsingCtx {
 
     pub fn operator_exists(&self, name: &Identifier) -> bool {
         self.operators_list.contains_key(&name.name)
+    }
+
+    pub fn print_ast(&self, ast: &Root) {
+        use crate::ast::visit::Visitor;
+
+        AstPrintContext::new(ast.r#mod.tokens.clone(), self.get_current_file()).visit_root(ast);
     }
 }

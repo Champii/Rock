@@ -177,6 +177,7 @@ impl Parse for Root {
         let r#mod = Mod::parse(ctx)?;
 
         Ok(Root {
+            unused: vec![],
             resolutions: ResolutionMap::default(),
             operators_list: ctx.ctx.operators_list.clone(),
             r#mod,
@@ -202,6 +203,7 @@ impl Parse for Mod {
         expect!(TokenType::EOF, ctx);
 
         Ok(Mod {
+            tokens: ctx.tokens.clone(),
             identity: Identity::new(0, ctx.ctx.new_span(0, 0)),
             top_levels: res,
         })

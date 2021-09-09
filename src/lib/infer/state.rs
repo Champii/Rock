@@ -165,12 +165,12 @@ impl InferState {
 
         match (left_t, right_t) {
             (Some(_), None) => {
-                self.types.insert(right, self.get_ret(left));
+                self.types.insert(right, self.get_ret_rec(left));
 
                 true
             }
             (None, Some(_)) => {
-                self.types.insert(left, self.get_ret(right));
+                self.types.insert(left, self.get_ret_rec(right));
 
                 true
             }
@@ -281,7 +281,8 @@ impl InferState {
     pub fn get_types(&self) -> BTreeMap<TypeId, Type> {
         self.types
             .iter()
-            .map(|(t_id, t)| {
+            // FIXME: Bad, it silently ignore types that are not fully infered
+            .filter_map(|(t_id, t)| {
                 if t.is_none() {
                     error!(
                         "Unresolved type_id: {:?} (hir_id: {:?})",
@@ -294,7 +295,7 @@ impl InferState {
                     )
                 }
 
-                (*t_id, t.clone().unwrap())
+                Some((*t_id, t.clone()?))
             })
             .collect()
     }

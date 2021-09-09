@@ -1,0 +1,12 @@
+infix + 4
+infix |> 1
+
+# Helpers
+|> a b = b a
+
+## Num
+trait Num a
+    + a -> a -> a
+
+impl Num Int64
+    + a b = ~IAdd a b

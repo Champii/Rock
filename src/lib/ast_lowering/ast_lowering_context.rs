@@ -3,12 +3,14 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     ast::*,
     hir::{self, FnBodyId, HirId},
+    NodeId,
 };
 
 use super::{hir_map::HirMap, return_placement::ReturnInserter, InfixDesugar};
 
 pub struct AstLoweringContext {
     hir_map: HirMap,
+    unused: Vec<NodeId>,
     top_levels: BTreeMap<HirId, hir::TopLevel>,
     modules: BTreeMap<HirId, hir::Mod>,
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
@@ -18,8 +20,9 @@ pub struct AstLoweringContext {
 }
 
 impl AstLoweringContext {
-    pub fn new(operators_list: HashMap<String, u8>) -> Self {
+    pub fn new(operators_list: HashMap<String, u8>, unused: Vec<NodeId>) -> Self {
         Self {
+            unused,
             hir_map: HirMap::new(),
             top_levels: BTreeMap::new(),
             modules: BTreeMap::new(),
@@ -44,6 +47,7 @@ impl AstLoweringContext {
             traits: self.traits.clone(),
             trait_methods: self.trait_methods.clone(),
             trait_call_to_mangle: HashMap::new(),
+            unused: vec![],
         }
     }
 
@@ -93,16 +97,20 @@ impl AstLoweringContext {
             }
             TopLevelKind::Infix(_, _) => id,
             TopLevelKind::Function(f) => {
-                let mut top_level = hir::TopLevel {
-                    kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),
-                    hir_id: id,
-                };
+                if self.unused.contains(&f.identity.node_id) {
+                    id
+                } else {
+                    let mut top_level = hir::TopLevel {
+                        kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),
+                        hir_id: id,
+                    };
 
-                let child_id = top_level.get_child_hir();
-                top_level.hir_id = child_id.clone();
+                    let child_id = top_level.get_child_hir();
+                    top_level.hir_id = child_id.clone();
 
-                self.top_levels.insert(child_id.clone(), top_level);
-                child_id
+                    self.top_levels.insert(child_id.clone(), top_level);
+                    child_id
+                }
             }
             TopLevelKind::Mod(_name, mod_) => self.lower_mod(&mod_),
         }
@@ -261,6 +269,7 @@ impl AstLoweringContext {
             value: self.lower_expression(&assign.value),
         }
     }
+
     pub fn lower_expression(&mut self, expr: &Expression) -> hir::Expression {
         match &expr.kind {
             ExpressionKind::UnaryExpr(unary) => self.lower_unary(&unary),

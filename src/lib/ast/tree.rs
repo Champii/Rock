@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::ast::identity::Identity;
 use crate::NodeId;
+use crate::{ast::identity::Identity, parser::Token};
 
 use crate::ast::resolve::ResolutionMap;
 use crate::generate_has_name;
@@ -14,12 +14,94 @@ pub struct Root {
     pub r#mod: Mod,
     pub resolutions: ResolutionMap<NodeId>,
     pub operators_list: HashMap<String, u8>,
+    pub unused: Vec<NodeId>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Mod {
+    pub tokens: Vec<Token>,
     pub top_levels: Vec<TopLevel>,
     pub identity: Identity,
+}
+
+impl Mod {
+    pub fn filter_unused_top_levels(&mut self, unused: Vec<NodeId>) {
+        let mut unused_trait_method_names = vec![];
+
+        self.top_levels = self
+            .top_levels
+            .iter_mut()
+            .filter_map(|top_level| {
+                match &mut top_level.kind {
+                    TopLevelKind::Function(f) => {
+                        if unused.contains(&f.identity.node_id) {
+                            error!("Unused function {:?}", f.name);
+
+                            return None;
+                        }
+                    }
+                    TopLevelKind::Trait(t) => {
+                        let mut defs = vec![];
+
+                        for f in &t.defs {
+                            if unused.contains(&f.identity.node_id) {
+                                unused_trait_method_names.push(f.name.clone());
+
+                                error!("Unused trait method {:?}", f.name);
+                            } else {
+                                defs.push(f.clone());
+                            }
+                        }
+
+                        if defs.is_empty() {
+                            return None;
+                        }
+
+                        let mut t2 = t.clone();
+                        t2.defs = defs.clone();
+
+                        return Some(TopLevel {
+                            kind: TopLevelKind::Trait(t2),
+                            ..top_level.clone()
+                        });
+                    }
+                    TopLevelKind::Impl(i) => {
+                        let mut defs = vec![];
+
+                        for f in &i.defs {
+                            if unused_trait_method_names.contains(&f.name) {
+                                error!("Unused impl method {:?}", f.name);
+                            } else {
+                                defs.push(f.clone());
+                            }
+                        }
+
+                        if defs.is_empty() {
+                            return None;
+                        }
+
+                        let mut i2 = i.clone();
+                        i2.defs = defs.clone();
+
+                        return Some(TopLevel {
+                            kind: TopLevelKind::Impl(i2),
+                            ..top_level.clone()
+                        });
+                    }
+                    TopLevelKind::Mod(id, m) => {
+                        m.filter_unused_top_levels(unused.clone());
+
+                        return Some(TopLevel {
+                            kind: TopLevelKind::Mod(id.clone(), m.clone()),
+                            ..top_level.clone()
+                        });
+                    }
+                    _ => (),
+                };
+                Some(top_level.clone())
+            })
+            .collect();
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -9,5 +9,5 @@ pub use hir_map::*;
 pub use infix_desugar::*;
 
 pub fn lower_crate(root: &Root) -> hir::Root {
-    AstLoweringContext::new(root.operators_list.clone()).lower_root(root)
+    AstLoweringContext::new(root.operators_list.clone(), root.unused.clone()).lower_root(root)
 }

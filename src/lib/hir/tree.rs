@@ -19,6 +19,7 @@ pub struct Root {
     pub modules: BTreeMap<HirId, Mod>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
+    pub unused: Vec<HirId>,
 }
 
 impl Root {

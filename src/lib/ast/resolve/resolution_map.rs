@@ -36,12 +36,8 @@ impl ResolutionMap<NodeId> {
         ResolutionMap(
             self.0
                 .iter()
-                .map(|(k, v)| {
-                    (
-                        hir_map.get_hir_id(*k).unwrap(),
-                        hir_map.get_hir_id(*v).unwrap(),
-                    )
-                })
+                // FIXME: Code smell, we silently delete unknown references
+                .filter_map(|(k, v)| Some((hir_map.get_hir_id(*k)?, hir_map.get_hir_id(*v)?)))
                 .collect(),
         )
     }

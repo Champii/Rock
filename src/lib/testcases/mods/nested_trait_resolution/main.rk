@@ -1,0 +1,7 @@
+mod _std
+
+use _std::|>
+use _std::+
+
+f a = a + 2
+main = 40 |> f

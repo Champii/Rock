@@ -93,6 +93,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             ExpressionKind::Return(expr) => self.visit_expression(&expr),
             ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
             ExpressionKind::NativeOperation(op, left, right) => {
+                println!("NATIVE OP");
                 self.visit_identifier(&left);
                 self.visit_identifier(&right);
 
@@ -174,12 +175,16 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                         // FIXME: Type needs to be solved in order to be applied. There is a dependency loop here
 
                         // self.state.solve();
+                        let first_resolved_type = fc
+                            .args
+                            .iter()
+                            .filter_map(|arg| {
+                                self.state
+                                    .get_type(self.state.get_type_id(arg.get_terminal_hir_id())?)
+                            })
+                            .nth(0);
 
-                        if let Some(applied_type) = self.state.get_type(
-                            self.state
-                                .get_type_id(fc.args.get(0).unwrap().get_terminal_hir_id())
-                                .unwrap(),
-                        ) {
+                        if let Some(applied_type) = first_resolved_type {
                             // FIXME: Copy-paste of the code above
                             if let Some(f) = self.hir.match_trait_method(
                                 fc.op.as_identifier().clone().name,
@@ -227,20 +232,50 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     vec![r#trait.name.get_name(), applied_type.get_name()],
                                 );
                             } else {
-                                // self.state.add_constraint(Constraint::Callable(
-                                //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                                //     self.state.get_type_id(top_id).unwrap(),
-                                // ));
-
-                                // if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
-                                //     // println!("CALLABLE UNAPPLIED {:?}, {:?}", fc.hir_id, top_id);
-                                //     self.state.add_constraint(Constraint::Callable(
+                                println!("NO TRAIT METHOD RESOLUTION");
+                                // self.state.solve_type(
+                                //     fc.op.get_terminal_hir_id(),
+                                //     Type::FuncType(FuncType::new(
+                                //         fc.op.as_identifier().name,
+                                //         fc.args
+                                //             .iter()
+                                //             .map(|arg| {
+                                //                 self.state
+                                //                     .get_type_id(arg.get_terminal_hir_id())
+                                //                     .unwrap()
+                                //             })
+                                //             .collect::<Vec<_>>(),
                                 //         self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                //         top_type_id,
-                                //     ));
-                                // } else {
-                                //     error!("UNCALLABLE UNAPPLIED TOP");
-                                // }
+                                //     )),
+                                // );
+                                // self.state.solve_type(
+                                //     top_id.clone(),
+                                //     Type::FuncType(FuncType::new(
+                                //         fc.op.as_identifier().name,
+                                //         fc.args
+                                //             .iter()
+                                //             .map(|arg| {
+                                //                 self.state
+                                //                     .get_type_id(arg.get_terminal_hir_id())
+                                //                     .unwrap()
+                                //             })
+                                //             .collect::<Vec<_>>(),
+                                //         self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                //     )),
+                                // );
+                                self.state.add_constraint(Constraint::Callable(
+                                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                ));
+                                self.state.add_constraint(Constraint::Callable(
+                                    self.state.get_type_id(top_id.clone()).unwrap(),
+                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                                ));
+
+                                // self.state.add_constraint(Constraint::Eq(
+                                //     self.state.get_type_id(top_id).unwrap(),
+                                //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                                // ));
                             }
                         } else {
                             self.state.solve_type(
@@ -255,12 +290,11 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                                 .unwrap()
                                         })
                                         .collect::<Vec<_>>(),
-                                    // FIXME: This return type is wrong
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                                 )),
                             );
                             self.state.solve_type(
-                                top_id,
+                                top_id.clone(),
                                 Type::FuncType(FuncType::new(
                                     fc.op.as_identifier().name,
                                     fc.args
@@ -271,49 +305,17 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                                 .unwrap()
                                         })
                                         .collect::<Vec<_>>(),
-                                    // FIXME: This return type is wrong
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                                 )),
                             );
-                            // self.state.solve_type(
-                            //     top_id.clone(),
-                            //     Type::FuncType(FuncType::new(
-                            //         fc.op.as_identifier().name,
-                            //         fc.args
-                            //             .iter()
-                            //             .map(|arg| {
-                            //                 self.state
-                            //                     .get_type_id(arg.get_terminal_hir_id())
-                            //                     .unwrap()
-                            //             })
-                            //             .collect::<Vec<_>>(),
-                            //         self.state.get_type_id(top_id.clone()).unwrap(),
-                            //     )),
-                            // );
-                            // self.state.add_constraint(Constraint::Eq(
-                            //     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                            //     self.state.get_type_id(top_id.clone()).unwrap(),
-                            // ));
-
-                            // FIXME: Return type is wrong
                             // self.state.add_constraint(Constraint::Callable(
                             //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                            //     self.state.get_type_id(top_id.clone()).unwrap(),
-                            // ));
-
-                            // self.state.add_constraint(Constraint::Eq(
                             //     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                            //     self.state.get_type_id(top_id).unwrap(),
                             // ));
-                            // if let Some(top_type_id) = self.state.get_type_id(top_id.clone()) {
-                            //     // println!("ELSE CALLABLE {:?}, {:?}", fc.hir_id, top_id);
-                            //     self.state.add_constraint(Constraint::Callable(
-                            //         self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                            //         top_type_id,
-                            //     ));
-                            // } else {
-                            //     error!("UNCALLABLE");
-                            // }
+                            // self.state.add_constraint(Constraint::Callable(
+                            //     self.state.get_type_id(top_id.clone()).unwrap(),
+                            //     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
+                            // ));
                         }
                     }
                 } else {
@@ -375,11 +377,13 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
     }
 
     fn visit_identifier(&mut self, id: &Identifier) {
-        if let Some(reso) = self.hir.resolutions.get(&id.hir_id) {
+        if let Some(reso) = self.hir.resolutions.get_recur(&id.hir_id) {
             // self.state
             //     .new_named_annotation(id.name.clone(), reso.clone());
 
             if self.state.get_type_id(reso.clone()).is_none() {
+                error!("UNKNOWN IDENTIFIER RESOLUTION TYPE ID {:?}", id);
+
                 self.state.new_type_id(reso.clone());
             }
 

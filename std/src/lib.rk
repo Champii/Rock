@@ -69,8 +69,6 @@ impl Eq Float64
 impl Eq Bool
     == i j = ~BEq i j
 
-placeholder = 2.2 == 2.2
-
 ## Show
 trait Show a
     show a -> String

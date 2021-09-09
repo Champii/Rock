@@ -1,5 +1,5 @@
 use env_logger::{Builder, Color, Env};
-use log::Level;
+use log::{Level, LevelFilter};
 use std::io::Write;
 
 pub fn init_logger() {
@@ -38,6 +38,8 @@ pub fn init_logger() {
 
         Ok(())
     });
+
+    builder.filter_level(LevelFilter::Warn);
 
     builder.init();
 }

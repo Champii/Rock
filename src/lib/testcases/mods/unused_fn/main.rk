@@ -1,0 +1,9 @@
+mod _std
+
+use _std::+
+use _std::*
+use _std::-
+
+test g h = g
+
+main = test (41 + 1), (2 * 2)

@@ -2,14 +2,24 @@ mod annotate;
 mod constraint;
 mod mangle;
 mod state;
+// mod unused_collector;
 
 use crate::{diagnostics::Diagnostics, hir::visit_mut::*, infer::mangle::*, Config};
 
 use self::annotate::AnnotateContext;
 use self::constraint::ConstraintContext;
 pub use self::state::*;
+use crate::hir::visit::Visitor;
 
 pub fn infer(root: &mut crate::hir::Root, diagnostics: Diagnostics, config: &Config) {
+    // let mut unused_ctx = UnusedCollector::new(root.resolutions.clone());
+
+    // unused_ctx.visit_root(root);
+
+    // root.unused = unused_ctx.take_unused();
+
+    // println!("UNUSED {:#?}", root.unused);
+
     let mut infer_state = InferState::new();
 
     infer_state.diagnostics = diagnostics;
@@ -24,15 +34,16 @@ pub fn infer(root: &mut crate::hir::Root, diagnostics: Diagnostics, config: &Con
 
     let (mut infer_state, new_resolutions) = constraint_ctx.get_state();
 
-    // FIXME: don't
+    // // FIXME: don't
     for (k, v) in new_resolutions {
         root.resolutions.insert(k.clone(), v.clone());
     }
 
     infer_state.solve();
+    // infer_state.solve();
     if config.show_state {
-        println!("STATE {:#?}", infer_state);
         println!("ROOT {:#?}", root);
+        println!("STATE {:#?}", infer_state);
     }
 
     let mut mangle_ctx = MangleContext {
