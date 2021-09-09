@@ -1,8 +1,8 @@
 use paste::paste;
 use std::collections::HashMap;
 
-use crate::{ast::resolve::ResolutionMap, ast::visit::*};
-use crate::{ast::visit::Visitor, ast::*, walk_list};
+use crate::{ast::visit::*};
+use crate::{ast::visit::Visitor, ast::*};
 use crate::{parser::Span, NodeId};
 
 #[derive(Debug, Default)]

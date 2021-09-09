@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     ast::Type,
     ast_lowering::HirMap,
-    parser::{SourceFile, Span},
+    parser::{Span},
     NodeId,
 };
 use crate::{

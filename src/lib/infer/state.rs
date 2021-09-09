@@ -5,10 +5,9 @@ use std::{
 
 use crate::{
     ast::Type,
-    diagnostics::{Diagnostic, Diagnostics},
+    diagnostics::Diagnostic,
     helpers::scopes::Scopes,
     hir::{HirId, Root},
-    parser::Span,
 };
 
 pub type NodeId = u64;
@@ -159,7 +158,7 @@ impl InferState {
 
                 false
             }
-            (Some(left_in), Some(right_in)) => {
+            (Some(_left_in), Some(_right_in)) => {
                 if self.get_ret(left).unwrap() != self.get_ret(right).unwrap() {
                     let span = self
                         .node_types
@@ -198,7 +197,7 @@ impl InferState {
 
                 true
             }
-            (Some(Type::FuncType(f1)), Some(Type::FuncType(f2))) => {
+            (Some(Type::FuncType(_f1)), Some(Type::FuncType(_f2))) => {
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     let span = self
                         .node_types
@@ -216,11 +215,10 @@ impl InferState {
                         right_t.clone().unwrap(),
                     ));
                 } else {
-                    // self.types.insert(f.ret, self.get_ret_rec(right));
                     true
                 }
             }
-            (Some(Type::FuncType(f)), Some(other)) => {
+            (Some(Type::FuncType(_f)), Some(_other)) => {
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     let span = self
                         .node_types
@@ -238,33 +236,33 @@ impl InferState {
                         right_t.clone().unwrap(),
                     ));
                 } else {
-                    // self.types.insert(f.ret, self.get_ret_rec(right));
                     true
                 }
             }
-            (Some(left_in), Some(right_in)) => {
-                if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
-                    let span = self
-                        .node_types
-                        .iter()
-                        .find(|(_hir_id, t_id)| **t_id == right)
-                        .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
-                        .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
-                        .unwrap();
+            (Some(_left_in), Some(_)) => {
+                // FIXME: this makes the traits and mod tests to fail
+                // if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
+                //     let span = self
+                //         .node_types
+                //         .iter()
+                //         .find(|(_hir_id, t_id)| **t_id == right)
+                //         .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
+                //         .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                //         .unwrap();
 
-                    return Err(Diagnostic::new_type_conflict(
-                        span,
-                        self.get_ret_rec(left).unwrap(),
-                        self.get_ret_rec(right).unwrap(),
-                        left_t.clone().unwrap(),
-                        right_t.clone().unwrap(),
-                    ));
-                } else {
-                    // self.types.insert(f.ret, self.get_ret_rec(right));
-                    true
-                }
+                //     return Err(Diagnostic::new_type_conflict(
+                //         span,
+                //         self.get_ret_rec(left).unwrap(),
+                //         self.get_ret_rec(right).unwrap(),
+                //         left_t.clone().unwrap(),
+                //         right_t.clone().unwrap(),
+                //     ));
+                // } else {
+                //     // self.types.insert(f.ret, self.get_ret_rec(right));
+                // }
+                true
             }
-            _ => false,
+            (_left_in, _right_in) => false,
         })
     }
 
@@ -348,25 +346,35 @@ impl InferState {
         self.node_types.clone()
     }
 
-    pub fn get_types(&self) -> BTreeMap<TypeId, Type> {
-        self.types
-            .iter()
-            // FIXME: Bad, it silently ignore types that are not fully infered
-            .filter_map(|(t_id, t)| {
-                if t.is_none() {
-                    error!(
-                        "Unresolved type_id: {:?} (hir_id: {:?})",
-                        t_id,
-                        self.node_types
-                            .iter()
-                            .find(|(_hir_id, t_id2)| t_id == *t_id2)
-                            .map(|x| x.0)
-                            .unwrap()
-                    )
-                }
+    pub fn get_types(&self) -> (BTreeMap<TypeId, Type>, Vec<Diagnostic>) {
+        let mut map = BTreeMap::new();
+        let mut diags = vec![];
 
-                Some((*t_id, t.clone()?))
-            })
-            .collect()
+        for (t_id, t) in &self.types {
+            if t.is_none() {
+                let span = self
+                    .node_types
+                    .iter()
+                    .find(|(_hir_id, t_id2)| *t_id == **t_id2)
+                    .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
+                    .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                    .unwrap();
+
+                diags.push(Diagnostic::new_unresolved_type(
+                    span,
+                    *t_id,
+                    self.node_types
+                        .iter()
+                        .find(|(_hir_id, t_id2)| t_id == *t_id2)
+                        .map(|x| x.0)
+                        .cloned()
+                        .unwrap(),
+                ));
+            } else {
+                map.insert(*t_id, t.clone().unwrap());
+            }
+        }
+
+        (map, diags)
     }
 }

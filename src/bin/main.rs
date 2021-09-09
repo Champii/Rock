@@ -26,12 +26,12 @@ fn build(config: &Config) -> bool {
         if let DiagnosticKind::NoError = diagnostic.get_kind() {
         } else {
             println!("Error: {}", diagnostic.get_kind());
-
-            return false;
         }
+
+        return false;
     }
 
-    Command::new("llc")
+    let llc_cmd = Command::new("llc")
         .args(&[
             "--relocation-model=pic",
             config.build_folder.join("out.ir").to_str().unwrap(),
@@ -39,7 +39,23 @@ fn build(config: &Config) -> bool {
         .output()
         .expect("failed to compile to ir");
 
-    Command::new("clang")
+    match llc_cmd.status.code() {
+        Some(code) => {
+            if code != 0 {
+                println!(
+                    "BUG: Cannot compile to ir: \n{}",
+                    String::from_utf8(llc_cmd.stderr).unwrap()
+                );
+
+                return false;
+            }
+        }
+        None => println!(
+            "\nError running: \n{}",
+            String::from_utf8(llc_cmd.stderr).unwrap()
+        ),
+    }
+    let clang_cmd = Command::new("clang")
         .args(&[
             "-o",
             config.build_folder.join("a.out").to_str().unwrap(),
@@ -48,6 +64,22 @@ fn build(config: &Config) -> bool {
         .output()
         .expect("failed to compile to binary");
 
+    match clang_cmd.status.code() {
+        Some(code) => {
+            if code != 0 {
+                println!(
+                    "BUG: Cannot compile to binary: {}",
+                    String::from_utf8(clang_cmd.stderr).unwrap()
+                );
+
+                return false;
+            }
+        }
+        None => println!(
+            "\nError running: \n{}",
+            String::from_utf8(clang_cmd.stderr).unwrap()
+        ),
+    }
     true
 }
 
@@ -63,7 +95,9 @@ fn run(config: Config) {
     print!("{}", String::from_utf8(cmd.stdout).unwrap());
 
     match cmd.status.code() {
-        Some(code) => std::process::exit(code),
+        Some(code) => {
+            std::process::exit(code);
+        }
         None => println!(
             "\nError running: \n{}",
             String::from_utf8(cmd.stderr).unwrap()

@@ -3,9 +3,9 @@ mod codegen_context;
 use codegen_context::*;
 use inkwell::context::Context;
 
-use crate::{hir::Root, Config};
+use crate::{diagnostics::Diagnostic, hir::Root, Config};
 
-pub fn generate(config: &Config, hir: &Root) {
+pub fn generate(config: &Config, hir: &Root) -> Result<(), Diagnostic> {
     let context = Context::create();
     let builder = context.create_builder();
 
@@ -19,13 +19,15 @@ pub fn generate(config: &Config, hir: &Root) {
     match codegen_ctx.module.verify() {
         Ok(_) => (),
         Err(e) => {
-            println!("{:#?}", e);
+            println!("Error: Bug in the generated IR:\n\n{}", e.to_string());
 
-            return;
+            return Err(Diagnostic::new_empty());
         }
     }
 
     codegen_ctx
         .module
         .write_bitcode_to_path(&config.build_folder.join("out.ir"));
+
+    Ok(())
 }

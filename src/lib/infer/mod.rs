@@ -4,11 +4,7 @@ mod mangle;
 mod state;
 
 use crate::{
-    diagnostics::{Diagnostic, Diagnostics},
-    hir::visit_mut::*,
-    infer::mangle::*,
-    parser::ParsingCtx,
-    Config,
+    diagnostics::Diagnostic, hir::visit_mut::*, infer::mangle::*, parser::ParsingCtx, Config,
 };
 
 use self::annotate::AnnotateContext;
@@ -20,7 +16,7 @@ pub fn infer(
     parsing_ctx: &mut ParsingCtx,
     config: &Config,
 ) -> Result<(), Diagnostic> {
-    let mut infer_state = InferState::new(root.clone()); // FIXME: Don't clone the whole hir !!!
+    let infer_state = InferState::new(root.clone()); // FIXME: Don't clone the whole hir !!!
 
     // infer_state.diagnostics = diagnostics;
 
@@ -60,7 +56,16 @@ pub fn infer(
 
     root.node_types = infer_state.get_node_types();
 
-    root.types = infer_state.get_types();
+    let (types, diags) = infer_state.get_types();
+
+    // we dont exit on unresolved types .. yet
+    for diag in diags {
+        parsing_ctx.diagnostics.push(diag);
+    }
+
+    parsing_ctx.print_diagnostics();
+
+    root.types = types;
 
     if config.show_hir {
         println!("{:#?}", root);

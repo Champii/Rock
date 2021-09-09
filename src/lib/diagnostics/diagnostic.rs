@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::parser::Span;
-use crate::{ast::Type, parser::SourceFile};
+use crate::{ast::Type, hir::HirId, infer::TypeId, parser::SourceFile};
 use colored::*;
 
 #[derive(Clone, Debug)]
@@ -39,6 +39,10 @@ impl Diagnostic {
 
     pub fn new_module_not_found(span: Span) -> Self {
         Self::new(span, DiagnosticKind::ModuleNotFound)
+    }
+
+    pub fn new_unresolved_type(span: Span, t: TypeId, hir_id: HirId) -> Self {
+        Self::new(span, DiagnosticKind::UnresolvedType(t, hir_id))
     }
 
     pub fn new_duplicated_operator(span: Span) -> Self {
@@ -124,6 +128,7 @@ pub enum DiagnosticKind {
     UnusedFunction,
     DuplicatedOperator,
     TypeConflict(Type, Type, Type, Type),
+    UnresolvedType(TypeId, HirId),
     NoMain,
     NoError, //TODO: remove that
 }
@@ -138,6 +143,9 @@ impl Display for DiagnosticKind {
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
             Self::TypeConflict(t1, t2, _in1, _in2) => {
                 format!("TypeConflict {} != {} ", t1, t2)
+            }
+            Self::UnresolvedType(t_id, hir_id) => {
+                format!("Unresolved type_id {} (hir_id {:?})", t_id, hir_id)
             }
             Self::FileNotFound(path) => format!("FileNotFound {}", path),
             DiagnosticKind::NotAFunction => "NotAFunction".to_string(),

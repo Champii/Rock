@@ -201,7 +201,9 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
 
                         // FIXME: Apply to list of types
                         // FIXME: Type needs to be solved in order to be applied. There is a dependency loop here
-                        self.state.solve();
+                        if let Err(_) = self.state.solve() {
+                            //Ignoring this diagnostic, as it will be produced again later
+                        }
 
                         let first_resolved_type = fc
                             .args

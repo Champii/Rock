@@ -65,7 +65,7 @@ pub fn parse_str(
 
     // Generate code
     debug!("    -> Lower to LLVM IR");
-    codegen::generate(&config, &hir);
+    codegen::generate(&config, &hir)?;
 
     debug!("    -> Save MetaData");
     PackageMetaData { hir }
