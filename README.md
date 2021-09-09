@@ -7,9 +7,10 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 ## Features
 
 - Strongly typed
-- Parametric Polymorphism(Soon(tm))
 - Type inference
 - Custom operators
+- Typeclass (Traits)
+- Parametric Polymorphism(Soon(tm))
 - Compile to LLVM IR
 
 ## Ongoing development
@@ -18,99 +19,35 @@ This project, its syntax and its APIs are subject to change at any moment. This 
 
 ## Quickstart and Example
 
-Creating a new project folder
+Lets create a new project folder to compute factorial
 
 ``` sh
-mkdir -P new_project/src && cd new_project
+mkdir -P factorial/src && cd factorial
 ```
 
 Add some files like this:
 
-`./src/main.rk`
+- Copy the lib from std: [lib.rk](https://github.com/Champii/Rock/blob/master/std/src/lib.rk) into `./src/std.rk`
+
+- Create a `./src/main.rk` file:
 
 ```haskell
-extern printf String -> Float64 -> Int64
-
 mod std
 
-use std::+
+use std::-
 use std::*
-use std::>>
-use std::<<
-use std::==
 use std::<=
-use std::>=
-use std::<
-use std::>
+use std::print
 
+fact a =
+    if a <= 1
+    then 1
+    else a * fact (a - 1)
 
-main =
-    if true == (true == (1 <= 2))
-    then 1 + 2 << printf "%f", (299.2 + 33.2)
-    else printf "%f", (12.3 * 12.2) >> 23 * 2
+main = print fact 4
 ```
 
-`./src/std.rk`:
-
-``` haskell
-infix + 4
-infix * 5
-infix == 3
-infix <= 3
-infix >= 3
-infix < 3
-infix > 3
-infix >> 2
-infix << 2
-
-# Num trait
-trait Num a
-    + a -> a -> a
-    * a -> a -> a
-
-impl Num Int64
-    + a b = ~IAdd a b
-    * a b = ~IMul a b
-
-impl Num Float64
-    + c d = ~FAdd c d
-    * c d = ~FMul c d
-
-# Eq trait
-trait Eq a
-    == a -> a -> Bool
-    <= a -> a -> Bool
-    >= a -> a -> Bool
-    < a -> a -> Bool
-    > a -> a -> Bool
-
-impl Eq Int64
-    == e f = ~IEq e f
-    <= e f = ~ILE e f
-    >= e f = ~IGE e f
-    < e f = ~ILT e f
-    > e f = ~IGT e f
-
-impl Eq Float64
-    == g h = ~FEq g h
-    <= g h = ~FLE g h
-    >= g h = ~FGE g h
-    < g h = ~FLT g h
-    > g h = ~FGT g h
-
-impl Eq Bool
-    == i j = ~BEq i j
-
-placeholder = 2.2 == 2.2
-
-# Helpers
->> x y = y
-
-<< x y = x
-```
-
-
-Assuming you built Rock and put its binary in your PATH:
+Assuming that you built Rock and put its binary in your PATH:
 
 ``` sh
 rock run
@@ -146,4 +83,5 @@ SUBCOMMANDS:
     help     Prints this message or the help of the given subcommand(s)
     run      Run the current project directory
 ```
+
 
