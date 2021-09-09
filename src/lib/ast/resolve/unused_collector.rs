@@ -6,10 +6,6 @@ use crate::{ast::*, walk_list};
 
 #[derive(Debug, Default)]
 pub struct UnusedCollector {
-    // hir: &'a Root,
-    // state: InferState,
-    // current_body: Option<FnBodyId>,
-    // new_resolutions: HashMap<HirId, HirId>,
     resolutions: ResolutionMap<NodeId>,
     list: HashMap<NodeId, bool>,
 }
@@ -36,37 +32,22 @@ impl<'a> Visitor<'a> for UnusedCollector {
 
         for top in &m.top_levels {
             match &top.kind {
-                TopLevelKind::Prototype(p) => {
-                    // self.add_to_current_scope((*p.name).clone(), p.identity.clone());
-                }
+                TopLevelKind::Prototype(p) => {}
                 TopLevelKind::Use(_u) => (),
                 TopLevelKind::Trait(t) => {
                     for f in &t.defs {
-                        println!("Trait method {:?}", f.identity);
-
                         self.list.insert(f.identity.node_id.clone(), false);
                     }
-                    // for proto in &t.defs {
-                    //     self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
-                    // }
                 }
-                TopLevelKind::Impl(i) => {
-                    // for f in &i.defs {
-                    //     println!("Impl method {:?}", f.identity);
-                    //     self.list.insert(f.identity.node_id.clone(), false);
-                    // }
-                }
+                TopLevelKind::Impl(i) => {}
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {
-                    // self.add_to_current_scope((*f.name).clone(), f.identity.clone());
                     self.list.insert(f.identity.node_id.clone(), false);
 
                     if f.name.name == "main".to_string() {
                         self.list.insert(f.identity.node_id.clone(), true);
                     }
-                    // self.list.insert(f.name.identity.node_id.clone(), false);
-                    // println!("FN: {:#?}", f);
                 }
             }
         }
@@ -94,23 +75,14 @@ impl<'a> Visitor<'a> for UnusedCollector {
     }
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
-        // self.list.insert(f.identity.node_id.clone(), false);
-        // // self.list.insert(f.name.identity.node_id.clone(), false);
-        // println!("FN: {:#?}", f);
-
-        // walk_function_decl(self, f);
-
         walk_list!(self, visit_argument_decl, &f.arguments);
 
         self.visit_body(&f.body);
     }
 
     fn visit_identifier(&mut self, id: &'a Identifier) {
-        // println!("ID {:?}", id);
         if let Some(reso) = self.resolutions.get_recur(&id.identity.node_id) {
-            // println!("RESO {:?}", reso);
             if let Some(used) = self.list.get_mut(&reso) {
-                println!("WESH {:?} {:?} {:?}", id, reso, used);
                 *used = true;
             }
         }

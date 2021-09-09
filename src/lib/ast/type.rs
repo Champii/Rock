@@ -86,6 +86,7 @@ impl TypeSignature {
             Some((i, _orig_t)) => dest[i].clone(),
             None => self.ret.clone(),
         };
+
         Self {
             args: applied_args,
             ret: applied_ret,

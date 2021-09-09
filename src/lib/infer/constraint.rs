@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::ast::PrimitiveType;
+
 use super::{Constraint, InferState};
 use crate::walk_list;
 use crate::{ast::FuncType, hir::*};
@@ -93,10 +95,36 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             ExpressionKind::Return(expr) => self.visit_expression(&expr),
             ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
             ExpressionKind::NativeOperation(op, left, right) => {
-                println!("NATIVE OP");
                 self.visit_identifier(&left);
                 self.visit_identifier(&right);
 
+                //FIXME
+                let arg_t = match op.kind {
+                    NativeOperatorKind::IEq
+                    | NativeOperatorKind::IGT
+                    | NativeOperatorKind::IGE
+                    | NativeOperatorKind::ILT
+                    | NativeOperatorKind::ILE => PrimitiveType::Int64,
+                    NativeOperatorKind::FEq
+                    | NativeOperatorKind::FGT
+                    | NativeOperatorKind::FGE
+                    | NativeOperatorKind::FLT
+                    | NativeOperatorKind::FLE
+                    | NativeOperatorKind::BEq => PrimitiveType::Float64,
+                    NativeOperatorKind::IAdd
+                    | NativeOperatorKind::ISub
+                    | NativeOperatorKind::IDiv
+                    | NativeOperatorKind::IMul => PrimitiveType::Int64,
+                    NativeOperatorKind::FAdd
+                    | NativeOperatorKind::FSub
+                    | NativeOperatorKind::FDiv
+                    | NativeOperatorKind::FMul => PrimitiveType::Float64,
+                };
+
+                self.state
+                    .solve_type(left.hir_id.clone(), Type::Primitive(arg_t.clone()));
+                self.state
+                    .solve_type(right.hir_id.clone(), Type::Primitive(arg_t));
                 self.state.add_constraint(Constraint::Eq(
                     self.state.get_type_id(left.hir_id.clone()).unwrap(),
                     self.state.get_type_id(right.hir_id.clone()).unwrap(),
@@ -173,8 +201,8 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
 
                         // FIXME: Apply to list of types
                         // FIXME: Type needs to be solved in order to be applied. There is a dependency loop here
+                        self.state.solve();
 
-                        // self.state.solve();
                         let first_resolved_type = fc
                             .args
                             .iter()
@@ -233,36 +261,6 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                 );
                             } else {
                                 println!("NO TRAIT METHOD RESOLUTION");
-                                // self.state.solve_type(
-                                //     fc.op.get_terminal_hir_id(),
-                                //     Type::FuncType(FuncType::new(
-                                //         fc.op.as_identifier().name,
-                                //         fc.args
-                                //             .iter()
-                                //             .map(|arg| {
-                                //                 self.state
-                                //                     .get_type_id(arg.get_terminal_hir_id())
-                                //                     .unwrap()
-                                //             })
-                                //             .collect::<Vec<_>>(),
-                                //         self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                //     )),
-                                // );
-                                // self.state.solve_type(
-                                //     top_id.clone(),
-                                //     Type::FuncType(FuncType::new(
-                                //         fc.op.as_identifier().name,
-                                //         fc.args
-                                //             .iter()
-                                //             .map(|arg| {
-                                //                 self.state
-                                //                     .get_type_id(arg.get_terminal_hir_id())
-                                //                     .unwrap()
-                                //             })
-                                //             .collect::<Vec<_>>(),
-                                //         self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                //     )),
-                                // );
                                 self.state.add_constraint(Constraint::Callable(
                                     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
@@ -271,11 +269,6 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     self.state.get_type_id(top_id.clone()).unwrap(),
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                                 ));
-
-                                // self.state.add_constraint(Constraint::Eq(
-                                //     self.state.get_type_id(top_id).unwrap(),
-                                //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                                // ));
                             }
                         } else {
                             self.state.solve_type(
@@ -308,14 +301,6 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
                                 )),
                             );
-                            // self.state.add_constraint(Constraint::Callable(
-                            //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                            //     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                            // ));
-                            // self.state.add_constraint(Constraint::Callable(
-                            //     self.state.get_type_id(top_id.clone()).unwrap(),
-                            //     self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                            // ));
                         }
                     }
                 } else {
@@ -335,11 +320,6 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
         if let Some(body) = self.hir.get_body(f.body_id.clone()) {
             let body_hir_id = body.get_terminal_hir_id();
             let body_type_id = self.state.get_type_id(body_hir_id.clone()).unwrap();
-
-            // self.state.add_constraint(Constraint::Eq(
-            //     self.state.get_type_id(f.hir_id.clone()).unwrap(),
-            //     body_type_id,
-            // ));
 
             self.state.add_constraint(Constraint::Callable(
                 self.state.get_type_id(f.hir_id.clone()).unwrap(),
@@ -382,7 +362,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
             //     .new_named_annotation(id.name.clone(), reso.clone());
 
             if self.state.get_type_id(reso.clone()).is_none() {
-                error!("UNKNOWN IDENTIFIER RESOLUTION TYPE ID {:?}", id);
+                warn!("UNKNOWN IDENTIFIER RESOLUTION TYPE ID {:?}", id);
 
                 self.state.new_type_id(reso.clone());
             }
@@ -392,7 +372,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 self.state.get_type_id(reso.clone()).unwrap(),
             ));
         } else {
-            error!("No identifier resolution {:?}", id);
+            warn!("No identifier resolution {:?}", id);
             // self.state
             //     .new_named_annotation(id.name.clone(), id.hir_id.clone());
         }

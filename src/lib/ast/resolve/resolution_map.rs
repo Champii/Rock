@@ -10,7 +10,7 @@ where
 impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
     pub fn insert(&mut self, pointer_id: T, pointee_id: T) {
         if self.0.insert(pointer_id, pointee_id).is_some() {
-            error!("Overriding resolution");
+            debug!("Overriding resolution");
         }
     }
 
@@ -21,7 +21,7 @@ impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
     pub fn get_recur(&self, pointer_id: &T) -> Option<T> {
         self.get(pointer_id).and_then(|pointee_id| {
             if *pointer_id == pointee_id {
-                error!("Resolution loop");
+                warn!("Resolution loop");
 
                 return Some(pointee_id);
             } else {

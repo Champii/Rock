@@ -35,7 +35,7 @@ impl Mod {
                 match &mut top_level.kind {
                     TopLevelKind::Function(f) => {
                         if unused.contains(&f.identity.node_id) {
-                            error!("Unused function {:?}", f.name);
+                            warn!("Unused function {:?}", f.name);
 
                             return None;
                         }
@@ -47,7 +47,7 @@ impl Mod {
                             if unused.contains(&f.identity.node_id) {
                                 unused_trait_method_names.push(f.name.clone());
 
-                                error!("Unused trait method {:?}", f.name);
+                                warn!("Unused trait method {:?}", f.name);
                             } else {
                                 defs.push(f.clone());
                             }
@@ -70,7 +70,7 @@ impl Mod {
 
                         for f in &i.defs {
                             if unused_trait_method_names.contains(&f.name) {
-                                error!("Unused impl method {:?}", f.name);
+                                warn!("Unused impl method {:?}", f.name);
                             } else {
                                 defs.push(f.clone());
                             }

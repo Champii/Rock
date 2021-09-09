@@ -55,7 +55,6 @@ impl<'a> CodegenContext<'a> {
                 let f2 = match self.module.get_function(&f.name) {
                     Some(f2) => f2,
                     None => {
-                        println!("F.name {}", f.name);
                         let f = self.hir.get_function_by_name(&f.name).unwrap();
 
                         self.lower_function_decl(&f, builder);
