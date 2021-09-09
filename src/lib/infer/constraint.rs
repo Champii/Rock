@@ -260,7 +260,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                                     vec![r#trait.name.get_name(), applied_type.get_name()],
                                 );
                             } else {
-                                println!("NO TRAIT METHOD RESOLUTION");
+                                // println!("NO TRAIT METHOD RESOLUTION");
                                 self.state.add_constraint(Constraint::Callable(
                                     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
                                     self.state.get_type_id(fc.hir_id.clone()).unwrap(),

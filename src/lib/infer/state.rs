@@ -159,7 +159,7 @@ impl InferState {
 
                 false
             }
-            (Some(left_in), Some(_right)) => {
+            (Some(left_in), Some(right_in)) => {
                 if self.get_ret(left).unwrap() != self.get_ret(right).unwrap() {
                     let span = self
                         .node_types
@@ -198,7 +198,28 @@ impl InferState {
 
                 true
             }
-            (Some(Type::FuncType(_f)), Some(Type::FuncType(_f2))) => false,
+            (Some(Type::FuncType(f1)), Some(Type::FuncType(f2))) => {
+                if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
+                    let span = self
+                        .node_types
+                        .iter()
+                        .find(|(_hir_id, t_id)| **t_id == right)
+                        .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
+                        .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                        .unwrap();
+
+                    return Err(Diagnostic::new_type_conflict(
+                        span,
+                        self.get_ret_rec(left).unwrap(),
+                        self.get_ret_rec(right).unwrap(),
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
+                    ));
+                } else {
+                    // self.types.insert(f.ret, self.get_ret_rec(right));
+                    true
+                }
+            }
             (Some(Type::FuncType(f)), Some(other)) => {
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     let span = self
@@ -221,10 +242,27 @@ impl InferState {
                     true
                 }
             }
-            (Some(_other), Some(Type::FuncType(_f))) => {
-                error!("CALLABLE NOT A FUNC");
+            (Some(left_in), Some(right_in)) => {
+                if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
+                    let span = self
+                        .node_types
+                        .iter()
+                        .find(|(_hir_id, t_id)| **t_id == right)
+                        .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
+                        .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                        .unwrap();
 
-                false
+                    return Err(Diagnostic::new_type_conflict(
+                        span,
+                        self.get_ret_rec(left).unwrap(),
+                        self.get_ret_rec(right).unwrap(),
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
+                    ));
+                } else {
+                    // self.types.insert(f.ret, self.get_ret_rec(right));
+                    true
+                }
             }
             _ => false,
         })
