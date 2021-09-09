@@ -1,3 +1,4 @@
+use colored::*;
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
@@ -25,6 +26,8 @@ impl ParsingCtx {
         }
     }
 
+    // pub fn get_span_from_hir_id(&self, hir_id: HirId) -> Span {}
+
     pub fn add_file(&mut self, file: SourceFile) {
         self.current_file = Some(file.file_path.clone());
 
@@ -45,6 +48,13 @@ impl ParsingCtx {
     pub fn return_if_error(&self) -> Result<(), Diagnostic> {
         if self.diagnostics.must_stop {
             self.print_diagnostics();
+
+            println!(
+                "[{}] Compilation stoped with {} {} emitted",
+                "Error".red(),
+                self.diagnostics.list.len().to_string().red(),
+                "errors".red(),
+            );
 
             return Err(Diagnostic::new_empty());
         }

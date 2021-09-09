@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::NodeId;
 use crate::{ast::identity::Identity, parser::Token};
+use crate::{parser::Span, NodeId};
 
 use crate::ast::resolve::ResolutionMap;
 use crate::generate_has_name;
@@ -9,12 +9,42 @@ use crate::helpers::*;
 
 use super::{Type, TypeSignature};
 
+// trait GetSpan {
+//     fn get_span(&self) -> Span;
+// }
+
+// macro_rules! generate_get_span {
+//     ($($expr:ty,)+) => {
+//         $(
+//             impl GetSpan for $expr {
+//                 fn get_span(&self) -> Span {
+//                     self.identity.span.clone()
+//                 }
+//             }
+//         )+
+//     };
+// }
+// generate_get_span!(
+//     Mod,
+//     TopLevel,
+//     Prototype,
+//     Use,
+//     FunctionDecl,
+//     Identifier,
+//     ArgumentDecl,
+//     If,
+//     PrimaryExpr,
+//     Literal,
+//     NativeOperator,
+// );
+
 #[derive(Debug, Clone)]
 pub struct Root {
     pub r#mod: Mod,
     pub resolutions: ResolutionMap<NodeId>,
     pub operators_list: HashMap<String, u8>,
     pub unused: Vec<NodeId>,
+    pub spans: HashMap<NodeId, Span>,
 }
 
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::{collections::HashMap, convert::TryInto};
 
 use crate::ast::*;
 use crate::{ast::resolve::ResolutionMap, diagnostics::Diagnostic};
@@ -176,7 +176,18 @@ impl Parse for Root {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let r#mod = Mod::parse(ctx)?;
 
+        // FIXME: Check if main exists
+        r#mod
+            .top_levels
+            .iter()
+            .find(|top| match &top.kind {
+                TopLevelKind::Function(f) => *f.name == "main".to_string(),
+                _ => false,
+            })
+            .ok_or_else(|| Diagnostic::new_no_main())?;
+
         Ok(Root {
+            spans: HashMap::new(),
             unused: vec![],
             resolutions: ResolutionMap::default(),
             operators_list: ctx.ctx.operators_list.clone(),

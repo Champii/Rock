@@ -14,7 +14,7 @@ use crate::{
     parser::ParsingCtx,
 };
 
-use super::{IdentifierPath, Root};
+use super::{span_collector::SpanCollector, IdentifierPath, Root};
 
 pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diagnostic> {
     let mut scopes = HashMap::new();
@@ -42,6 +42,12 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
     // println!("unused {:?}", unused);
 
     root.r#mod.filter_unused_top_levels(unused);
+
+    let mut span_collector = SpanCollector::new();
+
+    span_collector.visit_root(root);
+
+    root.spans = span_collector.take_list();
 
     parsing_ctx.return_if_error()
 }

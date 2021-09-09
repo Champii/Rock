@@ -10,6 +10,7 @@ use std::{fs, path::PathBuf};
 
 pub mod logger;
 
+use rock::diagnostics::DiagnosticKind;
 pub(crate) use rock::*;
 
 fn build(config: &Config) -> bool {
@@ -19,8 +20,15 @@ fn build(config: &Config) -> bool {
 
     fs::create_dir_all(config.build_folder.clone()).unwrap();
 
-    if let Err(_e) = rock::parse_file(entry_file.to_string(), "".to_string(), config.clone()) {
-        return false;
+    if let Err(diagnostic) =
+        rock::parse_file(entry_file.to_string(), "".to_string(), config.clone())
+    {
+        if let DiagnosticKind::NoError = diagnostic.get_kind() {
+        } else {
+            println!("Error: {}", diagnostic.get_kind());
+
+            return false;
+        }
     }
 
     Command::new("llc")

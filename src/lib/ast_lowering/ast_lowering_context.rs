@@ -48,6 +48,7 @@ impl AstLoweringContext {
             trait_methods: self.trait_methods.clone(),
             trait_call_to_mangle: HashMap::new(),
             unused: vec![],
+            spans: root.spans.clone(),
         }
     }
 

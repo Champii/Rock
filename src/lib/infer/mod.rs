@@ -3,16 +3,26 @@ mod constraint;
 mod mangle;
 mod state;
 
-use crate::{diagnostics::Diagnostics, hir::visit_mut::*, infer::mangle::*, Config};
+use crate::{
+    diagnostics::{Diagnostic, Diagnostics},
+    hir::visit_mut::*,
+    infer::mangle::*,
+    parser::ParsingCtx,
+    Config,
+};
 
 use self::annotate::AnnotateContext;
 use self::constraint::ConstraintContext;
 pub use self::state::*;
 
-pub fn infer(root: &mut crate::hir::Root, diagnostics: Diagnostics, config: &Config) {
-    let mut infer_state = InferState::new();
+pub fn infer(
+    root: &mut crate::hir::Root,
+    parsing_ctx: &mut ParsingCtx,
+    config: &Config,
+) -> Result<(), Diagnostic> {
+    let mut infer_state = InferState::new(root.clone()); // FIXME: Don't clone the whole hir !!!
 
-    infer_state.diagnostics = diagnostics;
+    // infer_state.diagnostics = diagnostics;
 
     let mut annotate_ctx = AnnotateContext::new(infer_state, root.trait_methods.clone());
 
@@ -29,7 +39,11 @@ pub fn infer(root: &mut crate::hir::Root, diagnostics: Diagnostics, config: &Con
         root.resolutions.insert(k.clone(), v.clone());
     }
 
-    infer_state.solve();
+    if let Err(diag) = infer_state.solve() {
+        parsing_ctx.diagnostics.push(diag.clone());
+
+        parsing_ctx.return_if_error()?;
+    }
 
     if config.show_state {
         println!("ROOT {:#?}", root);
@@ -51,4 +65,6 @@ pub fn infer(root: &mut crate::hir::Root, diagnostics: Diagnostics, config: &Con
     if config.show_hir {
         println!("{:#?}", root);
     }
+
+    Ok(())
 }

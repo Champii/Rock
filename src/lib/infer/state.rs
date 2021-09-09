@@ -3,7 +3,13 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::{ast::Type, diagnostics::Diagnostics, helpers::scopes::Scopes, hir::HirId};
+use crate::{
+    ast::Type,
+    diagnostics::{Diagnostic, Diagnostics},
+    helpers::scopes::Scopes,
+    hir::{HirId, Root},
+    parser::Span,
+};
 
 pub type NodeId = u64;
 
@@ -20,18 +26,22 @@ pub enum Constraint {
 #[derive(Debug, Default)]
 pub struct InferState {
     // pub named_types_flat: Scopes<String, TypeId>,
-    pub diagnostics: Diagnostics,
+    // pub diagnostics: Diagnostics,
     pub named_types: Scopes<String, TypeId>,
     node_types: BTreeMap<HirId, TypeId>,
     types: BTreeMap<TypeId, Option<Type>>,
     constraints: Vec<Constraint>,
     // TODO: extract this in its own pass
     pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
+    pub root: Root,
 }
 
 impl InferState {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(root: Root) -> Self {
+        Self {
+            root,
+            ..Self::default()
+        }
     }
 
     // pub fn new_named_annotation(&mut self, name: String, hir_id: HirId) -> TypeId {
@@ -119,11 +129,11 @@ impl InferState {
         self.node_types.remove(&hir_id);
     }
 
-    pub fn replace_type(&mut self, left: TypeId, right: TypeId) -> bool {
+    pub fn replace_type(&mut self, left: TypeId, right: TypeId) -> Result<bool, Diagnostic> {
         let left_t = self.types.get(&left).unwrap().clone();
         let right_t = self.types.get(&right).unwrap().clone();
 
-        match (left_t, right_t) {
+        Ok(match (left_t.clone(), right_t.clone()) {
             (Some(_), None) => {
                 self.types.insert(right, self.get_type(left));
 
@@ -149,21 +159,35 @@ impl InferState {
 
                 false
             }
-            (Some(_left), Some(_right)) => {
+            (Some(left_in), Some(_right)) => {
                 if self.get_ret(left).unwrap() != self.get_ret(right).unwrap() {
-                    error!("Incompatible types {:?} != {:?}", left, right);
+                    let span = self
+                        .node_types
+                        .iter()
+                        .find(|(_hir_id, t_id)| **t_id == right)
+                        .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
+                        .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                        .unwrap();
+
+                    return Err(Diagnostic::new_type_conflict(
+                        span,
+                        self.get_ret_rec(left).unwrap(),
+                        self.get_ret_rec(right).unwrap(),
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
+                    ));
                 }
                 false
             }
             _ => false,
-        }
+        })
     }
 
-    pub fn replace_type_ret(&mut self, left: TypeId, right: TypeId) -> bool {
+    pub fn replace_type_ret(&mut self, left: TypeId, right: TypeId) -> Result<bool, Diagnostic> {
         let left_t = self.types.get(&left).unwrap().clone();
         let right_t = self.types.get(&right).unwrap().clone();
 
-        match (left_t, right_t) {
+        Ok(match (left_t.clone(), right_t.clone()) {
             (Some(_), None) => {
                 self.types.insert(right, self.get_ret_rec(left));
 
@@ -177,15 +201,21 @@ impl InferState {
             (Some(Type::FuncType(_f)), Some(Type::FuncType(_f2))) => false,
             (Some(Type::FuncType(f)), Some(other)) => {
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
-                    error!(
-                        "Incompatible callable return types {:?} != {:?}\n{:?} != {:?}",
-                        f.ret,
-                        other,
-                        self.get_ret_rec(left).unwrap(),
-                        self.get_ret_rec(right).unwrap()
-                    );
+                    let span = self
+                        .node_types
+                        .iter()
+                        .find(|(_hir_id, t_id)| **t_id == right)
+                        .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
+                        .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                        .unwrap();
 
-                    false
+                    return Err(Diagnostic::new_type_conflict(
+                        span,
+                        self.get_ret_rec(left).unwrap(),
+                        self.get_ret_rec(right).unwrap(),
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
+                    ));
                 } else {
                     // self.types.insert(f.ret, self.get_ret_rec(right));
                     true
@@ -197,7 +227,7 @@ impl InferState {
                 false
             }
             _ => false,
-        }
+        })
     }
 
     pub fn get_ret(&self, t_id: TypeId) -> Option<Type> {
@@ -241,7 +271,7 @@ impl InferState {
         self.constraints.push(constraint);
     }
 
-    pub fn solve(&mut self) {
+    pub fn solve(&mut self) -> Result<(), Diagnostic> {
         let mut cpy = self.constraints.clone();
         let mut res = vec![];
 
@@ -251,12 +281,12 @@ impl InferState {
             for constraint in cpy.clone() {
                 match constraint {
                     Constraint::Eq(left, right) => {
-                        if !self.replace_type(left, right) {
+                        if !self.replace_type(left, right)? {
                             res.push(constraint.clone());
                         }
                     }
                     Constraint::Callable(f, ret) => {
-                        if !self.replace_type_ret(f, ret) {
+                        if !self.replace_type_ret(f, ret)? {
                             res.push(constraint.clone());
                         }
                     }
@@ -272,6 +302,8 @@ impl InferState {
             cpy = self.constraints.clone();
             res = vec![];
         }
+
+        Ok(())
     }
 
     pub fn get_node_types(&self) -> BTreeMap<HirId, TypeId> {

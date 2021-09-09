@@ -4,6 +4,7 @@ pub mod ast_print;
 mod identity;
 mod primitive_type;
 pub mod resolve;
+pub mod span_collector;
 mod tree;
 mod r#type;
 pub mod visit;

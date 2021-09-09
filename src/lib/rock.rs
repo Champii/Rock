@@ -27,7 +27,7 @@ use crate::helpers::config::PackageMetaData;
 pub use crate::infer::*;
 mod ast_lowering;
 mod codegen;
-mod diagnostics;
+pub mod diagnostics;
 mod hir;
 mod parser;
 mod tests;
@@ -35,7 +35,7 @@ mod tests;
 pub use crate::helpers::config::Config;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Diagnostic> {
-    parse_str(SourceFile::from_file(in_name), out_name, config)
+    parse_str(SourceFile::from_file(in_name)?, out_name, config)
 }
 
 pub fn parse_str(
@@ -61,7 +61,7 @@ pub fn parse_str(
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    infer::infer(&mut hir, parsing_ctx.diagnostics, &config);
+    infer::infer(&mut hir, &mut parsing_ctx, &config)?;
 
     // Generate code
     debug!("    -> Lower to LLVM IR");

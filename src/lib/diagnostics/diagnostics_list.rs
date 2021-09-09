@@ -6,7 +6,7 @@ use super::Diagnostic;
 
 #[derive(Debug, Default)]
 pub struct Diagnostics {
-    list: Vec<Diagnostic>,
+    pub list: Vec<Diagnostic>,
     pub must_stop: bool,
 }
 

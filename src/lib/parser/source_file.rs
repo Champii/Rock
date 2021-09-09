@@ -3,6 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::diagnostics::Diagnostic;
+
+use super::Span;
+
 #[derive(Default, Debug, Clone)]
 pub struct SourceFile {
     pub file_path: PathBuf,
@@ -11,14 +15,16 @@ pub struct SourceFile {
 }
 
 impl SourceFile {
-    pub fn from_file(in_name: String) -> Self {
-        let file = fs::read_to_string(in_name.clone()).expect("Woot");
+    pub fn from_file(in_name: String) -> Result<Self, Diagnostic> {
+        let file = fs::read_to_string(in_name.clone()).map_err(|_| {
+            Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
+        })?;
 
-        SourceFile {
+        Ok(SourceFile {
             file_path: PathBuf::from(in_name.clone()),
             mod_path: PathBuf::from(in_name),
             content: file,
-        }
+        })
     }
 
     pub fn resolve_new(&self, name: String) -> Result<Self, ()> {

@@ -1,7 +1,8 @@
 use std::fmt::Display;
 
-use crate::parser::SourceFile;
 use crate::parser::Span;
+use crate::{ast::Type, parser::SourceFile};
+use colored::*;
 
 #[derive(Clone, Debug)]
 pub struct Diagnostic {
@@ -21,6 +22,9 @@ impl Diagnostic {
         }
     }
 
+    pub fn new_file_not_found(span: Span, path: String) -> Self {
+        Self::new(span, DiagnosticKind::FileNotFound(path))
+    }
     pub fn new_unexpected_token(span: Span) -> Self {
         Self::new(span, DiagnosticKind::UnexpectedToken)
     }
@@ -41,8 +45,11 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::DuplicatedOperator)
     }
 
-    pub fn new_type_conflict(span: Span) -> Self {
-        Self::new(span, DiagnosticKind::TypeConflict)
+    pub fn new_no_main() -> Self {
+        Self::new(Span::new_placeholder(), DiagnosticKind::NoMain)
+    }
+    pub fn new_type_conflict(span: Span, t1: Type, t2: Type, in1: Type, in2: Type) -> Self {
+        Self::new(span, DiagnosticKind::TypeConflict(t1, t2, in1, in2))
     }
 
     pub fn print(&self, file: &SourceFile) {
@@ -63,7 +70,7 @@ impl Diagnostic {
         };
 
         let line_ind = format!(
-            "{}({}:{}) => ",
+            " -> {}({}:{})",
             file.file_path.to_str().unwrap(),
             line,
             line_start
@@ -81,12 +88,22 @@ impl Diagnostic {
 
         arrow.push('^');
 
+        let mut i = 0;
+        while i < self.span.end - self.span.start {
+            arrow.push('~');
+
+            i += 1;
+        }
+
         println!(
-            "{}[Error]: {}\n{}\n{}",
-            line_ind,
-            self.kind.to_string(),
+            "[{}]: {}\n{}\n\n{:>4} {} {}\n       {}",
+            "Error".red().italic(),
+            self.kind.to_string().red().bold(),
+            line_ind.blue(),
+            line.to_string().green(),
+            "|".yellow(),
             lines[line - 1].iter().cloned().collect::<String>(),
-            arrow,
+            arrow.red(),
         );
     }
 
@@ -97,6 +114,7 @@ impl Diagnostic {
 
 #[derive(Clone, Debug)]
 pub enum DiagnosticKind {
+    FileNotFound(String),
     UnexpectedToken,
     SyntaxError(String),
     UnknownIdentifier,
@@ -105,7 +123,8 @@ pub enum DiagnosticKind {
     UnusedParameter,
     UnusedFunction,
     DuplicatedOperator,
-    TypeConflict,
+    TypeConflict(Type, Type, Type, Type),
+    NoMain,
     NoError, //TODO: remove that
 }
 
@@ -117,8 +136,15 @@ impl Display for DiagnosticKind {
             Self::UnknownIdentifier => "UnknownIdentifier".to_string(),
             Self::ModuleNotFound => "ModuleNotFound".to_string(),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
-            Self::TypeConflict => "TypeConflict".to_string(),
-            _ => "ERROR TBD".to_string(),
+            Self::TypeConflict(t1, t2, _in1, _in2) => {
+                format!("TypeConflict {} != {} ", t1, t2)
+            }
+            Self::FileNotFound(path) => format!("FileNotFound {}", path),
+            DiagnosticKind::NotAFunction => "NotAFunction".to_string(),
+            DiagnosticKind::UnusedParameter => "UnusedParameter".to_string(),
+            DiagnosticKind::UnusedFunction => "UnusedFunction".to_string(),
+            DiagnosticKind::NoMain => "NoMain".to_string(),
+            DiagnosticKind::NoError => "NoError".to_string(),
         };
 
         write!(f, "{}", s)

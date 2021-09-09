@@ -109,8 +109,8 @@ impl_visitor_trait!(
     Else, r#else
     UnaryExpr, unary
     Operator, operator
-    PrimaryExpr, primary
-    SecondaryExpr, secondary
+    PrimaryExpr, primary_expr
+    SecondaryExpr, secondary_expr
     Operand, operand
     Argument, argument
     Literal, literal

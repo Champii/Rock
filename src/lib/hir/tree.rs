@@ -1,6 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::{ast::Type, ast_lowering::HirMap};
+use crate::{
+    ast::Type,
+    ast_lowering::HirMap,
+    parser::{SourceFile, Span},
+    NodeId,
+};
 use crate::{
     ast::{resolve::ResolutionMap, TypeSignature},
     hir::hir_id::*,
@@ -20,6 +25,7 @@ pub struct Root {
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
     pub unused: Vec<HirId>,
+    pub spans: HashMap<NodeId, Span>,
 }
 
 impl Root {

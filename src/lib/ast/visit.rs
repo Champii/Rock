@@ -48,8 +48,8 @@ generate_visitor_trait!(
     Else, r#else
     UnaryExpr, unary
     Operator, operator
-    PrimaryExpr, primary
-    SecondaryExpr, secondary
+    PrimaryExpr, primary_expr
+    SecondaryExpr, secondary_expr
     Operand, operand
     Argument, argument
     Literal, literal
@@ -183,7 +183,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
 
 pub fn walk_unary<'a, V: Visitor<'a>>(visitor: &mut V, unary: &'a UnaryExpr) {
     match unary {
-        UnaryExpr::PrimaryExpr(primary) => visitor.visit_primary(primary),
+        UnaryExpr::PrimaryExpr(primary) => visitor.visit_primary_expr(primary),
         UnaryExpr::UnaryExpr(op, unary) => {
             visitor.visit_operator(op);
             visitor.visit_unary(&*unary);
@@ -191,15 +191,15 @@ pub fn walk_unary<'a, V: Visitor<'a>>(visitor: &mut V, unary: &'a UnaryExpr) {
     }
 }
 
-pub fn walk_primary<'a, V: Visitor<'a>>(visitor: &mut V, primary: &'a PrimaryExpr) {
+pub fn walk_primary_expr<'a, V: Visitor<'a>>(visitor: &mut V, primary: &'a PrimaryExpr) {
     visitor.visit_operand(&primary.op);
 
     if let Some(secondaries) = &primary.secondaries {
-        walk_list!(visitor, visit_secondary, secondaries);
+        walk_list!(visitor, visit_secondary_expr, secondaries);
     }
 }
 
-pub fn walk_secondary<'a, V: Visitor<'a>>(visitor: &mut V, secondary: &'a SecondaryExpr) {
+pub fn walk_secondary_expr<'a, V: Visitor<'a>>(visitor: &mut V, secondary: &'a SecondaryExpr) {
     match secondary {
         SecondaryExpr::Arguments(args) => {
             walk_list!(visitor, visit_argument, args);
