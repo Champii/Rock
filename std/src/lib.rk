@@ -1,14 +1,8 @@
-mod show
-mod print
 mod num
 mod eq
+mod show
+mod print
+
+mod helpers
 
 mod prelude
-
-# infix >> 2
-# infix << 2
-# infix |> 1
-# Helpers
-# >> x y = y
-# << x y = x
-# |> k l = l k

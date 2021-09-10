@@ -27,3 +27,7 @@ impl Eq Float64
 
 impl Eq Bool
     == i j = ~BEq i j
+    <= i j = ~BEq i j
+    >= i j = ~BEq i j
+    < i j = ~BEq i j
+    > i j = ~BEq i j

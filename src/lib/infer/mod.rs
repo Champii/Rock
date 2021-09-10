@@ -35,8 +35,10 @@ pub fn infer(
         root.resolutions.insert(k.clone(), v.clone());
     }
 
-    if let Err(diag) = infer_state.solve() {
-        parsing_ctx.diagnostics.push_error(diag.clone());
+    if let Err(diags) = infer_state.solve() {
+        for diag in diags {
+            parsing_ctx.diagnostics.push_error(diag.clone());
+        }
     }
 
     if config.show_state {

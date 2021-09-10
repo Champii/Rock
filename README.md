@@ -27,17 +27,14 @@ mkdir -P factorial/src && cd factorial
 
 Add some files like this:
 
-- Copy the lib from std: [lib.rk](https://github.com/Champii/Rock/blob/master/std/src/lib.rk) into `./src/std.rk`
+- Copy the std lib files from [std](https://github.com/Champii/Rock/blob/master/std/src) into `./src/`
 
 - Create a `./src/main.rk` file:
 
 ```haskell
-mod std
+mod lib
 
-use std::num::-
-use std::num::*
-use std::eq::<=
-use std::print::print
+use lib::prelude::*
 
 fact a =
     if a <= 1

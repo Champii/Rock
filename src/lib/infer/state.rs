@@ -124,10 +124,10 @@ impl InferState {
                     self.add_constraint(Constraint::Eq(*arg, *f2.arguments.get(i).unwrap()));
                 });
 
-                false
+                true
             }
-            (Some(_left_in), Some(_right_in)) => {
-                if self.get_ret(left).unwrap() != self.get_ret(right).unwrap() {
+            (Some(left_in), Some(right_in)) => {
+                if left_in != right_in {
                     let span = self
                         .node_types
                         .iter()
@@ -138,13 +138,13 @@ impl InferState {
 
                     return Err(Diagnostic::new_type_conflict(
                         span,
-                        self.get_ret_rec(left).unwrap(),
-                        self.get_ret_rec(right).unwrap(),
+                        left_in,
+                        right_in,
                         left_t.clone().unwrap(),
                         right_t.clone().unwrap(),
                     ));
                 }
-                false
+                true
             }
             _ => false,
         })
@@ -209,28 +209,28 @@ impl InferState {
             }
             (Some(_left_in), Some(_)) => {
                 // FIXME: this makes the traits and mod tests to fail
-                // if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
-                //     let span = self
-                //         .node_types
-                //         .iter()
-                //         .find(|(_hir_id, t_id)| **t_id == right)
-                //         .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
-                //         .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
-                //         .unwrap();
+                if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
+                    let span = self
+                        .node_types
+                        .iter()
+                        .find(|(_hir_id, t_id)| **t_id == right)
+                        .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
+                        .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                        .unwrap();
 
-                //     return Err(Diagnostic::new_type_conflict(
-                //         span,
-                //         self.get_ret_rec(left).unwrap(),
-                //         self.get_ret_rec(right).unwrap(),
-                //         left_t.clone().unwrap(),
-                //         right_t.clone().unwrap(),
-                //     ));
-                // } else {
-                //     // self.types.insert(f.ret, self.get_ret_rec(right));
-                // }
+                    return Err(Diagnostic::new_type_conflict(
+                        span,
+                        self.get_ret_rec(left).unwrap(),
+                        self.get_ret_rec(right).unwrap(),
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
+                    ));
+                } else {
+                    // self.types.insert(f.ret, self.get_ret_rec(right));
+                }
                 true
             }
-            (_left_in, _right_in) => false,
+            (_left_in, _right_in) => true,
         })
     }
 
@@ -275,25 +275,32 @@ impl InferState {
         self.constraints.push(constraint);
     }
 
-    pub fn solve(&mut self) -> Result<(), Diagnostic> {
+    pub fn solve(&mut self) -> Result<(), Vec<Diagnostic>> {
         let mut cpy = self.constraints.clone();
         let mut res = vec![];
+        let mut diags = vec![];
 
         let mut i = 0;
 
         loop {
             for constraint in cpy.clone() {
                 match constraint {
-                    Constraint::Eq(left, right) => {
-                        if !self.replace_type(left, right)? {
-                            res.push(constraint.clone());
+                    Constraint::Eq(left, right) => match self.replace_type(left, right) {
+                        Ok(replaced) => {
+                            if !replaced {
+                                res.push(constraint.clone());
+                            }
                         }
-                    }
-                    Constraint::Callable(f, ret) => {
-                        if !self.replace_type_ret(f, ret)? {
-                            res.push(constraint.clone());
+                        Err(diag) => diags.push(diag),
+                    },
+                    Constraint::Callable(f, ret) => match self.replace_type_ret(f, ret) {
+                        Ok(replaced) => {
+                            if !replaced {
+                                res.push(constraint.clone());
+                            }
                         }
-                    }
+                        Err(diag) => diags.push(diag),
+                    },
                 }
             }
 
@@ -305,6 +312,10 @@ impl InferState {
 
             cpy = self.constraints.clone();
             res = vec![];
+        }
+
+        if !diags.is_empty() {
+            return Err(diags);
         }
 
         Ok(())

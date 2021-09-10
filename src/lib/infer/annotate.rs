@@ -104,6 +104,11 @@ impl<'a> Visitor<'a> for AnnotateContext {
 
         self.visit_expression(&r#if.predicat);
 
+        self.state.solve_type(
+            r#if.predicat.get_terminal_hir_id(),
+            Type::Primitive(PrimitiveType::Bool),
+        );
+
         self.visit_body(&r#if.body);
 
         if let Some(e) = &r#if.else_ {

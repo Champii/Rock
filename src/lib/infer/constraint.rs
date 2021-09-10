@@ -109,8 +109,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                     | NativeOperatorKind::FGT
                     | NativeOperatorKind::FGE
                     | NativeOperatorKind::FLT
-                    | NativeOperatorKind::FLE
-                    | NativeOperatorKind::BEq => PrimitiveType::Float64,
+                    | NativeOperatorKind::FLE => PrimitiveType::Float64,
                     NativeOperatorKind::IAdd
                     | NativeOperatorKind::ISub
                     | NativeOperatorKind::IDiv
@@ -119,6 +118,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                     | NativeOperatorKind::FSub
                     | NativeOperatorKind::FDiv
                     | NativeOperatorKind::FMul => PrimitiveType::Float64,
+                    NativeOperatorKind::BEq => PrimitiveType::Bool,
                 };
 
                 self.state
