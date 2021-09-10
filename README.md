@@ -19,7 +19,7 @@ This project, its syntax and its APIs are subject to change at any moment. This 
 
 ## Quickstart and Example
 
-Lets create a new project folder to compute factorial
+Lets create a new project folder to compute some factorials
 
 ``` sh
 mkdir -P factorial/src && cd factorial
@@ -34,10 +34,10 @@ Add some files like this:
 ```haskell
 mod std
 
-use std::-
-use std::*
-use std::<=
-use std::print
+use std::num::-
+use std::num::*
+use std::eq::<=
+use std::print::print
 
 fact a =
     if a <= 1
@@ -52,36 +52,4 @@ Assuming that you built Rock and put its binary in your PATH:
 ``` sh
 rock run
 ```
-
-## Usage
-
-### General commands
-
-```
-#> cargo build
-#> ./target/debug/rock -h
-Rock 0.1.1
-Simple toy language
-
-USAGE:
-    rock [FLAGS] [OPTIONS] [SUBCOMMAND]
-
-FLAGS:
-    -a               Show ast
-        --help       Prints help information
-    -h               Show hir
-    -i               Show the generated IR
-    -t               Show tokens
-    -V, --version    Prints version information
-
-OPTIONS:
-    -o <output-folder>        Choose a different output folder [default: ./build]
-    -v <verbose>              Verbose level
-
-SUBCOMMANDS:
-    build    Build the current project directory
-    help     Prints this message or the help of the given subcommand(s)
-    run      Run the current project directory
-```
-
 

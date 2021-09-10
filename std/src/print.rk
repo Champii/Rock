@@ -1,0 +1,16 @@
+extern printf String -> String -> Int64
+extern malloc Int64 -> String
+extern sprintf String -> String -> Int64 -> Int64
+extern puts String -> Int64
+
+trait Print a
+    print a -> Int64
+
+impl Print Int64
+    print a = show a
+
+impl Print Float64
+    print c = printf "%f", c
+
+impl Print String
+    print s = puts s

@@ -1,0 +1,12 @@
+infix + 4
+infix - 4
+infix * 5
+infix / 5
+infix == 3
+infix <= 3
+infix >= 3
+infix < 3
+infix > 3
+infix >> 2
+infix << 2
+infix |> 1
