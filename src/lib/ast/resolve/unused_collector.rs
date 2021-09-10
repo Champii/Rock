@@ -7,7 +7,8 @@ use crate::{ast::*, walk_list};
 #[derive(Debug, Default)]
 pub struct UnusedCollector {
     resolutions: ResolutionMap<NodeId>,
-    list: HashMap<NodeId, bool>,
+    fn_list: HashMap<NodeId, bool>,
+    method_list: HashMap<NodeId, bool>,
 }
 
 impl UnusedCollector {
@@ -18,11 +19,18 @@ impl UnusedCollector {
         }
     }
 
-    pub fn take_unused(self) -> Vec<NodeId> {
-        self.list
-            .into_iter()
-            .filter_map(|(id, used)| if !used { Some(id) } else { None })
-            .collect()
+    // (fns, methods)
+    pub fn take_unused(self) -> (Vec<NodeId>, Vec<NodeId>) {
+        (
+            self.fn_list
+                .into_iter()
+                .filter_map(|(id, used)| if !used { Some(id) } else { None })
+                .collect(),
+            self.method_list
+                .into_iter()
+                .filter_map(|(id, used)| if !used { Some(id) } else { None })
+                .collect(),
+        )
     }
 }
 
@@ -36,17 +44,17 @@ impl<'a> Visitor<'a> for UnusedCollector {
                 TopLevelKind::Use(_u) => (),
                 TopLevelKind::Trait(t) => {
                     for f in &t.defs {
-                        self.list.insert(f.identity.node_id.clone(), false);
+                        self.method_list.insert(f.identity.node_id.clone(), false);
                     }
                 }
                 TopLevelKind::Impl(_i) => {}
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {
-                    self.list.insert(f.identity.node_id.clone(), false);
+                    self.fn_list.insert(f.identity.node_id.clone(), false);
 
                     if f.name.name == "main".to_string() {
-                        self.list.insert(f.identity.node_id.clone(), true);
+                        self.fn_list.insert(f.identity.node_id.clone(), true);
                     }
                 }
             }
@@ -82,7 +90,9 @@ impl<'a> Visitor<'a> for UnusedCollector {
 
     fn visit_identifier(&mut self, id: &'a Identifier) {
         if let Some(reso) = self.resolutions.get_recur(&id.identity.node_id) {
-            if let Some(used) = self.list.get_mut(&reso) {
+            if let Some(used) = self.fn_list.get_mut(&reso) {
+                *used = true;
+            } else if let Some(used) = self.method_list.get_mut(&reso) {
                 *used = true;
             }
         }

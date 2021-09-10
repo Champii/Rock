@@ -1,9 +1,12 @@
 use colored::*;
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Component, PathBuf},
+};
 
 use crate::{
     ast::{ast_print::AstPrintContext, Identifier, Root},
-    diagnostics::{Diagnostic, Diagnostics},
+    diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
     Config,
 };
 
@@ -45,15 +48,47 @@ impl ParsingCtx {
         self.diagnostics.print(&self.files);
     }
 
+    pub fn print_success_diagnostics(&self) {
+        self.print_diagnostics();
+
+        if !self.diagnostics.list.is_empty() {
+            println!(
+                "[{}] Compilation {} with {} {}",
+                "Warning".yellow(),
+                "successful".green(),
+                self.diagnostics.list.len().to_string().yellow(),
+                "warnings".yellow(),
+            );
+        } else {
+            println!("[{}] Compilation successful", "Success".green(),);
+        }
+    }
+
     pub fn return_if_error(&self) -> Result<(), Diagnostic> {
         if self.diagnostics.must_stop {
             self.print_diagnostics();
 
+            let (errors, warnings): (Vec<_>, Vec<_>) = self
+                .diagnostics
+                .list
+                .iter()
+                .enumerate()
+                .partition(|(i, _diag)| {
+                    if let DiagnosticType::Error = *self.diagnostics.list_types.get(*i).unwrap() {
+                        true
+                    } else {
+                        false
+                    }
+                });
+
             println!(
-                "[{}] Compilation stoped with {} {} emitted",
+                "[{}] Compilation {} with {} {} and {} {}",
                 "Error".red(),
-                self.diagnostics.list.len().to_string().red(),
+                "stopped".red(),
+                errors.len().to_string().red(),
                 "errors".red(),
+                warnings.len().to_string().yellow(),
+                "warnings".yellow(),
             );
 
             return Err(Diagnostic::new_empty());
@@ -73,6 +108,24 @@ impl ParsingCtx {
             // Placeholder span, to be overriden by calling mod (TopLevel::parse())
             Diagnostic::new_module_not_found(Span::new(current_file.file_path.clone(), 0, 0))
         })?;
+
+        println!(
+            " -> Compiling {}",
+            new_file
+                .mod_path
+                .components()
+                .map(|m| {
+                    match m {
+                        Component::RootDir => "main",
+                        Component::Normal(m) => m.to_str().unwrap(),
+                        _ => "",
+                    }
+                    .green()
+                    .to_string()
+                })
+                .collect::<Vec<_>>()
+                .join(" -> "),
+        );
 
         self.add_file(new_file.clone());
 

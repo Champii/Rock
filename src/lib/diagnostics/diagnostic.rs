@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use crate::parser::Span;
 use crate::{ast::Type, hir::HirId, infer::TypeId, parser::SourceFile};
+use crate::{diagnostics::DiagnosticType, parser::Span};
 use colored::*;
 
 #[derive(Clone, Debug)]
@@ -37,6 +37,10 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::UnknownIdentifier)
     }
 
+    pub fn new_unused_function(span: Span) -> Self {
+        Self::new(span, DiagnosticKind::UnusedFunction)
+    }
+
     pub fn new_module_not_found(span: Span) -> Self {
         Self::new(span, DiagnosticKind::ModuleNotFound)
     }
@@ -56,7 +60,7 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::TypeConflict(t1, t2, in1, in2))
     }
 
-    pub fn print(&self, file: &SourceFile) {
+    pub fn print(&self, file: &SourceFile, diag_type: &DiagnosticType) {
         let input: Vec<char> = file.content.chars().collect();
 
         let line = input[..self.span.start].split(|c| *c == '\n').count();
@@ -84,7 +88,7 @@ impl Diagnostic {
 
         let mut i = 0;
 
-        while i <= line_start {
+        while line_start > 0 && i <= line_start {
             arrow.push(' ');
 
             i += 1;
@@ -93,21 +97,32 @@ impl Diagnostic {
         arrow.push('^');
 
         let mut i = 0;
+
         while i < self.span.end - self.span.start {
             arrow.push('~');
 
             i += 1;
         }
 
+        let diag_type_str = match diag_type {
+            DiagnosticType::Error => "Error".red(),
+            DiagnosticType::Warning => "Warning".yellow(),
+        };
+
+        let color = |x: String| match diag_type {
+            DiagnosticType::Error => x.red(),
+            DiagnosticType::Warning => x.yellow(),
+        };
+
         println!(
             "[{}]: {}\n{}\n\n{:>4} {} {}\n       {}",
-            "Error".red().italic(),
-            self.kind.to_string().red().bold(),
-            line_ind.blue(),
-            line.to_string().green(),
-            "|".yellow(),
+            diag_type_str,
+            color(self.kind.to_string()).bold(),
+            line_ind.bright_blue(),
+            color(line.to_string()),
+            "|".cyan(),
             lines[line - 1].iter().cloned().collect::<String>(),
-            arrow.red(),
+            color(arrow),
         );
     }
 

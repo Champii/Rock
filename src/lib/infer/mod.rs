@@ -36,9 +36,7 @@ pub fn infer(
     }
 
     if let Err(diag) = infer_state.solve() {
-        parsing_ctx.diagnostics.push(diag.clone());
-
-        parsing_ctx.return_if_error()?;
+        parsing_ctx.diagnostics.push_error(diag.clone());
     }
 
     if config.show_state {
@@ -60,10 +58,10 @@ pub fn infer(
 
     // we dont exit on unresolved types .. yet
     for diag in diags {
-        parsing_ctx.diagnostics.push(diag);
+        parsing_ctx.diagnostics.push_warning(diag);
     }
 
-    parsing_ctx.print_diagnostics();
+    parsing_ctx.return_if_error()?;
 
     root.types = types;
 

@@ -20,9 +20,13 @@ impl SourceFile {
             Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
         })?;
 
+        let mut mod_path = PathBuf::from(in_name.clone());
+
+        mod_path.set_extension("");
+
         Ok(SourceFile {
             file_path: PathBuf::from(in_name.clone()),
-            mod_path: PathBuf::from(in_name),
+            mod_path,
             content: file,
         })
     }

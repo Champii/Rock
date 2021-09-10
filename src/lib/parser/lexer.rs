@@ -113,9 +113,11 @@ impl<'a> Lexer<'a> {
             return self.new_token(TokenType::EOF, self.cur_idx, "".to_string());
         }
 
-        self.ctx.diagnostics.push(Diagnostic::new_unexpected_token(
-            self.ctx.new_span(self.cur_idx, self.cur_idx),
-        ));
+        self.ctx
+            .diagnostics
+            .push_error(Diagnostic::new_unexpected_token(
+                self.ctx.new_span(self.cur_idx, self.cur_idx),
+            ));
 
         self.end = true;
 

@@ -203,7 +203,7 @@ impl Parse for Mod {
             match TopLevel::parse(ctx) {
                 Ok(top) => res.push(top),
                 Err(e) => {
-                    ctx.ctx.diagnostics.push(e.clone());
+                    ctx.ctx.diagnostics.push_error(e.clone());
 
                     return Err(e);
                 }

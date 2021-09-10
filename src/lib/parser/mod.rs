@@ -1,3 +1,5 @@
+use colored::*;
+
 mod lexer;
 mod parser_impl;
 mod parsing_context;
@@ -43,6 +45,8 @@ where
 }
 
 pub fn parse_root(ctx: &mut ParsingCtx) -> Result<crate::ast::Root, Diagnostic> {
+    println!(" -> Compiling {}", "root".green());
+
     debug!("      -> Parsing Root");
 
     let (mut ast, tokens) = parse_generic(ctx, |p| p.run_root())?;

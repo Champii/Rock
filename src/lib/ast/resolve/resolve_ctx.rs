@@ -131,18 +131,19 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 Some(pointed) => {
                     self.add_to_current_scope(r#use.path.last_segment().name, pointed);
                 }
-                None => self
-                    .parsing_ctx
-                    .diagnostics
-                    .push(Diagnostic::new_unknown_identifier(
-                        ident.identity.span.clone(),
-                    )),
+                None => {
+                    self.parsing_ctx
+                        .diagnostics
+                        .push_error(Diagnostic::new_unknown_identifier(
+                            ident.identity.span.clone(),
+                        ))
+                }
             },
 
             None => self
                 .parsing_ctx
                 .diagnostics
-                .push(Diagnostic::new_module_not_found(
+                .push_error(Diagnostic::new_module_not_found(
                     ident.identity.span.clone(),
                 )),
         };
@@ -170,19 +171,20 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 Some(pointed) => self
                     .resolutions
                     .insert(ident.identity.node_id, pointed.node_id),
-                None => self
-                    .parsing_ctx
-                    .diagnostics
-                    .push(Diagnostic::new_unknown_identifier(
-                        ident.identity.span.clone(),
-                    )),
+                None => {
+                    self.parsing_ctx
+                        .diagnostics
+                        .push_error(Diagnostic::new_unknown_identifier(
+                            ident.identity.span.clone(),
+                        ))
+                }
             },
 
             // TODO: change to Unknown Mod diagnostic
             None => self
                 .parsing_ctx
                 .diagnostics
-                .push(Diagnostic::new_module_not_found(
+                .push_error(Diagnostic::new_module_not_found(
                     ident.identity.span.clone(),
                 )),
         };
@@ -196,7 +198,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             None => self
                 .parsing_ctx
                 .diagnostics
-                .push(Diagnostic::new_unknown_identifier(id.identity.span.clone())),
+                .push_error(Diagnostic::new_unknown_identifier(id.identity.span.clone())),
         };
     }
 }

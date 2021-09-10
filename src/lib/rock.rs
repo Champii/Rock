@@ -1,4 +1,4 @@
-#![feature(associated_type_bounds, destructuring_assignment)]
+#![feature(associated_type_bounds, destructuring_assignment, derive_default_enum)]
 
 #[macro_use]
 extern crate serde_derive;
@@ -35,7 +35,11 @@ mod tests;
 pub use crate::helpers::config::Config;
 
 pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Diagnostic> {
-    parse_str(SourceFile::from_file(in_name)?, out_name, config)
+    let mut source_file = SourceFile::from_file(in_name)?;
+
+    source_file.mod_path = PathBuf::from("root");
+
+    parse_str(source_file, out_name, config)
 }
 
 pub fn parse_str(
@@ -71,6 +75,8 @@ pub fn parse_str(
     PackageMetaData { hir }
         .store(&PathBuf::from("/tmp/test.serde"))
         .unwrap();
+
+    parsing_ctx.print_success_diagnostics();
 
     Ok(())
 }
