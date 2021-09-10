@@ -1,11 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::{
-    ast::Type,
-    ast_lowering::HirMap,
-    parser::{Span},
-    NodeId,
-};
+use crate::{ast::Type, ast_lowering::HirMap, parser::Span, NodeId};
 use crate::{
     ast::{resolve::ResolutionMap, TypeSignature},
     hir::hir_id::*,
@@ -416,7 +411,7 @@ pub enum LiteralKind {
     Number(i64),
     Float(f64),
     String(String),
-    Bool(u64),
+    Bool(bool),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

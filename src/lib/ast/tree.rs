@@ -488,7 +488,7 @@ pub enum LiteralKind {
     Number(i64),
     Float(f64),
     String(String),
-    Bool(u64),
+    Bool(bool),
 }
 
 pub type Arguments = Vec<Argument>;

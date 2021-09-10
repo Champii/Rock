@@ -104,17 +104,17 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                     | NativeOperatorKind::IGT
                     | NativeOperatorKind::IGE
                     | NativeOperatorKind::ILT
-                    | NativeOperatorKind::ILE => PrimitiveType::Int64,
+                    | NativeOperatorKind::ILE
+                    | NativeOperatorKind::IAdd
+                    | NativeOperatorKind::ISub
+                    | NativeOperatorKind::IDiv
+                    | NativeOperatorKind::IMul => PrimitiveType::Int64,
                     NativeOperatorKind::FEq
                     | NativeOperatorKind::FGT
                     | NativeOperatorKind::FGE
                     | NativeOperatorKind::FLT
-                    | NativeOperatorKind::FLE => PrimitiveType::Float64,
-                    NativeOperatorKind::IAdd
-                    | NativeOperatorKind::ISub
-                    | NativeOperatorKind::IDiv
-                    | NativeOperatorKind::IMul => PrimitiveType::Int64,
-                    NativeOperatorKind::FAdd
+                    | NativeOperatorKind::FLE
+                    | NativeOperatorKind::FAdd
                     | NativeOperatorKind::FSub
                     | NativeOperatorKind::FDiv
                     | NativeOperatorKind::FMul => PrimitiveType::Float64,

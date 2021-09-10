@@ -3,14 +3,20 @@ mod codegen_context;
 use codegen_context::*;
 use inkwell::context::Context;
 
-use crate::{diagnostics::Diagnostic, hir::Root, Config};
+use crate::{diagnostics::Diagnostic, hir::Root, parser::ParsingCtx, Config};
 
-pub fn generate(config: &Config, hir: &Root) -> Result<(), Diagnostic> {
+pub fn generate(
+    config: &Config,
+    parsing_ctx: ParsingCtx,
+    hir: &Root,
+) -> Result<ParsingCtx, Diagnostic> {
     let context = Context::create();
     let builder = context.create_builder();
 
-    let mut codegen_ctx = CodegenContext::new(&context, &hir);
-    codegen_ctx.lower_hir(hir, &builder);
+    let mut codegen_ctx = CodegenContext::new(&context, parsing_ctx, &hir);
+    if let Err(_) = codegen_ctx.lower_hir(hir, &builder) {
+        codegen_ctx.parsing_ctx.return_if_error()?;
+    }
 
     if config.show_ir {
         codegen_ctx.module.print_to_stderr();
@@ -29,5 +35,5 @@ pub fn generate(config: &Config, hir: &Root) -> Result<(), Diagnostic> {
         .module
         .write_bitcode_to_path(&config.build_folder.join("out.ir"));
 
-    Ok(())
+    Ok(codegen_ctx.parsing_ctx)
 }

@@ -1,0 +1,7 @@
+infix >> 2
+infix << 2
+infix |> 1
+
+>> x y = y
+<< x y = x
+|> k l = l k

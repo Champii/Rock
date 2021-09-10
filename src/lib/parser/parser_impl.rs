@@ -801,7 +801,7 @@ impl Parse for LiteralKind {
         if let TokenType::Bool(b) = ctx.cur_tok().t {
             ctx.consume();
 
-            let v = if b { 1 } else { 0 };
+            let v = if b { true } else { false };
 
             return Ok(LiteralKind::Bool(v));
         }

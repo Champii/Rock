@@ -49,6 +49,10 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::UnresolvedType(t, hir_id))
     }
 
+    pub fn new_codegen_error(span: Span, hir_id: HirId, msg: &str) -> Self {
+        Self::new(span, DiagnosticKind::CodegenError(hir_id, msg.to_string()))
+    }
+
     pub fn new_duplicated_operator(span: Span) -> Self {
         Self::new(span, DiagnosticKind::DuplicatedOperator)
     }
@@ -144,6 +148,7 @@ pub enum DiagnosticKind {
     DuplicatedOperator,
     TypeConflict(Type, Type, Type, Type),
     UnresolvedType(TypeId, HirId),
+    CodegenError(HirId, String),
     NoMain,
     NoError, //TODO: remove that
 }
@@ -163,6 +168,7 @@ impl Display for DiagnosticKind {
                 format!("Unresolved type_id {} (hir_id {:?})", t_id, hir_id)
             }
             Self::FileNotFound(path) => format!("FileNotFound {}", path),
+            Self::CodegenError(hir_id, msg) => format!("CodegenError: {} {:?}", msg, hir_id),
             DiagnosticKind::NotAFunction => "NotAFunction".to_string(),
             DiagnosticKind::UnusedParameter => "UnusedParameter".to_string(),
             DiagnosticKind::UnusedFunction => "UnusedFunction".to_string(),

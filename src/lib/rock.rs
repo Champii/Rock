@@ -69,7 +69,7 @@ pub fn parse_str(
 
     // Generate code
     debug!("    -> Lower to LLVM IR");
-    codegen::generate(&config, &hir)?;
+    let parsing_ctx = codegen::generate(&config, parsing_ctx, &hir)?;
 
     debug!("    -> Save MetaData");
     PackageMetaData { hir }
