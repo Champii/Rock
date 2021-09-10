@@ -5,6 +5,12 @@ extern fcvt Float64 -> Int64 -> String -> String -> String
 trait Show a
     show a -> String
 
+impl Show Int64
+    show a = itoa a
+
+impl Show Float64
+    show c = ftoa c
+
 itoa a =
     let s = malloc 10
     sprintf s, "%d", a
@@ -12,9 +18,3 @@ itoa a =
 
 ftoa c =
     fcvt c, 10, (malloc 4), (malloc 4)
-
-impl Show Int64
-    show a = itoa a
-
-impl Show Float64
-    show c = ftoa c

@@ -1,3 +1,8 @@
+infix + 4
+infix - 4
+infix * 5
+infix / 5
+
 trait Num a
     + a -> a -> a
     - a -> a -> a

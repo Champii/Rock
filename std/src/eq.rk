@@ -1,3 +1,9 @@
+infix == 3
+infix <= 3
+infix >= 3
+infix < 3
+infix > 3
+
 trait Eq a
     == a -> a -> Bool
     <= a -> a -> Bool

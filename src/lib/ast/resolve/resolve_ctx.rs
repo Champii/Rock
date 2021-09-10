@@ -127,18 +127,23 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         mod_path.resolve_supers();
 
         match self.scopes.get(&mod_path) {
-            Some(scopes) => match scopes.get((*ident).to_string()) {
-                Some(pointed) => {
-                    self.add_to_current_scope(r#use.path.last_segment().name, pointed);
+            Some(scopes) => {
+                if ident.name == "*" {
+                    let scope = scopes.scopes.iter().nth(0).unwrap();
+                    for (k, v) in &scope.items.clone() {
+                        self.add_to_current_scope(k.clone(), v.clone());
+                    }
+                } else {
+                    match scopes.get((*ident).to_string()) {
+                        Some(pointed) => {
+                            self.add_to_current_scope((*ident).name.clone(), pointed);
+                        }
+                        None => self.parsing_ctx.diagnostics.push_error(
+                            Diagnostic::new_unknown_identifier(ident.identity.span.clone()),
+                        ),
+                    };
                 }
-                None => {
-                    self.parsing_ctx
-                        .diagnostics
-                        .push_error(Diagnostic::new_unknown_identifier(
-                            ident.identity.span.clone(),
-                        ))
-                }
-            },
+            }
 
             None => self
                 .parsing_ctx
