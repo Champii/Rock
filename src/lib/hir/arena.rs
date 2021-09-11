@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use paste::paste;
 
@@ -7,7 +7,7 @@ use crate::hir::visit::*;
 use crate::{hir::visit::Visitor, hir::*};
 use crate::{parser::Span, NodeId};
 
-pub type Arena<'ar> = HashMap<HirId, HirNode<'ar>>;
+pub type Arena<'ar> = BTreeMap<HirId, HirNode<'ar>>;
 
 #[derive(Debug, Default)]
 pub struct HirNodeCollector<'ar> {
