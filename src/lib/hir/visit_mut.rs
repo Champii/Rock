@@ -144,9 +144,9 @@ pub fn walk_expression<'a, V: VisitorMut<'a>>(visitor: &mut V, expr: &'a mut Exp
         ExpressionKind::Identifier(id) => visitor.visit_identifier_path(id),
         ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(fc),
         ExpressionKind::NativeOperation(op, left, right) => {
-            visitor.visit_native_operator(op);
             visitor.visit_identifier(left);
             visitor.visit_identifier(right);
+            visitor.visit_native_operator(op);
         }
         ExpressionKind::Return(expr) => visitor.visit_expression(expr),
     }

@@ -4,7 +4,11 @@ mod mangle;
 mod state;
 
 use crate::{
-    diagnostics::Diagnostic, hir::visit_mut::*, infer::mangle::*, parser::ParsingCtx, Config,
+    diagnostics::Diagnostic,
+    hir::{hir_printer::*, visit_mut::*},
+    infer::mangle::*,
+    parser::ParsingCtx,
+    Config,
 };
 
 use self::annotate::AnnotateContext;
@@ -39,12 +43,41 @@ pub fn infer(
         for diag in diags {
             parsing_ctx.diagnostics.push_error(diag.clone());
         }
+
+        // parsing_ctx.return_if_error()?;
     }
 
     if config.show_state {
         println!("ROOT {:#?}", root);
         println!("STATE {:#?}", infer_state);
     }
+
+    // FIXME : We need to do two pass to get a complete resolve in some case
+    let infer_state = if !infer_state.is_solved() {
+        //
+        let mut constraint_ctx = ConstraintContext::new(infer_state, root);
+
+        constraint_ctx.constraint(root);
+
+        let (mut infer_state, new_resolutions) = constraint_ctx.get_state();
+
+        // // FIXME: don't
+        for (k, v) in new_resolutions {
+            root.resolutions.insert(k.clone(), v.clone());
+        }
+
+        if let Err(diags) = infer_state.solve() {
+            for diag in diags {
+                parsing_ctx.diagnostics.push_error(diag.clone());
+            }
+
+            // parsing_ctx.return_if_error()?;
+        }
+
+        infer_state
+    } else {
+        infer_state
+    };
 
     let mut mangle_ctx = MangleContext {
         trait_call_to_mangle: infer_state.trait_call_to_mangle.clone(),
@@ -63,13 +96,17 @@ pub fn infer(
         parsing_ctx.diagnostics.push_warning(diag);
     }
 
-    parsing_ctx.return_if_error()?;
-
     root.types = types;
 
     if config.show_hir {
-        println!("{:#?}", root);
+        use crate::hir::visit::*;
+
+        let mut printer = HirPrinter::new(&root);
+
+        printer.visit_root(root);
     }
+
+    parsing_ctx.return_if_error()?;
 
     Ok(())
 }

@@ -61,7 +61,7 @@ impl<'a> CodegenContext<'a> {
                     None => {
                         let f = self.hir.get_function_by_name(&f.name).unwrap();
 
-                        self.lower_function_decl(&f, builder);
+                        self.lower_function_decl(&f, builder)?;
 
                         self.module.get_function(&f.name).unwrap()
                     }
@@ -146,10 +146,24 @@ impl<'a> CodegenContext<'a> {
 
         if let Type::FuncType(f_type) = t {
             let ret_t = match self.hir.types.get(&f_type.ret) {
-                None => panic!(
-                    "Codegen Error: cannot find return type of function {:?}",
-                    f_type
-                ),
+                None => {
+                    let span = self
+                        .hir
+                        .hir_map
+                        .get_node_id(&f.hir_id)
+                        .map(|node_id| self.hir.spans.get(&node_id).unwrap().clone())
+                        .unwrap();
+
+                    self.parsing_ctx
+                        .diagnostics
+                        .push_error(Diagnostic::new_codegen_error(
+                            span,
+                            f.hir_id.clone(),
+                            "Cannot resolve function return type",
+                        ));
+
+                    return Err(());
+                }
                 Some(ret_t) => ret_t,
             };
 
@@ -461,16 +475,16 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
-        let span = self
-            .hir
-            .hir_map
-            .get_node_id(&id.hir_id)
-            .map(|node_id| self.hir.spans.get(&node_id).unwrap().clone())
-            .unwrap();
-
         // println!("RESO {:?} {:#?}, {:#?}", id, reso, self.scopes);
         let val = match self.scopes.get(reso.clone()) {
             None => {
+                let span = self
+                    .hir
+                    .hir_map
+                    .get_node_id(&id.hir_id)
+                    .map(|node_id| self.hir.spans.get(&node_id).unwrap().clone())
+                    .unwrap();
+
                 self.parsing_ctx
                     .diagnostics
                     .push_error(Diagnostic::new_codegen_error(

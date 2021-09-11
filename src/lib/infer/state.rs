@@ -41,14 +41,20 @@ impl InferState {
         }
     }
 
+    pub fn is_solved(&self) -> bool {
+        self.types.values().all(Option::is_some)
+    }
+
     pub fn new_type_id(&mut self, hir_id: HirId) -> TypeId {
+        if let Some(type_id) = self.node_types.get(&hir_id).cloned() {
+            println!("ALREADY DEFINED TYPE {:?}", hir_id);
+
+            return type_id;
+        }
+
         let new_type = GLOBAL_NEXT_TYPE_ID.fetch_add(1, Ordering::SeqCst);
 
         self.types.insert(new_type, None);
-
-        if self.node_types.contains_key(&hir_id) {
-            panic!("ALREADY DEFINED TYPE");
-        }
 
         self.node_types.insert(hir_id, new_type);
 
@@ -121,23 +127,34 @@ impl InferState {
             }
 
             (Some(Type::FuncType(f)), Some(Type::FuncType(f2))) => {
-                // FIXME: Don't rely on names for resolution
+                // self.types.insert(f.ret, self.get_ret_rec(f2.ret));
+                if f == f2 {
+                    return Ok(res);
+                } // // FIXME: Don't rely on names for resolution
+                println!("WHAT {:?}, {:?}", f, f2);
                 if let Some(Type::FuncType(left_f)) = self.types.get_mut(&left).unwrap() {
                     left_f.name = f2.name.clone();
                 }
 
-                self.types.insert(f.ret, self.get_ret(f2.ret));
-
-                let constraints = f
+                let mut constraints = f
                     .arguments
                     .iter()
                     .enumerate()
                     .map(|(i, arg)| Constraint::Eq(*arg, *f2.arguments.get(i).unwrap()))
                     .collect::<Vec<_>>();
 
-                self.constraints.extend(constraints.iter().cloned());
+                constraints.push(Constraint::Eq(f.ret, f2.ret));
 
                 constraints
+                    .iter()
+                    .for_each(|constraint| self.add_constraint(constraint.clone()));
+
+                // self.add_constraint(Constraint::Eq(f.ret, f2.ret));
+
+                // constraints.push(Constraint::Eq(f.ret, f2.ret));
+
+                constraints
+                // res
             }
             (Some(left_in), Some(right_in)) => {
                 if left_in != right_in {
@@ -176,7 +193,7 @@ impl InferState {
             (None, Some(_)) => {
                 self.types.insert(left, self.get_ret_rec(right));
 
-                false
+                true
             }
             (Some(Type::FuncType(_f1)), Some(Type::FuncType(_f2))) => {
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
@@ -200,22 +217,22 @@ impl InferState {
                 }
             }
             (Some(Type::FuncType(_f)), Some(_other)) => {
-                if self.get_ret(left).is_none() || self.get_ret(right).is_none() {
-                    let (hir_id, _) = self
-                        .node_types
-                        .iter()
-                        .find(|(_hir_id, t_id)| **t_id == left)
-                        .unwrap();
+                // if self.get_ret(left).is_none() || self.get_ret(right).is_none() {
+                //     let (hir_id, _) = self
+                //         .node_types
+                //         .iter()
+                //         .find(|(_hir_id, t_id)| **t_id == left)
+                //         .unwrap();
 
-                    let span = self
-                        .root
-                        .hir_map
-                        .get_node_id(hir_id)
-                        .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
-                        .unwrap();
+                //     let span = self
+                //         .root
+                //         .hir_map
+                //         .get_node_id(hir_id)
+                //         .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                //         .unwrap();
 
-                    return Err(Diagnostic::new_unresolved_type(span, left, hir_id.clone()));
-                }
+                //     return Err(Diagnostic::new_unresolved_type(span, left, hir_id.clone()));
+                // }
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     let span = self
                         .node_types
@@ -278,16 +295,30 @@ impl InferState {
 
     pub fn get_ret_rec(&self, t_id: TypeId) -> Option<Type> {
         self.get_ret(t_id).and_then(|t| match &t {
-            Type::FuncType(f) => self.get_ret_rec(f.ret).or(self.get_ret(f.ret)),
+            Type::FuncType(f) => {
+                if f.ret == t_id {
+                    return Some(t);
+                    // panic!("GET_RET_REC LOOP !");
+                }
+
+                self.get_ret_rec(f.ret).or(self.get_ret(f.ret))
+            }
             _ => Some(t),
         })
     }
 
     pub fn solve_type(&mut self, hir_id: HirId, t: Type) {
-        if let Some(t_id) = self.get_type_id(hir_id) {
+        if let Some(t_id) = self.get_type_id(hir_id.clone()) {
             if let Some(ref mut t2) = self.types.get_mut(&t_id) {
                 **t2 = Some(t)
+            } else {
+                panic!("Cannot solve type {:?} {:?}: Cannot get type", hir_id, t);
             }
+        } else {
+            // self.new_type_id(hir_id.clone());
+
+            // self.solve_type(hir_id, t);
+            panic!("Cannot solve type {:?} {:?}: Cannot get type_id", hir_id, t);
         }
     }
 
@@ -354,7 +385,7 @@ impl InferState {
                 break;
             }
 
-            cpy = res.clone();
+            cpy = self.constraints.clone();
             res.clear();
         }
 

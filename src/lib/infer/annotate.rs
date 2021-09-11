@@ -1,10 +1,13 @@
 use std::collections::{BTreeMap, HashMap};
 
 use super::InferState;
-use crate::ast::{PrimitiveType, Type, TypeSignature};
 use crate::hir::visit::*;
 use crate::hir::*;
 use crate::walk_list;
+use crate::{
+    ast::{PrimitiveType, Type, TypeSignature},
+    walk_map,
+};
 
 #[derive(Debug)]
 pub struct AnnotateContext {
@@ -36,7 +39,43 @@ impl AnnotateContext {
 }
 
 impl<'a> Visitor<'a> for AnnotateContext {
+    fn visit_root(&mut self, root: &'a Root) {
+        walk_map!(self, visit_top_level, &root.top_levels);
+
+        for (_, r#trait) in &root.traits {
+            self.visit_trait(r#trait);
+        }
+
+        for (_, impls) in &root.trait_methods {
+            walk_map!(self, visit_function_decl, impls);
+        }
+
+        walk_map!(self, visit_fn_body, &root.bodies);
+    }
+
+    fn visit_top_level(&mut self, top_level: &'a TopLevel) {
+        match &top_level.kind {
+            TopLevelKind::Prototype(p) => {
+                self.state.new_type_id(p.name.get_hir_id());
+                self.visit_prototype(&p);
+            }
+            TopLevelKind::Function(f) => {
+                self.state.new_type_id(f.name.get_hir_id());
+                self.visit_function_decl(&f);
+            }
+        };
+    }
+
+    // Ignoring traits
     fn visit_trait(&mut self, _t: &Trait) {}
+    //     self.visit_type(&t.name);
+
+    //     walk_list!(self, visit_type, &t.types);
+
+    //     // let r#trait = self.hir.get_trait(t.name).unwrap();
+
+    //     // walk_list!(self, visit_prototype, &t.defs);
+    // }
     fn visit_impl(&mut self, i: &Impl) {
         self.visit_type(&i.name);
 
@@ -44,6 +83,7 @@ impl<'a> Visitor<'a> for AnnotateContext {
 
         // let r#trait = self.hir.get_trait(i.name).unwrap();
 
+        walk_list!(self, visit_function_decl, &i.defs);
         for (_method_name, list) in &self.trait_methods {
             for (sig, f_decl) in list {
                 // self.visit_function_decl(f_decl);
@@ -57,12 +97,11 @@ impl<'a> Visitor<'a> for AnnotateContext {
                     .new_type_solved(f_decl.hir_id.clone(), sig.ret.clone());
             }
         }
-
-        walk_list!(self, visit_function_decl, &i.defs);
     }
 
     fn visit_function_decl(&mut self, f: &FunctionDecl) {
         self.state.new_type_id(f.hir_id.clone());
+        self.state.new_type_id(f.name.hir_id.clone());
 
         self.body_arguments
             .insert(f.body_id.clone(), f.arguments.clone());
@@ -70,6 +109,7 @@ impl<'a> Visitor<'a> for AnnotateContext {
 
     fn visit_prototype(&mut self, p: &Prototype) {
         self.state.new_type_id(p.hir_id.clone());
+        self.state.new_type_id(p.name.hir_id.clone());
     }
 
     fn visit_fn_body(&mut self, fn_body: &FnBody) {

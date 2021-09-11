@@ -2,7 +2,6 @@ extern printf String -> Float64 -> Int64
 extern puts String -> Int64
 
 use super::show::itoa
-use super::eq::==
 
 trait Print a
     print a -> Int64

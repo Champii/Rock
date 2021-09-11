@@ -157,6 +157,8 @@ impl AstLoweringContext {
 
             let type_sig = type_sig.apply_types(&r#trait.types, &i.types);
 
+            println!("TYPE SIG {:?} {:?}", f.name.name, type_sig);
+
             let fn_decls = self
                 .trait_methods
                 .entry(hir_f.name.name.clone())

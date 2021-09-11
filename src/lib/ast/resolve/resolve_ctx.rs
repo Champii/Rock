@@ -61,10 +61,14 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                         self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
                     }
                 }
-                TopLevelKind::Impl(_i) => {
-                    // for proto in &i.defs {
-                    //     self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
-                    // }
+                TopLevelKind::Impl(i) => {
+                    for proto in &i.defs {
+                        let mut proto = proto.clone();
+
+                        proto.mangle(&i.types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
+
+                        self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
+                    }
                 }
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),

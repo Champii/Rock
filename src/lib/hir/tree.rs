@@ -7,6 +7,8 @@ use crate::{
     TypeId,
 };
 
+use super::HasHirId;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Root {
     pub hir_map: HirMap,
@@ -177,6 +179,12 @@ pub struct ArgumentDecl {
     pub name: Identifier,
 }
 
+impl ArgumentDecl {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.name.get_hir_id()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentifierPath {
     pub path: Vec<Identifier>,
@@ -208,6 +216,10 @@ impl IdentifierPath {
     pub fn last_segment_ref(&self) -> &Identifier {
         self.path.iter().last().unwrap()
     }
+
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.last_segment().get_hir_id()
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -233,14 +245,16 @@ pub struct FnBody {
 
 impl FnBody {
     pub fn get_terminal_hir_id(&self) -> HirId {
-        self.body.get_terminal_hir_id()
+        self.body.get_hir_id()
     }
+
     pub fn mangle(&mut self, prefixes: &[String]) {
         self.mangled_name = Some(Identifier {
             name: prefixes.join("_") + "_" + &self.name.name,
             hir_id: self.name.hir_id.clone(),
         });
     }
+
     pub fn get_name(&self) -> Identifier {
         match &self.mangled_name {
             Some(name) => name.clone(),
@@ -256,7 +270,7 @@ pub struct Body {
 
 impl Body {
     pub fn get_terminal_hir_id(&self) -> HirId {
-        self.stmts.iter().last().unwrap().get_terminal_hir_id()
+        self.stmts.iter().last().unwrap().get_hir_id()
     }
 }
 
@@ -268,9 +282,9 @@ pub struct Statement {
 impl Statement {
     pub fn get_terminal_hir_id(&self) -> HirId {
         match &*self.kind {
-            StatementKind::Expression(e) => e.get_terminal_hir_id(),
-            StatementKind::Assign(a) => a.get_terminal_hir_id(),
-            StatementKind::If(e) => e.get_terminal_hir_id(),
+            StatementKind::Expression(e) => e.get_hir_id(),
+            StatementKind::Assign(a) => a.get_hir_id(),
+            StatementKind::If(e) => e.get_hir_id(),
         }
     }
 }
@@ -291,7 +305,7 @@ pub struct Assign {
 
 impl Assign {
     pub fn get_terminal_hir_id(&self) -> HirId {
-        self.name.hir_id.clone()
+        self.name.get_hir_id()
     }
 }
 
@@ -313,6 +327,15 @@ impl If {
 pub enum Else {
     If(If),
     Body(Body),
+}
+
+impl Else {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        match self {
+            Else::If(i) => i.get_hir_id(),
+            Else::Body(b) => b.get_hir_id(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -344,11 +367,11 @@ impl Expression {
 
     pub fn get_terminal_hir_id(&self) -> HirId {
         match &*self.kind {
-            ExpressionKind::Lit(l) => l.hir_id.clone(),
-            ExpressionKind::Identifier(i) => i.path.iter().last().unwrap().hir_id.clone(),
-            ExpressionKind::FunctionCall(fc) => fc.hir_id.clone(),
-            ExpressionKind::NativeOperation(op, _left, _right) => op.hir_id.clone(),
-            ExpressionKind::Return(expr) => expr.get_terminal_hir_id(),
+            ExpressionKind::Lit(l) => l.get_hir_id(),
+            ExpressionKind::Identifier(i) => i.get_hir_id(),
+            ExpressionKind::FunctionCall(fc) => fc.get_hir_id(),
+            ExpressionKind::NativeOperation(op, _left, _right) => op.get_hir_id(),
+            ExpressionKind::Return(expr) => expr.get_hir_id(),
         }
     }
 

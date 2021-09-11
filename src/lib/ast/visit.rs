@@ -171,9 +171,9 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
         }
         ExpressionKind::UnaryExpr(unary) => visitor.visit_unary(&unary),
         ExpressionKind::NativeOperation(op, left, right) => {
-            visitor.visit_native_operator(&op);
             visitor.visit_identifier(&left);
             visitor.visit_identifier(&right);
+            visitor.visit_native_operator(&op);
         }
         ExpressionKind::Return(expr) => {
             visitor.visit_expression(&expr);
