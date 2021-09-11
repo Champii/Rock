@@ -157,22 +157,12 @@ impl AstLoweringContext {
 
             let type_sig = type_sig.apply_types(&r#trait.types, &i.types);
 
-            println!("TYPE SIG {:?} {:?}", f.name.name, type_sig);
-
             let fn_decls = self
                 .trait_methods
                 .entry(hir_f.name.name.clone())
                 .or_insert(HashMap::new());
 
             let _hir_id = self.hir_map.next_hir_id(f.identity.clone());
-
-            // self.top_levels.insert(
-            //     hir_id.clone(),
-            //     hir::TopLevel {
-            //         kind: hir::TopLevelKind::Function(hir_f.clone()),
-            //         hir_id: hir_f.hir_id.clone(), // TO CHECK
-            //     },
-            // );
 
             (*fn_decls).insert(type_sig, hir_f);
         }
@@ -267,7 +257,6 @@ impl AstLoweringContext {
 
     pub fn lower_assign(&mut self, assign: &Assign) -> hir::Assign {
         hir::Assign {
-            // hir_id: self.hir_map.next_hir_id(assign.identity.clone()),
             name: self.lower_identifier(&assign.name),
             value: self.lower_expression(&assign.value),
         }

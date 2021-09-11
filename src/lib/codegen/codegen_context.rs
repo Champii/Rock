@@ -297,12 +297,6 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<AnyValueEnum<'a>, ()> {
         let value = self.lower_expression(&assign.value, builder)?;
 
-        // let t = value.get_type();
-
-        // let ptr = builder.build_alloca(t, "assign");
-
-        // builder.build_store(ptr, value);
-
         self.scopes
             .add(assign.name.hir_id.clone(), value.as_basic_value_enum());
 
@@ -497,18 +491,6 @@ impl<'a> CodegenContext<'a> {
             }
             Some(val) => val,
         };
-
-        // let val = if val.is_pointer_value() {
-        //     let ptr = val.into_pointer_value();
-
-        //     if ptr.as_instruction_value().is_some() {
-        //         builder.build_load(ptr, "load")
-        //     } else {
-        //         val
-        //     }
-        // } else {
-        //     val
-        // };
 
         Ok(val)
     }

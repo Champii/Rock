@@ -29,7 +29,7 @@ impl<'a> ReturnInserter<'a> {
                 self.visit_if(i);
             }
             StatementKind::Assign(ref mut _a) => {
-                // self.visit_assign(a);
+                unimplemented!("Assign as return value");
             }
         }
     }
@@ -39,13 +39,7 @@ impl<'a> ReturnInserter<'a> {
         if let Some(ref mut r#else) = r#if.else_.as_mut() {
             self.visit_else(r#else);
         } else {
-            // r#if.else_ = Some(Else::Body(Statement {
-            //     kind: Box::new(StatementKind::Expression(Expression::new_literal(
-            //         Literal {
-            //             kind: LiteralKind::Number(0),
-            //         },
-            //     ))),
-            // }));
+            unimplemented!("Else is not found");
         }
     }
 

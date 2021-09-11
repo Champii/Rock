@@ -1,0 +1,4 @@
+[package]
+name = "std"
+version = "0.0.1"
+type = "lib"

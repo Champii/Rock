@@ -22,8 +22,6 @@ pub fn infer(
 ) -> Result<(), Diagnostic> {
     let infer_state = InferState::new(root.clone()); // FIXME: Don't clone the whole hir !!!
 
-    // infer_state.diagnostics = diagnostics;
-
     let mut annotate_ctx = AnnotateContext::new(infer_state, root.trait_methods.clone());
 
     annotate_ctx.annotate(root);
@@ -43,8 +41,6 @@ pub fn infer(
         for diag in diags {
             parsing_ctx.diagnostics.push_error(diag.clone());
         }
-
-        // parsing_ctx.return_if_error()?;
     }
 
     if config.show_state {
@@ -70,8 +66,6 @@ pub fn infer(
             for diag in diags {
                 parsing_ctx.diagnostics.push_error(diag.clone());
             }
-
-            // parsing_ctx.return_if_error()?;
         }
 
         infer_state

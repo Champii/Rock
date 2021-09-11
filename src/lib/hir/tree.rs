@@ -59,17 +59,6 @@ impl Root {
             .map(|(_, fn_decl)| fn_decl.clone())
     }
 
-    // pub fn get_trait(&self, hir_id: HirId) -> Option<Trait> {
-    //     self.traits.get(&hir_id).map(|(r#trait, _)| r#trait.clone())
-    // }
-
-    // pub fn get_impl(&self, hir_id: HirId, t: TypeId) -> Option<Impl> {
-    //     self.traits
-    //         .get(&hir_id)
-    //         .and_then(|(_, impls)| impls.get(&t).clone())
-    //         .cloned()
-    // }
-
     pub fn get_function_by_name(&self, name: &str) -> Option<FunctionDecl> {
         self.top_levels
             .iter()
@@ -92,12 +81,6 @@ impl Root {
 
         self.types.get(&t_id).cloned()
     }
-
-    // pub fn mangle_trait_calls(&mut self) {
-    //     self.trait_call_to_mangle.iter().for_each(|(fc_hir_id, prefixes)| {
-
-    //     });
-    // };
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -47,8 +47,6 @@ impl InferState {
 
     pub fn new_type_id(&mut self, hir_id: HirId) -> TypeId {
         if let Some(type_id) = self.node_types.get(&hir_id).cloned() {
-            println!("ALREADY DEFINED TYPE {:?}", hir_id);
-
             return type_id;
         }
 
@@ -127,11 +125,11 @@ impl InferState {
             }
 
             (Some(Type::FuncType(f)), Some(Type::FuncType(f2))) => {
-                // self.types.insert(f.ret, self.get_ret_rec(f2.ret));
                 if f == f2 {
                     return Ok(res);
-                } // // FIXME: Don't rely on names for resolution
-                println!("WHAT {:?}, {:?}", f, f2);
+                }
+
+                // // FIXME: Don't rely on names for resolution
                 if let Some(Type::FuncType(left_f)) = self.types.get_mut(&left).unwrap() {
                     left_f.name = f2.name.clone();
                 }
@@ -149,12 +147,7 @@ impl InferState {
                     .iter()
                     .for_each(|constraint| self.add_constraint(constraint.clone()));
 
-                // self.add_constraint(Constraint::Eq(f.ret, f2.ret));
-
-                // constraints.push(Constraint::Eq(f.ret, f2.ret));
-
                 constraints
-                // res
             }
             (Some(left_in), Some(right_in)) => {
                 if left_in != right_in {
@@ -217,22 +210,6 @@ impl InferState {
                 }
             }
             (Some(Type::FuncType(_f)), Some(_other)) => {
-                // if self.get_ret(left).is_none() || self.get_ret(right).is_none() {
-                //     let (hir_id, _) = self
-                //         .node_types
-                //         .iter()
-                //         .find(|(_hir_id, t_id)| **t_id == left)
-                //         .unwrap();
-
-                //     let span = self
-                //         .root
-                //         .hir_map
-                //         .get_node_id(hir_id)
-                //         .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
-                //         .unwrap();
-
-                //     return Err(Diagnostic::new_unresolved_type(span, left, hir_id.clone()));
-                // }
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     let span = self
                         .node_types
@@ -253,29 +230,7 @@ impl InferState {
                     false
                 }
             }
-            (Some(_left_in), Some(_)) => {
-                // FIXME: this makes the traits and mod tests to fail
-                // if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
-                //     let span = self
-                //         .node_types
-                //         .iter()
-                //         .find(|(_hir_id, t_id)| **t_id == right)
-                //         .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
-                //         .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
-                //         .unwrap();
-
-                //     return Err(Diagnostic::new_type_conflict(
-                //         span,
-                //         self.get_ret_rec(left).unwrap(),
-                //         self.get_ret_rec(right).unwrap(),
-                //         left_t.clone().unwrap(),
-                //         right_t.clone().unwrap(),
-                //     ));
-                // } else {
-                //     // self.types.insert(f.ret, self.get_ret_rec(right));
-                // }
-                false
-            }
+            (Some(_left_in), Some(_)) => false,
             (_left_in, _right_in) => false,
         })
     }
@@ -298,7 +253,6 @@ impl InferState {
             Type::FuncType(f) => {
                 if f.ret == t_id {
                     return Some(t);
-                    // panic!("GET_RET_REC LOOP !");
                 }
 
                 self.get_ret_rec(f.ret).or(self.get_ret(f.ret))
@@ -315,9 +269,6 @@ impl InferState {
                 panic!("Cannot solve type {:?} {:?}: Cannot get type", hir_id, t);
             }
         } else {
-            // self.new_type_id(hir_id.clone());
-
-            // self.solve_type(hir_id, t);
             panic!("Cannot solve type {:?} {:?}: Cannot get type_id", hir_id, t);
         }
     }

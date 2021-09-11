@@ -90,14 +90,12 @@ impl<'a> Lexer<'a> {
             Self::try_arrow,
             Self::try_operator_ident,
             Self::try_native_operator,
-            // Self::try_primitive_operator,
             Self::try_digit,
             Self::try_coma,
             Self::try_dot,
             Self::try_double_semi_colon,
             Self::try_semi_colon,
             Self::try_equal,
-            // Self::try_operator,
             Self::try_this,
             Self::try_string,
             Self::try_end_of,
@@ -370,32 +368,6 @@ impl<'a> Lexer<'a> {
 
         None
     }
-
-    // fn try_operator(&mut self) -> Option<Token> {
-    //     if self.last_char == '+' {
-    //         self.match_consume(
-    //             "+",
-    //             TokenType::Operator(self.last_char.to_string()),
-    //             Sep::empty(),
-    //         )
-    //     } else if self.last_char == '-' {
-    //         self.match_consume("-", TokenType::Operator("-".to_string()), Sep::empty())
-    //     } else if self.last_char == '=' && self.input[self.cur_idx + 1] == '=' {
-    //         self.match_consume("==", TokenType::Operator("==".to_string()), Sep::empty())
-    //     } else if self.last_char == '!' && self.input[self.cur_idx + 1] == '=' {
-    //         self.match_consume("!=", TokenType::Operator("!=".to_string()), Sep::empty())
-    //     } else if self.last_char == '<' && self.input[self.cur_idx + 1] == '=' {
-    //         self.match_consume("<=", TokenType::Operator("<=".to_string()), Sep::empty())
-    //     } else if self.last_char == '<' {
-    //         self.match_consume("<", TokenType::Operator("<".to_string()), Sep::empty())
-    //     } else if self.last_char == '>' && self.input[self.cur_idx + 1] == '=' {
-    //         self.match_consume(">=", TokenType::Operator(">=".to_string()), Sep::empty())
-    //     } else if self.last_char == '>' {
-    //         self.match_consume(">", TokenType::Operator(">".to_string()), Sep::empty())
-    //     } else {
-    //         None
-    //     }
-    // }
 
     fn try_digit(&mut self) -> Option<Token> {
         let start = self.cur_idx;

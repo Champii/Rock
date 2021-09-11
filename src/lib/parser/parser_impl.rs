@@ -1,9 +1,8 @@
 use std::{collections::HashMap, convert::TryInto};
 
 use crate::ast::*;
-use crate::{ast::resolve::ResolutionMap, diagnostics::Diagnostic};
-// use crate::error::Error;
 use crate::parser::*;
+use crate::{ast::resolve::ResolutionMap, diagnostics::Diagnostic};
 
 type Error = Diagnostic;
 
@@ -474,8 +473,6 @@ impl Parse for Body {
             multi = true;
 
             ctx.block_indent += 1;
-
-            // ctx.consume();
         }
 
         let mut stmts = vec![];

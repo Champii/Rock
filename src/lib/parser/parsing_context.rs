@@ -29,8 +29,6 @@ impl ParsingCtx {
         }
     }
 
-    // pub fn get_span_from_hir_id(&self, hir_id: HirId) -> Span {}
-
     pub fn add_file(&mut self, file: SourceFile) {
         self.current_file = Some(file.file_path.clone());
 

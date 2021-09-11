@@ -24,10 +24,6 @@ impl<'a> HirPrinter<'a> {
         self.indent -= 1;
     }
 
-    // pub fn get_token(&self, token_id: TokenId) -> Option<Token> {
-    //     self.tokens.get(token_id).cloned()
-    // }
-
     pub fn indent(&self) -> usize {
         self.indent
     }
@@ -105,16 +101,13 @@ impl_visitor_trait2!(
     Prototype
     FunctionDecl
     ArgumentDecl
-    // IdentifierPath
     Identifier
     FnBody
     Body
     Statement
-    // Expression
     If
     Else
     FunctionCall
     Literal
     NativeOperator
-    // TypeSignature
 );

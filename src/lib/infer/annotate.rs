@@ -12,7 +12,6 @@ use crate::{
 #[derive(Debug)]
 pub struct AnnotateContext {
     state: InferState,
-    // traits: Vec<Trait>,
     trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
     body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
 }
@@ -68,26 +67,16 @@ impl<'a> Visitor<'a> for AnnotateContext {
 
     // Ignoring traits
     fn visit_trait(&mut self, _t: &Trait) {}
-    //     self.visit_type(&t.name);
 
-    //     walk_list!(self, visit_type, &t.types);
-
-    //     // let r#trait = self.hir.get_trait(t.name).unwrap();
-
-    //     // walk_list!(self, visit_prototype, &t.defs);
-    // }
     fn visit_impl(&mut self, i: &Impl) {
         self.visit_type(&i.name);
 
         walk_list!(self, visit_type, &i.types);
 
-        // let r#trait = self.hir.get_trait(i.name).unwrap();
-
         walk_list!(self, visit_function_decl, &i.defs);
+
         for (_method_name, list) in &self.trait_methods {
             for (sig, f_decl) in list {
-                // self.visit_function_decl(f_decl);
-
                 for (i, arg) in f_decl.arguments.iter().enumerate() {
                     self.state
                         .new_type_solved(arg.name.hir_id.clone(), sig.args[i].clone());

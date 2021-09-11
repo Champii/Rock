@@ -36,11 +36,6 @@ macro_rules! impl_indirect_get_hir_id_trait {
     )*) => {
         paste! {
             $(
-                // impl $name {
-                //     fn get_terminal_hir_id(&self) -> HirId {
-                //         self.[<walk_ $name:snake>]()
-                //     }
-                // }
                 impl HasHirId for $name {
                     fn get_hir_id(&self) -> HirId {
                         self.get_terminal_hir_id()

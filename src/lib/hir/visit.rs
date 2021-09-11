@@ -3,60 +3,6 @@ use concat_idents::concat_idents;
 use crate::{ast::Type, hir::HasHirId, hir::*};
 use crate::{ast::TypeSignature, walk_list};
 
-#[derive(Clone, Debug)]
-pub enum HirNode {
-    Root(Root),
-    TopLevel(TopLevel),
-    Trait(Trait),
-    Impl(Impl),
-    Assign(Assign),
-    Prototype(Prototype),
-    FunctionDecl(FunctionDecl),
-    ArgumentDecl(ArgumentDecl),
-    IdentifierPath(IdentifierPath),
-    Identifier(Identifier),
-    FnBody(FnBody),
-    Body(Body),
-    Statement(Statement),
-    Expression(Expression),
-    If(If),
-    Else(Else),
-    FunctionCall(FunctionCall),
-    Literal(Literal),
-    NativeOperator(NativeOperator),
-    // Type(Type),
-    // TypeSignature(TypeSignature),
-}
-
-impl HasHirId for HirNode {
-    fn get_hir_id(&self) -> HirId {
-        match self {
-            // HirNode::Root(x) => panic!("get_hir_id() not implemented for Root"),
-            // HirNode::TopLevel(x) => panic!("get_hir_id() not implemented for TopLevel"),
-            // HirNode::Trait(x) => panic!("get_hir_id() not implemented for Trait"),
-            // HirNode::Impl(x) => panic!("get_hir_id() not implemented for Impl"),
-            HirNode::Assign(x) => x.get_hir_id(),
-            HirNode::Prototype(x) => x.get_hir_id(),
-            HirNode::FunctionDecl(x) => x.get_hir_id(),
-            HirNode::ArgumentDecl(x) => x.get_hir_id(),
-            HirNode::IdentifierPath(x) => x.get_hir_id(),
-            HirNode::Identifier(x) => x.get_hir_id(),
-            HirNode::FnBody(x) => x.get_hir_id(),
-            HirNode::Body(x) => x.get_hir_id(),
-            HirNode::Statement(x) => x.get_hir_id(),
-            HirNode::Expression(x) => x.get_hir_id(),
-            HirNode::If(x) => x.get_hir_id(),
-            HirNode::Else(x) => x.get_hir_id(),
-            HirNode::FunctionCall(x) => x.get_hir_id(),
-            HirNode::Literal(x) => x.get_hir_id(),
-            HirNode::NativeOperator(x) => x.get_hir_id(),
-            _ => unimplemented!(),
-            // HirNode::Type(x) => x.get_hir_id(),
-            // HirNode::TypeSignature(x) => x.get_hir_id(),
-        }
-    }
-}
-
 macro_rules! generate_visitor_trait {
     ($(
         $name:ident, $method:ident
@@ -133,6 +79,7 @@ pub fn walk_trait<'a, V: Visitor<'a>>(visitor: &mut V, t: &'a Trait) {
     walk_list!(visitor, visit_prototype, &t.defs);
 }
 
+#[allow(dead_code)]
 pub fn walk_impl<'a, V: Visitor<'a>>(visitor: &mut V, i: &'a Impl) {
     visitor.visit_type(&i.name);
 
