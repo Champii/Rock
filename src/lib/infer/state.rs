@@ -210,6 +210,23 @@ impl InferState {
                 }
             }
             (Some(Type::FuncType(_f)), Some(_other)) => {
+                if self.get_ret(left).is_none() {
+                    let span = self
+                        .node_types
+                        .iter()
+                        .find(|(_hir_id, t_id)| **t_id == left)
+                        .map(|(hir_id, _t_id)| self.root.hir_map.get_node_id(hir_id).unwrap())
+                        .map(|node_id| self.root.spans.get(&node_id).unwrap().clone())
+                        .unwrap();
+
+                    return Err(Diagnostic::new_type_conflict(
+                        span,
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
+                    ));
+                }
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     let span = self
                         .node_types
@@ -229,6 +246,10 @@ impl InferState {
                 } else {
                     false
                 }
+            }
+            (Some(_left_in), Some(Type::FuncType(f2))) => {
+                println!("TODO: apply applicative type");
+                false
             }
             (Some(_left_in), Some(_)) => false,
             (_left_in, _right_in) => false,

@@ -177,7 +177,7 @@ impl<'a> Visitor<'a> for ConstraintContext<'a> {
                 // FIXME: Code smell
                 // TODO: Use global resolution instead of top_level
                 // TODO: Need Arena and a way to fetch any element/item/node
-                if let Some(top_id) = self.hir.resolutions.get_recur(&op_hir_id) {
+                if let Some(top_id) = self.hir.resolutions.get(&op_hir_id) {
                     if let Some(top) = self.hir.get_top_level(top_id.clone()) {
                         match &top.kind {
                             TopLevelKind::Prototype(p) => {

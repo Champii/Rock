@@ -17,6 +17,10 @@ fn testcases_trait_late_resolution_main() {
     run("./testcases/trait/late_resolution/main.rk", include_str!("./testcases/trait/late_resolution/main.rk"), include_str!("./testcases/trait/late_resolution/main.rk.out"));
 }
 #[test]
+fn testcases_trait_multi_resolution_main() {
+    run("./testcases/trait/multi_resolution/main.rk", include_str!("./testcases/trait/multi_resolution/main.rk"), include_str!("./testcases/trait/multi_resolution/main.rk.out"));
+}
+#[test]
 fn testcases_mods_unused_impl_fn_main() {
     run("./testcases/mods/unused_impl_fn/main.rk", include_str!("./testcases/mods/unused_impl_fn/main.rk"), include_str!("./testcases/mods/unused_impl_fn/main.rk.out"));
 }

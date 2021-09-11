@@ -1,7 +1,7 @@
 use paste::paste;
 use std::fmt::Debug;
 
-use crate::ast::{Type, TypeSignature};
+use crate::ast::{Type};
 use crate::helpers::*;
 use crate::hir::visit::*;
 use crate::hir::HasHirId;
