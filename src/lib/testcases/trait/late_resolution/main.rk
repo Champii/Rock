@@ -1,0 +1,11 @@
+infix + 4
+
+trait Num a
+    + a -> a -> a
+
+impl Num Int64
+    + a b = ~IAdd a b
+
+add a b = a + b
+
+main = add 2, 40
