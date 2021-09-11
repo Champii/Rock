@@ -10,13 +10,13 @@ use crate::{ast::Type, hir::visit::*};
 #[derive(Debug)]
 pub struct ConstraintContext<'a> {
     hir: &'a Root,
-    state: InferState,
+    state: InferState<'a>,
     current_body: Option<FnBodyId>,
     new_resolutions: HashMap<HirId, HirId>,
 }
 
 impl<'a> ConstraintContext<'a> {
-    pub fn new(state: InferState, hir: &'a Root) -> Self {
+    pub fn new(state: InferState<'a>, hir: &'a Root) -> Self {
         Self {
             state,
             hir,
@@ -29,12 +29,12 @@ impl<'a> ConstraintContext<'a> {
         self.visit_root(root);
     }
 
-    pub fn get_state(self) -> (InferState, HashMap<HirId, HirId>) {
+    pub fn get_state(self) -> (InferState<'a>, HashMap<HirId, HirId>) {
         (self.state, self.new_resolutions)
     }
 }
 
-impl<'a> Visitor<'a> for ConstraintContext<'a> {
+impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_root(&mut self, root: &'a Root) {
         walk_map!(self, visit_top_level, &root.top_levels);
 

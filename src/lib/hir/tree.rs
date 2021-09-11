@@ -7,9 +7,9 @@ use crate::{
     TypeId,
 };
 
-use super::HasHirId;
+use super::{arena::Arena, HasHirId};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Root {
     pub hir_map: HirMap,
     pub resolutions: ResolutionMap<HirId>,

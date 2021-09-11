@@ -20,6 +20,7 @@ macro_rules! impl_direct_get_hir_id_trait {
 }
 
 impl_direct_get_hir_id_trait!(
+    Mod
     TopLevel
     Prototype
     FunctionDecl

@@ -22,16 +22,16 @@ pub enum Constraint {
 }
 
 #[derive(Debug)]
-pub struct InferState {
+pub struct InferState<'a> {
     node_types: BTreeMap<HirId, TypeId>,
     types: BTreeMap<TypeId, Option<Type>>,
     constraints: BTreeSet<Constraint>,
     pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
-    pub root: Root,
+    pub root: &'a Root,
 }
 
-impl InferState {
-    pub fn new(root: Root) -> Self {
+impl<'a> InferState<'a> {
+    pub fn new(root: &'a Root) -> Self {
         Self {
             root,
             node_types: BTreeMap::new(),

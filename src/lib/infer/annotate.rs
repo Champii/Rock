@@ -10,15 +10,15 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct AnnotateContext {
-    state: InferState,
+pub struct AnnotateContext<'a> {
+    state: InferState<'a>,
     trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
     body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
 }
 
-impl AnnotateContext {
+impl<'a> AnnotateContext<'a> {
     pub fn new(
-        state: InferState,
+        state: InferState<'a>,
         trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
     ) -> Self {
         Self {
@@ -28,16 +28,16 @@ impl AnnotateContext {
         }
     }
 
-    pub fn annotate(&mut self, root: &Root) {
+    pub fn annotate(&mut self, root: &'a Root) {
         self.visit_root(root);
     }
 
-    pub fn get_state(self) -> InferState {
+    pub fn get_state(self) -> InferState<'a> {
         self.state
     }
 }
 
-impl<'a> Visitor<'a> for AnnotateContext {
+impl<'a, 'ar> Visitor<'a> for AnnotateContext<'ar> {
     fn visit_root(&mut self, root: &'a Root) {
         walk_map!(self, visit_top_level, &root.top_levels);
 

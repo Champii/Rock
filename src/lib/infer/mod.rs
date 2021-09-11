@@ -15,12 +15,12 @@ use self::annotate::AnnotateContext;
 use self::constraint::ConstraintContext;
 pub use self::state::*;
 
-pub fn infer(
-    root: &mut crate::hir::Root,
+pub fn infer<'a>(
+    root: &'a mut crate::hir::Root,
     parsing_ctx: &mut ParsingCtx,
     config: &Config,
 ) -> Result<(), Diagnostic> {
-    let infer_state = InferState::new(root.clone()); // FIXME: Don't clone the whole hir !!!
+    let infer_state = InferState::new(&root);
 
     let mut annotate_ctx = AnnotateContext::new(infer_state, root.trait_methods.clone());
 
@@ -30,12 +30,7 @@ pub fn infer(
 
     constraint_ctx.constraint(root);
 
-    let (mut infer_state, new_resolutions) = constraint_ctx.get_state();
-
-    // // FIXME: don't
-    for (k, v) in new_resolutions {
-        root.resolutions.insert(k.clone(), v.clone());
-    }
+    let (mut infer_state, mut new_resolutions) = constraint_ctx.get_state();
 
     if let Err(diags) = infer_state.solve() {
         for diag in diags {
@@ -55,12 +50,14 @@ pub fn infer(
 
         constraint_ctx.constraint(root);
 
-        let (mut infer_state, new_resolutions) = constraint_ctx.get_state();
+        let (mut infer_state, new_resolutions2) = constraint_ctx.get_state();
 
-        // // FIXME: don't
-        for (k, v) in new_resolutions {
-            root.resolutions.insert(k.clone(), v.clone());
-        }
+        new_resolutions.extend(new_resolutions2);
+
+        // // // FIXME: don't
+        // for (k, v) in new_resolutions {
+        //     root.resolutions.insert(k.clone(), v.clone());
+        // }
 
         if let Err(diags) = infer_state.solve() {
             for diag in diags {
@@ -73,21 +70,29 @@ pub fn infer(
         infer_state
     };
 
+    let trait_call_to_mangle = infer_state.trait_call_to_mangle.clone();
+
+    let node_types = infer_state.get_node_types();
+
+    // here we consume infer_state
+    let (types, diags) = infer_state.get_types();
+
     let mut mangle_ctx = MangleContext {
-        trait_call_to_mangle: infer_state.trait_call_to_mangle.clone(),
+        trait_call_to_mangle: trait_call_to_mangle.clone(),
     };
 
+    root.node_types = node_types;
+    root.trait_call_to_mangle = trait_call_to_mangle;
     mangle_ctx.visit_root(root);
-
-    root.trait_call_to_mangle = infer_state.trait_call_to_mangle.clone();
-
-    root.node_types = infer_state.get_node_types();
-
-    let (types, diags) = infer_state.get_types();
 
     // we dont exit on unresolved types .. yet
     for diag in diags {
         parsing_ctx.diagnostics.push_warning(diag);
+    }
+
+    // // FIXME: don't
+    for (k, v) in new_resolutions {
+        root.resolutions.insert(k.clone(), v.clone());
     }
 
     root.types = types;

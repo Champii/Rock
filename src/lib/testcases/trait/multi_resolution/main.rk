@@ -1,0 +1,27 @@
+extern puts String -> Int64
+
+infix == 3
+
+trait Eq a
+    == a -> a -> Bool
+
+impl Eq Int64
+    == e f = ~IEq e f
+
+impl Eq Bool
+    == i j = ~BEq i j
+
+trait Print a
+    print a -> Int64
+
+impl Print Bool
+    print b =
+        if b
+        then puts "true"
+        else puts "false"
+
+mdr a b = a == b
+mdr2 a b = a == b
+lol a b = mdr a, b == mdr2 2, 2
+
+main = print (lol 2, 2)

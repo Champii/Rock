@@ -20,7 +20,7 @@ impl Default for PackageType {
 }
 
 // TBD
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PackageMetaData {
     pub hir: hir::Root,
 }
