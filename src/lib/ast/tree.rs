@@ -162,6 +162,7 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
     pub identity: Identity,
+    pub signature: TypeSignature,
 }
 
 impl FunctionDecl {

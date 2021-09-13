@@ -1,8 +1,11 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    cell::{Cell, RefCell},
+    collections::{BTreeMap, HashMap},
+};
 
 use crate::{
     ast::*,
-    hir::{self, FnBodyId, HirId},
+    hir::{self, Arena, FnBodyId, HirId},
     NodeId,
 };
 
@@ -36,7 +39,8 @@ impl AstLoweringContext {
     pub fn lower_root(&mut self, root: &Root) -> hir::Root {
         self.lower_mod(&root.r#mod);
 
-        hir::Root {
+        let mut hir = hir::Root {
+            arena: Arena::new(),
             hir_map: self.hir_map.clone(),
             resolutions: root.resolutions.lower_resolution_map(&self.hir_map),
             node_types: BTreeMap::new(),
@@ -49,7 +53,11 @@ impl AstLoweringContext {
             trait_call_to_mangle: HashMap::new(),
             unused: vec![],
             spans: root.spans.clone(),
-        }
+        };
+
+        hir.arena = hir::collect_arena(&hir);
+
+        hir
     }
 
     pub fn lower_mod(&mut self, r#mod: &Mod) -> hir::HirId {
@@ -157,6 +165,8 @@ impl AstLoweringContext {
 
             let type_sig = type_sig.apply_types(&r#trait.types, &i.types);
 
+            hir_f.signature = type_sig.clone();
+
             let fn_decls = self
                 .trait_methods
                 .entry(hir_f.name.name.clone())
@@ -196,8 +206,8 @@ impl AstLoweringContext {
                 .iter()
                 .map(|arg| self.lower_argument_decl(&arg))
                 .collect(),
-            ret: Type::Undefined(0),
             body_id,
+            signature: f.signature.clone(),
             hir_id: id,
         }
     }

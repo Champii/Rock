@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use diagnostics::Diagnostic;
 use parser::{ParsingCtx, SourceFile};
 
-use crate::helpers::config::PackageMetaData;
+// use crate::helpers::config::PackageMetaData;
 pub use crate::infer::*;
 mod ast_lowering;
 mod codegen;
@@ -69,12 +69,12 @@ pub fn parse_str(
 
     // Generate code
     debug!("    -> Lower to LLVM IR");
-    let parsing_ctx = codegen::generate(&config, parsing_ctx, &hir)?;
+    let parsing_ctx = codegen::generate(&config, parsing_ctx, hir)?;
 
-    debug!("    -> Save MetaData");
-    PackageMetaData { hir }
-        .store(&PathBuf::from("/tmp/test.serde"))
-        .unwrap();
+    // debug!("    -> Save MetaData");
+    // PackageMetaData { hir }
+    //     .store(&PathBuf::from("/tmp/test.serde"))
+    //     .unwrap();
 
     parsing_ctx.print_success_diagnostics();
 

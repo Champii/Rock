@@ -34,4 +34,18 @@ impl HirMap {
 
         self.rev_map.insert(node_id, hir_id);
     }
+
+    pub fn duplicate_hir_mapping(&mut self, hir_id: HirId) -> Option<HirId> {
+        let node_id = self.get_node_id(&hir_id)?;
+
+        let mut fake_ident = Identity::new_placeholder();
+
+        fake_ident.node_id = node_id;
+
+        let new_id = self.next_hir_id(fake_ident);
+
+        self.add_hir_mapping(new_id.clone(), node_id);
+
+        Some(new_id)
+    }
 }

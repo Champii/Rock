@@ -5,16 +5,16 @@ use inkwell::context::Context;
 
 use crate::{diagnostics::Diagnostic, hir::Root, parser::ParsingCtx, Config};
 
-pub fn generate(
+pub fn generate<'a>(
     config: &Config,
     parsing_ctx: ParsingCtx,
-    hir: &Root,
+    hir: Root,
 ) -> Result<ParsingCtx, Diagnostic> {
     let context = Context::create();
     let builder = context.create_builder();
 
     let mut codegen_ctx = CodegenContext::new(&context, parsing_ctx, &hir);
-    if let Err(_) = codegen_ctx.lower_hir(hir, &builder) {
+    if let Err(_) = codegen_ctx.lower_hir(&hir, &builder) {
         codegen_ctx.parsing_ctx.return_if_error()?;
     }
 

@@ -34,6 +34,10 @@ impl Type {
             Self::Undefined(s) => s.to_string(),
         }
     }
+
+    pub fn is_forall(&self) -> bool {
+        matches!(self, Self::ForAll(_x))
+    }
 }
 
 impl fmt::Display for Type {
@@ -63,6 +67,17 @@ impl FuncType {
 pub struct TypeSignature {
     pub args: Vec<Type>,
     pub ret: Type,
+    next_free_forall_type: usize,
+}
+
+impl Default for TypeSignature {
+    fn default() -> Self {
+        Self {
+            args: vec![],
+            ret: Type::Undefined(0),
+            next_free_forall_type: 0,
+        }
+    }
 }
 
 impl TypeSignature {
@@ -88,8 +103,63 @@ impl TypeSignature {
         };
 
         Self {
+            next_free_forall_type: 0,
             args: applied_args,
             ret: applied_ret,
         }
+    }
+
+    pub fn apply_partial_types_mut(&mut self, args: &Vec<Option<Type>>, ret: Option<Type>) {
+        let mut orig = vec![];
+        let mut dest = vec![];
+
+        self.args.iter_mut().enumerate().for_each(|(i, arg_t)| {
+            if !arg_t.is_forall() {
+                panic!("Trying to apply type to a not forall")
+            }
+
+            if let Some(t) = args.get(i).unwrap() {
+                orig.push(arg_t.clone());
+                dest.push(t.clone());
+            }
+        });
+
+        if let Some(t) = ret {
+            if !t.is_forall() {
+                panic!("Trying to apply type to a not forall")
+            }
+
+            // FIXME: must remplace all occurences of ret
+            orig.push(self.ret.clone());
+            dest.push(t.clone());
+        }
+
+        *self = self.apply_types(&orig, &dest);
+    }
+
+    pub fn from_args_nb(nb: usize) -> Self {
+        let mut new = Self::default();
+
+        new.args = (0..nb).map(|_| new.get_next_available_forall()).collect();
+        new.ret = new.get_next_available_forall();
+
+        new
+    }
+
+    pub fn get_next_available_forall(&mut self) -> Type {
+        let t = Type::ForAll(
+            ('a'..'z')
+                .nth(self.next_free_forall_type)
+                .unwrap()
+                .to_string(),
+        );
+
+        self.next_free_forall_type += 1;
+
+        t
+    }
+
+    pub fn is_solved(&self) -> bool {
+        !self.args.iter().any(|arg| arg.is_forall()) && !self.ret.is_forall()
     }
 }

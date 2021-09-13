@@ -2,29 +2,29 @@ use crate::{ast::Type, hir::HasHirId, hir::*};
 use crate::{ast::TypeSignature, walk_list};
 
 #[derive(Clone, Debug)]
-pub enum HirNode<'ar> {
-    Mod(&'ar Mod),
-    TopLevel(&'ar TopLevel),
-    Trait(&'ar Trait),
-    Impl(&'ar Impl),
-    Assign(&'ar Assign),
-    Prototype(&'ar Prototype),
-    FunctionDecl(&'ar FunctionDecl),
-    ArgumentDecl(&'ar ArgumentDecl),
-    IdentifierPath(&'ar IdentifierPath),
-    Identifier(&'ar Identifier),
-    FnBody(&'ar FnBody),
-    Body(&'ar Body),
-    Statement(&'ar Statement),
-    Expression(&'ar Expression),
-    If(&'ar If),
-    Else(&'ar Else),
-    FunctionCall(&'ar FunctionCall),
-    Literal(&'ar Literal),
-    NativeOperator(&'ar NativeOperator),
+pub enum HirNode {
+    Mod(Mod),
+    TopLevel(TopLevel),
+    Trait(Trait),
+    Impl(Impl),
+    Assign(Assign),
+    Prototype(Prototype),
+    FunctionDecl(FunctionDecl),
+    ArgumentDecl(ArgumentDecl),
+    IdentifierPath(IdentifierPath),
+    Identifier(Identifier),
+    FnBody(FnBody),
+    Body(Body),
+    Statement(Statement),
+    Expression(Expression),
+    If(If),
+    Else(Else),
+    FunctionCall(FunctionCall),
+    Literal(Literal),
+    NativeOperator(NativeOperator),
 }
 
-impl<'ar> HasHirId for HirNode<'ar> {
+impl<'ar> HasHirId for HirNode {
     fn get_hir_id(&self) -> HirId {
         match self {
             HirNode::Mod(x) => x.get_hir_id(),
@@ -51,8 +51,8 @@ impl<'ar> HasHirId for HirNode<'ar> {
 macro_rules! generate_hirnode_from {
     ($($expr:ident,)+) => {
         $(
-            impl<'ar> From<&'ar $expr> for HirNode<'ar> {
-                fn from(expr: &'ar $expr) -> HirNode<'ar> {
+            impl From<$expr> for HirNode {
+                fn from(expr: $expr) -> HirNode {
                     HirNode::$expr(expr)
                 }
             }

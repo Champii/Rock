@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    cell::{Cell, RefCell},
+    collections::{BTreeMap, HashMap},
+};
 
 use crate::{ast::Type, ast_lowering::HirMap, parser::Span, NodeId};
 use crate::{
@@ -9,8 +12,9 @@ use crate::{
 
 use super::{arena::Arena, HasHirId};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub struct Root {
+    pub arena: Arena,
     pub hir_map: HirMap,
     pub resolutions: ResolutionMap<HirId>,
     pub node_types: BTreeMap<HirId, TypeId>,
@@ -81,6 +85,11 @@ impl Root {
 
         self.types.get(&t_id).cloned()
     }
+
+    // pub fn apply_monomorphization(&mut self, bindings: Bindings) {
+
+    //     //
+    // }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,9 +146,9 @@ pub struct FunctionDecl {
     pub name: Identifier,
     pub mangled_name: Option<Identifier>,
     pub arguments: Vec<ArgumentDecl>,
-    pub ret: Type,
     pub body_id: FnBodyId,
     pub hir_id: HirId,
+    pub signature: TypeSignature,
 }
 
 impl FunctionDecl {

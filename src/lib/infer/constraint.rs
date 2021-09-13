@@ -59,10 +59,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.visit_prototype(&p);
             }
             TopLevelKind::Function(f) => {
-                self.state.add_constraint(Constraint::Eq(
-                    self.state.get_type_id(f.name.get_hir_id()).unwrap(),
-                    self.state.get_type_id(top_level.get_hir_id()).unwrap(),
-                ));
+                // self.state.add_constraint(Constraint::Eq(
+                //     self.state.get_type_id(f.name.get_hir_id()).unwrap(),
+                //     self.state.get_type_id(top_level.get_hir_id()).unwrap(),
+                // ));
                 self.visit_function_decl(&f);
             }
         };
@@ -174,13 +174,24 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 walk_list!(self, visit_expression, &fc.args);
                 let op_hir_id = fc.op.get_terminal_hir_id();
 
-                // FIXME: Code smell
-                // TODO: Use global resolution instead of top_level
-                // TODO: Need Arena and a way to fetch any element/item/node
-                if let Some(top_id) = self.hir.resolutions.get(&op_hir_id) {
-                    if let Some(top) = self.hir.get_top_level(top_id.clone()) {
-                        match &top.kind {
-                            TopLevelKind::Prototype(p) => {
+                self.state.add_constraint(Constraint::Callable(
+                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                    self.state.get_type_id(fc.get_hir_id()).unwrap(),
+                ));
+
+                return;
+
+                // TODO: Recolt all function calls to create a map for monomorphisation
+
+                if let Some(top_id) = self.hir.resolutions.get_recur(&op_hir_id) {
+                    println!("OP ARENA {:#?}", self.hir.arena.get(&op_hir_id));
+                    println!("TOP ARENA {:#?}", self.hir.arena.get(&top_id));
+
+                    // self.hir.arena.get(&top_id);
+
+                    if let Some(reso) = self.hir.arena.get(&top_id) {
+                        match reso {
+                            HirNode::Prototype(p) => {
                                 let sig_ret_t_id = self
                                     .state
                                     .get_or_create_type_id_by_type(&p.signature.ret)
@@ -211,7 +222,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                                 self.state.add_constraint(constraint);
                             }
-                            TopLevelKind::Function(f) => {
+                            HirNode::FunctionDecl(f) => {
                                 let body = self.hir.get_body(f.body_id.clone()).unwrap();
 
                                 let body_hir_id = body.get_terminal_hir_id();
@@ -239,8 +250,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                     ));
                                 }
                             }
+                            _ => (),
                         }
                     } else {
+                        panic!("NO ARENA ITEM FOR HIR={:?}", top_id);
                         // Trait solving
 
                         // FIXME: Apply to list of types

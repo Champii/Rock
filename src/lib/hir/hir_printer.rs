@@ -11,6 +11,7 @@ pub struct HirPrinter<'a> {
     hir: &'a Root,
     indent: usize,
 }
+
 impl<'a> HirPrinter<'a> {
     pub fn new(hir: &'a Root) -> Self {
         Self { hir, indent: 0 }
@@ -111,3 +112,7 @@ impl_visitor_trait2!(
     Literal
     NativeOperator
 );
+
+pub fn print(root: &Root) {
+    HirPrinter::new(root).visit_root(root)
+}

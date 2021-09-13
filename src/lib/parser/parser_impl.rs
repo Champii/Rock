@@ -102,6 +102,7 @@ pub struct Parser<'a> {
     pub cur_tok_id: TokenId,
     save: Vec<TokenId>,
     pub block_indent: u8,
+    func_sigs: HashMap<String, TypeSignature>,
 }
 
 impl<'a> Parser<'a> {
@@ -115,6 +116,7 @@ impl<'a> Parser<'a> {
             save: vec![0],
             cur_tok_id: 0,
             block_indent: 0,
+            func_sigs: HashMap::new(),
         }
     }
 
@@ -168,6 +170,10 @@ impl<'a> Parser<'a> {
                 txt: "".to_string(),
             },
         }
+    }
+
+    pub fn add_func_sig(&mut self, name: String, sig: TypeSignature) {
+        self.func_sigs.insert(name, sig);
     }
 }
 
@@ -273,7 +279,30 @@ impl Parse for TopLevel {
 
                 TopLevelKind::Infix(identifier, precedence as u8)
             }
-            _ => TopLevelKind::Function(FunctionDecl::parse(ctx)?),
+            _ => {
+                // ctx.save();
+                if let Ok(proto) = Prototype::parse(ctx) {
+                    ctx.add_func_sig(proto.name.name.clone(), proto.signature.clone());
+
+                    TopLevelKind::Prototype(proto)
+                } else {
+                    let mut f = FunctionDecl::parse(ctx)?;
+
+                    let mut has_applied = false;
+
+                    if let Some(sig) = ctx.func_sigs.get(&f.name.name) {
+                        f.signature = sig.clone();
+
+                        has_applied = true;
+                    }
+                    if has_applied {
+                        ctx.func_sigs.remove(&f.name.name);
+                        println!("LOOOOOL {:#?}", f);
+                    }
+
+                    TopLevelKind::Function(f)
+                }
+            }
         };
 
         while ctx.cur_tok().t == TokenType::EOL {
@@ -371,6 +400,8 @@ impl Parse for Prototype {
 
         let name = try_or_restore!(Identifier::parse(ctx), ctx);
 
+        expect_or_restore!(TokenType::DoubleSemiColon, ctx);
+
         let signature = try_or_restore!(TypeSignature::parse(ctx), ctx);
 
         ctx.save_pop();
@@ -421,6 +452,7 @@ impl Parse for FunctionDecl {
 
         Ok(FunctionDecl {
             name,
+            signature: TypeSignature::from_args_nb(arguments.len()),
             arguments,
             body,
             identity: Identity::new(token_id, token.span),
@@ -983,6 +1015,11 @@ impl Parse for TypeSignature {
 
         let ret = args.pop().unwrap();
 
-        Ok(TypeSignature { args, ret })
+        let mut t_sig = TypeSignature::default();
+
+        t_sig.args = args;
+        t_sig.ret = ret;
+
+        Ok(t_sig)
     }
 }
