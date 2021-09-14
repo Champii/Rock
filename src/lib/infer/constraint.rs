@@ -323,7 +323,9 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.state.get_type_id(reso.clone()).unwrap(),
             ));
         } else {
-            panic!("No identifier resolution {:?}", id);
+            error!("No identifier resolution {:?}", id);
+
+            return;
         }
     }
 }
