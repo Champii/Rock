@@ -1,11 +1,4 @@
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{BufReader, BufWriter},
-    path::{Path, PathBuf},
-};
-
-use crate::hir;
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Debug, Clone)]
 pub enum PackageType {

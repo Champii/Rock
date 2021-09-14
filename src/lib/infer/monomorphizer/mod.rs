@@ -10,7 +10,7 @@ mod monomorphizer;
 mod proto_collector;
 
 pub fn monomophize(root: &mut Root) -> Root {
-    let mut protos = proto_collector::collect_prototypes(root);
+    let protos = proto_collector::collect_prototypes(root);
     let calls = call_collector::collect_calls(root);
 
     let bindings = call_solver::solve_calls(protos, calls, root);

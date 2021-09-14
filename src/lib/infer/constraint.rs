@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{resolve::ResolutionMap, PrimitiveType},
+    ast::{FuncType, PrimitiveType, Type},
     diagnostics::Diagnostics,
-    walk_map,
+    hir::visit::*,
+    hir::*,
+    walk_list, walk_map,
 };
 
 use super::{annotate::AnnotateContext, Constraint, InferState};
-use crate::walk_list;
-use crate::{ast::FuncType, hir::*};
-use crate::{ast::Type, hir::visit::*};
 
 #[derive(Debug)]
 pub struct ConstraintContext<'a> {
@@ -21,7 +20,6 @@ pub struct ConstraintContext<'a> {
 
 impl<'a> ConstraintContext<'a> {
     pub fn new(state: InferState<'a>, hir: &'a Root) -> Self {
-        println!("INFER_STATE {:#?}", state);
         Self {
             state,
             hir,
@@ -318,8 +316,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 );
 
                 return;
-
-                // self.state.new_type_id(reso.clone());
             }
 
             self.state.add_constraint(Constraint::Eq(
@@ -343,7 +339,7 @@ pub fn solve<'a>(mut root: Root) -> (Root, Diagnostics) {
     let mut constraint_ctx = ConstraintContext::new(annotate_ctx.get_state(), &root);
     constraint_ctx.constraint(&root);
 
-    let (mut infer_state, mut new_resolutions) = constraint_ctx.get_state();
+    let (mut infer_state, mut _new_resolutions) = constraint_ctx.get_state();
 
     if let Err(diags) = infer_state.solve() {
         for diag in diags {

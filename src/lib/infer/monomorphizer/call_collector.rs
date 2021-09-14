@@ -1,10 +1,5 @@
 use std::collections::HashMap;
 
-use crate::{
-    ast::{Type, TypeSignature},
-    hir::HirId,
-    InferState,
-};
 use crate::{hir::visit::*, hir::*};
 
 pub type Calls = HashMap<(HirId, HirId), FunctionCall>; // (call_site_id, caller_id)

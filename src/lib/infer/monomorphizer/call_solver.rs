@@ -1,11 +1,6 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
-use crate::{
-    ast::{Type, TypeSignature},
-    hir::HirId,
-    InferState,
-};
-use crate::{hir::visit::*, hir::*};
+use crate::{ast::TypeSignature, hir::*};
 
 use super::{call_collector::Calls, proto_collector::Protos};
 
@@ -55,7 +50,7 @@ fn find_main_proto(root: &Root) -> HirId {
 fn get_calls_by_call_site(bindings: &Bindings, call_site: HirId) -> Vec<(FnCall, TypeSignature)> {
     bindings
         .iter()
-        .map(|(proto_hir_id, (proto_sig, calls))| {
+        .map(|(_proto_hir_id, (proto_sig, calls))| {
             calls
                 .iter()
                 .filter_map(|fn_call| {
@@ -72,9 +67,9 @@ fn get_calls_by_call_site(bindings: &Bindings, call_site: HirId) -> Vec<(FnCall,
 }
 
 fn monomorphize(bindings: Bindings, entry_point_hir_id: HirId, root: &Root) -> Bindings {
-    let mut empty_bindings: Bindings = bindings
+    let empty_bindings: Bindings = bindings
         .iter()
-        .map(|(id, (sig, calls))| (id.clone(), (sig.clone(), Vec::new())))
+        .map(|(id, (sig, _calls))| (id.clone(), (sig.clone(), Vec::new())))
         .collect();
 
     process_proto(&bindings, entry_point_hir_id.clone(), empty_bindings, root)
@@ -109,234 +104,11 @@ fn process_proto(
     new_bindings
 }
 
-pub struct CallToFnRef {
-    proto_index: usize,
-}
-
 pub fn solve_calls(protos: Protos, calls: Calls, root: &Root) -> Bindings {
     // Objective: get a list of fully resolved typesignatures for top_level function decl
-    //
-    let mut bindings = bind_calls_to_proto(&protos, &calls, root);
+    let bindings = bind_calls_to_proto(&protos, &calls, root);
 
-    // println!("Bindings {:#?}", bindings);
+    let bindings = monomorphize(bindings.clone(), find_main_proto(root), root);
 
-    let mut bindings = monomorphize(bindings.clone(), find_main_proto(root), root);
-    // println!("MONOMORPH {:#?}", bindings);
-
-    // let mut res = protos
-    //     .iter()
-    //     .filter(|(_, t_sig)| t_sig.is_solved())
-    //     .map(|(hir_id, t_sig)| (hir_id.clone(), vec![t_sig.clone()]))
-    //     .collect::<BTreeMap<_, _>>();
-
-    let mut res = BTreeMap::new();
-
-    return bindings;
-
-    // // let mut to_process = protos
-    // //     .into_iter()
-    // //     .filter(|(_, t_sig)| !t_sig.is_solved())
-    // //     .collect::<BTreeMap<_, _>>();
-
-    // // let mut calls = calls.clone();
-    // // let mut stack = calls.clone();
-
-    // // let mut to_process_old = to_process.clone();
-
-    // let mut i = 0;
-
-    // // let mut bindings_copy = bindings.clone();
-
-    // while !bindings.is_empty() && i < 3 {
-    //     // let mut to_add = BTreeMap::new();
-
-    //     bindings = bindings
-    //         .into_iter()
-    //         .filter_map(|(proto_hir_id, (proto_sig, calls))| {
-    //             if proto_sig.is_solved() {
-    //                 res.entry(proto_hir_id.clone())
-    //                     .or_insert_with(Vec::new)
-    //                     .push(proto_sig.clone());
-
-    //                 return None;
-    //             }
-
-    //             let calls = calls
-    //                 .into_iter()
-    //                 .filter_map(|(call_hir_id, (call_sig, fc))| {
-    //                     let args_t = fc
-    //                         .args
-    //                         .iter()
-    //                         .map(|arg| {
-    //                             infer_state
-    //                                 .get_type(infer_state.get_type_id(arg.get_hir_id()).unwrap())
-    //                         })
-    //                         .collect::<Vec<_>>();
-
-    //                     let ret_t =
-    //                         infer_state.get_type(infer_state.get_type_id(fc.get_hir_id()).unwrap());
-
-    //                     let mut t_sig = call_sig.clone();
-    //                     t_sig.apply_partial_types_mut(&args_t, ret_t);
-
-    //                     println!("POST PARTIAL APPLY {:#?}", t_sig);
-    //                     if t_sig.is_solved() {
-    //                         // infer and typecheck here
-    //                         //
-    //                         // assign fresh hir_id
-    //                         // update resolutions
-    //                         // add annotations
-    //                         // add constraints
-    //                         // solve
-    //                         // update resolutions
-
-    //                         res.entry(proto_hir_id.clone())
-    //                             .or_insert_with(Vec::new)
-    //                             .push(t_sig.clone());
-
-    //                         None
-    //                     } else {
-    //                         Some((call_hir_id, (t_sig, fc)))
-    //                     }
-    //                 })
-    //                 .collect::<Vec<_>>();
-
-    //             // (calls.len() > 0).then(|| (proto_hir_id, (proto_sig, calls)))
-    //             (true).then(|| (proto_hir_id, (proto_sig, calls)))
-    //         })
-    //         .collect();
-
-    //     // for (proto_hir_id, t_sig) in to_add {
-    //     // bindings.entry(proto_hir_id)
-    //     // }
-
-    //     i += 1;
-    // }
-
-    // loop {
-    //     i = i + 1;
-
-    //     if to_process.is_empty() {
-    //         break;
-    //     }
-
-    //     if to_process == to_process_old && i > 3 {
-    //         println!("BREAK {:#?}", res);
-    //         // panic!("No progress in solve calls");
-    //         break;
-    //     }
-
-    //     to_process_old = to_process.clone();
-
-    //     calls = calls
-    //         .into_iter()
-    //         .filter(|(hir_id, fc)| {
-    //             if let Some(reso_id) = root.resolutions.get(&hir_id) {
-    //                 match to_process.get(&reso_id) {
-    //                     Some(t_sig) => {
-    //                         if t_sig.is_solved() {
-    //                             res.entry(hir_id.clone())
-    //                                 .or_insert_with(Vec::new)
-    //                                 .push(t_sig.clone());
-
-    //                             return false;
-    //                         } else {
-    //                             let args_t = fc
-    //                                 .args
-    //                                 .iter()
-    //                                 .map(|arg| {
-    //                                     infer_state.get_type(
-    //                                         infer_state.get_type_id(arg.get_hir_id()).unwrap(),
-    //                                     )
-    //                                 })
-    //                                 .collect::<Vec<_>>();
-
-    //                             let ret_t = infer_state
-    //                                 .get_type(infer_state.get_type_id(fc.get_hir_id()).unwrap());
-
-    //                             let mut t_sig = t_sig.clone();
-    //                             t_sig.apply_partial_types_mut(&args_t, ret_t);
-
-    //                             println!("POST PARTIAL APPLY {:#?}", t_sig);
-    //                             if t_sig.is_solved() {
-    //                                 res.entry(hir_id.clone())
-    //                                     .or_insert_with(Vec::new)
-    //                                     .push(t_sig.clone());
-
-    //                                 return false;
-    //                             } else {
-    //                                 to_process.insert(hir_id.clone(), t_sig);
-    //                                 // stack.insert(hir_id, fc);
-    //                             }
-
-    //                             // zx
-    //                         }
-    //                         true
-    //                     }
-    //                     None => {
-    //                         panic!("WOUAT");
-    //                     }
-    //                 }
-    //             } else {
-    //                 panic!("WOUAT2");
-    //             }
-    //         })
-    //         .collect();
-
-    //     // for (hir_id, fc) in &calls {
-    //     //    if let Some(reso_id) = root.resolutions.get(&hir_id) {
-    //     //        match to_process.get(&reso_id) {
-    //     //            Some(t_sig) => {
-    //     //                if t_sig.is_solved() {
-    //     //                    res.entry(hir_id.clone())
-    //     //                        .or_insert_with(Vec::new)
-    //     //                        .push(t_sig.clone());
-    //     //                } else {
-    //     //                    let args_t = fc
-    //     //                        .args
-    //     //                        .iter()
-    //     //                        .map(|arg| {
-    //     //                            infer_state.get_type(
-    //     //                                infer_state.get_type_id(arg.get_hir_id()).unwrap(),
-    //     //                            )
-    //     //                        })
-    //     //                        .collect::<Vec<_>>();
-
-    //     //                    let mut t_sig = t_sig.clone();
-    //     //                    t_sig.apply_partial_types_mut(&args_t);
-
-    //     //                    println!("POST PARTIAL APPLY {:#?}", t_sig);
-    //     //                    if t_sig.is_solved() {
-    //     //                        res.entry(hir_id.clone())
-    //     //                            .or_insert_with(Vec::new)
-    //     //                            .push(t_sig.clone());
-    //     //                    } else {
-    //     //                        to_process.insert(&hir_id, t_sig);
-    //     //                        // stack.insert(hir_id, fc);
-    //     //                    }
-
-    //     //                    // zx
-    //     //                }
-    //     //            }
-    //     //            None => {
-    //     //                panic!("WOUAT");
-    //     //                // root.get_trait_method(
-    //     //                //     fc.op.as_identifier().name,
-    //     //                //     infer_state
-    //     //                //         .get_type(
-    //     //                //             infer_state
-    //     //                //                 .get_type_id(fc.args.first().unwrap().get_hir_id())
-    //     //                //                 .unwrap(),
-    //     //                //         )
-    //     //                //         .unwrap(),
-    //     //                // );
-    //     //                let node = root.arena.get(&reso_id).unwrap();
-    //     //                println!("RESO NODE {:#?}", node);
-    //     //            } // is a trait
-    //     //        }
-    //     //    }
-    //     // }
-    // }
-
-    res
+    bindings
 }

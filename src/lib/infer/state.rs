@@ -3,11 +3,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::{
-    ast::Type,
-    diagnostics::Diagnostic,
-    hir::{HirId, Root},
-};
+use crate::{ast::Type, diagnostics::Diagnostic, hir::*};
 
 pub type NodeId = u64;
 
@@ -189,7 +185,6 @@ impl<'a> InferState<'a> {
                 true
             }
             (Some(Type::FuncType(_f1)), Some(Type::FuncType(_f2))) => {
-                println!("STATE CALLABLE {:#?}, {:#?}", _f1, _f2);
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     let span = self
                         .node_types
@@ -251,8 +246,9 @@ impl<'a> InferState<'a> {
                     false
                 }
             }
-            (Some(_left_in), Some(Type::FuncType(f2))) => {
+            (Some(_left_in), Some(Type::FuncType(_f2))) => {
                 println!("TODO: apply applicative type");
+
                 false
             }
             (Some(_left_in), Some(_)) => false,

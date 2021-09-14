@@ -1,13 +1,11 @@
-use std::{
-    cell::{Cell, RefCell},
-    collections::{BTreeMap, HashMap},
-};
+use std::collections::{BTreeMap, HashMap};
 
-use crate::{ast::Type, ast_lowering::HirMap, parser::Span, NodeId};
 use crate::{
-    ast::{resolve::ResolutionMap, TypeSignature},
+    ast::{resolve::ResolutionMap, Type, TypeSignature},
+    ast_lowering::HirMap,
     hir::hir_id::*,
-    TypeId,
+    parser::Span,
+    NodeId, TypeId,
 };
 
 use super::{arena::Arena, HasHirId};
@@ -23,10 +21,7 @@ pub struct Root {
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
     pub trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
     pub top_levels: Vec<TopLevel>,
-    // pub modules: BTreeMap<HirId, Mod>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
-    pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
-    pub unused: Vec<HirId>,
     pub spans: HashMap<NodeId, Span>,
 }
 

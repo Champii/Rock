@@ -1,21 +1,15 @@
-use std::{
-    cell::{Cell, RefCell},
-    collections::{BTreeMap, HashMap},
-};
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     ast::*,
     hir::{self, Arena, FnBodyId, HirId},
-    NodeId,
 };
 
 use super::{hir_map::HirMap, return_placement::ReturnInserter, InfixDesugar};
 
 pub struct AstLoweringContext {
     hir_map: HirMap,
-    unused: Vec<NodeId>,
     top_levels: Vec<hir::TopLevel>,
-    modules: BTreeMap<HirId, hir::Mod>,
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
@@ -23,12 +17,10 @@ pub struct AstLoweringContext {
 }
 
 impl AstLoweringContext {
-    pub fn new(operators_list: HashMap<String, u8>, unused: Vec<NodeId>) -> Self {
+    pub fn new(operators_list: HashMap<String, u8>) -> Self {
         Self {
-            unused,
             hir_map: HirMap::new(),
             top_levels: Vec::new(),
-            modules: BTreeMap::new(),
             bodies: BTreeMap::new(),
             traits: HashMap::new(),
             trait_methods: HashMap::new(),
@@ -47,12 +39,9 @@ impl AstLoweringContext {
             node_types: BTreeMap::new(),
             types: BTreeMap::new(),
             top_levels: self.top_levels.clone(),
-            // modules: self.modules.clone(),
             bodies: self.bodies.clone(),
             traits: self.traits.clone(),
             trait_methods: self.trait_methods.clone(),
-            trait_call_to_mangle: HashMap::new(),
-            unused: vec![],
             spans: root.spans.clone(),
         };
 
@@ -69,46 +58,30 @@ impl AstLoweringContext {
     }
 
     pub fn lower_top_level(&mut self, top_level: &TopLevel) {
-        // let id = self.hir_map.next_hir_id(top_level.identity.clone());
-
         match &top_level.kind {
             TopLevelKind::Prototype(p) => {
-                let mut top_level = hir::TopLevel {
+                let top_level = hir::TopLevel {
                     kind: hir::TopLevelKind::Prototype(self.lower_prototype(&p)),
-                    // hir_id: id,
                 };
 
-                // let child_id = top_level.get_child_hir();
-                // top_level.hir_id = child_id.clone();
+                self.top_levels.push(top_level);
+            }
+            TopLevelKind::Function(f) => {
+                let top_level = hir::TopLevel {
+                    kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),
+                };
 
                 self.top_levels.push(top_level);
-                // child_id
             }
-            TopLevelKind::Use(_u) => (),
             TopLevelKind::Trait(t) => {
                 self.lower_trait(t);
-
-                // id
             }
             TopLevelKind::Impl(i) => {
                 self.lower_impl(&i);
-
-                // id
-            }
-            TopLevelKind::Infix(_, _) => (),
-            TopLevelKind::Function(f) => {
-                let mut top_level = hir::TopLevel {
-                    kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),
-                    // hir_id: id,
-                };
-
-                // let child_id = top_level.get_child_hir();
-                // top_level.hir_id = child_id.clone();
-
-                self.top_levels.push(top_level);
-                // child_id
             }
             TopLevelKind::Mod(_name, mod_) => self.lower_mod(&mod_),
+            TopLevelKind::Infix(_, _) => (),
+            TopLevelKind::Use(_u) => (),
         };
     }
 

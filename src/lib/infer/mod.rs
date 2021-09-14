@@ -6,13 +6,7 @@ mod state;
 
 pub use self::state::*;
 
-use crate::{
-    diagnostics::Diagnostic,
-    hir::{hir_printer::*, visit_mut::*, Arena},
-    infer::mangle::*,
-    parser::ParsingCtx,
-    Config,
-};
+use crate::{diagnostics::Diagnostic, parser::ParsingCtx, Config};
 
 pub fn infer(
     root: &mut crate::hir::Root,

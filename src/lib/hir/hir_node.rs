@@ -1,5 +1,4 @@
-use crate::{ast::Type, hir::HasHirId, hir::*};
-use crate::{ast::TypeSignature, walk_list};
+use crate::{hir::HasHirId, hir::*};
 
 #[derive(Clone, Debug)]
 pub enum HirNode {
@@ -27,7 +26,7 @@ pub enum HirNode {
 impl<'ar> HasHirId for HirNode {
     fn get_hir_id(&self) -> HirId {
         match self {
-            HirNode::Mod(x) => unimplemented!("Non-sense yet to give a hir_id from a mod"),
+            HirNode::Mod(_x) => unimplemented!("Non-sense yet to get a hir_id from a mod"),
             HirNode::Assign(x) => x.get_hir_id(),
             HirNode::Prototype(x) => x.get_hir_id(),
             HirNode::FunctionDecl(x) => x.get_hir_id(),

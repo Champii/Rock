@@ -1,5 +1,6 @@
-use crate::{ast::resolve::ResolutionMap, hir::visit_mut::*, hir::*, walk_list, InferState};
 use std::collections::{BTreeMap, HashMap};
+
+use crate::{ast::resolve::ResolutionMap, hir::visit_mut::*, hir::*};
 
 use super::call_solver::Bindings;
 
@@ -19,7 +20,7 @@ impl<'a> Monomorphizer<'a> {
             .bindings
             .clone()
             .iter()
-            .map(|(proto_id, (sig, calls))| {
+            .map(|(proto_id, (_sig, calls))| {
                 let f_decls = calls
                     .into_iter()
                     .map(|fn_call| {
@@ -45,7 +46,7 @@ impl<'a> Monomorphizer<'a> {
 
                 f_decls
                     .into_iter()
-                    .map(|(mut new_f, old_f)| {
+                    .map(|(mut new_f, _old_f)| {
                         let fn_body = self.root.bodies.get(&new_f.body_id).unwrap();
 
                         let mut new_fn_body = fn_body.clone();
@@ -105,8 +106,6 @@ impl<'a> Monomorphizer<'a> {
             kind: TopLevelKind::Function(main),
         });
 
-        println!("NEW RESO {:#?}", self.new_resolutions);
-
         new_root.bodies.insert(main_body.id.clone(), main_body);
 
         new_root.resolutions = self.new_resolutions.clone();
@@ -139,14 +138,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             .hir_map
             .duplicate_hir_mapping(f.name.hir_id.clone())
             .unwrap();
-
-        // for arg in f.arguments.iter_mut() {
-        //     arg.name.hir_id = self
-        //         .root
-        //         .hir_map
-        //         .duplicate_hir_mapping(arg.name.hir_id.clone())
-        //         .unwrap();
-        // }
     }
 
     fn visit_fn_body(&mut self, fn_body: &'a mut FnBody) {
@@ -170,24 +161,18 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         self.trans_resolutions
             .get_map()
             .iter()
-            .for_each(|(old_pointer_id, new_pointee_id)| {
+            .for_each(|(old_pointer_id, _new_pointee_id)| {
                 self.root
                     .resolutions
                     .get_map()
                     .iter()
-                    .filter(|(pointer, pointee)| {
-                        *pointer == old_pointer_id // || *pointee == old_pointer_id
-                    })
+                    .filter(|(pointer, _pointee)| *pointer == old_pointer_id)
                     .for_each(|(existing_pointer, existing_pointee)| {
                         self.trans_resolutions
                             .get(existing_pointer)
                             .map(|new_pointer_id| {
                                 self.trans_resolutions.get(existing_pointee).map(
                                     |new_pointee_id| {
-                                        println!(
-                                            "NEW RESOLUTION!!!!! {:?} => {:?}",
-                                            new_pointer_id, new_pointee_id
-                                        );
                                         self.new_resolutions
                                             .insert(new_pointer_id.clone(), new_pointee_id.clone());
                                     },
@@ -195,15 +180,10 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                             });
                     });
             });
-
-        println!("OLD ROOT RESO {:#?}", self.root.resolutions);
-        println!("OLD RESO {:#?}", self.trans_resolutions);
     }
 
     // FIXME: missing IF, assign, etc etc
     fn visit_function_call(&mut self, fc: &'a mut FunctionCall) {
-        // TODO: update resolution map
-
         let new_pointed_fn_id = self
             .old_ordered_resolutions
             .get_mut(&fc.op.get_hir_id())
@@ -222,24 +202,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             .insert(fc.op.get_hir_id(), new_pointed_fn_id.clone());
     }
 
-    // fn visit_argument_decl(&mut self, arg: &'a mut ArgumentDecl) {
-    //     let old_hir_id = arg.hir_id.clone();
-
-    //     arg.hir_id = self
-    //         .root
-    //         .hir_map
-    //         .duplicate_hir_mapping(old_hir_id.clone())
-    //         .unwrap();
-
-    //     // FIXME: ignore already set reso
-    //     println!(
-    //         "ADD OLD RESO {} {:?} => {:?}",
-    //         arg.name, old_hir_id, arg.hir_id
-    //     );
-
-    //     self.old_resolutions.insert(old_hir_id, arg.hir_id.clone());
-    // }
-
     fn visit_identifier(&mut self, id: &'a mut Identifier) {
         let old_hir_id = id.hir_id.clone();
 
@@ -249,14 +211,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             .duplicate_hir_mapping(old_hir_id.clone())
             .unwrap();
 
-        // FIXME: ignore already set reso
-        println!(
-            "ADD OLD RESO {} {:?} => {:?}",
-            id.name, old_hir_id, id.hir_id
-        );
-
         self.trans_resolutions.insert(old_hir_id, id.hir_id.clone());
-
-        // walk_identifier(self, id);
     }
 }

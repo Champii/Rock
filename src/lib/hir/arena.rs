@@ -1,11 +1,9 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use paste::paste;
 
-use super::{HasHirId, HirId, HirNode};
 use crate::hir::visit::*;
-use crate::{hir::visit::Visitor, hir::*};
-use crate::{parser::Span, NodeId};
+use crate::hir::*;
 
 #[derive(Debug, Default)]
 pub struct Arena(BTreeMap<HirId, HirNode>);
@@ -100,7 +98,6 @@ generate_hirnode_collector!(
 pub fn collect_arena(root: &Root) -> Arena {
     let mut hir_node_collector = HirNodeCollector::new();
 
-    use crate::hir::visit::Visitor;
     hir_node_collector.visit_root(&root);
 
     hir_node_collector.take_arena()
