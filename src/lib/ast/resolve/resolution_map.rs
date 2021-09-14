@@ -29,6 +29,14 @@ impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
             }
         })
     }
+
+    pub fn get_map(&self) -> HashMap<T, T> {
+        self.0.clone()
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear()
+    }
 }
 
 impl ResolutionMap<NodeId> {

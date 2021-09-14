@@ -79,7 +79,7 @@ impl<'a> CodegenContext<'a> {
                 self.lower_function_decl(&func, builder)?;
             }
         }
-        for item in root.top_levels.values() {
+        for item in &root.top_levels {
             match &item.kind {
                 TopLevelKind::Prototype(p) => self.lower_prototype(&p, builder)?,
                 TopLevelKind::Function(f) => self.lower_function_decl(&f, builder)?,

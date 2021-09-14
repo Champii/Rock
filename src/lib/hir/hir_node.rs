@@ -27,7 +27,7 @@ pub enum HirNode {
 impl<'ar> HasHirId for HirNode {
     fn get_hir_id(&self) -> HirId {
         match self {
-            HirNode::Mod(x) => x.get_hir_id(),
+            HirNode::Mod(x) => unimplemented!("Non-sense yet to give a hir_id from a mod"),
             HirNode::Assign(x) => x.get_hir_id(),
             HirNode::Prototype(x) => x.get_hir_id(),
             HirNode::FunctionDecl(x) => x.get_hir_id(),

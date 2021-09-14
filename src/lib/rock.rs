@@ -65,11 +65,11 @@ pub fn parse_str(
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    infer::infer(&mut hir, &mut parsing_ctx, &config)?;
+    let new_hir = infer::infer(&mut hir, &mut parsing_ctx, &config)?;
 
     // Generate code
     debug!("    -> Lower to LLVM IR");
-    let parsing_ctx = codegen::generate(&config, parsing_ctx, hir)?;
+    let parsing_ctx = codegen::generate(&config, parsing_ctx, new_hir)?;
 
     // debug!("    -> Save MetaData");
     // PackageMetaData { hir }

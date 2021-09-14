@@ -14,7 +14,7 @@ use super::{hir_map::HirMap, return_placement::ReturnInserter, InfixDesugar};
 pub struct AstLoweringContext {
     hir_map: HirMap,
     unused: Vec<NodeId>,
-    top_levels: BTreeMap<HirId, hir::TopLevel>,
+    top_levels: Vec<hir::TopLevel>,
     modules: BTreeMap<HirId, hir::Mod>,
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
@@ -27,7 +27,7 @@ impl AstLoweringContext {
         Self {
             unused,
             hir_map: HirMap::new(),
-            top_levels: BTreeMap::new(),
+            top_levels: Vec::new(),
             modules: BTreeMap::new(),
             bodies: BTreeMap::new(),
             traits: HashMap::new(),
@@ -46,7 +46,7 @@ impl AstLoweringContext {
             node_types: BTreeMap::new(),
             types: BTreeMap::new(),
             top_levels: self.top_levels.clone(),
-            modules: self.modules.clone(),
+            // modules: self.modules.clone(),
             bodies: self.bodies.clone(),
             traits: self.traits.clone(),
             trait_methods: self.trait_methods.clone(),
@@ -60,69 +60,55 @@ impl AstLoweringContext {
         hir
     }
 
-    pub fn lower_mod(&mut self, r#mod: &Mod) -> hir::HirId {
-        let id = self.hir_map.next_hir_id(r#mod.identity.clone());
-
-        let r#mod = hir::Mod {
-            hir_id: id.clone(),
-            top_levels: r#mod
-                .top_levels
-                .iter()
-                .map(|t| self.lower_top_level(&t))
-                .collect(),
-        };
-
-        self.modules.insert(id.clone(), r#mod);
-
-        id
+    pub fn lower_mod(&mut self, r#mod: &Mod) {
+        r#mod
+            .top_levels
+            .iter()
+            .for_each(|t| self.lower_top_level(&t));
     }
 
-    pub fn lower_top_level(&mut self, top_level: &TopLevel) -> hir::HirId {
-        let id = self.hir_map.next_hir_id(top_level.identity.clone());
+    pub fn lower_top_level(&mut self, top_level: &TopLevel) {
+        // let id = self.hir_map.next_hir_id(top_level.identity.clone());
 
         match &top_level.kind {
             TopLevelKind::Prototype(p) => {
                 let mut top_level = hir::TopLevel {
                     kind: hir::TopLevelKind::Prototype(self.lower_prototype(&p)),
-                    hir_id: id,
+                    // hir_id: id,
                 };
 
-                let child_id = top_level.get_child_hir();
-                top_level.hir_id = child_id.clone();
+                // let child_id = top_level.get_child_hir();
+                // top_level.hir_id = child_id.clone();
 
-                self.top_levels.insert(child_id.clone(), top_level);
-                child_id
+                self.top_levels.push(top_level);
+                // child_id
             }
-            TopLevelKind::Use(_u) => id,
+            TopLevelKind::Use(_u) => (),
             TopLevelKind::Trait(t) => {
                 self.lower_trait(t);
 
-                id
+                // id
             }
             TopLevelKind::Impl(i) => {
                 self.lower_impl(&i);
 
-                id
+                // id
             }
-            TopLevelKind::Infix(_, _) => id,
+            TopLevelKind::Infix(_, _) => (),
             TopLevelKind::Function(f) => {
-                if self.unused.contains(&f.identity.node_id) {
-                    id
-                } else {
-                    let mut top_level = hir::TopLevel {
-                        kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),
-                        hir_id: id,
-                    };
+                let mut top_level = hir::TopLevel {
+                    kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),
+                    // hir_id: id,
+                };
 
-                    let child_id = top_level.get_child_hir();
-                    top_level.hir_id = child_id.clone();
+                // let child_id = top_level.get_child_hir();
+                // top_level.hir_id = child_id.clone();
 
-                    self.top_levels.insert(child_id.clone(), top_level);
-                    child_id
-                }
+                self.top_levels.push(top_level);
+                // child_id
             }
             TopLevelKind::Mod(_name, mod_) => self.lower_mod(&mod_),
-        }
+        };
     }
 
     pub fn lower_trait(&mut self, t: &Trait) -> hir::Trait {

@@ -42,4 +42,10 @@ impl Diagnostics {
             diag.print(input, self.list_types.get(i).unwrap());
         }
     }
+
+    pub fn append(&mut self, other: Self) {
+        self.list.extend(other.list);
+        self.list_types.extend(other.list_types);
+        self.must_stop = self.must_stop || other.must_stop;
+    }
 }

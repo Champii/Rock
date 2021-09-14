@@ -25,7 +25,7 @@ pub enum Constraint {
 pub struct InferState<'a> {
     node_types: BTreeMap<HirId, TypeId>,
     types: BTreeMap<TypeId, Option<Type>>,
-    constraints: BTreeSet<Constraint>,
+    pub constraints: BTreeSet<Constraint>,
     pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
     pub root: &'a Root,
 }
@@ -189,6 +189,7 @@ impl<'a> InferState<'a> {
                 true
             }
             (Some(Type::FuncType(_f1)), Some(Type::FuncType(_f2))) => {
+                println!("STATE CALLABLE {:#?}, {:#?}", _f1, _f2);
                 if self.get_ret_rec(left).unwrap() != self.get_ret_rec(right).unwrap() {
                     let span = self
                         .node_types
@@ -200,14 +201,15 @@ impl<'a> InferState<'a> {
 
                     return Err(Diagnostic::new_type_conflict(
                         span,
-                        self.get_ret_rec(left).unwrap(),
-                        self.get_ret_rec(right).unwrap(),
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
                         left_t.clone().unwrap(),
                         right_t.clone().unwrap(),
                     ));
                 } else {
                     false
                 }
+                // false
             }
             (Some(Type::FuncType(_f)), Some(_other)) => {
                 if self.get_ret(left).is_none() {
@@ -238,8 +240,10 @@ impl<'a> InferState<'a> {
 
                     return Err(Diagnostic::new_type_conflict(
                         span,
-                        self.get_ret_rec(left).unwrap(),
-                        self.get_ret_rec(right).unwrap(),
+                        left_t.clone().unwrap(),
+                        right_t.clone().unwrap(),
+                        // self.get_ret_rec(left).unwrap(),
+                        // self.get_ret_rec(right).unwrap(),
                         left_t.clone().unwrap(),
                         right_t.clone().unwrap(),
                     ));
@@ -372,7 +376,7 @@ impl<'a> InferState<'a> {
         self.node_types.clone()
     }
 
-    pub fn get_types(&self) -> (BTreeMap<TypeId, Type>, Vec<Diagnostic>) {
+    pub fn get_types(self) -> (BTreeMap<TypeId, Type>, Vec<Diagnostic>) {
         let mut map = BTreeMap::new();
         let mut diags = vec![];
 

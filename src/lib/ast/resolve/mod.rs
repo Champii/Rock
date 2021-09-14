@@ -57,7 +57,7 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
 
     unused_fns.extend(unused_methods);
 
-    root.r#mod.filter_unused_top_levels(unused_fns);
+    // root.r#mod.filter_unused_top_levels(unused_fns);
 
     parsing_ctx.return_if_error()
 }

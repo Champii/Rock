@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{ast::PrimitiveType, walk_map};
+use crate::{
+    ast::{resolve::ResolutionMap, PrimitiveType},
+    diagnostics::Diagnostics,
+    walk_map,
+};
 
-use super::{Constraint, InferState};
+use super::{annotate::AnnotateContext, Constraint, InferState};
 use crate::walk_list;
 use crate::{ast::FuncType, hir::*};
 use crate::{ast::Type, hir::visit::*};
@@ -17,6 +21,7 @@ pub struct ConstraintContext<'a> {
 
 impl<'a> ConstraintContext<'a> {
     pub fn new(state: InferState<'a>, hir: &'a Root) -> Self {
+        println!("INFER_STATE {:#?}", state);
         Self {
             state,
             hir,
@@ -36,7 +41,7 @@ impl<'a> ConstraintContext<'a> {
 
 impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_root(&mut self, root: &'a Root) {
-        walk_map!(self, visit_top_level, &root.top_levels);
+        walk_list!(self, visit_top_level, &root.top_levels);
 
         for (_, r#trait) in &root.traits {
             self.visit_trait(r#trait);
@@ -174,21 +179,12 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 walk_list!(self, visit_expression, &fc.args);
                 let op_hir_id = fc.op.get_terminal_hir_id();
 
-                self.state.add_constraint(Constraint::Callable(
-                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                    self.state.get_type_id(fc.get_hir_id()).unwrap(),
-                ));
-
-                return;
-
-                // TODO: Recolt all function calls to create a map for monomorphisation
+                // self.state.add_constraint(Constraint::Callable(
+                //     self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
+                //     self.state.get_type_id(fc.get_hir_id()).unwrap(),
+                // ));
 
                 if let Some(top_id) = self.hir.resolutions.get_recur(&op_hir_id) {
-                    println!("OP ARENA {:#?}", self.hir.arena.get(&op_hir_id));
-                    println!("TOP ARENA {:#?}", self.hir.arena.get(&top_id));
-
-                    // self.hir.arena.get(&top_id);
-
                     if let Some(reso) = self.hir.arena.get(&top_id) {
                         match reso {
                             HirNode::Prototype(p) => {
@@ -254,123 +250,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         }
                     } else {
                         panic!("NO ARENA ITEM FOR HIR={:?}", top_id);
-                        // Trait solving
-
-                        // FIXME: Apply to list of types
-                        // FIXME: Type needs to be solved in order to be applied. There is a dependency loop here
-                        if let Err(_) = self.state.solve() {
-                            // println!("DEBUG INTERMEDIARY STATE ");
-                            //Ignoring this diagnostic, as it will be produced again later
-                        }
-
-                        let first_resolved_type = fc
-                            .args
-                            .iter()
-                            .filter_map(|arg| {
-                                self.state
-                                    .get_type(self.state.get_type_id(arg.get_terminal_hir_id())?)
-                            })
-                            .nth(0);
-
-                        if let Some(applied_type) = first_resolved_type {
-                            // FIXME: Copy-paste of the code above
-                            if let Some(f) = self.hir.match_trait_method(
-                                fc.op.as_identifier().clone().name,
-                                &applied_type,
-                            ) {
-                                let body = self.hir.get_body(f.body_id.clone()).unwrap();
-
-                                let body_hir_id = body.get_terminal_hir_id();
-                                let body_type_id =
-                                    self.state.get_type_id(body_hir_id.clone()).unwrap();
-
-                                self.state.add_constraint(Constraint::Callable(
-                                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                                    body_type_id,
-                                ));
-
-                                self.state.add_constraint(Constraint::Eq(
-                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                    body_type_id,
-                                ));
-
-                                for (i, arg) in f.arguments.iter().enumerate() {
-                                    self.state.add_constraint(Constraint::Eq(
-                                        self.state.get_type_id(arg.name.hir_id.clone()).unwrap(),
-                                        self.state
-                                            .get_type_id(
-                                                fc.args.get(i).unwrap().get_terminal_hir_id(),
-                                            )
-                                            .unwrap(),
-                                    ));
-                                }
-
-                                let r#trait = self
-                                    .hir
-                                    .get_trait_by_method(fc.op.as_identifier().clone().name)
-                                    .unwrap();
-
-                                self.new_resolutions
-                                    .insert(fc.op.get_terminal_hir_id(), f.name.hir_id.clone());
-                                self.new_resolutions
-                                    .insert(fc.hir_id.clone(), f.name.hir_id.clone());
-
-                                self.state.trait_call_to_mangle.insert(
-                                    fc.hir_id.clone(),
-                                    vec![r#trait.name.get_name(), applied_type.get_name()],
-                                );
-                            } else {
-                                // println!("NO TRAIT METHOD RESOLUTION");
-                                self.state.add_constraint(Constraint::Callable(
-                                    self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                ));
-                                self.state.add_constraint(Constraint::Callable(
-                                    self.state.get_type_id(top_id.clone()).unwrap(),
-                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                ));
-                            }
-                        } else {
-                            self.state.solve_type(
-                                fc.op.get_terminal_hir_id(),
-                                Type::FuncType(FuncType::new(
-                                    fc.op.as_identifier().name,
-                                    fc.args
-                                        .iter()
-                                        .map(|arg| {
-                                            self.state
-                                                .get_type_id(arg.get_terminal_hir_id())
-                                                .unwrap()
-                                        })
-                                        .collect::<Vec<_>>(),
-                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                )),
-                            );
-
-                            self.state.solve_type(
-                                top_id.clone(),
-                                Type::FuncType(FuncType::new(
-                                    fc.op.as_identifier().name,
-                                    fc.args
-                                        .iter()
-                                        .map(|arg| {
-                                            self.state
-                                                .get_type_id(arg.get_terminal_hir_id())
-                                                .unwrap()
-                                        })
-                                        .collect::<Vec<_>>(),
-                                    self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                                )),
-                            );
-                            self.state.add_constraint(Constraint::Callable(
-                                self.state.get_type_id(fc.op.get_terminal_hir_id()).unwrap(),
-                                self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                            ));
-                            self.state.add_constraint(Constraint::Callable(
-                                self.state.get_type_id(top_id.clone()).unwrap(),
-                                self.state.get_type_id(fc.hir_id.clone()).unwrap(),
-                            ));
-                        }
                     }
                 } else {
                     panic!("No reso");
@@ -433,9 +312,14 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_identifier(&mut self, id: &Identifier) {
         if let Some(reso) = self.hir.resolutions.get(&id.hir_id) {
             if self.state.get_type_id(reso.clone()).is_none() {
-                warn!("UNKNOWN IDENTIFIER RESOLUTION TYPE ID {:?}", id);
+                error!(
+                    "UNKNOWN IDENTIFIER RESOLUTION TYPE ID {:?}, reso {:?}",
+                    id, reso
+                );
 
-                self.state.new_type_id(reso.clone());
+                return;
+
+                // self.state.new_type_id(reso.clone());
             }
 
             self.state.add_constraint(Constraint::Eq(
@@ -443,7 +327,43 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.state.get_type_id(reso.clone()).unwrap(),
             ));
         } else {
-            warn!("No identifier resolution {:?}", id);
+            panic!("No identifier resolution {:?}", id);
         }
     }
+}
+
+pub fn solve<'a>(mut root: Root) -> (Root, Diagnostics) {
+    let mut diagnostics = Diagnostics::default();
+
+    let infer_state = InferState::new(&root);
+
+    let mut annotate_ctx = AnnotateContext::new(infer_state, root.trait_methods.clone());
+    annotate_ctx.annotate(&root);
+
+    let mut constraint_ctx = ConstraintContext::new(annotate_ctx.get_state(), &root);
+    constraint_ctx.constraint(&root);
+
+    let (mut infer_state, mut new_resolutions) = constraint_ctx.get_state();
+
+    if let Err(diags) = infer_state.solve() {
+        for diag in diags {
+            diagnostics.push_error(diag.clone());
+        }
+    }
+
+    let node_types = infer_state.get_node_types();
+
+    println!("CONSTRAINTS {:#?}", infer_state.constraints);
+
+    // here we consume infer_state
+    let (types, diags) = infer_state.get_types();
+
+    for diag in diags {
+        diagnostics.push_error(diag.clone());
+    }
+
+    root.node_types = node_types;
+    root.types = types;
+
+    (root, diagnostics)
 }

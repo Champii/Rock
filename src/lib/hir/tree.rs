@@ -21,8 +21,8 @@ pub struct Root {
     pub types: BTreeMap<TypeId, Type>,
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
     pub trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
-    pub top_levels: BTreeMap<HirId, TopLevel>,
-    pub modules: BTreeMap<HirId, Mod>,
+    pub top_levels: Vec<TopLevel>,
+    // pub modules: BTreeMap<HirId, Mod>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
     pub unused: Vec<HirId>,
@@ -31,7 +31,9 @@ pub struct Root {
 
 impl Root {
     pub fn get_top_level(&self, hir_id: HirId) -> Option<&TopLevel> {
-        self.top_levels.get(&hir_id)
+        self.top_levels
+            .iter()
+            .find(|top| top.get_terminal_hir_id() == hir_id)
     }
 
     pub fn get_trait_by_method(&self, ident: String) -> Option<Trait> {
@@ -66,11 +68,11 @@ impl Root {
     pub fn get_function_by_name(&self, name: &str) -> Option<FunctionDecl> {
         self.top_levels
             .iter()
-            .find(|(_, top)| match &top.kind {
+            .find(|top| match &top.kind {
                 TopLevelKind::Function(f) => (*f.name) == name,
                 _ => false,
             })
-            .map(|(_, top)| match &top.kind {
+            .map(|top| match &top.kind {
                 TopLevelKind::Function(f) => f.clone(),
                 _ => unimplemented!(),
             })
@@ -95,7 +97,6 @@ impl Root {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Mod {
     pub top_levels: Vec<HirId>,
-    pub hir_id: HirId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,11 +117,11 @@ pub struct Impl {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopLevel {
     pub kind: TopLevelKind,
-    pub hir_id: HirId,
+    // pub hir_id: HirId,
 }
 
 impl TopLevel {
-    pub fn get_child_hir(&self) -> HirId {
+    pub fn get_terminal_hir_id(&self) -> HirId {
         match &self.kind {
             TopLevelKind::Prototype(p) => p.hir_id.clone(),
             TopLevelKind::Function(f) => f.hir_id.clone(),

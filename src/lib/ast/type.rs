@@ -126,7 +126,8 @@ impl TypeSignature {
 
         if let Some(t) = ret {
             if !t.is_forall() {
-                panic!("Trying to apply type to a not forall")
+                // panic!("Trying to apply type to a not forall")
+                error!("Trying to apply type to a not forall");
             }
 
             // FIXME: must remplace all occurences of ret

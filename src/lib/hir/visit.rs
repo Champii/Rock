@@ -51,7 +51,7 @@ generate_visitor_trait!(
 );
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
-    walk_map!(visitor, visit_top_level, &root.top_levels);
+    walk_list!(visitor, visit_top_level, &root.top_levels);
 
     for (_, r#trait) in &root.traits {
         visitor.visit_trait(r#trait);

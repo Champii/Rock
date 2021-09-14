@@ -39,7 +39,7 @@ impl<'a> AnnotateContext<'a> {
 
 impl<'a, 'ar> Visitor<'a> for AnnotateContext<'ar> {
     fn visit_root(&mut self, root: &'a Root) {
-        walk_map!(self, visit_top_level, &root.top_levels);
+        walk_list!(self, visit_top_level, &root.top_levels);
 
         for (_, r#trait) in &root.traits {
             self.visit_trait(r#trait);
@@ -55,11 +55,11 @@ impl<'a, 'ar> Visitor<'a> for AnnotateContext<'ar> {
     fn visit_top_level(&mut self, top_level: &'a TopLevel) {
         match &top_level.kind {
             TopLevelKind::Prototype(p) => {
-                self.state.new_type_id(p.name.get_hir_id());
+                // self.state.new_type_id(p.name.get_hir_id());
                 self.visit_prototype(&p);
             }
             TopLevelKind::Function(f) => {
-                self.state.new_type_id(f.name.get_hir_id());
+                // self.state.new_type_id(f.name.get_hir_id());
                 self.visit_function_decl(&f);
             }
         };

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     ast::{Type, TypeSignature},
@@ -17,7 +17,7 @@ pub struct FnCall {
     pub fc: FunctionCall,
 }
 
-pub type Bindings = HashMap<
+pub type Bindings = BTreeMap<
     HirId, //proto_id
     (
         TypeSignature, //proto_sig
@@ -108,35 +108,34 @@ fn process_proto(
     new_bindings
 }
 
-pub fn solve_calls(
-    protos: Protos,
-    calls: Calls,
-    root: &Root,
-    infer_state: &mut InferState,
-) -> Bindings {
+pub struct CallToFnRef {
+    proto_index: usize,
+}
+
+pub fn solve_calls(protos: Protos, calls: Calls, root: &Root) -> Bindings {
     // Objective: get a list of fully resolved typesignatures for top_level function decl
     //
     let mut bindings = bind_calls_to_proto(&protos, &calls, root);
 
-    println!("Bindings {:#?}", bindings);
+    // println!("Bindings {:#?}", bindings);
 
     let mut bindings = monomorphize(bindings.clone(), find_main_proto(root), root);
-    println!("MONOMORPH {:#?}", bindings);
+    // println!("MONOMORPH {:#?}", bindings);
 
     // let mut res = protos
     //     .iter()
     //     .filter(|(_, t_sig)| t_sig.is_solved())
     //     .map(|(hir_id, t_sig)| (hir_id.clone(), vec![t_sig.clone()]))
-    //     .collect::<HashMap<_, _>>();
+    //     .collect::<BTreeMap<_, _>>();
 
-    let mut res = HashMap::new();
+    let mut res = BTreeMap::new();
 
     return bindings;
 
     // // let mut to_process = protos
     // //     .into_iter()
     // //     .filter(|(_, t_sig)| !t_sig.is_solved())
-    // //     .collect::<HashMap<_, _>>();
+    // //     .collect::<BTreeMap<_, _>>();
 
     // // let mut calls = calls.clone();
     // // let mut stack = calls.clone();
@@ -148,7 +147,7 @@ pub fn solve_calls(
     // // let mut bindings_copy = bindings.clone();
 
     // while !bindings.is_empty() && i < 3 {
-    //     // let mut to_add = HashMap::new();
+    //     // let mut to_add = BTreeMap::new();
 
     //     bindings = bindings
     //         .into_iter()
