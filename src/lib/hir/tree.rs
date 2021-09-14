@@ -99,11 +99,6 @@ impl Root {
     pub fn get_type(&self, hir_id: HirId) -> Option<Type> {
         self.node_types.get(&hir_id).cloned()
     }
-
-    // pub fn apply_monomorphization(&mut self, bindings: Bindings) {
-
-    //     //
-    // }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

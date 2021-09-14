@@ -7,9 +7,9 @@ use super::call_solver::Bindings;
 pub struct Monomorphizer<'a> {
     pub bindings: Bindings, // fc_call => prefixes
     pub root: &'a mut Root,
-    pub old_resolutions: ResolutionMap<HirId>, // new_hir_id => old_hir_id
+    pub trans_resolutions: ResolutionMap<HirId>, // new_hir_id => old_hir_id
     pub new_resolutions: ResolutionMap<HirId>,
-    pub tmp_ordered_resolutions: HashMap<HirId, Vec<HirId>>, // fn_call => [fn_decl]
+    pub old_ordered_resolutions: HashMap<HirId, Vec<HirId>>, // fn_call => [fn_decl]
     pub body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
 }
 
@@ -31,7 +31,7 @@ impl<'a> Monomorphizer<'a> {
 
                             self.visit_function_decl(&mut new_f);
 
-                            self.tmp_ordered_resolutions
+                            self.old_ordered_resolutions
                                 .entry(fn_call.call_hir_id.clone())
                                 .or_insert_with(|| vec![])
                                 .push(new_f.hir_id.clone());
@@ -150,7 +150,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
     }
 
     fn visit_fn_body(&mut self, fn_body: &'a mut FnBody) {
-        self.old_resolutions.clear();
+        self.trans_resolutions.clear();
 
         let mut args = self.body_arguments.get(&fn_body.id).unwrap().clone();
 
@@ -167,7 +167,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
         walk_fn_body(self, fn_body);
 
-        self.old_resolutions
+        self.trans_resolutions
             .get_map()
             .iter()
             .for_each(|(old_pointer_id, new_pointee_id)| {
@@ -179,25 +179,25 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                         *pointer == old_pointer_id // || *pointee == old_pointer_id
                     })
                     .for_each(|(existing_pointer, existing_pointee)| {
-                        self.old_resolutions
+                        self.trans_resolutions
                             .get(existing_pointer)
                             .map(|new_pointer_id| {
-                                self.old_resolutions
-                                    .get(existing_pointee)
-                                    .map(|new_pointee_id| {
+                                self.trans_resolutions.get(existing_pointee).map(
+                                    |new_pointee_id| {
                                         println!(
                                             "NEW RESOLUTION!!!!! {:?} => {:?}",
                                             new_pointer_id, new_pointee_id
                                         );
                                         self.new_resolutions
                                             .insert(new_pointer_id.clone(), new_pointee_id.clone());
-                                    });
+                                    },
+                                );
                             });
                     });
             });
 
         println!("OLD ROOT RESO {:#?}", self.root.resolutions);
-        println!("OLD RESO {:#?}", self.old_resolutions);
+        println!("OLD RESO {:#?}", self.trans_resolutions);
     }
 
     // FIXME: missing IF, assign, etc etc
@@ -205,7 +205,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         // TODO: update resolution map
 
         let new_pointed_fn_id = self
-            .tmp_ordered_resolutions
+            .old_ordered_resolutions
             .get_mut(&fc.op.get_hir_id())
             .unwrap()
             .remove(0);
@@ -255,25 +255,8 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             id.name, old_hir_id, id.hir_id
         );
 
-        self.old_resolutions.insert(old_hir_id, id.hir_id.clone());
+        self.trans_resolutions.insert(old_hir_id, id.hir_id.clone());
 
         // walk_identifier(self, id);
     }
-}
-
-pub fn monomophize(root: &mut Root) -> Root {
-    let mut protos = super::proto_collector::collect_prototypes(root);
-    let calls = super::call_collector::collect_calls(root);
-
-    let bindings = super::call_solver::solve_calls(protos, calls, root);
-
-    Monomorphizer {
-        root,
-        bindings,
-        old_resolutions: ResolutionMap::default(),
-        new_resolutions: ResolutionMap::default(),
-        tmp_ordered_resolutions: HashMap::new(),
-        body_arguments: BTreeMap::new(),
-    }
-    .run()
 }
