@@ -58,6 +58,9 @@ impl<'a> Monomorphizer<'a> {
 
                         self.visit_fn_body(&mut new_fn_body);
 
+                        new_fn_body.name = new_f.name.clone();
+                        new_fn_body.fn_id = new_f.hir_id.clone();
+
                         new_f.arguments = self.body_arguments.get(&new_f.body_id).unwrap().clone();
 
                         (new_f, new_fn_body)
@@ -94,6 +97,9 @@ impl<'a> Monomorphizer<'a> {
         self.body_arguments.insert(main.body_id.clone(), vec![]);
 
         self.visit_fn_body(&mut main_body);
+
+        main_body.name = main.name.clone();
+        main_body.fn_id = main.hir_id.clone();
 
         new_root.top_levels.push(TopLevel {
             kind: TopLevelKind::Function(main),
@@ -152,6 +158,12 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             .for_each(|arg| self.visit_argument_decl(arg));
 
         self.body_arguments.insert(fn_body.id.clone(), args);
+
+        fn_body.name.hir_id = self
+            .root
+            .hir_map
+            .duplicate_hir_mapping(fn_body.name.hir_id.clone())
+            .unwrap();
 
         walk_fn_body(self, fn_body);
 

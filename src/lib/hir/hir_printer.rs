@@ -32,7 +32,7 @@ impl<'a> HirPrinter<'a> {
     pub fn print<T: ClassName + HasHirId>(&self, t: T) {
         let indent_str = String::from("  ").repeat(self.indent());
 
-        let t_id = self.hir.node_types.get(&t.get_hir_id());
+        let t_id = self.hir.node_type_ids.get(&t.get_hir_id());
         let ty = match t_id {
             Some(t_id) => self.hir.types.get(&t_id),
             None => None,

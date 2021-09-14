@@ -203,6 +203,8 @@ impl<'a> CodegenContext<'a> {
                     .as_pointer_value()
                     .as_basic_value_enum(),
             );
+        } else {
+            panic!("Not a function");
         }
 
         Ok(())
@@ -219,28 +221,37 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_fn_body(&mut self, fn_body: &'a FnBody, builder: &'a Builder) -> Result<(), ()> {
-        if let Some(f) = self.module.get_function(&fn_body.get_name()) {
+        let top_f = self.hir.get_function_by_hir_id(&fn_body.fn_id).unwrap();
+
+        if let Some(f) = self.module.get_function(&top_f.get_name()) {
             self.cur_func = Some(f);
 
-            let hir_top_reso = self.hir.resolutions.get(&fn_body.name.hir_id).unwrap();
+            println!("FN_BODY {:#?}, F = {:#?}", fn_body, f);
+            let f_decl = self.hir.get_function_by_hir_id(&fn_body.fn_id).unwrap();
+            // let hir_top_reso = self.hir.resolutions.get(&fn_body.name.hir_id).unwrap();
 
-            let hir_top = if let Some(hir_top) = self.hir.get_top_level(hir_top_reso.clone()) {
-                match &hir_top.kind {
-                    TopLevelKind::Function(hir_f) => hir_f,
-                    TopLevelKind::Prototype(_) => panic!(),
-                }
-            } else {
-                self.hir
-                    .trait_methods
-                    .get(&fn_body.name.name)
-                    .unwrap()
-                    .iter()
-                    .find(|(_applied_to, func_decl)| func_decl.name.hir_id == fn_body.name.hir_id)
-                    .map(|tuple| tuple.1)
-                    .unwrap()
-            };
+            // let hir_top = if let Some(hir_top) = self.hir.arena.get(&fn_body.name.hir_id) {
+            //     match &hir_top {
+            //         HirNode::FunctionDecl(hir_f) => hir_f,
+            //         HirNode::Prototype(_) => panic!(),
+            //         _ => {
+            //             println!("NOT A FN {:?}", hir_top);
+            //             panic!();
+            //         }
+            //     }
+            // } else {
+            //     panic!("No arena item found for {:?}", fn_body.name);
+            //     // self.hir
+            //     //     .trait_methods
+            //     //     .get(&fn_body.name.name)
+            //     //     .unwrap()
+            //     //     .iter()
+            //     //     .find(|(_applied_to, func_decl)| func_decl.name.hir_id == fn_body.name.hir_id)
+            //     //     .map(|tuple| tuple.1)
+            //     //     .unwrap()
+            // };
 
-            for (i, arg) in hir_top.arguments.iter().enumerate() {
+            for (i, arg) in f_decl.arguments.iter().enumerate() {
                 self.scopes.add(
                     arg.name.hir_id.clone(),
                     f.get_nth_param(i.try_into().unwrap()).unwrap(),
@@ -249,8 +260,7 @@ impl<'a> CodegenContext<'a> {
 
             self.lower_body(&fn_body.body, "entry", builder)?;
         } else {
-            // FIXME: Ignoring unsolved functions for now
-            // panic!("Cannot find function {}", fn_body.name.name);
+            panic!("Cannot find function {:?}", top_f.get_name());
         }
 
         Ok(())
@@ -406,7 +416,7 @@ impl<'a> CodegenContext<'a> {
                         Either::Left(self.module.get_function(&p.name.to_string()).unwrap())
                     }
                     TopLevelKind::Function(f) => {
-                        Either::Left(self.module.get_function(&f.name.to_string()).unwrap())
+                        Either::Left(self.module.get_function(&f.get_name().to_string()).unwrap())
                     }
                 },
                 None => Either::Right(self.lower_expression(&fc.op, builder)?.into_pointer_value()),

@@ -351,19 +351,22 @@ pub fn solve<'a>(mut root: Root) -> (Root, Diagnostics) {
         }
     }
 
-    let node_types = infer_state.get_node_types();
-
-    println!("CONSTRAINTS {:#?}", infer_state.constraints);
+    let node_type_ids = infer_state.get_node_types();
 
     // here we consume infer_state
     let (types, diags) = infer_state.get_types();
 
+    root.node_types = node_type_ids
+        .iter()
+        .map(|(hir_id, t_id)| (hir_id.clone(), types.get(t_id).unwrap().clone()))
+        .collect();
+
+    root.node_type_ids = node_type_ids;
+    root.types = types;
+
     for diag in diags {
         diagnostics.push_error(diag.clone());
     }
-
-    root.node_types = node_types;
-    root.types = types;
 
     (root, diagnostics)
 }

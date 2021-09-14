@@ -61,6 +61,15 @@ impl FuncType {
             ret,
         }
     }
+
+    pub fn to_prefixes(&self) -> Vec<String> {
+        self.arguments
+            .iter()
+            .cloned()
+            .map(|arg| arg.to_string())
+            .chain(vec![self.ret.to_string()].into_iter())
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]

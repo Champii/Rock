@@ -28,7 +28,9 @@ pub fn infer(
 
     let mut new_root = monomorphizer::monomophize(root);
 
-    let (new_root, diags) = constraint::solve(new_root);
+    let (mut new_root, diags) = constraint::solve(new_root);
+
+    mangle::mangle(&mut new_root);
 
     parsing_ctx.diagnostics.append(diags);
 

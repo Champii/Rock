@@ -43,6 +43,7 @@ impl AstLoweringContext {
             arena: Arena::new(),
             hir_map: self.hir_map.clone(),
             resolutions: root.resolutions.lower_resolution_map(&self.hir_map),
+            node_type_ids: BTreeMap::new(),
             node_types: BTreeMap::new(),
             types: BTreeMap::new(),
             top_levels: self.top_levels.clone(),
@@ -134,7 +135,7 @@ impl AstLoweringContext {
             let mut types = vec![i.name.get_name()];
             types.extend(i.types.iter().map(|t| t.get_name()));
 
-            hir_f.mangle(&types);
+            hir_f.mangle(types.clone());
 
             let body = self.bodies.get_mut(&hir_f.body_id).unwrap();
             body.mangle(&types);
@@ -180,7 +181,7 @@ impl AstLoweringContext {
         let id = self.hir_map.next_hir_id(f.identity.clone());
         let ident = self.lower_identifier(&f.name);
 
-        let body = self.lower_fn_body(&f.body, ident.clone(), body_id.clone());
+        let body = self.lower_fn_body(&f.body, ident.clone(), body_id.clone(), id.clone());
 
         self.bodies.insert(body_id.clone(), body);
 
@@ -214,6 +215,7 @@ impl AstLoweringContext {
         fn_body: &Body,
         name: hir::Identifier,
         body_id: FnBodyId,
+        fn_id: HirId,
     ) -> hir::FnBody {
         let body = ReturnInserter { body: &fn_body }.run();
 
@@ -221,6 +223,7 @@ impl AstLoweringContext {
 
         hir::FnBody {
             id: body_id,
+            fn_id,
             name,
             mangled_name: None,
             body,

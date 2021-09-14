@@ -98,6 +98,7 @@ fn process_proto(
             .push(fn_call.clone());
 
         // avoid loops
+        // FIXME: This prevent recursion
         if target_proto_id == proto_hir_id {
             continue;
         }

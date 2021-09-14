@@ -17,8 +17,9 @@ pub struct Root {
     pub arena: Arena,
     pub hir_map: HirMap,
     pub resolutions: ResolutionMap<HirId>,
-    pub node_types: BTreeMap<HirId, TypeId>,
+    pub node_type_ids: BTreeMap<HirId, TypeId>,
     pub types: BTreeMap<TypeId, Type>,
+    pub node_types: BTreeMap<HirId, Type>,
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
     pub trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
     pub top_levels: Vec<TopLevel>,
@@ -82,10 +83,21 @@ impl Root {
         self.bodies.get(&body_id)
     }
 
-    pub fn get_type(&self, hir_id: HirId) -> Option<Type> {
-        let t_id = self.node_types.get(&hir_id)?;
+    pub fn get_function_by_hir_id(&self, hir_id: &HirId) -> Option<&FunctionDecl> {
+        self.top_levels
+            .iter()
+            .find(|top| top.get_hir_id() == *hir_id)
+            .and_then(|top| {
+                if let TopLevelKind::Function(f) = &top.kind {
+                    Some(f)
+                } else {
+                    None
+                }
+            })
+    }
 
-        self.types.get(&t_id).cloned()
+    pub fn get_type(&self, hir_id: HirId) -> Option<Type> {
+        self.node_types.get(&hir_id).cloned()
     }
 
     // pub fn apply_monomorphization(&mut self, bindings: Bindings) {
@@ -153,9 +165,13 @@ pub struct FunctionDecl {
 }
 
 impl FunctionDecl {
-    pub fn mangle(&mut self, prefixes: &[String]) {
+    pub fn mangle(&mut self, prefixes: Vec<String>) {
+        if self.name.name == "main" {
+            return;
+        }
+
         self.mangled_name = Some(Identifier {
-            name: prefixes.join("_") + "_" + &self.name.name,
+            name: format!("{}_{}", self.name.name, prefixes.join("_")),
             hir_id: self.name.hir_id.clone(),
         });
     }
@@ -231,6 +247,7 @@ impl std::ops::Deref for Identifier {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FnBody {
     pub id: FnBodyId,
+    pub fn_id: HirId,
     pub name: Identifier,
     pub mangled_name: Option<Identifier>,
     pub body: Body,
@@ -243,7 +260,7 @@ impl FnBody {
 
     pub fn mangle(&mut self, prefixes: &[String]) {
         self.mangled_name = Some(Identifier {
-            name: prefixes.join("_") + "_" + &self.name.name,
+            name: format!("{}_{}", self.name.name, prefixes.join("_")),
             hir_id: self.name.hir_id.clone(),
         });
     }
@@ -394,23 +411,24 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub fn get_mangled_name(&self, prefixes: Vec<String>) -> Option<String> {
-        match &*self.op.kind {
-            ExpressionKind::Identifier(id) => {
-                let identifier = id.path.iter().last().unwrap();
+    // pub fn get_mangled_name(&self, prefixes: Vec<String>) -> Option<String> {
+    //     match &*self.op.kind {
+    //         ExpressionKind::Identifier(id) => {
+    //             let identifier = id.path.iter().last().unwrap();
 
-                Some(prefixes.join("_") + "_" + &identifier.name)
-            }
-            _ => None, // FIXME: recurse on '(expr)' parenthesis expression
-        }
-    }
+    //             Some(prefixes.join("_") + "_" + &identifier.name)
+    //         }
+    //         _ => None, // FIXME: recurse on '(expr)' parenthesis expression
+    //     }
+    // }
 
     pub fn mangle(&mut self, prefixes: Vec<String>) {
         match &mut *self.op.kind {
             ExpressionKind::Identifier(id) => {
                 let identifier = id.path.iter_mut().last().unwrap();
 
-                identifier.name = prefixes.join("_") + "_" + &identifier.name;
+                identifier.name = format!("{}_{}", identifier.name, &prefixes.join("_"));
+                // identifier.name = prefixes.join("_") + "_" + &identifier.name;
             }
             _ => (), // FIXME: recurse on '(expr)' parenthesis expression
         }
