@@ -1,9 +1,9 @@
-extern puts String -> Int64
+extern puts :: String -> Int64
 
 infix == 3
 
 trait Eq a
-    == a -> a -> Bool
+    == :: a -> a -> Bool
 
 impl Eq Int64
     == e f = ~IEq e f
@@ -12,7 +12,7 @@ impl Eq Bool
     == i j = ~BEq i j
 
 trait Print a
-    print a -> Int64
+    print :: a -> Int64
 
 impl Print Bool
     print b =

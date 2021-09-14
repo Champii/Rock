@@ -1,14 +1,14 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::{hir::visit::*, hir::*};
 
-pub type Calls = HashMap<(HirId, HirId), FunctionCall>; // (call_site_id, caller_id)
+pub type Calls = BTreeMap<(HirId, HirId), FunctionCall>; // (call_site_id, caller_id)
 
 #[derive(Debug, Default)]
 struct FnCallCollector {
     call_list: Calls,
     current_fn_hir_id: Option<HirId>,
-    fns: HashMap<FnBodyId, HirId>,
+    fns: BTreeMap<FnBodyId, HirId>,
 }
 
 impl FnCallCollector {
@@ -31,18 +31,18 @@ impl FnCallCollector {
 }
 
 impl<'a> Visitor<'a> for FnCallCollector {
+    fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
+        self.fns.insert(f.body_id.clone(), f.hir_id.clone());
+
+        walk_function_decl(self, f);
+    }
+
     fn visit_fn_body(&mut self, fn_body: &'a FnBody) {
         let f_hir_id = self.fns.get(&fn_body.id).unwrap();
 
         self.current_fn_hir_id = Some(f_hir_id.clone());
 
         walk_fn_body(self, fn_body);
-    }
-
-    fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
-        self.fns.insert(f.body_id.clone(), f.hir_id.clone());
-
-        walk_function_decl(self, f);
     }
 
     fn visit_function_call(&mut self, fc: &'a FunctionCall) {

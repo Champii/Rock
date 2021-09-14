@@ -8,7 +8,7 @@ use super::{call_collector::Calls, proto_collector::Protos};
 pub struct FnCall {
     pub call_site_id: HirId,
     pub call_hir_id: HirId,
-    pub sig: TypeSignature,
+    // pub sig: TypeSignature,
     pub fc: FunctionCall,
 }
 
@@ -23,19 +23,25 @@ pub type Bindings = BTreeMap<
 pub fn bind_calls_to_proto(protos: &Protos, calls: &Calls, root: &Root) -> Bindings {
     let mut res = Bindings::new();
 
+    // println!("Protos {:#?}", protos);
+    // println!("Calls {:#?}", calls);
     for (proto_hir_id, proto_sig) in protos {
         res.insert(proto_hir_id.clone(), (proto_sig.clone(), Vec::new()));
     }
 
     for ((call_site_id, call_hir_id), fc) in calls.clone() {
-        let (proto_sig, map) = res
-            .get_mut(&root.resolutions.get_recur(&call_hir_id).unwrap())
+        // println!(
+        //     "Call site: {:?}, call_hir_id {:?}, fc {:#?} root reso {:#?}",
+        //     call_site_id, call_site_id, fc, root.resolutions
+        // );
+        let (_proto_sig, map) = res
+            .get_mut(&root.resolutions.get(&call_hir_id).unwrap())
             .unwrap();
 
         map.push(FnCall {
             call_site_id,
             call_hir_id,
-            sig: proto_sig.clone(),
+            // sig: proto_sig.clone(),
             fc,
         });
     }
