@@ -426,8 +426,6 @@ impl FunctionCall {
     }
 
     pub fn to_type_signature(&self, env: &BTreeMap<HirId, Type>) -> TypeSignature {
-        println!("TO TYPE SIG {:#?}\n{:#?}", self, env);
-
         TypeSignature::from_args_nb(self.args.len()).apply_types(
             self.args
                 .iter()

@@ -140,7 +140,6 @@ impl TypeSignature {
         let mut orig = vec![];
         let mut dest = vec![];
 
-        println!("LOL {:#?}", args);
         self.args.iter().enumerate().for_each(|(i, arg_t)| {
             if !arg_t.is_forall() {
                 panic!("Trying to apply type to a not forall")
@@ -160,8 +159,6 @@ impl TypeSignature {
         // FIXME: must remplace all occurences of ret
         orig.push(self.ret.clone());
         dest.push(ret.clone());
-
-        println!("APPLY orig {:#?} dest {:#?}", orig, dest);
 
         self.apply_forall_types(&orig, &dest)
     }
@@ -254,5 +251,13 @@ impl TypeSignature {
         self.ret = ret;
 
         self
+    }
+
+    pub fn to_func_type(&self) -> Type {
+        Type::FuncType(FuncType::new(
+            String::new(),
+            self.args.clone(),
+            self.ret.clone(),
+        ))
     }
 }

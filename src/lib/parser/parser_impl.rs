@@ -297,7 +297,6 @@ impl Parse for TopLevel {
                     }
                     if has_applied {
                         ctx.func_sigs.remove(&f.name.name);
-                        println!("LOOOOOL {:#?}", f);
                     }
 
                     TopLevelKind::Function(f)
