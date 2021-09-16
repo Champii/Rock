@@ -206,7 +206,6 @@ impl<'a> CodegenContext<'a> {
         if let Some(f) = self.module.get_function(&top_f.get_name()) {
             self.cur_func = Some(f);
 
-            println!("FN_BODY {:#?}, F = {:#?}", fn_body, f);
             let f_decl = self.hir.get_function_by_hir_id(&fn_body.fn_id).unwrap();
             // let hir_top_reso = self.hir.resolutions.get(&fn_body.name.hir_id).unwrap();
 

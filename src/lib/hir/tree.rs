@@ -5,7 +5,7 @@ use crate::{
     ast_lowering::HirMap,
     hir::hir_id::*,
     parser::Span,
-    Envs, NodeId, TypeId,
+    Env, Envs, NodeId, TypeId,
 };
 
 use super::{arena::Arena, HasHirId};
@@ -423,6 +423,19 @@ impl FunctionCall {
             }
             _ => (), // FIXME: recurse on '(expr)' parenthesis expression
         }
+    }
+
+    pub fn to_type_signature(&self, env: &BTreeMap<HirId, Type>) -> TypeSignature {
+        println!("TO TYPE SIG {:#?}\n{:#?}", self, env);
+
+        TypeSignature::from_args_nb(self.args.len()).apply_types(
+            self.args
+                .iter()
+                .map(|arg| env.get(&arg.get_hir_id()).unwrap())
+                .cloned()
+                .collect(),
+            env.get(&self.hir_id).unwrap().clone(),
+        )
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -424,7 +424,9 @@ impl Envs {
     pub fn set_current_fn(&mut self, f: (HirId, TypeSignature)) {
         self.fns
             .entry(f.0.clone())
-            .or_insert_with(|| vec![(f.1.clone(), Env::default())].into_iter().collect());
+            .or_insert_with(|| HashMap::new())
+            .entry(f.1.clone())
+            .or_insert_with(|| Env::default());
 
         self.current_fn = f;
     }
@@ -460,8 +462,8 @@ impl Envs {
             })
             .collect::<Vec<_>>();
 
-        eq_types.into_iter().for_each(|(t1, t2)| {
-            self.get_current_env_mut().unwrap().insert(t1, t2);
+        eq_types.into_iter().for_each(|(id, t)| {
+            self.set_type(&id, &t);
         });
     }
 

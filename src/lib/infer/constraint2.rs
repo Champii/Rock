@@ -218,9 +218,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                                 self.visit_function_decl(f);
 
+                                let new_f_type = self.envs.get_type(&f.hir_id).unwrap().clone();
                                 self.envs.set_current_fn(old_f);
 
                                 self.envs.set_type(&fc.get_hir_id(), &sig.ret);
+                                self.envs.set_type(&fc.op.get_hir_id(), &new_f_type);
 
                                 // let body = self.hir.get_body(f.body_id.clone()).unwrap();
 
