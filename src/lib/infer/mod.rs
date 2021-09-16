@@ -1,5 +1,6 @@
-mod annotate;
-mod constraint;
+// mod annotate;
+// mod constraint;
+mod constraint2;
 mod mangle;
 mod monomorphizer;
 mod state;
@@ -13,17 +14,19 @@ pub fn infer(
     parsing_ctx: &mut ParsingCtx,
     config: &Config,
 ) -> Result<crate::hir::Root, Diagnostic> {
-    // super::hir::hir_printer::print(root);
+    println!("ROOT {:#?}", root);
+    super::hir::hir_printer::print(root);
+
+    // let (mut new_root, diags) = constraint::solve(new_root);
+    let diags = constraint2::solve(root);
 
     let new_root = monomorphizer::monomophize(root);
-
-    let (mut new_root, diags) = constraint::solve(new_root);
-
-    mangle::mangle(&mut new_root);
+    // mangle::mangle(&mut new_root);
 
     parsing_ctx.diagnostics.append(diags);
 
     if config.show_hir {
+        println!("ROOT {:#?}", root);
         super::hir::hir_printer::print(&new_root);
     }
 

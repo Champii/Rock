@@ -217,7 +217,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                 self.state.add_constraint(constraint);
                             }
                             HirNode::FunctionDecl(f) => {
-                                let body = self.hir.get_body(f.body_id.clone()).unwrap();
+                                let body = self.hir.get_body(&f.body_id).unwrap();
 
                                 let body_hir_id = body.get_terminal_hir_id();
                                 let body_type_id =
@@ -263,7 +263,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             .map(|arg| self.state.get_type_id(arg.name.hir_id.clone()).unwrap())
             .collect();
 
-        if let Some(body) = self.hir.get_body(f.body_id.clone()) {
+        if let Some(body) = self.hir.get_body(&f.body_id) {
             let body_hir_id = body.get_terminal_hir_id();
             let body_type_id = self.state.get_type_id(body_hir_id.clone()).unwrap();
 

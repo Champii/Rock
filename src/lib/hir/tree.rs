@@ -5,7 +5,7 @@ use crate::{
     ast_lowering::HirMap,
     hir::hir_id::*,
     parser::Span,
-    NodeId, TypeId,
+    Envs, NodeId, TypeId,
 };
 
 use super::{arena::Arena, HasHirId};
@@ -16,6 +16,7 @@ pub struct Root {
     pub hir_map: HirMap,
     pub resolutions: ResolutionMap<HirId>,
     pub node_type_ids: BTreeMap<HirId, TypeId>,
+    pub type_envs: Envs,
     pub types: BTreeMap<TypeId, Type>,
     pub node_types: BTreeMap<HirId, Type>,
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
@@ -74,8 +75,8 @@ impl Root {
             })
     }
 
-    pub fn get_body(&self, body_id: FnBodyId) -> Option<&FnBody> {
-        self.bodies.get(&body_id)
+    pub fn get_body(&self, body_id: &FnBodyId) -> Option<&FnBody> {
+        self.bodies.get(body_id)
     }
 
     pub fn get_function_by_hir_id(&self, hir_id: &HirId) -> Option<&FunctionDecl> {
@@ -92,7 +93,7 @@ impl Root {
     }
 
     pub fn get_type(&self, hir_id: HirId) -> Option<Type> {
-        self.node_types.get(&hir_id).cloned()
+        self.type_envs.get_type(&hir_id).cloned()
     }
 }
 

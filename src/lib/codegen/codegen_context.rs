@@ -97,7 +97,7 @@ impl<'a> CodegenContext<'a> {
         let t = self.hir.get_type(p.hir_id.clone()).unwrap();
 
         if let Type::FuncType(f_type) = t {
-            let ret_t = self.hir.types.get(&f_type.ret).unwrap();
+            let ret_t = f_type.ret.clone();
 
             let mut args = vec![];
 
@@ -105,10 +105,10 @@ impl<'a> CodegenContext<'a> {
                 args.push(self.lower_type(&arg, builder)?);
             }
 
-            let fn_type = if let Type::Primitive(PrimitiveType::Void) = ret_t {
+            let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
                 self.context.void_type().fn_type(args.as_slice(), false)
             } else {
-                self.lower_type(ret_t, builder)?
+                self.lower_type(&ret_t, builder)?
                     .fn_type(args.as_slice(), false)
             };
 
@@ -137,35 +137,15 @@ impl<'a> CodegenContext<'a> {
         // Check if any argument is not solved
         if f.arguments
             .iter()
-            .any(|arg| self.hir.get_type(arg.name.hir_id.clone()).is_none())
+            .any(|arg| self.hir.node_types.get(&arg.name.hir_id).is_none())
         {
             return Ok(());
         }
 
-        let t = self.hir.get_type(f.hir_id.clone()).unwrap();
+        let t = self.hir.node_types.get(&f.hir_id).unwrap();
 
         if let Type::FuncType(f_type) = t {
-            let ret_t = match self.hir.types.get(&f_type.ret) {
-                None => {
-                    let span = self
-                        .hir
-                        .hir_map
-                        .get_node_id(&f.hir_id)
-                        .map(|node_id| self.hir.spans.get(&node_id).unwrap().clone())
-                        .unwrap();
-
-                    self.parsing_ctx
-                        .diagnostics
-                        .push_error(Diagnostic::new_codegen_error(
-                            span,
-                            f.hir_id.clone(),
-                            "Cannot resolve function return type",
-                        ));
-
-                    return Err(());
-                }
-                Some(ret_t) => ret_t,
-            };
+            let ret_t = f_type.ret.clone();
 
             let args = f
                 .arguments
@@ -179,10 +159,10 @@ impl<'a> CodegenContext<'a> {
             }
             let args = args_ret;
 
-            let fn_type = if let Type::Primitive(PrimitiveType::Void) = ret_t {
+            let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
                 self.context.void_type().fn_type(args.as_slice(), false)
             } else {
-                self.lower_type(ret_t, builder)?
+                self.lower_type(&ret_t, builder)?
                     .fn_type(args.as_slice(), false)
             };
 
@@ -215,7 +195,7 @@ impl<'a> CodegenContext<'a> {
         arg: &ArgumentDecl,
         builder: &'a Builder,
     ) -> Result<BasicTypeEnum<'a>, ()> {
-        let t = self.hir.get_type(arg.name.hir_id.clone()).unwrap();
+        let t = self.hir.node_types.get(&arg.name.hir_id).unwrap();
 
         self.lower_type(&t, builder)
     }

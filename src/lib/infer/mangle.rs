@@ -5,7 +5,6 @@ use crate::{ast::Type, hir::visit_mut::*, hir::*, walk_list, TypeId};
 #[derive(Debug)]
 pub struct MangleContext {
     pub node_types: BTreeMap<HirId, Type>,
-    pub types: BTreeMap<TypeId, Type>,
 }
 
 impl<'a> VisitorMut<'a> for MangleContext {
@@ -13,7 +12,7 @@ impl<'a> VisitorMut<'a> for MangleContext {
         let t = self.node_types.get(&f.hir_id).unwrap();
 
         if let Type::FuncType(f_t) = t {
-            f.mangle(f_t.to_prefixes(&self.types));
+            f.mangle(f_t.to_prefixes());
         } else {
             panic!("Not a function {:?}", t);
         }
@@ -23,7 +22,7 @@ impl<'a> VisitorMut<'a> for MangleContext {
         let t = self.node_types.get(&fc.op.get_hir_id()).unwrap();
 
         if let Type::FuncType(f_t) = t {
-            fc.mangle(f_t.to_prefixes(&self.types));
+            fc.mangle(f_t.to_prefixes());
 
             self.visit_expression(&mut fc.op);
 
@@ -37,7 +36,6 @@ impl<'a> VisitorMut<'a> for MangleContext {
 pub fn mangle(root: &mut Root) {
     MangleContext {
         node_types: root.node_types.clone(),
-        types: root.types.clone(),
     }
     .visit_root(root);
 }

@@ -11,7 +11,6 @@ macro_rules! def_id {
 
             impl $name {
                 pub fn next() -> Self {
-
                     Self(AtomicU64::fetch_add(
                         &[<GLOBAL_NEXT_ $name:upper>],
                         1,
