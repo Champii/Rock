@@ -324,8 +324,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             ));
         } else {
             error!("No identifier resolution {:?}", id);
-
-            return;
         }
     }
 }

@@ -26,20 +26,24 @@ impl<'a> Monomorphizer<'a> {
                     .map(|fn_call| {
                         let f = self.root.arena.get(&proto_id).unwrap();
 
-                        if let HirNode::FunctionDecl(f) = f {
-                            let old_f = f.clone();
-                            let mut new_f = f.clone();
+                        match f {
+                            HirNode::FunctionDecl(f) => {
+                                let old_f = f.clone();
+                                let mut new_f = f.clone();
 
-                            self.visit_function_decl(&mut new_f);
+                                self.visit_function_decl(&mut new_f);
 
-                            self.old_ordered_resolutions
-                                .entry(fn_call.call_hir_id.clone())
-                                .or_insert_with(|| vec![])
-                                .push(new_f.hir_id.clone());
+                                self.old_ordered_resolutions
+                                    .entry(fn_call.call_hir_id.clone())
+                                    .or_insert_with(|| vec![])
+                                    .push(new_f.hir_id.clone());
 
-                            (new_f, old_f)
-                        } else {
-                            panic!("Not a function decl");
+                                (new_f, old_f)
+                            }
+                            // HirNode::Prototype(f) => {}
+                            _ => {
+                                panic!("Not a function decl");
+                            }
                         }
                     })
                     .collect::<Vec<_>>();

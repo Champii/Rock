@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 
 use crate::infer::*;
 
@@ -62,12 +62,12 @@ impl FuncType {
         }
     }
 
-    pub fn to_prefixes(&self) -> Vec<String> {
+    pub fn to_prefixes(&self, types: &BTreeMap<TypeId, Type>) -> Vec<String> {
         self.arguments
             .iter()
             .cloned()
-            .map(|arg| arg.to_string())
-            .chain(vec![self.ret.to_string()].into_iter())
+            .map(|arg| types.get(&arg).unwrap().to_string())
+            .chain(vec![types.get(&self.ret).unwrap().to_string()].into_iter())
             .collect()
     }
 }
