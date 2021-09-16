@@ -3,7 +3,11 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::{ast::Type, diagnostics::Diagnostic, hir::*};
+use crate::{
+    ast::{Type, TypeSignature},
+    diagnostics::Diagnostic,
+    hir::*,
+};
 
 pub type NodeId = u64;
 
@@ -402,5 +406,35 @@ impl<'a> InferState<'a> {
         }
 
         (map, diags)
+    }
+}
+
+#[derive(Debug)]
+pub struct Env {}
+
+#[derive(Debug)]
+pub struct InferState2<'a> {
+    // node_type_ids: BTreeMap<HirId, TypeId>,
+    // types: BTreeMap<TypeId, Option<Type>>,
+    top_levels: BTreeMap<HirId, BTreeMap<TypeSignature, BTreeMap<HirId, Type>>>,
+    current_fn: (HirId, TypeSignature),
+    // pub constraints: BTreeSet<Constraint>,
+    // pub trait_call_to_mangle: HashMap<HirId, Vec<String>>, // fc_call => prefixes
+    pub root: &'a Root,
+}
+
+impl InferState2<'a> {
+    pub fn set_current_fn(&mut self, f: (HirId, TypeSignature)) {
+        self.current_fn = f;
+    }
+
+    pub fn get_type(&self, hir_id: &HirId) -> Option<&Type> {
+        self.get_current_env().and_then(|env| env.get(hir_id))
+    }
+
+    pub fn get_current_env(&self) -> Option<&BTreeMap<HirId, Type>> {
+        self.top_levels
+            .get(&self.current_fn.0)
+            .and_then(|map| map.get(&self.current_fn.1))
     }
 }

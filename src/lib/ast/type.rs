@@ -23,6 +23,10 @@ impl PartialEq for Type {
 }
 
 impl Type {
+    pub fn int64() -> Self {
+        Self::Primitive(PrimitiveType::Int64)
+    }
+
     pub fn get_name(&self) -> String {
         match self {
             Self::Primitive(p) => p.get_name(),
@@ -171,5 +175,11 @@ impl TypeSignature {
 
     pub fn is_solved(&self) -> bool {
         !self.args.iter().any(|arg| arg.is_forall()) && !self.ret.is_forall()
+    }
+
+    pub fn with_ret(self, ret: Type) -> Self {
+        self.ret = ret;
+
+        self
     }
 }
