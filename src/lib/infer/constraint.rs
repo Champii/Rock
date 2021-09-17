@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{FuncType, PrimitiveType, Type, TypeSignature},
+    ast::{resolve::ResolutionMap, FuncType, PrimitiveType, Type, TypeSignature},
     diagnostics::Diagnostics,
     hir::visit::*,
     hir::*,
@@ -11,12 +11,17 @@ use crate::{
 #[derive(Debug)]
 struct ConstraintContext<'a> {
     hir: &'a Root,
+    tmp_resolutions: ResolutionMap<HirId>,
     envs: Envs,
 }
 
 impl<'a> ConstraintContext<'a> {
     pub fn new(envs: Envs, hir: &'a Root) -> Self {
-        Self { envs, hir }
+        Self {
+            envs,
+            hir,
+            tmp_resolutions: ResolutionMap::default(),
+        }
     }
 
     pub fn constraint(&mut self, root: &'a Root) {
@@ -28,6 +33,9 @@ impl<'a> ConstraintContext<'a> {
         ));
 
         self.visit_function_decl(&entry_point);
+
+        // self.envs
+        //     .set_type(&entry_point.get_hir_id(), &Type::int64());
     }
 
     pub fn get_envs(self) -> Envs {
@@ -37,13 +45,20 @@ impl<'a> ConstraintContext<'a> {
 
 impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_root(&mut self, _r: &'a Root) {}
+
     fn visit_top_level(&mut self, _t: &'a TopLevel) {}
+
     fn visit_trait(&mut self, _t: &'a Trait) {}
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
+        // println!("VISITING {:#?}", f);
         self.envs.apply_args_type(f);
 
         walk_function_decl(self, f);
+
+        // if !f.signature.is_solved() {
+        //     return;
+        // }
 
         self.visit_fn_body(&self.hir.get_body(&f.body_id).unwrap());
 
@@ -144,9 +159,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.visit_expression(&fc.op);
 
                 walk_list!(self, visit_expression, &fc.args);
+
                 let op_hir_id = fc.op.get_terminal_hir_id();
 
-                if let Some(top_id) = self.hir.resolutions.get_recur(&op_hir_id) {
+                // println!("FC ! {:#?}", fc);
+                if let Some(top_id) = self.hir.resolutions.get(&op_hir_id) {
                     if let Some(reso) = self.hir.arena.get(&top_id) {
                         match reso {
                             HirNode::Prototype(p) => {
@@ -181,12 +198,20 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                 // self.state.add_constraint(constraint);
                             }
                             HirNode::FunctionDecl(f) => {
+                                // println!("FOUND FN {:#?}", f);
                                 let sig = f.signature.apply_partial_types(
                                     &f.arguments
                                         .iter()
                                         .enumerate()
                                         .into_iter()
                                         .map(|(i, arg)| {
+                                            // println!(
+                                            //     "ARG : {:#?} {:#?}",
+                                            //     arg,
+                                            //     self.envs.get_type(
+                                            //         &fc.args.get(i).unwrap().get_hir_id()
+                                            //     )
+                                            // );
                                             self.envs
                                                 .get_type(&fc.args.get(i).unwrap().get_hir_id())
                                                 .cloned()
@@ -204,17 +229,100 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                     return;
                                 }
 
+                                // setup tmp reso for unknown arg types
+
                                 let old_f = self.envs.get_current_fn();
+
+                                // println!("CALL SIG: {}: {:#?}", *f.name, sig);
 
                                 self.envs.set_current_fn((top_id, sig.clone()));
 
                                 self.visit_function_decl(f);
 
-                                let new_f_type = self.envs.get_type(&f.hir_id).unwrap().clone();
+                                let mut new_f_type = self.envs.get_type(&f.hir_id).unwrap().clone();
+
+                                let new_f_ret =
+                                    if let Type::FuncType(new_f_type_inner) = &new_f_type.clone() {
+                                        *new_f_type_inner.ret.clone()
+                                    } else {
+                                        sig.ret.clone()
+                                    };
+
+                                // self.envs.set_type(&f.hir_id, new_f_type);
+
+                                self.envs.amend_current_sig_ret(&new_f_ret);
+
+                                //
+                                //
                                 self.envs.set_current_fn(old_f);
 
-                                self.envs.set_type(&fc.get_hir_id(), &sig.ret);
+                                self.envs.set_type(&fc.get_hir_id(), &new_f_ret);
                                 self.envs.set_type(&fc.op.get_hir_id(), &new_f_type);
+                            }
+                            HirNode::Identifier(id) => {
+                                // this means the function is passed from args
+                                // println!("IDENTIFIER !!! {:#?}", id);
+                                // println!(
+                                //     "IDENTIFIER2 !!! {:#?}",
+                                //     self.envs.get_type(&id.get_hir_id())
+                                // );
+
+                                // println!(
+                                //     "RE-FETCH RESO !!! {:#?}",
+                                //     self.hir.resolutions.get_recur(&id.get_hir_id())
+                                // );
+
+                                // println!("ENV !!! {:#?}", self.envs);
+
+                                let sig = TypeSignature::default().apply_partial_types(
+                                    &fc.args
+                                        .iter()
+                                        .enumerate()
+                                        .into_iter()
+                                        .map(|(i, arg)| {
+                                            self.envs.get_type(&arg.get_hir_id()).cloned()
+                                        })
+                                        .collect(),
+                                    None,
+                                );
+                                if self.envs.get_type(&top_id).is_some() {
+                                    // self.envs.set_type_eq(&id.get_hir_id(), &reso);
+                                } else {
+                                    if let HirNode::FunctionDecl(f) =
+                                        self.hir.arena.get(&top_id).unwrap()
+                                    {
+                                        // println!(
+                                        //     "THIS IS A FN 2 {:#?}",
+                                        //     f.signature.to_func_type()
+                                        // );
+                                        // self.envs.add_empty(&f.hir_id);
+                                        // self.envs.set_type(&id.hir_id, &f.signature.to_func_type());
+                                        // self.envs.set_type_eq(&id.hir_id, &f.hir_id);
+                                    } else {
+                                    }
+                                }
+
+                                // println!("SIG !!! {:#?}", sig);
+                                // if self.envs.get_current_fn().0 == top_id {
+                                //     warn!("Recursion !");
+
+                                //     self.envs.set_type(&fc.get_hir_id(), &sig.ret);
+                                //     self.envs.set_type(&fc.op.get_hir_id(), &sig.to_func_type());
+
+                                //     return;
+                                // }
+
+                                // let old_f = self.envs.get_current_fn();
+
+                                // self.envs.set_current_fn((top_id, sig.clone()));
+
+                                // self.visit_function_decl(f);
+
+                                // let new_f_type = self.envs.get_type(&f.hir_id).unwrap().clone();
+                                // self.envs.set_current_fn(old_f);
+
+                                // self.envs.set_type(&fc.get_hir_id(), &sig.ret);
+                                // self.envs.set_type(&fc.op.get_hir_id(), &new_f_type);
                             }
                             _ => (),
                         }
@@ -263,19 +371,27 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_identifier(&mut self, id: &Identifier) {
-        if let Some(reso) = self.hir.resolutions.get_recur(&id.hir_id) {
+        if let Some(reso) = self.hir.resolutions.get(&id.hir_id) {
             if self.envs.get_type(&reso).is_some() {
                 self.envs.set_type_eq(&id.get_hir_id(), &reso);
             } else {
-                error!(
-                    "UNKNOWN IDENTIFIER RESOLUTION TYPE ID {:?}, reso {:?}",
-                    id, reso
-                );
+                if let HirNode::FunctionDecl(f) = self.hir.arena.get(&reso).unwrap() {
+                    // println!("THIS IS A FN {:#?} {:#?}", f.signature.to_func_type(), id);
+                    self.envs.add_empty(&f.hir_id);
+                    // self.envs.set_type(&id.hir_id, &f.signature.to_func_type());
+                    // self.envs.set_type_eq(&id.hir_id, &f.hir_id);
+                } else {
+                    error!(
+                        "UNKNOWN IDENTIFIER RESOLUTION TYPE ID {:?}, reso {:?}",
+                        id, reso
+                    );
+                }
             }
         } else {
             error!("No identifier resolution {:?}", id);
         }
     }
+
     fn visit_native_operator(&mut self, op: &NativeOperator) {
         let t = match op.kind {
             NativeOperatorKind::IEq

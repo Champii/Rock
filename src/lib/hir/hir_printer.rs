@@ -32,7 +32,7 @@ impl<'a> HirPrinter<'a> {
     pub fn print<T: ClassName + HasHirId>(&self, t: T) {
         let indent_str = String::from("  ").repeat(self.indent());
 
-        let ty = self.hir.type_envs.get_type(&t.get_hir_id());
+        let ty = self.hir.node_types.get(&t.get_hir_id());
 
         println!(
             "{:?}{}{:15}{:?}",
@@ -66,31 +66,31 @@ macro_rules! impl_visitor_trait2 {
                 self.print_primitive(t);
             }
 
-            fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
-                let indent_str = String::from("  ").repeat(self.indent());
+            // fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
+            //     let indent_str = String::from("  ").repeat(self.indent());
 
-                let types = self.hir.type_envs.get_fn_types(&f.get_hir_id())
-                    .map(|types| {
-                        types
-                            .into_iter()
-                            .map(|(sig, env)| {
-                                sig.to_string()
-                            })
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    });
+            //     let types = self.hir.type_envs.get_fn_types(&f.get_hir_id())
+            //         .map(|types| {
+            //             types
+            //                 .into_iter()
+            //                 .map(|(sig, env)| {
+            //                     sig.to_string()
+            //                 })
+            //                 .collect::<Vec<_>>()
+            //                 .join(", ")
+            //         });
 
 
-                println!(
-                    "{:?}{}{:15}{:?}",
-                    f.get_hir_id(),
-                    indent_str,
-                    f.class_name_self(),
-                    types,
-                );
+            //     println!(
+            //         "{:?}{}{:15}{:?}",
+            //         f.get_hir_id(),
+            //         indent_str,
+            //         f.class_name_self(),
+            //         types,
+            //     );
 
-                walk_function_decl(self, f);
-            }
+            //     walk_function_decl(self, f);
+            // }
 
 
             fn visit_primitive<T>(&mut self, val: T)
@@ -122,7 +122,7 @@ impl_visitor_trait2!(
     TopLevel
     Assign
     Prototype
-    // FunctionDecl
+    FunctionDecl
     ArgumentDecl
     Identifier
     FnBody

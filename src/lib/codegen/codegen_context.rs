@@ -69,7 +69,7 @@ impl<'a> CodegenContext<'a> {
 
                 f2.get_type().ptr_type(AddressSpace::Generic).into()
             }
-            _ => unimplemented!(),
+            _ => unimplemented!("Codegen: Cannot lower type {:#?}", t),
         })
     }
 

@@ -422,6 +422,8 @@ impl Envs {
     }
 
     pub fn set_current_fn(&mut self, f: (HirId, TypeSignature)) {
+        assert!(f.1.are_args_solved());
+
         self.fns
             .entry(f.0.clone())
             .or_insert_with(|| HashMap::new())
@@ -473,5 +475,27 @@ impl Envs {
 
     pub fn get_inner(&self) -> &BTreeMap<HirId, HashMap<TypeSignature, Env>> {
         &self.fns
+    }
+
+    pub fn add_empty(&mut self, hir_id: &HirId) {
+        self.fns
+            .entry(hir_id.clone())
+            .or_insert_with(|| HashMap::new());
+    }
+
+    pub fn amend_current_sig_ret(&mut self, new_ret: &Type) {
+        let env = self.get_current_env().unwrap().clone();
+
+        self.fns
+            .get_mut(&self.current_fn.0)
+            .unwrap()
+            .insert(self.current_fn.1.clone().with_ret(new_ret.clone()), env);
+
+        self.fns
+            .get_mut(&self.current_fn.0)
+            .unwrap()
+            .remove(&self.current_fn.1);
+
+        self.current_fn.1.ret = new_ret.clone();
     }
 }

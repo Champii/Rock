@@ -27,6 +27,10 @@ impl Type {
         Self::Primitive(PrimitiveType::Int64)
     }
 
+    pub fn forall(t: &str) -> Self {
+        Self::ForAll(String::from(t))
+    }
+
     pub fn get_name(&self) -> String {
         match self {
             Self::Primitive(p) => p.get_name(),
@@ -34,7 +38,7 @@ impl Type {
             Self::FuncType(f) => f.name.clone(),
             Self::Class(c) => c.clone(),
             Self::Trait(t) => t.clone(),
-            Self::ForAll(_) => String::new(),
+            Self::ForAll(n) => String::from(n),
             Self::Undefined(s) => s.to_string(),
         }
     }
@@ -244,9 +248,12 @@ impl TypeSignature {
     }
 
     pub fn is_solved(&self) -> bool {
-        !self.args.iter().any(|arg| arg.is_forall()) && !self.ret.is_forall()
+        self.are_args_solved() && !self.ret.is_forall()
     }
 
+    pub fn are_args_solved(&self) -> bool {
+        !self.args.iter().any(|arg| arg.is_forall())
+    }
     pub fn with_ret(mut self, ret: Type) -> Self {
         self.ret = ret;
 
@@ -259,5 +266,52 @@ impl TypeSignature {
             self.args.clone(),
             self.ret.clone(),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_type_signature() {
+        let sig = TypeSignature::from_args_nb(2);
+
+        assert_eq!(sig.args[0], Type::forall("a"));
+        assert_eq!(sig.args[1], Type::forall("b"));
+        assert_eq!(sig.ret, Type::forall("c"));
+    }
+
+    #[test]
+    fn apply_forall_types() {
+        let sig = TypeSignature::from_args_nb(2);
+
+        let res = sig.apply_forall_types(&vec![Type::forall("b")], &vec![Type::int64()]);
+
+        assert_eq!(res.args[0], Type::forall("a"));
+        assert_eq!(res.args[1], Type::int64());
+        assert_eq!(res.ret, Type::forall("c"));
+    }
+
+    #[test]
+    fn apply_types() {
+        let sig = TypeSignature::from_args_nb(2);
+
+        let res = sig.apply_types(vec![Type::int64()], Type::int64());
+
+        assert_eq!(res.args[0], Type::int64());
+        assert_eq!(res.args[1], Type::forall("b"));
+        assert_eq!(res.ret, Type::int64());
+    }
+
+    #[test]
+    fn apply_partial_types() {
+        let sig = TypeSignature::from_args_nb(2);
+
+        let res = sig.apply_partial_types(&vec![None, Some(Type::int64())], Some(Type::int64()));
+
+        assert_eq!(res.args[0], Type::forall("a"));
+        assert_eq!(res.args[1], Type::int64());
+        assert_eq!(res.ret, Type::int64());
     }
 }
