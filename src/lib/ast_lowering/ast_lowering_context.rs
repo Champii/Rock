@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     ast::*,
     hir::{self, Arena, FnBodyId, HirId},
+    parser::ParsingCtx,
     Envs,
 };
 
@@ -152,7 +153,7 @@ impl AstLoweringContext {
     }
 
     pub fn lower_function_decl(&mut self, f: &FunctionDecl) -> hir::FunctionDecl {
-        let body_id = FnBodyId::next();
+        let body_id = self.hir_map.next_body_id();
         let id = self.hir_map.next_hir_id(f.identity.clone());
         let ident = self.lower_identifier(&f.name);
 

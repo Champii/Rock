@@ -5,27 +5,7 @@ macro_rules! def_id {
     ($name:ident) => {
         paste! {
             #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
-            pub struct $name(u64);
-
-            static [<GLOBAL_NEXT_ $name:upper>]: AtomicU64 = AtomicU64::new(0);
-
-            impl $name {
-                pub fn reset(){
-                    AtomicU64::store(
-                        &[<GLOBAL_NEXT_ $name:upper>],
-                        0,
-                        Ordering::SeqCst,
-                    );
-                }
-
-                pub fn next() -> Self {
-                    Self(AtomicU64::fetch_add(
-                        &[<GLOBAL_NEXT_ $name:upper>],
-                        1,
-                        Ordering::SeqCst,
-                    ))
-                }
-            }
+            pub struct $name(pub u64);
         }
     };
 }

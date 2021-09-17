@@ -6,8 +6,6 @@ fn run(path: &str, input: &str, expected_output: &str) {
 
     config.project_config.entry_point = PathBuf::from(path);
 
-    crate::hir::HirId::reset();
-
     let expected_output = expected_output.parse::<i64>().unwrap();
 
     let actual_output = super::test::run(path, input.to_string(), config.clone());

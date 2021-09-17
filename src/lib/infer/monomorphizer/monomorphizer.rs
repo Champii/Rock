@@ -69,7 +69,7 @@ impl<'a> Monomorphizer<'a> {
 
                         let mut new_fn_body = fn_body.clone();
 
-                        new_f.body_id = FnBodyId::next();
+                        new_f.body_id = self.root.hir_map.next_body_id();
                         new_fn_body.id = new_f.body_id.clone();
 
                         self.body_arguments

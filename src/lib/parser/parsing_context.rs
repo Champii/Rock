@@ -7,6 +7,7 @@ use std::{
 use crate::{
     ast::{ast_print::AstPrintContext, Identifier, Root},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
+    hir::HirId,
     Config,
 };
 
