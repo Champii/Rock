@@ -137,6 +137,7 @@ impl<'a> ConstraintContext<'a> {
                                 .entry(self.envs.get_current_fn().0.clone())
                                 .or_insert_with(|| ResolutionMap::default())
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
+
                             self.envs.set_type(&arg_id, &f.signature.to_func_type());
 
                             Some(f.signature.to_func_type())
@@ -204,15 +205,12 @@ impl<'a> ConstraintContext<'a> {
         if let Some(reso) = self.resolve(&fc.op.get_hir_id()) {
             self.envs.set_type(&reso, &new_f_type);
         }
+
         // update args her
         fc.args.iter().enumerate().for_each(|(i, arg)| {
             if let Some(reso_id) = self.resolve_rec(&arg.get_hir_id()) {
                 self.envs
                     .set_type(&arg.get_hir_id().clone(), new_f_arg_types.get(i).unwrap());
-                // self.tmp_resolutions
-                //     .get_mut(&f.hir_id)
-                //     .unwrap()
-                //     .insert(arg.get_hir_id().clone(), reso_id.clone());
             }
         });
     }
