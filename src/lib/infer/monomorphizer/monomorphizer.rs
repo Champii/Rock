@@ -28,7 +28,7 @@ impl<'a> Monomorphizer<'a> {
             .map(|(proto_id, sig_map)| {
                 let f_decls = sig_map
                     .into_iter()
-                    .map(|(sig, env)| {
+                    .map(|(sig, _env)| {
                         let f = self.root.arena.get(&proto_id).unwrap();
 
                         match f {

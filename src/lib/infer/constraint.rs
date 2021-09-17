@@ -1,11 +1,11 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap};
 
 use crate::{
     ast::{resolve::ResolutionMap, FuncType, PrimitiveType, Type, TypeSignature},
     diagnostics::Diagnostics,
     hir::visit::*,
     hir::*,
-    walk_list, walk_map, Envs,
+    walk_list, Envs,
 };
 
 #[derive(Debug)]
@@ -65,7 +65,7 @@ impl<'a> ConstraintContext<'a> {
         if let Some(top_id) = self.resolve(call_hir_id) {
             if let Some(reso) = self.hir.arena.get(&top_id) {
                 match reso {
-                    HirNode::Prototype(p) => {}
+                    HirNode::Prototype(_p) => {}
                     HirNode::FunctionDecl(f) => {
                         self.setup_function_call(fc, f);
                     }
@@ -175,10 +175,10 @@ impl<'a> ConstraintContext<'a> {
         //
         //
 
-        let mut new_f_type = self.envs.get_type(&f.hir_id).unwrap().clone();
+        let new_f_type = self.envs.get_type(&f.hir_id).unwrap().clone();
 
         let mut new_f_arg_types = vec![];
-        let mut new_f_sig;
+        let new_f_sig;
 
         let new_f_ret = if let Type::FuncType(new_f_type_inner) = &new_f_type.clone() {
             new_f_arg_types = new_f_type_inner
@@ -208,7 +208,7 @@ impl<'a> ConstraintContext<'a> {
 
         // update args her
         fc.args.iter().enumerate().for_each(|(i, arg)| {
-            if let Some(reso_id) = self.resolve_rec(&arg.get_hir_id()) {
+            if let Some(_reso_id) = self.resolve_rec(&arg.get_hir_id()) {
                 self.envs
                     .set_type(&arg.get_hir_id().clone(), new_f_arg_types.get(i).unwrap());
             }
@@ -355,7 +355,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         self.envs.set_type(&lit.hir_id, &t);
     }
 
-    fn visit_prototype(&mut self, p: &Prototype) {
+    fn visit_prototype(&mut self, _p: &Prototype) {
         // let args = p
         //     .signature
         //     .args
@@ -383,7 +383,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             if self.envs.get_type(&reso).is_some() {
                 self.envs.set_type_eq(&id.get_hir_id(), &reso);
             } else {
-                if let HirNode::FunctionDecl(f) = self.hir.arena.get(&reso).unwrap() {
+                if let HirNode::FunctionDecl(_f) = self.hir.arena.get(&reso).unwrap() {
                     // println!("THIS IS A FN {:#?} {:#?}", f.signature.to_func_type(), id);
                     // self.envs.add_empty(&f.hir_id);
                     // self.envs.set_type(&id.hir_id, &f.signature.to_func_type());
@@ -428,7 +428,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 }
 
 pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnostics) {
-    let mut diagnostics = Diagnostics::default();
+    let diagnostics = Diagnostics::default();
 
     let infer_state = Envs::default();
 
@@ -438,7 +438,7 @@ pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Dia
 
     let tmp_resolutions = constraint_ctx.tmp_resolutions.clone();
 
-    let mut envs = constraint_ctx.get_envs();
+    let envs = constraint_ctx.get_envs();
 
     root.type_envs = envs;
 

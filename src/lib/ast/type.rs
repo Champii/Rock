@@ -1,6 +1,6 @@
-use std::{collections::BTreeMap, fmt};
+use std::{fmt};
 
-use crate::infer::*;
+
 
 use crate::ast::PrimitiveType;
 // use crate::ast::Prototype;

@@ -1,11 +1,9 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
-    sync::atomic::{AtomicU64, Ordering},
+    collections::{BTreeMap, HashMap},
 };
 
 use crate::{
     ast::{Type, TypeSignature},
-    diagnostics::Diagnostic,
     hir::*,
 };
 

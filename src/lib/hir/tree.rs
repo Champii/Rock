@@ -4,8 +4,7 @@ use crate::{
     ast::{resolve::ResolutionMap, Type, TypeSignature},
     ast_lowering::HirMap,
     hir::hir_id::*,
-    parser::Span,
-    Env, Envs, NodeId, TypeId,
+    parser::Span, Envs, NodeId, TypeId,
 };
 
 use super::{arena::Arena, HasHirId};

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{ast::Type, hir::visit_mut::*, hir::*, walk_list, TypeId};
+use crate::{ast::Type, hir::visit_mut::*, hir::*, walk_list};
 
 #[derive(Debug)]
 pub struct MangleContext {

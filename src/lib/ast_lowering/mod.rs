@@ -1,4 +1,4 @@
-use crate::{ast::Root, hir, parser::ParsingCtx};
+use crate::{ast::Root, hir};
 
 mod ast_lowering_context;
 mod hir_map;
