@@ -47,11 +47,13 @@ impl<'a> ConstraintContext<'a> {
     }
 
     pub fn resolve(&self, id: &HirId) -> Option<HirId> {
-        self.hir.resolutions.get(id).or_else(|| {
-            self.tmp_resolutions
-                .get(&self.envs.get_current_fn().0)?
-                .get(id)
-        })
+        match self
+            .tmp_resolutions
+            .get(&self.hir.type_envs.get_current_fn().0)
+        {
+            Some(env) => env.get(id).or_else(|| self.hir.resolutions.get(id)),
+            None => self.hir.resolutions.get(id),
+        }
     }
 
     pub fn resolve_rec(&self, id: &HirId) -> Option<HirId> {
@@ -137,6 +139,10 @@ impl<'a> ConstraintContext<'a> {
                                 .or_insert_with(|| ResolutionMap::default())
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
 
+                            self.tmp_resolutions
+                                .entry(self.envs.get_current_fn().0.clone())
+                                .or_insert_with(|| ResolutionMap::default())
+                                .insert(arg.get_hir_id(), f2.hir_id.clone());
                             self.envs.set_type(&arg_id, &f.signature.to_func_type());
 
                             Some(f.signature.to_func_type())
@@ -148,7 +154,7 @@ impl<'a> ConstraintContext<'a> {
                 .collect(),
             None,
         );
-        println!("SETUP FN CALL {:#?} {:#?} {:#?}", fc, f, sig);
+        // println!("SETUP FN CALL {:#?} {:#?} {:#?}", fc, f, sig);
 
         if self.envs.get_current_fn().0 == f.hir_id {
             warn!("Recursion !");
@@ -209,6 +215,10 @@ impl<'a> ConstraintContext<'a> {
             if let Some(reso_id) = self.resolve_rec(&arg.get_hir_id()) {
                 self.envs
                     .set_type(&arg.get_hir_id().clone(), new_f_arg_types.get(i).unwrap());
+                // self.tmp_resolutions
+                //     .get_mut(&f.hir_id)
+                //     .unwrap()
+                //     .insert(arg.get_hir_id().clone(), reso_id.clone());
             }
         });
     }
@@ -233,7 +243,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         self.visit_fn_body(&self.hir.get_body(&f.body_id).unwrap());
 
-        println!("ENV {:#?}", self.envs);
+        // println!("ENV {:#?}", self.envs);
 
         self.envs.set_type(
             &f.hir_id,
@@ -252,6 +262,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         );
 
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
+        self.tmp_resolutions
+            .get_mut(&self.envs.get_current_fn().0)
+            .unwrap()
+            .insert(f.name.hir_id.clone(), f.hir_id.clone());
     }
 
     fn visit_body(&mut self, body: &'a Body) {

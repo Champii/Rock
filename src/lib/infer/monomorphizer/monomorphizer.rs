@@ -111,6 +111,9 @@ impl<'a> Monomorphizer<'a> {
         new_root.spans = self.root.spans.clone();
         new_root.node_types = self.root.node_types.clone();
 
+        println!("RESO AT THE MONO END {:#?} ", new_root.resolutions);
+        println!("TMP RESO AT THE MONO END {:#?} ", self.tmp_resolutions);
+
         new_root
     }
 
@@ -196,6 +199,10 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                             .map(|new_pointer_id| {
                                 self.trans_resolutions.get(existing_pointee).map(
                                     |new_pointee_id| {
+                                        println!(
+                                            "ADD TRANS RESO {:#?} {:#?}",
+                                            new_pointer_id, new_pointee_id
+                                        );
                                         self.new_resolutions
                                             .insert(new_pointer_id.clone(), new_pointee_id.clone());
                                     },
@@ -239,23 +246,17 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         let old_fc = fc.get_hir_id();
         let old_fc_op = fc.op.get_hir_id();
         fc.hir_id = self.duplicate_hir_id(&fc.hir_id);
+        let old_fc_args = fc
+            .args
+            .iter()
+            .map(|arg| arg.get_hir_id())
+            .collect::<Vec<_>>();
 
         walk_function_call(self, fc);
 
         if let Some(t) = self.root.type_envs.get_type(&old_fc) {
             self.root.node_types.insert(fc.hir_id.clone(), t.clone());
         }
-
-        println!("ENV {:#?}", self.root.type_envs,);
-        println!(
-            "NODE RES_ID {:#?} {:#?} {:#?} TYPES {:#?}",
-            self.tmp_resolutions,
-            self.root.type_envs.get_current_fn(),
-            self.resolve_rec(&old_fc_op).unwrap(),
-            fc.to_type_signature(&self.root.node_types)
-        );
-
-        crate::hir::hir_printer::print(&self.root);
 
         self.new_resolutions.insert(
             fc.op.get_hir_id(),
@@ -267,6 +268,24 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 .unwrap()
                 .clone(),
         );
+
+        // FIXME: That could damage the types
+        for (i, arg) in fc.args.iter().enumerate() {
+            if let Type::FuncType(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
+                if let Some(reso) = self.resolve(&old_fc_args.get(i).unwrap()) {
+                    self.new_resolutions.insert(
+                        arg.get_hir_id(),
+                        self.generated_fn_hir_id
+                            .get(&(reso, f.to_type_signature()))
+                            .unwrap()
+                            .clone(),
+                    );
+                } else {
+                    println!("NO RESO FOR {:#?}", arg.get_hir_id())
+                }
+                self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
+            }
+        }
 
         self.trans_resolutions.remove(&old_fc_op);
     }

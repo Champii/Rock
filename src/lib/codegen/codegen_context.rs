@@ -32,7 +32,7 @@ pub struct CodegenContext<'a> {
 impl<'a> CodegenContext<'a> {
     pub fn new(context: &'a Context, parsing_ctx: ParsingCtx, hir: &'a Root) -> Self {
         let module = context.create_module("mod");
-
+        println!("ENV PRE CODEGEN RESO {:#?}", hir.node_types);
         Self {
             context,
             module,
@@ -56,7 +56,7 @@ impl<'a> CodegenContext<'a> {
                 .into(),
             Type::FuncType(f) => {
                 // FIXME: Don't rely on names for resolution
-                println!("LOWER TYPE FN {:#?} {:#?}", env, f);
+                // println!("LOWER TYPE FN {:#?} {:#?}", f, f.get_mangled_name());
                 let f2 = match self.module.get_function(&f.get_mangled_name()) {
                     Some(f2) => f2,
                     None => {
@@ -64,6 +64,8 @@ impl<'a> CodegenContext<'a> {
                             .hir
                             .get_function_by_name(&f.get_mangled_name())
                             .unwrap();
+
+                        println!("Heuu {:#?}", f);
 
                         self.lower_function_decl(&f, builder)?;
 
@@ -129,6 +131,7 @@ impl<'a> CodegenContext<'a> {
 
         Ok(())
     }
+
     pub fn lower_function_decl(
         &mut self,
         f: &FunctionDecl,
@@ -390,7 +393,8 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         let terminal_hir_id = fc.op.get_terminal_hir_id();
 
-        let f_id = self.hir.resolutions.get_recur(&terminal_hir_id).unwrap();
+        let f_id = self.hir.resolutions.get(&terminal_hir_id).unwrap();
+        // println!("WESH f_id {:#?} {:#?}", f_id, fc);
 
         let f_value: Either<FunctionValue, PointerValue> =
             match self.hir.get_top_level(f_id.clone()) {
@@ -460,9 +464,10 @@ impl<'a> CodegenContext<'a> {
         id: &Identifier,
         _builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
+        println!("RESO {:?} ", id);
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
-        // println!("RESO {:?} {:#?}, {:#?}", id, reso, self.scopes);
+        println!("RESO {:?} {:#?}", id, reso);
         let val = match self.scopes.get(reso.clone()) {
             None => {
                 let span = self
