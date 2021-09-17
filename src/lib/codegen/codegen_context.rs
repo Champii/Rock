@@ -56,6 +56,7 @@ impl<'a> CodegenContext<'a> {
                 .into(),
             Type::FuncType(f) => {
                 // FIXME: Don't rely on names for resolution
+                println!("LOWER TYPE FN {:#?} {:#?}", env, f);
                 let f2 = match self.module.get_function(&f.get_mangled_name()) {
                     Some(f2) => f2,
                     None => {
