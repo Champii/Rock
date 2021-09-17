@@ -32,7 +32,7 @@ pub struct CodegenContext<'a> {
 impl<'a> CodegenContext<'a> {
     pub fn new(context: &'a Context, parsing_ctx: ParsingCtx, hir: &'a Root) -> Self {
         let module = context.create_module("mod");
-        println!("ENV PRE CODEGEN RESO {:#?}", hir.node_types);
+
         Self {
             context,
             module,
@@ -64,8 +64,6 @@ impl<'a> CodegenContext<'a> {
                             .hir
                             .get_function_by_name(&f.get_mangled_name())
                             .unwrap();
-
-                        println!("Heuu {:#?}", f);
 
                         self.lower_function_decl(&f, builder)?;
 
@@ -464,10 +462,8 @@ impl<'a> CodegenContext<'a> {
         id: &Identifier,
         _builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
-        println!("RESO {:?} ", id);
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
-        println!("RESO {:?} {:#?}", id, reso);
         let val = match self.scopes.get(reso.clone()) {
             None => {
                 let span = self

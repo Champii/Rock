@@ -78,12 +78,6 @@ impl<'a> ConstraintContext<'a> {
                 panic!("NO ARENA ITEM FOR HIR={:?}", top_id);
             }
         } else {
-            println!(
-                "RESOS: ROOT {:#?}, TMP: {:#?} {:#?}",
-                self.hir.resolutions,
-                self.tmp_resolutions,
-                self.envs.get_current_fn()
-            );
             panic!("No reso hir_id: {:#?}", call_hir_id);
         }
     }

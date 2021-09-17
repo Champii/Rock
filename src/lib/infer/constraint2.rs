@@ -361,8 +361,6 @@ pub fn solve<'a>(root: &mut Root) -> Diagnostics {
 
     root.type_envs = envs;
 
-    println!("TYPE ENVS {:#?}", root.type_envs);
-
     // if let Err(diags) = infer_state.solve() {
     //     for diag in diags {
     //         diagnostics.push_error(diag.clone());

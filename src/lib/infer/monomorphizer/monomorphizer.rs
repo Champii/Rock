@@ -111,9 +111,6 @@ impl<'a> Monomorphizer<'a> {
         new_root.spans = self.root.spans.clone();
         new_root.node_types = self.root.node_types.clone();
 
-        println!("RESO AT THE MONO END {:#?} ", new_root.resolutions);
-        println!("TMP RESO AT THE MONO END {:#?} ", self.tmp_resolutions);
-
         new_root
     }
 
@@ -199,10 +196,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                             .map(|new_pointer_id| {
                                 self.trans_resolutions.get(existing_pointee).map(
                                     |new_pointee_id| {
-                                        println!(
-                                            "ADD TRANS RESO {:#?} {:#?}",
-                                            new_pointer_id, new_pointee_id
-                                        );
                                         self.new_resolutions
                                             .insert(new_pointer_id.clone(), new_pointee_id.clone());
                                     },
