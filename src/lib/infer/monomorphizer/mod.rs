@@ -1,12 +1,18 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::{ast::resolve::ResolutionMap, hir::Root};
+use crate::{
+    ast::resolve::ResolutionMap,
+    hir::{HirId, Root},
+};
 
 use self::monomorphizer::Monomorphizer;
 
 mod monomorphizer;
 
-pub fn monomophize(root: &mut Root) -> Root {
+pub fn monomophize(
+    root: &mut Root,
+    tmp_resolutions: BTreeMap<HirId, ResolutionMap<HirId>>,
+) -> Root {
     Monomorphizer {
         root,
         trans_resolutions: ResolutionMap::default(),
@@ -14,6 +20,7 @@ pub fn monomophize(root: &mut Root) -> Root {
         old_ordered_resolutions: HashMap::new(),
         body_arguments: BTreeMap::new(),
         generated_fn_hir_id: HashMap::new(),
+        tmp_resolutions,
     }
     .run()
 }

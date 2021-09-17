@@ -14,6 +14,7 @@ pub struct Monomorphizer<'a> {
     pub old_ordered_resolutions: HashMap<HirId, Vec<HirId>>, // fn_call => [fn_decl]
     pub body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
     pub generated_fn_hir_id: HashMap<(HirId, TypeSignature), HirId>, // (Old_fn_id, target_sig) => generated fn hir_id
+    pub tmp_resolutions: BTreeMap<HirId, ResolutionMap<HirId>>,
 }
 
 impl<'a> Monomorphizer<'a> {
@@ -121,6 +122,18 @@ impl<'a> Monomorphizer<'a> {
             .unwrap();
 
         new_hir_id
+    }
+
+    pub fn resolve(&self, id: &HirId) -> Option<HirId> {
+        self.tmp_resolutions
+            .get(&self.root.type_envs.get_current_fn().0)?
+            .get(id)
+            .or_else(|| self.root.resolutions.get(id))
+    }
+
+    pub fn resolve_rec(&self, id: &HirId) -> Option<HirId> {
+        self.resolve(id)
+            .and_then(|reso| self.resolve_rec(&reso).or(Some(reso)))
     }
 }
 
@@ -233,11 +246,22 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             self.root.node_types.insert(fc.hir_id.clone(), t.clone());
         }
 
+        println!("ENV {:#?}", self.root.type_envs,);
+        println!(
+            "NODE RES_ID {:#?} {:#?} {:#?} TYPES {:#?}",
+            self.tmp_resolutions,
+            self.root.type_envs.get_current_fn(),
+            self.resolve_rec(&old_fc_op).unwrap(),
+            fc.to_type_signature(&self.root.node_types)
+        );
+
+        crate::hir::hir_printer::print(&self.root);
+
         self.new_resolutions.insert(
             fc.op.get_hir_id(),
             self.generated_fn_hir_id
                 .get(&(
-                    self.root.resolutions.get(&old_fc_op).unwrap(),
+                    self.resolve_rec(&old_fc_op).unwrap(),
                     fc.to_type_signature(&self.root.node_types),
                 ))
                 .unwrap()

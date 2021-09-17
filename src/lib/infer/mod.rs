@@ -13,14 +13,14 @@ pub fn infer(
     config: &Config,
 ) -> Result<crate::hir::Root, Diagnostic> {
     // super::hir::hir_printer::print(&*root);
-    let diags = constraint::solve(root);
+    let (tmp_resolutions, diags) = constraint::solve(root);
 
     parsing_ctx.diagnostics.append(diags);
 
-    println!("ROOT {:#?}", root);
-    let mut new_root = monomorphizer::monomophize(root);
+    let mut new_root = monomorphizer::monomophize(root, tmp_resolutions);
 
     mangle::mangle(&mut new_root);
+    println!("ROOT {:#?}", new_root);
 
     if config.show_hir {
         super::hir::hir_printer::print(&new_root);

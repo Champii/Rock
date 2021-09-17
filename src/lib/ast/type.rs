@@ -78,6 +78,26 @@ impl FuncType {
             .chain(vec![self.ret.to_string()].into_iter())
             .collect()
     }
+
+    pub fn to_type_signature(&self) -> TypeSignature {
+        let mut sig = TypeSignature::default().with_ret(*self.ret.clone());
+
+        sig.args = self.arguments.iter().map(|arg| *arg.clone()).collect();
+
+        sig
+    }
+
+    pub fn get_mangled_name(&self) -> String {
+        let mut prefixes = self
+            .arguments
+            .iter()
+            .map(|arg| arg.to_string())
+            .collect::<Vec<_>>();
+
+        prefixes.push(self.ret.to_string());
+
+        format!("{}_{}", self.name, prefixes.join("_"))
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]

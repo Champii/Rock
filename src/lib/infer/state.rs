@@ -483,19 +483,19 @@ impl Envs {
             .or_insert_with(|| HashMap::new());
     }
 
-    pub fn amend_current_sig_ret(&mut self, new_ret: &Type) {
+    pub fn amend_current_sig(&mut self, new_sig: &TypeSignature) {
         let env = self.get_current_env().unwrap().clone();
 
         self.fns
             .get_mut(&self.current_fn.0)
             .unwrap()
-            .insert(self.current_fn.1.clone().with_ret(new_ret.clone()), env);
+            .insert(new_sig.clone(), env);
 
         self.fns
             .get_mut(&self.current_fn.0)
             .unwrap()
             .remove(&self.current_fn.1);
 
-        self.current_fn.1.ret = new_ret.clone();
+        self.current_fn.1 = new_sig.clone();
     }
 }

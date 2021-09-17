@@ -56,14 +56,17 @@ impl<'a> CodegenContext<'a> {
                 .into(),
             Type::FuncType(f) => {
                 // FIXME: Don't rely on names for resolution
-                let f2 = match self.module.get_function(&f.name) {
+                let f2 = match self.module.get_function(&f.get_mangled_name()) {
                     Some(f2) => f2,
                     None => {
-                        let f = self.hir.get_function_by_name(&f.name).unwrap();
+                        let f = self
+                            .hir
+                            .get_function_by_name(&f.get_mangled_name())
+                            .unwrap();
 
                         self.lower_function_decl(&f, builder)?;
 
-                        self.module.get_function(&f.name).unwrap()
+                        self.module.get_function(&f.get_name()).unwrap()
                     }
                 };
 
