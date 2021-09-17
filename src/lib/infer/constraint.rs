@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 
 use crate::{
     ast::{resolve::ResolutionMap, FuncType, PrimitiveType, Type, TypeSignature},
@@ -37,9 +37,6 @@ impl<'a> ConstraintContext<'a> {
             .or_insert_with(|| ResolutionMap::default());
 
         self.visit_function_decl(&entry_point);
-
-        // self.envs
-        //     .set_type(&entry_point.get_hir_id(), &Type::int64());
     }
 
     pub fn get_envs(self) -> Envs {
@@ -65,7 +62,9 @@ impl<'a> ConstraintContext<'a> {
         if let Some(top_id) = self.resolve(call_hir_id) {
             if let Some(reso) = self.hir.arena.get(&top_id) {
                 match reso {
-                    HirNode::Prototype(_p) => {}
+                    HirNode::Prototype(p) => {
+                        self.setup_prototype_call(fc, p);
+                    }
                     HirNode::FunctionDecl(f) => {
                         self.setup_function_call(fc, f);
                     }
@@ -84,31 +83,21 @@ impl<'a> ConstraintContext<'a> {
 
     pub fn setup_identifier_call(&mut self, fc: &FunctionCall, id: &Identifier) {
         self.setup_call(fc, &id.get_hir_id());
-        // if let Some(top_id) = self.resolve(&id.hir_id) {
-        //     if let Some(reso) = self.hir.arena.get(&top_id) {
-        //         match reso {
-        //             HirNode::FunctionDecl(f) => {
-        //                 self.tmp_resolutions
-        //                     .get_mut(&self.envs.get_current_fn().0)
-        //                     .unwrap()
-        //                     .insert(id.get_hir_id(), f.hir_id.clone());
+    }
 
-        //                 self.setup_call(fc, &id.get_hir_id())
-        //             }
-        //             _ => unimplemented!("Cannot call {:#?}", reso),
-        //         }
-        //     } else {
-        //         panic!("NO ARENA ITEM FOR HIR={:?}", top_id);
-        //     }
-        // } else {
-        //     println!(
-        //         "RESOS: ROOT {:#?}, TMP: {:#?} {:#?}",
-        //         self.hir.resolutions,
-        //         self.tmp_resolutions,
-        //         self.envs.get_current_fn()
-        //     );
-        //     panic!("No reso ident hir_id: {:#?}", &id.hir_id);
-        // }
+    pub fn setup_prototype_call(&mut self, fc: &FunctionCall, p: &Prototype) {
+        let old_f = self.envs.get_current_fn();
+
+        self.envs
+            .set_current_fn((p.hir_id.clone(), p.signature.clone()));
+        self.envs.set_current_fn(old_f);
+
+        self.visit_prototype(p);
+
+        self.envs.set_type(&fc.get_hir_id(), &p.signature.ret);
+
+        self.envs
+            .set_type(&fc.op.get_hir_id(), &p.signature.to_func_type());
     }
 
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
@@ -224,18 +213,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_trait(&mut self, _t: &'a Trait) {}
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
-        // println!("VISITING {:#?}", f);
         self.envs.apply_args_type(f);
 
         walk_function_decl(self, f);
 
-        // if !f.signature.is_solved() {
-        //     return;
-        // }
-
         self.visit_fn_body(&self.hir.get_body(&f.body_id).unwrap());
-
-        // println!("ENV {:#?}", self.envs);
 
         self.envs.set_type(
             &f.hir_id,
@@ -258,6 +240,17 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             .get_mut(&self.envs.get_current_fn().0)
             .unwrap()
             .insert(f.name.hir_id.clone(), f.hir_id.clone());
+    }
+
+    fn visit_prototype(&mut self, p: &Prototype) {
+        self.envs.set_type(&p.hir_id, &p.signature.to_func_type());
+
+        self.tmp_resolutions
+            .get_mut(&self.envs.get_current_fn().0)
+            .unwrap()
+            .insert(p.name.hir_id.clone(), p.hir_id.clone());
+
+        walk_prototype(self, p);
     }
 
     fn visit_body(&mut self, body: &'a Body) {
@@ -348,30 +341,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         let t = match &lit.kind {
             LiteralKind::Number(_n) => Type::Primitive(PrimitiveType::Int64),
             LiteralKind::Float(_f) => Type::Primitive(PrimitiveType::Float64),
-            LiteralKind::String(s) => Type::Primitive(PrimitiveType::String(s.len())),
+            LiteralKind::String(_s) => Type::Primitive(PrimitiveType::String),
             LiteralKind::Bool(_b) => Type::Primitive(PrimitiveType::Bool),
         };
 
         self.envs.set_type(&lit.hir_id, &t);
-    }
-
-    fn visit_prototype(&mut self, _p: &Prototype) {
-        // let args = p
-        //     .signature
-        //     .args
-        //     .iter()
-        //     .map(|t| self.state.get_or_create_type_id_by_type(t).unwrap())
-        //     .collect();
-
-        // let f = Type::FuncType(FuncType::new(
-        //     (*p.name).clone(),
-        //     args,
-        //     self.state
-        //         .get_or_create_type_id_by_type(&p.signature.ret)
-        //         .unwrap(),
-        // ));
-
-        // self.state.solve_type(p.hir_id.clone(), f);
     }
 
     fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
@@ -382,18 +356,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         if let Some(reso) = self.resolve_rec(&id.hir_id) {
             if self.envs.get_type(&reso).is_some() {
                 self.envs.set_type_eq(&id.get_hir_id(), &reso);
-            } else {
-                if let HirNode::FunctionDecl(_f) = self.hir.arena.get(&reso).unwrap() {
-                    // println!("THIS IS A FN {:#?} {:#?}", f.signature.to_func_type(), id);
-                    // self.envs.add_empty(&f.hir_id);
-                    // self.envs.set_type(&id.hir_id, &f.signature.to_func_type());
-                    // self.envs.set_type_eq(&id.hir_id, &f.hir_id);
-                } else {
-                    error!(
-                        "UNKNOWN IDENTIFIER RESOLUTION TYPE ID {:?}, reso {:?}",
-                        id, reso
-                    );
-                }
             }
         } else {
             error!("No identifier resolution {:?}", id);

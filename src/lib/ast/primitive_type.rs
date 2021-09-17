@@ -9,7 +9,7 @@ pub enum PrimitiveType {
     Int32,
     Int64,
     Float64,
-    String(usize),
+    String,
     Array(Box<Type>, usize),
 }
 
@@ -23,7 +23,7 @@ impl PrimitiveType {
             Self::Int32 => "Int32".to_string(),
             Self::Int64 => "Int64".to_string(),
             Self::Float64 => "Float64".to_string(),
-            Self::String(_size) => format!("String"),
+            Self::String => format!("String"),
             Self::Array(t, size) => format!("[{}; {}]", t.get_name(), size),
         }
     }
@@ -37,7 +37,7 @@ impl PrimitiveType {
             "Int32" => Some(Self::Int32),
             "Int64" => Some(Self::Int64),
             "Float64" => Some(Self::Float64),
-            "String" => Some(Self::String(0)),
+            "String" => Some(Self::String),
             _ => None,
         }
     }

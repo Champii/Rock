@@ -19,6 +19,28 @@ pub struct Monomorphizer<'a> {
 
 impl<'a> Monomorphizer<'a> {
     pub fn run(&mut self) -> Root {
+        let prototypes = self
+            .root
+            .top_levels
+            .iter()
+            .filter(|top| match &top.kind {
+                TopLevelKind::Prototype(_) => true,
+                _ => false,
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
+        for top in &prototypes {
+            if let TopLevelKind::Prototype(p) = &top.kind {
+                self.root
+                    .node_types
+                    .insert(p.hir_id.clone(), p.signature.to_func_type());
+                self.root
+                    .node_types
+                    .insert(p.name.hir_id.clone(), p.signature.to_func_type());
+            }
+        }
+
         let fresh_top_levels = self
             .root
             .type_envs
@@ -28,7 +50,7 @@ impl<'a> Monomorphizer<'a> {
             .map(|(proto_id, sig_map)| {
                 let f_decls = sig_map
                     .into_iter()
-                    .map(|(sig, _env)| {
+                    .filter_map(|(sig, _env)| {
                         let f = self.root.arena.get(&proto_id).unwrap();
 
                         match f {
@@ -48,9 +70,13 @@ impl<'a> Monomorphizer<'a> {
                                 self.trans_resolutions
                                     .insert(old_f.hir_id.clone(), new_f.hir_id.clone());
 
-                                (new_f, sig)
+                                Some((new_f, sig))
                             }
-                            // HirNode::Prototype(f) => {}
+                            HirNode::Prototype(p) => {
+                                self.generated_fn_hir_id
+                                    .insert((proto_id.clone(), sig.clone()), p.hir_id.clone());
+                                None
+                            }
                             _ => {
                                 panic!("Not a function decl");
                             }
@@ -103,6 +129,8 @@ impl<'a> Monomorphizer<'a> {
             .unzip();
 
         new_root.top_levels = tops;
+        new_root.top_levels.extend(prototypes);
+
         new_root.bodies = bodies;
 
         new_root.resolutions = self.new_resolutions.clone();
@@ -262,7 +290,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 .clone(),
         );
 
-        // FIXME: That could damage the types
         for (i, arg) in fc.args.iter().enumerate() {
             if let Type::FuncType(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
                 if let Some(reso) = self.resolve(&old_fc_args.get(i).unwrap()) {
@@ -276,6 +303,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 } else {
                     println!("NO RESO FOR {:#?}", arg.get_hir_id())
                 }
+
                 self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
             }
         }

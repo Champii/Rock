@@ -49,7 +49,7 @@ impl<'a> CodegenContext<'a> {
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
             Type::Primitive(PrimitiveType::Float64) => self.context.f64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
-            Type::Primitive(PrimitiveType::String(_)) => self
+            Type::Primitive(PrimitiveType::String) => self
                 .context
                 .i8_type()
                 .ptr_type(AddressSpace::Generic)
@@ -98,7 +98,7 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_prototype(&mut self, p: &'a Prototype, builder: &'a Builder) -> Result<(), ()> {
-        let t = self.hir.get_type(p.hir_id.clone()).unwrap();
+        let t = self.hir.node_types.get(&p.hir_id).unwrap();
 
         if let Type::FuncType(f_type) = t {
             let ret_t = f_type.ret.clone();

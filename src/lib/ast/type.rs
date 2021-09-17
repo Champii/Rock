@@ -1,6 +1,4 @@
-use std::{fmt};
-
-
+use std::fmt;
 
 use crate::ast::PrimitiveType;
 // use crate::ast::Prototype;
@@ -177,7 +175,7 @@ impl TypeSignature {
 
         if !ret.is_forall() {
             // panic!("Trying to apply type to a not forall")
-            error!("Trying to apply type to a not forall");
+            warn!("Trying to apply type to a not forall");
         }
 
         // FIXME: must remplace all occurences of ret
@@ -205,7 +203,7 @@ impl TypeSignature {
         if let Some(t) = ret {
             if !t.is_forall() {
                 // panic!("Trying to apply type to a not forall")
-                error!("Trying to apply type to a not forall");
+                warn!("Trying to apply type to a not forall");
             }
 
             // FIXME: must remplace all occurences of ret
@@ -234,7 +232,7 @@ impl TypeSignature {
         if let Some(t) = ret {
             if !t.is_forall() {
                 // panic!("Trying to apply type to a not forall")
-                error!("Trying to apply type to a not forall");
+                warn!("Trying to apply type to a not forall");
             }
 
             // FIXME: must remplace all occurences of ret
