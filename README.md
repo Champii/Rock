@@ -10,7 +10,7 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Type inference
 - Custom operators
 - Typeclass (Traits)
-- Parametric Polymorphism(Soon(tm))
+- Parametric Polymorphism by default
 - Compile to LLVM IR
 
 ## Ongoing development

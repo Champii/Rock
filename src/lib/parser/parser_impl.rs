@@ -252,7 +252,7 @@ impl Parse for TopLevel {
                 let name = Identifier::parse(ctx)?;
 
                 let mod_node = super::parse_mod(name.name.clone(), ctx.ctx)
-                    .map_err(|diag| Diagnostic::new(token.span.clone(), diag.get_kind()))?;
+                    .map_err(|diag| Diagnostic::new(name.identity.span.clone(), diag.get_kind()))?;
 
                 TopLevelKind::Mod(name, mod_node)
             }

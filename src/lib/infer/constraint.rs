@@ -358,7 +358,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.envs.set_type_eq(&id.get_hir_id(), &reso);
             }
         } else {
-            error!("No identifier resolution {:?}", id);
+            warn!("No identifier resolution {:?}", id);
         }
     }
 
