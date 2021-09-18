@@ -1,3 +1,4 @@
+use colored::*;
 use paste::paste;
 use std::fmt::Debug;
 
@@ -17,6 +18,15 @@ impl<'a> HirPrinter<'a> {
         Self { hir, indent: 0 }
     }
 
+    pub fn make_indent_str(&self, t: ColoredString) -> String {
+        format!(
+            "{:<3}{}{}",
+            "",
+            String::from("| ").repeat(self.indent()).bright_black(),
+            t
+        )
+    }
+
     pub fn increment(&mut self) {
         self.indent += 1;
     }
@@ -30,26 +40,25 @@ impl<'a> HirPrinter<'a> {
     }
 
     pub fn print<T: ClassName + HasHirId>(&self, t: T) {
-        let indent_str = String::from("  ").repeat(self.indent());
-
-        let ty = self.hir.node_types.get(&t.get_hir_id());
+        let ty = self
+            .hir
+            .node_types
+            .get(&t.get_hir_id())
+            .map_or_else(|| String::from("None"), |t| format!("{:?}", t));
 
         println!(
-            "{:?}{}{:15}{:?}",
+            "{}{:<40} {}",
             t.get_hir_id(),
-            indent_str,
-            t.class_name_self(),
-            ty,
+            self.make_indent_str(t.class_name_self().magenta()),
+            ty
         );
     }
 
     pub fn print_primitive<T>(&self, t: T)
     where
-        T: Debug,
+        T: Debug + std::fmt::Display,
     {
-        let indent_str = String::from("  ").repeat(self.indent());
-
-        println!("{:9}{}{:15?}", "", indent_str, t);
+        println!("{:<9}{}", "", self.make_indent_str(t.to_string().yellow()),);
     }
 }
 
@@ -95,7 +104,7 @@ macro_rules! impl_visitor_trait2 {
 
             fn visit_primitive<T>(&mut self, val: T)
             where
-                T: Debug,
+                T: Debug + std::fmt::Display,
             {
                 self.print_primitive(val);
             }

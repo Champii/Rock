@@ -162,7 +162,7 @@ impl Display for DiagnosticKind {
             Self::ModuleNotFound => "ModuleNotFound".to_string(),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
             Self::TypeConflict(t1, t2, _in1, _in2) => {
-                format!("TypeConflict {} != {} ", t1, t2)
+                format!("TypeConflict {:?} != {:?} ", t1, t2)
             }
             Self::UnresolvedType(t_id, hir_id) => {
                 format!("Unresolved type_id {} (hir_id {:?})", t_id, hir_id)

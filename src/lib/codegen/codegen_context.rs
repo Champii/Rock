@@ -392,7 +392,6 @@ impl<'a> CodegenContext<'a> {
         let terminal_hir_id = fc.op.get_terminal_hir_id();
 
         let f_id = self.hir.resolutions.get(&terminal_hir_id).unwrap();
-        // println!("WESH f_id {:#?} {:#?}", f_id, fc);
 
         let f_value: Either<FunctionValue, PointerValue> =
             match self.hir.get_top_level(f_id.clone()) {

@@ -279,16 +279,28 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             self.root.node_types.insert(fc.hir_id.clone(), t.clone());
         }
 
-        self.new_resolutions.insert(
-            fc.op.get_hir_id(),
-            self.generated_fn_hir_id
-                .get(&(
-                    self.resolve_rec(&old_fc_op).unwrap(),
-                    fc.to_type_signature(&self.root.node_types),
-                ))
-                .unwrap()
-                .clone(),
-        );
+        if let HirNode::FunctionDecl(_) = self
+            .root
+            .arena
+            .get(&self.resolve(&old_fc_op).unwrap())
+            .unwrap()
+        {
+            self.new_resolutions.insert(
+                fc.op.get_hir_id(),
+                self.generated_fn_hir_id
+                    .get(&(
+                        self.resolve_rec(&old_fc_op).unwrap(),
+                        fc.to_type_signature(&self.root.node_types),
+                    ))
+                    .unwrap()
+                    .clone(),
+            );
+
+            self.trans_resolutions.remove(&old_fc_op);
+        } else {
+            self.new_resolutions
+                .insert(fc.op.get_hir_id(), self.resolve(&old_fc_op).unwrap());
+        }
 
         for (i, arg) in fc.args.iter().enumerate() {
             if let Type::FuncType(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
@@ -307,8 +319,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
             }
         }
-
-        self.trans_resolutions.remove(&old_fc_op);
     }
 
     fn visit_identifier(&mut self, id: &'a mut Identifier) {

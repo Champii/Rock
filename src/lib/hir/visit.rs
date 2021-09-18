@@ -10,7 +10,7 @@ macro_rules! generate_visitor_trait {
         pub trait Visitor<'ast>: Sized {
             fn visit_name(&mut self, _name: String) {}
 
-            fn visit_primitive<T: std::fmt::Debug>(&mut self, _val: T)
+            fn visit_primitive<T: std::fmt::Debug + std::fmt::Display>(&mut self, _val: T)
             {}
 
             $(

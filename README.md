@@ -15,7 +15,8 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 
 ## Ongoing development
 
-This project, its syntax and its APIs are subject to change at any moment. This is a personal project, please bear with me :)
+This project, its syntax and its APIs are subject to change at any moment. This is a personal project, so please bear with me  
+(Differently put: this is a big red hot pile of experimental garbage right now)
 
 ## Quickstart and Example
 

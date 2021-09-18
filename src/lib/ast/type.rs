@@ -1,9 +1,10 @@
+use colored::*;
 use std::fmt;
 
 use crate::ast::PrimitiveType;
 // use crate::ast::Prototype;
 
-#[derive(Debug, Clone, Hash, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, Eq, Serialize, Deserialize)]
 pub enum Type {
     Primitive(PrimitiveType),
     // Proto(Box<Prototype>),
@@ -46,17 +47,41 @@ impl Type {
     }
 }
 
+impl fmt::Debug for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            Self::FuncType(f) => format!("{:?}", f),
+            _ => self.get_name().cyan().to_string(),
+        };
+
+        write!(f, "{}", s)
+    }
+}
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.get_name())
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FuncType {
     pub name: String,
     pub arguments: Vec<Box<Type>>,
     pub ret: Box<Type>,
+}
+
+impl fmt::Debug for FuncType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}{} {} {}{}",
+            "(".green(),
+            self.name.yellow(),
+            "::".red(),
+            self.to_type_signature(),
+            ")".green(),
+        )
+    }
 }
 
 impl FuncType {
@@ -110,10 +135,10 @@ impl fmt::Display for TypeSignature {
         let s = self
             .args
             .iter()
-            .map(|arg| arg.to_string())
-            .chain(vec![self.ret.to_string()].into_iter())
+            .map(|arg| format!("{:?}", arg))
+            .chain(vec![format!("{:?}", self.ret)].into_iter())
             .collect::<Vec<_>>()
-            .join(" -> ");
+            .join(&" -> ".magenta().to_string());
 
         write!(f, "{}", s)
     }

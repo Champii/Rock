@@ -4,7 +4,8 @@ use crate::{
     ast::{resolve::ResolutionMap, Type, TypeSignature},
     ast_lowering::HirMap,
     hir::hir_id::*,
-    parser::Span, Envs, NodeId, TypeId,
+    parser::Span,
+    Envs, NodeId, TypeId,
 };
 
 use super::{arena::Arena, HasHirId};
@@ -476,4 +477,10 @@ pub enum NativeOperatorKind {
     FGE,
     FLT,
     BEq,
+}
+
+impl std::fmt::Display for NativeOperatorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
