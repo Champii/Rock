@@ -189,7 +189,9 @@ impl TypeSignature {
 
         self.args.iter().enumerate().for_each(|(i, arg_t)| {
             if !arg_t.is_forall() {
-                panic!("Trying to apply type to a not forall")
+                warn!("Trying to apply type to a not forall");
+
+                return;
             }
 
             if let Some(t) = args.get(i) {
@@ -216,7 +218,9 @@ impl TypeSignature {
 
         self.args.iter().enumerate().for_each(|(i, arg_t)| {
             if !arg_t.is_forall() {
-                panic!("Trying to apply type to a not forall")
+                warn!("Trying to apply type to a not forall");
+
+                return;
             }
 
             if let Some(t) = args.get(i).unwrap() {
@@ -245,7 +249,9 @@ impl TypeSignature {
 
         self.args.iter_mut().enumerate().for_each(|(i, arg_t)| {
             if !arg_t.is_forall() {
-                panic!("Trying to apply type to a not forall")
+                warn!("Trying to apply type to a not forall");
+
+                return;
             }
 
             if let Some(t) = args.get(i).unwrap() {
@@ -297,6 +303,7 @@ impl TypeSignature {
     pub fn are_args_solved(&self) -> bool {
         !self.args.iter().any(|arg| arg.is_forall())
     }
+
     pub fn with_ret(mut self, ret: Type) -> Self {
         self.ret = ret;
 
@@ -309,6 +316,10 @@ impl TypeSignature {
             self.args.clone(),
             self.ret.clone(),
         ))
+    }
+
+    pub fn merge_with(&self, other: &Self) -> Self {
+        self.apply_types(other.args.clone(), other.ret.clone())
     }
 }
 

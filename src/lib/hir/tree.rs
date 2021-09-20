@@ -426,13 +426,13 @@ impl FunctionCall {
     }
 
     pub fn to_type_signature(&self, env: &BTreeMap<HirId, Type>) -> TypeSignature {
-        TypeSignature::from_args_nb(self.args.len()).apply_types(
-            self.args
+        TypeSignature::from_args_nb(self.args.len()).apply_partial_types(
+            &self
+                .args
                 .iter()
-                .map(|arg| env.get(&arg.get_hir_id()).unwrap())
-                .cloned()
+                .map(|arg| env.get(&arg.get_hir_id()).cloned())
                 .collect(),
-            env.get(&self.hir_id).unwrap().clone(),
+            env.get(&self.hir_id).cloned(),
         )
     }
 }

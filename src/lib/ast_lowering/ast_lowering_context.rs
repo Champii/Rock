@@ -110,7 +110,7 @@ impl AstLoweringContext {
             let mut types = vec![i.name.get_name()];
             types.extend(i.types.iter().map(|t| t.get_name()));
 
-            hir_f.mangle(types.clone());
+            // hir_f.mangle(types.clone());
 
             let body = self.bodies.get_mut(&hir_f.body_id).unwrap();
             body.mangle(&types);

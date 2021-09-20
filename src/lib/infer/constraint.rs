@@ -44,10 +44,7 @@ impl<'a> ConstraintContext<'a> {
     }
 
     pub fn resolve(&self, id: &HirId) -> Option<HirId> {
-        match self
-            .tmp_resolutions
-            .get(&self.hir.type_envs.get_current_fn().0)
-        {
+        match self.tmp_resolutions.get(&self.envs.get_current_fn().0) {
             Some(env) => env.get(id).or_else(|| self.hir.resolutions.get(id)),
             None => self.hir.resolutions.get(id),
         }
@@ -63,7 +60,16 @@ impl<'a> ConstraintContext<'a> {
             if let Some(reso) = self.hir.arena.get(&top_id) {
                 match reso {
                     HirNode::Prototype(p) => {
-                        self.setup_prototype_call(fc, p);
+                        if let Some(f) = self.hir.get_trait_method(
+                            (*p.name).clone(),
+                            &p.signature.merge_with(
+                                &fc.to_type_signature(self.envs.get_current_env().unwrap()),
+                            ),
+                        ) {
+                            self.setup_trait_call(fc, &f);
+                        } else {
+                            self.setup_prototype_call(fc, p);
+                        }
                     }
                     HirNode::FunctionDecl(f) => {
                         self.setup_function_call(fc, f);
@@ -81,6 +87,15 @@ impl<'a> ConstraintContext<'a> {
         }
     }
 
+    pub fn setup_trait_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
+        self.tmp_resolutions
+            .entry(self.envs.get_current_fn().0)
+            .or_insert_with(|| ResolutionMap::default())
+            .insert(fc.op.get_hir_id(), f.get_hir_id());
+
+        self.setup_function_call(fc, &f);
+    }
+
     pub fn setup_identifier_call(&mut self, fc: &FunctionCall, id: &Identifier) {
         self.setup_call(fc, &id.get_hir_id());
     }
@@ -90,6 +105,7 @@ impl<'a> ConstraintContext<'a> {
 
         self.envs
             .set_current_fn((p.hir_id.clone(), p.signature.clone()));
+
         self.envs.set_current_fn(old_f);
 
         self.visit_prototype(p);
@@ -236,6 +252,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         );
 
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
+
         self.tmp_resolutions
             .get_mut(&self.envs.get_current_fn().0)
             .unwrap()
@@ -297,7 +314,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.visit_identifier(&left);
                 self.visit_identifier(&right);
 
-                //FIXME
+                //FIXME: Put this in another func
                 let arg_t = match op.kind {
                     NativeOperatorKind::IEq
                     | NativeOperatorKind::IGT

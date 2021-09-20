@@ -1,6 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-};
+use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     ast::{Type, TypeSignature},
@@ -95,6 +93,10 @@ impl Envs {
     }
 
     pub fn amend_current_sig(&mut self, new_sig: &TypeSignature) {
+        if self.current_fn.1 == *new_sig {
+            return;
+        }
+
         let env = self.get_current_env().unwrap().clone();
 
         self.fns

@@ -298,6 +298,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
             self.trans_resolutions.remove(&old_fc_op);
         } else {
+            // // FIXME: This may be bad
             self.new_resolutions
                 .insert(fc.op.get_hir_id(), self.resolve(&old_fc_op).unwrap());
         }
