@@ -59,20 +59,6 @@ impl HirNodeCollector {
 macro_rules! generate_hirnode_collector {
     ($($expr:ty,)+) => {
         impl<'a> Visitor<'a> for HirNodeCollector {
-
-
-            // fn visit_trait(&mut self, t: &'a Trait) {
-            //     walk_list!(self, visit_prototype, &t.defs);
-            // }
-
-            // fn visit_impl<'a, V: Visitor<'a>>(visitor: &mut V, i: &'a Impl) {
-            //     visitor.visit_type(&i.name);
-
-            //     walk_list!(visitor, visit_type, &i.types);
-
-            //     walk_list!(visitor, visit_function_decl, &i.defs);
-            // }
-
             paste! {
                 $(
                     fn [<visit_ $expr:snake>](&mut self, node: &'a $expr) {

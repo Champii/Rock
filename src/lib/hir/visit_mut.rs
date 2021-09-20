@@ -53,13 +53,13 @@ generate_visitor_mut_trait!(
 pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
     walk_list!(visitor, visit_top_level, &mut root.top_levels);
 
-    for (_, r#trait) in &mut root.traits {
-        visitor.visit_trait(r#trait);
-    }
+    // for (_, r#trait) in &mut root.traits {
+    //     visitor.visit_trait(r#trait);
+    // }
 
-    for (_, impls) in &mut root.trait_methods {
-        walk_map!(visitor, visit_function_decl, impls);
-    }
+    // for (_, impls) in &mut root.trait_methods {
+    //     walk_map!(visitor, visit_function_decl, impls);
+    // }
 
     walk_map!(visitor, visit_fn_body, &mut root.bodies);
 }
@@ -71,6 +71,7 @@ pub fn walk_top_level<'a, V: VisitorMut<'a>>(visitor: &mut V, top_level: &'a mut
     };
 }
 
+#[allow(dead_code)]
 pub fn walk_trait<'a, V: VisitorMut<'a>>(visitor: &mut V, t: &'a mut Trait) {
     visitor.visit_type(&mut t.name);
 

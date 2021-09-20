@@ -75,6 +75,25 @@ impl Root {
             })
     }
 
+    pub fn get_function_by_mangled_name(&self, name: &str) -> Option<FunctionDecl> {
+        self.top_levels
+            .iter()
+            .find(|top| match &top.kind {
+                TopLevelKind::Function(f) => {
+                    if let Some(n) = &f.mangled_name {
+                        **n == name
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            })
+            .map(|top| match &top.kind {
+                TopLevelKind::Function(f) => f.clone(),
+                _ => unimplemented!(),
+            })
+    }
+
     pub fn get_body(&self, body_id: &FnBodyId) -> Option<&FnBody> {
         self.bodies.get(body_id)
     }

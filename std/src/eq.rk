@@ -5,16 +5,16 @@ infix < 3
 infix > 3
 
 trait Eq a
-    == a -> a -> Bool
-    <= a -> a -> Bool
-    >= a -> a -> Bool
-    < a -> a -> Bool
-    > a -> a -> Bool
+    == :: a -> a -> Bool
+    <= :: a -> a -> Bool
+    >= :: a -> a -> Bool
+    < :: a -> a -> Bool
+    > :: a -> a -> Bool
 
 impl Eq Int64
-    == e f = ~IEq e f
-    <= e f = ~ILE e f
-    >= e f = ~IGE e f
+    ==  e f = ~IEq e f
+    <=  e f = ~ILE e f
+    >=  e f = ~IGE e f
     < e f = ~ILT e f
     > e f = ~IGT e f
 

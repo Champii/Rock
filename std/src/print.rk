@@ -1,10 +1,10 @@
-extern printf String -> Float64 -> Int64
-extern puts String -> Int64
+extern printf :: String -> Float64 -> Int64
+extern puts :: String -> Int64
 
 use super::show::itoa
 
 trait Print a
-    print a -> Int64
+    print :: a -> Int64
 
 impl Print Int64
     print a = puts itoa a

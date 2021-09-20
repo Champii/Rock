@@ -56,13 +56,12 @@ impl<'a> CodegenContext<'a> {
                 .into(),
             Type::FuncType(f) => {
                 // FIXME: Don't rely on names for resolution
-                // println!("LOWER TYPE FN {:#?} {:#?}", f, f.get_mangled_name());
                 let f2 = match self.module.get_function(&f.get_mangled_name()) {
                     Some(f2) => f2,
                     None => {
                         let f = self
                             .hir
-                            .get_function_by_name(&f.get_mangled_name())
+                            .get_function_by_mangled_name(&f.get_mangled_name())
                             .unwrap();
 
                         self.lower_function_decl(&f, builder)?;
@@ -78,11 +77,6 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_hir(&mut self, root: &'a Root, builder: &'a Builder) -> Result<(), ()> {
-        for (_, map) in &root.trait_methods {
-            for (_, func) in map {
-                self.lower_function_decl(&func, builder)?;
-            }
-        }
         for item in &root.top_levels {
             match &item.kind {
                 TopLevelKind::Prototype(p) => self.lower_prototype(&p, builder)?,
@@ -144,7 +138,7 @@ impl<'a> CodegenContext<'a> {
             .iter()
             .any(|arg| self.hir.node_types.get(&arg.name.hir_id).is_none())
         {
-            return Ok(());
+            panic!("SOME ARGUMENTS ARE NOT SOLVED");
         }
 
         let t = self.hir.node_types.get(&f.hir_id).unwrap();
