@@ -45,6 +45,54 @@ fn testcases_mods_basic_mod_main() {
     run("./testcases/mods/basic_mod/main.rk", include_str!("./testcases/mods/basic_mod/main.rk"), include_str!("./testcases/mods/basic_mod/main.rk.out"));
 }
 #[test]
-fn testcases_basic_main() {
-    run("./testcases/basic/main.rk", include_str!("./testcases/basic/main.rk"), include_str!("./testcases/basic/main.rk.out"));
+fn testcases_basic_bool_true_main() {
+    run("./testcases/basic/bool_true/main.rk", include_str!("./testcases/basic/bool_true/main.rk"), include_str!("./testcases/basic/bool_true/main.rk.out"));
+}
+#[test]
+fn testcases_basic_op_func_main() {
+    run("./testcases/basic/op_func/main.rk", include_str!("./testcases/basic/op_func/main.rk"), include_str!("./testcases/basic/op_func/main.rk.out"));
+}
+#[test]
+fn testcases_basic_2_arg_fn_main() {
+    run("./testcases/basic/2_arg_fn/main.rk", include_str!("./testcases/basic/2_arg_fn/main.rk"), include_str!("./testcases/basic/2_arg_fn/main.rk.out"));
+}
+#[test]
+fn testcases_basic_extern_main() {
+    run("./testcases/basic/extern/main.rk", include_str!("./testcases/basic/extern/main.rk"), include_str!("./testcases/basic/extern/main.rk.out"));
+}
+#[test]
+fn testcases_basic_1_arg_fn_main() {
+    run("./testcases/basic/1_arg_fn/main.rk", include_str!("./testcases/basic/1_arg_fn/main.rk"), include_str!("./testcases/basic/1_arg_fn/main.rk.out"));
+}
+#[test]
+fn testcases_basic_bool_false_main() {
+    run("./testcases/basic/bool_false/main.rk", include_str!("./testcases/basic/bool_false/main.rk"), include_str!("./testcases/basic/bool_false/main.rk.out"));
+}
+#[test]
+fn testcases_basic_main_main() {
+    run("./testcases/basic/main/main.rk", include_str!("./testcases/basic/main/main.rk"), include_str!("./testcases/basic/main/main.rk.out"));
+}
+#[test]
+fn testcases_basic_fn_arg_main() {
+    run("./testcases/basic/fn_arg/main.rk", include_str!("./testcases/basic/fn_arg/main.rk"), include_str!("./testcases/basic/fn_arg/main.rk.out"));
+}
+#[test]
+fn testcases_basic_recur_main() {
+    run("./testcases/basic/recur/main.rk", include_str!("./testcases/basic/recur/main.rk"), include_str!("./testcases/basic/recur/main.rk.out"));
+}
+#[test]
+fn testcases_basic_if_else_main() {
+    run("./testcases/basic/if_else/main.rk", include_str!("./testcases/basic/if_else/main.rk"), include_str!("./testcases/basic/if_else/main.rk.out"));
+}
+#[test]
+fn testcases_basic_operator_precedence_main() {
+    run("./testcases/basic/operator_precedence/main.rk", include_str!("./testcases/basic/operator_precedence/main.rk"), include_str!("./testcases/basic/operator_precedence/main.rk.out"));
+}
+#[test]
+fn testcases_basic_let_main() {
+    run("./testcases/basic/let/main.rk", include_str!("./testcases/basic/let/main.rk"), include_str!("./testcases/basic/let/main.rk.out"));
+}
+#[test]
+fn testcases_basic_0_arg_fn_main() {
+    run("./testcases/basic/0_arg_fn/main.rk", include_str!("./testcases/basic/0_arg_fn/main.rk"), include_str!("./testcases/basic/0_arg_fn/main.rk.out"));
 }
