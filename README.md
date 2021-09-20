@@ -1,4 +1,4 @@
-# Rock 0.1.2
+# Rock 0.1.3
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -37,10 +37,13 @@ mod lib
 
 use lib::prelude::*
 
+# Polymophic function
+id a = a
+
 fact a =
     if a <= 1
     then 1
-    else a * fact (a - 1)
+    else id a * fact (a - 1)
 
 main = print fact 4
 ```
