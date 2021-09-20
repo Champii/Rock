@@ -16,17 +16,7 @@ fn visit_dirs(dir: &Path) -> io::Result<Vec<String>> {
                 res.extend(visit_dirs(&path)?);
             } else {
                 if let Some(ext) = path.extension() {
-                    if ext == "rk"
-                        && path
-                            .file_name()
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .chars()
-                            .nth(0)
-                            .unwrap()
-                            != '_'
-                    {
+                    if ext == "rk" && path.file_name().unwrap() == "main.rk" {
                         res.push(entry.path().to_str().unwrap().to_string());
                     }
                 }

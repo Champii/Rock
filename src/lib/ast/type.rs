@@ -156,21 +156,19 @@ impl Default for TypeSignature {
 
 impl TypeSignature {
     pub fn apply_forall_types(&self, orig: &Vec<Type>, dest: &Vec<Type>) -> Self {
-        let mut orig = orig.clone();
+        assert_eq!(orig.len(), dest.len());
 
-        let dest = dest
+        let (dest, orig): (Vec<_>, Vec<_>) = dest
             .iter()
-            .enumerate()
-            .filter_map(|(i, t)| {
-                if let Type::ForAll(_) = t {
-                    orig.remove(i);
-
+            .zip(orig)
+            .filter_map(|(dest_t, orig_t)| {
+                if let Type::ForAll(_) = dest_t {
                     None
                 } else {
-                    Some(t)
+                    Some((dest_t.clone(), orig_t.clone()))
                 }
             })
-            .collect::<Vec<_>>();
+            .unzip();
 
         let applied_args = self
             .args

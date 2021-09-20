@@ -157,9 +157,12 @@ impl<'a> ConstraintContext<'a> {
         // println!("SETUP FN CALL {:#?} {:#?} {:#?}", fc, f, sig);
 
         if self.envs.get_current_fn().0 == f.hir_id {
-            warn!("Recursion !");
+            warn!("Recursion ! {:#?}", sig);
 
-            self.envs.set_type(&fc.get_hir_id(), &sig.ret);
+            self.envs.set_type_eq(
+                &fc.get_hir_id(),
+                &self.hir.bodies.get(&f.body_id).unwrap().get_hir_id(),
+            );
             self.envs.set_type(&fc.op.get_hir_id(), &sig.to_func_type());
 
             return;

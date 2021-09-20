@@ -47,6 +47,12 @@ impl Envs {
     }
 
     pub fn set_type(&mut self, dest: &HirId, src: &Type) {
+        if let Type::ForAll(_) = src {
+            warn!("set_type requires `src: &Type` to be solved");
+
+            return;
+        }
+
         self.get_current_env_mut()
             .unwrap()
             .insert(dest.clone(), src.clone());

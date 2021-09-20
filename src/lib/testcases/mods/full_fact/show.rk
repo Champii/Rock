@@ -1,0 +1,35 @@
+extern malloc :: Int64 -> String
+extern strlen :: String -> Int64
+extern strcpy :: String -> String -> Int64
+extern sprintf :: String -> String -> Int64 -> Int64
+extern fcvt :: Float64 -> Int64 -> String -> String -> String
+
+
+trait Show a
+    show :: a -> String
+
+impl Show Int64
+    show a = itoa a
+
+impl Show Float64
+    show c = ftoa c
+
+impl Show Bool
+    show c =
+        if c
+        then "true"
+        else "false"
+
+impl Show String
+    show c =
+        let s = malloc strlen c
+        strcpy s, c
+        s
+
+itoa a =
+    let s = malloc 10
+    sprintf s, "%d", a
+    s
+
+ftoa c =
+    fcvt c, 10, (malloc 4), (malloc 4)

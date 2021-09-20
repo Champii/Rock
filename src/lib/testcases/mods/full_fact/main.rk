@@ -1,0 +1,10 @@
+mod lib
+
+use lib::prelude::*
+
+fact a =
+    if a <= 1
+    then 1
+    else a * fact (a - 1)
+
+main = fact 4

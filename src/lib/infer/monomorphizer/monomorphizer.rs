@@ -236,7 +236,16 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
     }
 
     fn visit_if(&mut self, r#if: &'a mut If) {
+        let old_if_id = r#if.hir_id.clone();
+
         r#if.hir_id = self.duplicate_hir_id(&mut r#if.hir_id);
+
+        if let Some(t) = self.root.type_envs.get_type(&old_if_id) {
+            self.root.node_types.insert(r#if.hir_id.clone(), t.clone());
+        }
+
+        self.trans_resolutions
+            .insert(old_if_id, r#if.hir_id.clone());
 
         self.visit_expression(&mut r#if.predicat);
 
@@ -332,5 +341,17 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         }
 
         self.trans_resolutions.insert(old_hir_id, id.hir_id.clone());
+    }
+
+    fn visit_native_operator(&mut self, op: &'a mut NativeOperator) {
+        let old_hir_id = op.hir_id.clone();
+
+        op.hir_id = self.duplicate_hir_id(&old_hir_id);
+
+        if let Some(t) = self.root.type_envs.get_type(&old_hir_id) {
+            self.root.node_types.insert(op.hir_id.clone(), t.clone());
+        }
+
+        self.trans_resolutions.insert(old_hir_id, op.hir_id.clone());
     }
 }
