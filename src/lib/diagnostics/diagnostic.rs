@@ -198,7 +198,7 @@ impl Display for DiagnosticKind {
                 format!("Unresolved type_id {} (hir_id {:?})", t_id, hir_id)
             }
             Self::UnresolvedTraitCall {
-                call_hir_id,
+                call_hir_id: _,
                 given_sig,
                 existing_impls,
             } => {
