@@ -91,6 +91,11 @@ impl<'a> ConstraintContext<'a> {
     }
 
     pub fn setup_trait_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
+        self.tmp_resolutions
+            .get_mut(&self.envs.get_current_fn().0)
+            .unwrap()
+            .insert(fc.op.get_hir_id(), f.hir_id.clone());
+
         self.setup_function_call(fc, &f);
     }
 

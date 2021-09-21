@@ -1,25 +1,5 @@
-extern printf :: String -> Float64 -> Int64
 extern puts :: String -> Int64
 
-use super::show::itoa
+use super::show::show
 
-trait Print a
-    print :: a -> Int64
-
-impl Print Int64
-    print a = puts itoa a
-
-impl Print Float64
-    print c =
-        let s = printf "%f", c
-        puts ""
-        s
-
-impl Print String
-    print s = puts s
-
-impl Print Bool
-    print b =
-        if b
-        then puts "true"
-        else puts "false"
+print a = puts show a
