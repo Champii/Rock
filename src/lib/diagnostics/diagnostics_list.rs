@@ -4,14 +4,14 @@ use crate::parser::SourceFile;
 
 use super::Diagnostic;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum DiagnosticType {
     Warning,
     #[default]
     Error,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Diagnostics {
     pub list: Vec<Diagnostic>,
     pub list_types: Vec<DiagnosticType>,

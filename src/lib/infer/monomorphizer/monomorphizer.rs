@@ -19,7 +19,7 @@ pub struct Monomorphizer<'a> {
 
 impl<'a> Monomorphizer<'a> {
     pub fn run(&mut self) -> Root {
-        // println!("ENV MONO {:#?}",self.root.type_envs);
+        println!("ENV MONO {:#?}", self.root.type_envs);
         let prototypes = self
             .root
             .top_levels

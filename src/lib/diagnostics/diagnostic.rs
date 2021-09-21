@@ -1,6 +1,11 @@
 use std::fmt::Display;
 
-use crate::{ast::Type, hir::HirId, infer::TypeId, parser::SourceFile};
+use crate::{
+    ast::{Type, TypeSignature},
+    hir::HirId,
+    infer::TypeId,
+    parser::SourceFile,
+};
 use crate::{diagnostics::DiagnosticType, parser::Span};
 use colored::*;
 
@@ -47,6 +52,22 @@ impl Diagnostic {
 
     pub fn new_unresolved_type(span: Span, t: TypeId, hir_id: HirId) -> Self {
         Self::new(span, DiagnosticKind::UnresolvedType(t, hir_id))
+    }
+
+    pub fn new_unresolved_trait_call(
+        span: Span,
+        call_hir_id: HirId,
+        given_sig: TypeSignature,
+        existing_impls: Vec<TypeSignature>,
+    ) -> Self {
+        Self::new(
+            span,
+            DiagnosticKind::UnresolvedTraitCall {
+                call_hir_id,
+                given_sig,
+                existing_impls,
+            },
+        )
     }
 
     pub fn new_codegen_error(span: Span, hir_id: HirId, msg: &str) -> Self {
@@ -119,13 +140,17 @@ impl Diagnostic {
         };
 
         println!(
-            "[{}]: {}\n{}\n\n{:>4} {} {}\n       {}",
+            "[{}]: {}\n{}\n{:>4} {}\n{:>4} {} {}\n{:>4} {} {}",
             diag_type_str,
             color(self.kind.to_string()).bold(),
             line_ind.bright_blue(),
+            "",
+            "|".cyan(),
             color(line.to_string()),
             "|".cyan(),
             lines[line - 1].iter().cloned().collect::<String>(),
+            "",
+            "|".cyan(),
             color(arrow),
         );
     }
@@ -144,6 +169,11 @@ pub enum DiagnosticKind {
     ModuleNotFound,
     NotAFunction,
     UnusedParameter,
+    UnresolvedTraitCall {
+        call_hir_id: HirId,
+        given_sig: TypeSignature,
+        existing_impls: Vec<TypeSignature>,
+    },
     UnusedFunction,
     DuplicatedOperator,
     TypeConflict(Type, Type, Type, Type),
@@ -162,10 +192,25 @@ impl Display for DiagnosticKind {
             Self::ModuleNotFound => "ModuleNotFound".to_string(),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
             Self::TypeConflict(t1, t2, _in1, _in2) => {
-                format!("TypeConflict {:?} != {:?} ", t1, t2)
+                format!("Type conflict: Expected {:?} but got {:?} ", t1, t2)
             }
             Self::UnresolvedType(t_id, hir_id) => {
                 format!("Unresolved type_id {} (hir_id {:?})", t_id, hir_id)
+            }
+            Self::UnresolvedTraitCall {
+                call_hir_id,
+                given_sig,
+                existing_impls,
+            } => {
+                format!(
+                    "Unresolved trait call {}\n{}",
+                    given_sig,
+                    existing_impls
+                        .iter()
+                        .map(|sig| format!("Found impl: {}", sig))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
             }
             Self::FileNotFound(path) => format!("FileNotFound {}", path),
             Self::CodegenError(hir_id, msg) => format!("CodegenError: {} {:?}", msg, hir_id),

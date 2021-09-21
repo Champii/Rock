@@ -17,6 +17,8 @@ pub fn infer(
 
     parsing_ctx.diagnostics.append(diags);
 
+    parsing_ctx.return_if_error()?;
+
     let mut new_root = monomorphizer::monomophize(root, tmp_resolutions);
 
     mangle::mangle(&mut new_root);

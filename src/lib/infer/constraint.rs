@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     ast::{resolve::ResolutionMap, FuncType, PrimitiveType, Type, TypeSignature},
-    diagnostics::Diagnostics,
+    diagnostics::{Diagnostic, Diagnostics},
     hir::visit::*,
     hir::*,
     walk_list, Envs,
@@ -63,13 +63,32 @@ impl<'a> ConstraintContext<'a> {
             if let Some(reso) = self.hir.arena.get(&top_id) {
                 match reso {
                     HirNode::Prototype(p) => {
-                        if let Some(f) = self.hir.get_trait_method(
-                            (*p.name).clone(),
-                            &p.signature.merge_with(
-                                &fc.to_type_signature(self.envs.get_current_env().unwrap()),
-                            ),
-                        ) {
-                            self.setup_trait_call(fc, &f);
+                        if let Some(existing_impls) = self.hir.trait_methods.get(&p.name.name) {
+                            if let Some(f) = self.hir.get_trait_method(
+                                (*p.name).clone(),
+                                &fc.to_type_signature(self.envs.get_current_env().unwrap())
+                                    .merge_with(&p.signature),
+                            ) {
+                                println!(
+                                    "SETUP TRAIT {:#?} {:#?}",
+                                    f,
+                                    &fc.to_type_signature(self.envs.get_current_env().unwrap())
+                                        .merge_with(&p.signature)
+                                );
+                                self.setup_trait_call(fc, &f);
+                            } else {
+                                self.envs.diagnostics.push_error(
+                                    Diagnostic::new_unresolved_trait_call(
+                                        self.envs.spans.get(&call_hir_id.clone()).unwrap().clone(),
+                                        call_hir_id.clone(),
+                                        fc.to_type_signature(self.envs.get_current_env().unwrap())
+                                            .merge_with(&p.signature),
+                                        existing_impls.keys().cloned().collect(),
+                                    ),
+                                );
+                                return;
+                                // panic!("CANNOT RESOLVE TRAIT");
+                            }
                         } else {
                             self.setup_prototype_call(fc, p);
                         }
@@ -212,11 +231,13 @@ impl<'a> ConstraintContext<'a> {
         self.envs.set_type(&fc.get_hir_id(), &new_f_ret);
         self.envs.set_type(&fc.op.get_hir_id(), &new_f_type);
 
+        // Setting of the calling identifier
         if let Some(reso) = self.resolve(&fc.op.get_hir_id()) {
-            self.envs.set_type(&reso, &new_f_type);
+            if let HirNode::Identifier(_) = self.hir.arena.get(&reso).unwrap() {
+                self.envs.set_type(&reso, &new_f_type);
+            }
         }
 
-        // update args her
         fc.args.iter().enumerate().for_each(|(i, arg)| {
             if let Some(_reso_id) = self.resolve_rec(&arg.get_hir_id()) {
                 self.envs
@@ -236,7 +257,8 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
         self.envs.apply_args_type(f);
 
-        walk_function_decl(self, f);
+        // walk_function_decl(self, f);
+        walk_list!(self, visit_argument_decl, &f.arguments);
 
         self.visit_fn_body(&self.hir.get_body(&f.body_id).unwrap());
 
@@ -251,6 +273,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     .collect(),
                 self.envs
                     .get_type(&self.hir.get_body(&f.body_id).unwrap().get_hir_id())
+                    .or(Some(&Type::forall("z")))
                     .unwrap()
                     .clone(),
             )),
@@ -377,7 +400,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_identifier(&mut self, id: &Identifier) {
         if let Some(reso) = self.resolve_rec(&id.hir_id) {
             if self.envs.get_type(&reso).is_some() {
-                self.envs.set_type_eq(&id.get_hir_id(), &reso);
+                if let HirNode::Prototype(_) = self.hir.arena.get(&reso).unwrap() {
+                    self.envs.set_type_eq(&id.get_hir_id(), &reso);
+                } else {
+                    self.envs.set_type_eq(&id.get_hir_id(), &reso);
+                }
             }
         } else {
             warn!("No identifier resolution {:?}", id);
@@ -414,7 +441,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnostics) {
     let diagnostics = Diagnostics::default();
 
-    let infer_state = Envs::default();
+    let infer_state = Envs::new(diagnostics, root.get_hir_spans());
 
     let mut constraint_ctx = ConstraintContext::new(infer_state, &root);
 
@@ -424,7 +451,7 @@ pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Dia
 
     let envs = constraint_ctx.get_envs();
 
-    root.type_envs = envs;
+    root.type_envs = envs.clone();
 
     // if let Err(diags) = infer_state.solve() {
     //     for diag in diags {
@@ -432,5 +459,5 @@ pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Dia
     //     }
     // }
 
-    (tmp_resolutions, diagnostics)
+    (tmp_resolutions, envs.get_diagnostics())
 }

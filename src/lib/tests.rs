@@ -57,12 +57,20 @@ fn testcases_basic_2_arg_fn_main() {
     run("./testcases/basic/2_arg_fn/main.rk", include_str!("./testcases/basic/2_arg_fn/main.rk"), include_str!("./testcases/basic/2_arg_fn/main.rk.out"));
 }
 #[test]
+fn testcases_basic_monomorph_in_trait_main() {
+    run("./testcases/basic/monomorph_in_trait/main.rk", include_str!("./testcases/basic/monomorph_in_trait/main.rk"), include_str!("./testcases/basic/monomorph_in_trait/main.rk.out"));
+}
+#[test]
 fn testcases_basic_extern_main() {
     run("./testcases/basic/extern/main.rk", include_str!("./testcases/basic/extern/main.rk"), include_str!("./testcases/basic/extern/main.rk.out"));
 }
 #[test]
 fn testcases_basic_1_arg_fn_main() {
     run("./testcases/basic/1_arg_fn/main.rk", include_str!("./testcases/basic/1_arg_fn/main.rk"), include_str!("./testcases/basic/1_arg_fn/main.rk.out"));
+}
+#[test]
+fn testcases_basic_monomorph_main() {
+    run("./testcases/basic/monomorph/main.rk", include_str!("./testcases/basic/monomorph/main.rk"), include_str!("./testcases/basic/monomorph/main.rk.out"));
 }
 #[test]
 fn testcases_basic_bool_false_main() {

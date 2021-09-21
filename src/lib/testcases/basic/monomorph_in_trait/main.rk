@@ -1,0 +1,14 @@
+id a = a
+
+trait Foo a
+    foo :: a -> a
+
+impl Foo Int64
+    foo a = id a
+
+impl Foo Bool
+    foo c = id c
+
+main =
+    foo true
+    foo 42

@@ -51,7 +51,17 @@ impl Root {
         ident: String,
         applied_type: &TypeSignature,
     ) -> Option<FunctionDecl> {
-        self.trait_methods.get(&ident)?.get(applied_type).cloned()
+        self.trait_methods
+            .get(&ident)?
+            .get(applied_type)
+            .cloned()
+            .or_else(|| {
+                self.trait_methods
+                    .get(&ident)?
+                    .iter()
+                    .find(|(sig, _)| sig.args == applied_type.args)
+                    .map(|(_, f)| f.clone())
+            })
     }
 
     pub fn match_trait_method(&self, ident: String, applied_type: &Type) -> Option<FunctionDecl> {
@@ -113,6 +123,13 @@ impl Root {
 
     pub fn get_type(&self, hir_id: HirId) -> Option<Type> {
         self.type_envs.get_type(&hir_id).cloned()
+    }
+
+    pub fn get_hir_spans(&self) -> HashMap<HirId, Span> {
+        self.spans
+            .iter()
+            .filter_map(|(node_id, span)| Some((self.hir_map.get_hir_id(*node_id)?, span.clone())))
+            .collect()
     }
 }
 

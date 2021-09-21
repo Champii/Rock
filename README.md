@@ -19,6 +19,25 @@ This project, its syntax and its APIs are subject to change at any moment.
 This is a personal project, so please bear with me  
 (Differently put: this is a big red hot pile of experimental garbage right now)
 
+## Install
+
+How to install and run the binary:
+
+### With cargo (from git)
+
+``` sh
+cargo install --git https://github.com/Champii/Rock
+rock -V
+```
+
+### From sources
+
+``` sh
+git clone https://github.com/Champii/Rock.git
+cd Rock
+cargo run -- -V
+```
+
 ## Quickstart and Example
 
 Lets create a new project folder to compute some factorials

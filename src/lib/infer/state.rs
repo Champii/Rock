@@ -2,7 +2,9 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     ast::{Type, TypeSignature},
+    diagnostics::{Diagnostic, Diagnostics},
     hir::*,
+    parser::Span,
 };
 
 pub type NodeId = u64;
@@ -15,9 +17,18 @@ pub type Env = BTreeMap<HirId, Type>;
 pub struct Envs {
     fns: BTreeMap<HirId, HashMap<TypeSignature, Env>>,
     current_fn: (HirId, TypeSignature),
+    pub spans: HashMap<HirId, Span>,
+    pub diagnostics: Diagnostics,
 }
 
 impl Envs {
+    pub fn new(diagnostics: Diagnostics, spans: HashMap<HirId, Span>) -> Self {
+        Self {
+            diagnostics,
+            spans,
+            ..Self::default()
+        }
+    }
     pub fn get_current_env_mut(&mut self) -> Option<&mut BTreeMap<HirId, Type>> {
         self.fns
             .get_mut(&self.current_fn.0)?
@@ -53,13 +64,38 @@ impl Envs {
             return;
         }
 
-        self.get_current_env_mut()
+        let previous = self
+            .get_current_env_mut()
             .unwrap()
             .insert(dest.clone(), src.clone());
+
+        match (src, previous.clone()) {
+            (Type::FuncType(src_f), Some(Type::FuncType(prev_f))) if *src_f != prev_f => {
+                if prev_f.to_type_signature().is_solved() && src_f.to_type_signature().is_solved() {
+                    self.diagnostics.push_error(Diagnostic::new_type_conflict(
+                        self.spans.get(dest).unwrap().clone(),
+                        src.clone(),
+                        previous.clone().unwrap(),
+                        src.clone(),
+                        previous.clone().unwrap(),
+                    ));
+                }
+            }
+            (src, Some(previous)) if *src != previous => {
+                self.diagnostics.push_error(Diagnostic::new_type_conflict(
+                    self.spans.get(dest).unwrap().clone(),
+                    previous.clone(),
+                    src.clone(),
+                    previous,
+                    src.clone(),
+                ));
+            }
+            _ => (),
+        }
     }
 
     pub fn set_type_eq(&mut self, dest: &HirId, src: &HirId) {
-        self.set_type(dest, &self.get_type(src).unwrap().clone());
+        self.set_type(dest, &self.get_type(src).unwrap().clone())
     }
 
     pub fn get_type(&self, hir_id: &HirId) -> Option<&Type> {
@@ -116,5 +152,9 @@ impl Envs {
             .remove(&self.current_fn.1);
 
         self.current_fn.1 = new_sig.clone();
+    }
+
+    pub fn get_diagnostics(self) -> Diagnostics {
+        self.diagnostics
     }
 }
