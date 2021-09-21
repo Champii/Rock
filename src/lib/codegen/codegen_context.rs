@@ -1,11 +1,10 @@
-use either::Either;
-
+use std::convert::TryFrom;
 use std::convert::TryInto;
 
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
-    values::{AnyValue, AnyValueEnum, BasicValueEnum, FunctionValue, PointerValue},
+    values::{AnyValue, AnyValueEnum, BasicValueEnum, CallableValue, FunctionValue},
     FloatPredicate, IntPredicate,
 };
 use inkwell::{context::Context, types::BasicTypeEnum};
@@ -365,18 +364,21 @@ impl<'a> CodegenContext<'a> {
 
         let f_id = self.hir.resolutions.get(&terminal_hir_id).unwrap();
 
-        let f_value: Either<FunctionValue, PointerValue> =
-            match self.hir.get_top_level(f_id.clone()) {
-                Some(top) => match &top.kind {
-                    TopLevelKind::Prototype(p) => {
-                        Either::Left(self.module.get_function(&p.name.to_string()).unwrap())
-                    }
-                    TopLevelKind::Function(f) => {
-                        Either::Left(self.module.get_function(&f.get_name().to_string()).unwrap())
-                    }
-                },
-                None => Either::Right(self.lower_expression(&fc.op, builder)?.into_pointer_value()),
-            };
+        let callable_value = match self.hir.get_top_level(f_id.clone()) {
+            Some(top) => CallableValue::try_from(match &top.kind {
+                TopLevelKind::Prototype(p) => {
+                    self.module.get_function(&p.name.to_string()).unwrap()
+                }
+                TopLevelKind::Function(f) => {
+                    self.module.get_function(&f.get_name().to_string()).unwrap()
+                }
+            })
+            .unwrap(),
+            None => CallableValue::try_from(
+                self.lower_expression(&fc.op, builder)?.into_pointer_value(),
+            )
+            .unwrap(),
+        };
 
         let mut arguments = vec![];
 
@@ -385,7 +387,11 @@ impl<'a> CodegenContext<'a> {
         }
 
         Ok(builder
-            .build_call(f_value, arguments.as_slice(), "call")
+            .build_call(
+                callable_value,
+                arguments.as_slice(),
+                format!("call_{}", fc.op.as_identifier().name).as_str(),
+            )
             .try_as_basic_value()
             .left()
             .unwrap())
