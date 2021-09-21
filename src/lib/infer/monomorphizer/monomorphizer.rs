@@ -19,6 +19,7 @@ pub struct Monomorphizer<'a> {
 
 impl<'a> Monomorphizer<'a> {
     pub fn run(&mut self) -> Root {
+        // println!("ENV MONO {:#?}",self.root.type_envs);
         let prototypes = self
             .root
             .top_levels
@@ -153,10 +154,11 @@ impl<'a> Monomorphizer<'a> {
     }
 
     pub fn resolve(&self, id: &HirId) -> Option<HirId> {
-        self.tmp_resolutions
-            .get(&self.root.type_envs.get_current_fn().0)?
-            .get(id)
-            .or_else(|| self.root.resolutions.get(id))
+        self.root.resolutions.get(id).or_else(|| {
+            self.tmp_resolutions
+                .get(&self.root.type_envs.get_current_fn().0)?
+                .get(id)
+        })
     }
 
     pub fn resolve_rec(&self, id: &HirId) -> Option<HirId> {
@@ -224,6 +226,10 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                             .map(|new_pointer_id| {
                                 self.trans_resolutions.get(existing_pointee).map(
                                     |new_pointee_id| {
+                                        // println!(
+                                        //     "NEW RESO FRON TRANS {:?} {:?}",
+                                        //     new_pointer_id, new_pointee_id
+                                        // );
                                         self.new_resolutions
                                             .insert(new_pointer_id.clone(), new_pointee_id.clone());
                                     },
@@ -251,18 +257,10 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
         self.visit_body(&mut r#if.body);
 
-        // self.root
-        //     .type_envs
-        //     .set_type_eq(&r#if.hir_id, &r#if.body.get_hir_id());
-
         if let Some(e) = &mut r#if.else_ {
             match &mut **e {
                 Else::Body(b) => {
                     self.visit_body(b);
-
-                    // self.root
-                    //     .type_envs
-                    //     .set_type_eq(&b.get_hir_id(), &r#if.body.get_hir_id());
                 }
                 Else::If(i) => {
                     self.visit_if(i);
@@ -288,28 +286,53 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             self.root.node_types.insert(fc.hir_id.clone(), t.clone());
         }
 
-        if let HirNode::FunctionDecl(_) = self
+        match self
             .root
             .arena
             .get(&self.resolve(&old_fc_op).unwrap())
             .unwrap()
         {
-            self.new_resolutions.insert(
-                fc.op.get_hir_id(),
-                self.generated_fn_hir_id
-                    .get(&(
-                        self.resolve_rec(&old_fc_op).unwrap(),
-                        fc.to_type_signature(&self.root.node_types),
-                    ))
-                    .unwrap()
-                    .clone(),
-            );
+            HirNode::FunctionDecl(_) => {
+                self.new_resolutions.insert(
+                    fc.op.get_hir_id(),
+                    self.generated_fn_hir_id
+                        .get(&(
+                            self.resolve_rec(&old_fc_op).unwrap(),
+                            fc.to_type_signature(&self.root.node_types),
+                        ))
+                        .unwrap()
+                        .clone(),
+                );
 
-            self.trans_resolutions.remove(&old_fc_op);
-        } else {
-            // // FIXME: This may be bad
-            self.new_resolutions
-                .insert(fc.op.get_hir_id(), self.resolve(&old_fc_op).unwrap());
+                self.trans_resolutions.remove(&old_fc_op);
+            }
+            HirNode::Prototype(p) => {
+                let f_type = self.root.type_envs.get_type(&old_fc_op).unwrap();
+
+                if let Type::FuncType(f_type) = f_type {
+                    // Traits
+                    if let Some(f) = self
+                        .root
+                        .get_trait_method((*p.name).clone(), &f_type.to_type_signature())
+                    {
+                        self.new_resolutions.insert(
+                            fc.op.get_hir_id(),
+                            self.trans_resolutions.get(&f.hir_id).unwrap(),
+                        );
+                    // Extern Prototypes
+                    } else {
+                        self.new_resolutions
+                            .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
+                    }
+                }
+
+                self.trans_resolutions.remove(&old_fc_op);
+            }
+            _ => {
+                // FIXME: This may be bad
+                self.new_resolutions
+                    .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
+            }
         }
 
         for (i, arg) in fc.args.iter().enumerate() {

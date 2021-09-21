@@ -206,28 +206,6 @@ impl<'a> CodegenContext<'a> {
             self.cur_func = Some(f);
 
             let f_decl = self.hir.get_function_by_hir_id(&fn_body.fn_id).unwrap();
-            // let hir_top_reso = self.hir.resolutions.get(&fn_body.name.hir_id).unwrap();
-
-            // let hir_top = if let Some(hir_top) = self.hir.arena.get(&fn_body.name.hir_id) {
-            //     match &hir_top {
-            //         HirNode::FunctionDecl(hir_f) => hir_f,
-            //         HirNode::Prototype(_) => panic!(),
-            //         _ => {
-            //             println!("NOT A FN {:?}", hir_top);
-            //             panic!();
-            //         }
-            //     }
-            // } else {
-            //     panic!("No arena item found for {:?}", fn_body.name);
-            //     // self.hir
-            //     //     .trait_methods
-            //     //     .get(&fn_body.name.name)
-            //     //     .unwrap()
-            //     //     .iter()
-            //     //     .find(|(_applied_to, func_decl)| func_decl.name.hir_id == fn_body.name.hir_id)
-            //     //     .map(|tuple| tuple.1)
-            //     //     .unwrap()
-            // };
 
             for (i, arg) in f_decl.arguments.iter().enumerate() {
                 self.scopes.add(
@@ -457,6 +435,7 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
+        // println!("SCOPES {:#?}", self.scopes);
         let val = match self.scopes.get(reso.clone()) {
             None => {
                 let span = self

@@ -1,0 +1,14 @@
+trait Toto a
+    toto :: a -> String
+
+impl Toto Int64
+    toto a = "1"
+
+impl Toto Bool
+    toto c = "true"
+
+print a = toto a
+
+main =
+    print true
+    print 4

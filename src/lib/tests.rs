@@ -96,3 +96,7 @@ fn testcases_basic_let_main() {
 fn testcases_basic_0_arg_fn_main() {
     run("./testcases/basic/0_arg_fn/main.rk", include_str!("./testcases/basic/0_arg_fn/main.rk"), include_str!("./testcases/basic/0_arg_fn/main.rk.out"));
 }
+#[test]
+fn testcases_basic_trait_monomorph_main() {
+    run("./testcases/basic/trait_monomorph/main.rk", include_str!("./testcases/basic/trait_monomorph/main.rk"), include_str!("./testcases/basic/trait_monomorph/main.rk.out"));
+}

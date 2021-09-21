@@ -47,7 +47,7 @@ impl<'a> HirPrinter<'a> {
             .map_or_else(|| String::from("None"), |t| format!("{:?}", t));
 
         println!(
-            "{}{:<40} {}",
+            "{:>13}{:-<60} {}",
             t.get_hir_id(),
             self.make_indent_str(t.class_name_self().magenta()),
             ty

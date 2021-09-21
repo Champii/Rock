@@ -17,6 +17,7 @@ struct ConstraintContext<'a> {
 
 impl<'a> ConstraintContext<'a> {
     pub fn new(envs: Envs, hir: &'a Root) -> Self {
+        // println!("ROOT PRE CONSTRAINT {:#?}", hir);
         Self {
             envs,
             hir,
@@ -44,10 +45,12 @@ impl<'a> ConstraintContext<'a> {
     }
 
     pub fn resolve(&self, id: &HirId) -> Option<HirId> {
-        match self.tmp_resolutions.get(&self.envs.get_current_fn().0) {
-            Some(env) => env.get(id).or_else(|| self.hir.resolutions.get(id)),
-            None => self.hir.resolutions.get(id),
-        }
+        self.hir.resolutions.get(id).or_else(|| {
+            match self.tmp_resolutions.get(&self.envs.get_current_fn().0) {
+                Some(env) => env.get(id),
+                None => None,
+            }
+        })
     }
 
     pub fn resolve_rec(&self, id: &HirId) -> Option<HirId> {
@@ -88,11 +91,6 @@ impl<'a> ConstraintContext<'a> {
     }
 
     pub fn setup_trait_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
-        self.tmp_resolutions
-            .entry(self.envs.get_current_fn().0)
-            .or_insert_with(|| ResolutionMap::default())
-            .insert(fc.op.get_hir_id(), f.get_hir_id());
-
         self.setup_function_call(fc, &f);
     }
 
@@ -154,7 +152,6 @@ impl<'a> ConstraintContext<'a> {
                 .collect(),
             None,
         );
-        // println!("SETUP FN CALL {:#?} {:#?} {:#?}", fc, f, sig);
 
         if self.envs.get_current_fn().0 == f.hir_id {
             warn!("Recursion ! {:#?}", sig);
