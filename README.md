@@ -15,7 +15,8 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 
 ## Ongoing development
 
-This project, its syntax and its APIs are subject to change at any moment. This is a personal project, so please bear with me  
+This project, its syntax and its APIs are subject to change at any moment.  
+This is a personal project, so please bear with me  
 (Differently put: this is a big red hot pile of experimental garbage right now)
 
 ## Quickstart and Example
@@ -43,9 +44,9 @@ id a = a
 fact a =
     if a <= 1
     then 1
-    else id a * fact (a - 1)
+    else a * fact (a - 1)
 
-main = print fact 4
+main = print fact id 4
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
