@@ -69,12 +69,6 @@ impl<'a> ConstraintContext<'a> {
                                 &fc.to_type_signature(self.envs.get_current_env().unwrap())
                                     .merge_with(&p.signature),
                             ) {
-                                println!(
-                                    "SETUP TRAIT {:#?} {:#?}",
-                                    f,
-                                    &fc.to_type_signature(self.envs.get_current_env().unwrap())
-                                        .merge_with(&p.signature)
-                                );
                                 self.setup_trait_call(fc, &f);
                             } else {
                                 self.envs.diagnostics.push_error(
