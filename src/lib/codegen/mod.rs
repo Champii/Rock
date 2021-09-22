@@ -31,16 +31,11 @@ pub fn generate<'a>(
         }
     }
 
-    println!(
-        "WRITING IR FILE TO {:?} {:?}",
-        &config.build_folder.join("out.ir"),
-        env!("PWD"),
-    );
     if !codegen_ctx
         .module
         .write_bitcode_to_path(&config.build_folder.join("out.ir"))
     {
-        println!("CANNOT IR WRITE TO PATH");
+        panic!("CANNOT IR WRITE TO PATH");
     }
 
     Ok(codegen_ctx.parsing_ctx)
