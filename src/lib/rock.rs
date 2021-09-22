@@ -133,7 +133,7 @@ pub mod test {
         if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
             return false;
         }
-        visit_dirs(&PathBuf::from(env!("PWD")), &|file_path: &DirEntry| {
+        visit_dirs(&PathBuf::from("./src/lib/"), &|file_path: &DirEntry| {
             //     println!(
             //         "{:?}",
             //         fs::metadata(file_path.path()).unwrap().permissions()
