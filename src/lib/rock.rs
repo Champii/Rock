@@ -129,7 +129,7 @@ pub mod test {
         if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
             return false;
         }
-        visit_dirs(&PathBuf::from("/tmp/src"), &|file_path: &DirEntry| {
+        visit_dirs(&PathBuf::from(env!("PWD")), &|file_path: &DirEntry| {
             //     println!(
             //         "{:?}",
             //         fs::metadata(file_path.path()).unwrap().permissions()
@@ -193,7 +193,7 @@ pub mod test {
     pub fn run(path: &str, input: String, config: Config) -> i64 {
         let path = Path::new("src/lib/").join(path);
 
-        let build_path = Path::new("/tmp/").join(path.parent().unwrap().join("build"));
+        let build_path = path.parent().unwrap().join("build");
 
         let mut config = config.clone();
         config.build_folder = build_path.clone();
