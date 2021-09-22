@@ -23,10 +23,10 @@ This is a personal project, so please bear with me
 
 How to install and run the binary:
 
-### Using released [binary](https://github.com/Champii/Rock/releases/download/v0.1.4-dev/rock) (tested on arch linux)
+### Using released [binary (v0.1.3)](https://github.com/Champii/Rock/releases/download/v0.1.3/rock) (tested on arch linux)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.4-dev/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.3/rock
 chmod +x rock
 ./rock -V
 ```
