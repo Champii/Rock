@@ -15,6 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Cache
+      uses: actions/cache@v2.1.6
+      with:
+        path: '~/.cargo'
+        key: rustbuildcache
     - name: rust-toolchain
       uses: actions-rs/toolchain@v1.0.6
       with:
