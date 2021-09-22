@@ -97,7 +97,8 @@ pub mod test {
                 let path = entry.path();
                 if path.is_dir() {
                     println!(
-                        "{:?}",
+                        "{:?} {:?}",
+                        path,
                         fs::metadata(&path).unwrap().permissions().readonly()
                     );
                     visit_dirs(&path, cb)?;
@@ -192,12 +193,12 @@ pub mod test {
     pub fn run(path: &str, input: String, config: Config) -> i64 {
         let path = Path::new("src/lib/").join(path);
 
-        let build_path = path.parent().unwrap().join("build");
+        let build_path = Path::new("/tmp/").join(path.parent().unwrap().join("build"));
 
         let mut config = config.clone();
         config.build_folder = build_path.clone();
 
-        fs::create_dir(build_path.clone()).unwrap();
+        fs::create_dir_all(build_path.clone()).unwrap();
 
         if !build(&build_path, input, config) {
             return -1;
