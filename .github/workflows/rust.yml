@@ -18,22 +18,11 @@ jobs:
     - name: Apt Update
       run: |
         sudo apt update
-        sudo apt upgrade
+        sudo apt install llvm clang
     - name: rust-toolchain
       uses: actions-rs/toolchain@v1.0.6
       with:
         toolchain: nightly
-    # - name: Install LLVM and Clang
-    #   uses: KyleMayes/install-llvm-action@v1.4.1
-    #   with:
-    #     version: 12.0.1
-        # cached: true
-    # - name: Add LLVM to path
-    #   run: |
-    #     echo "${LLVM_PATH}/bin" >> $GITHUB_PATH
-    # - name: Symlink libclang.so (Linux)
-    #   run: sudo ln llc /bin
-      # working-directory: ${{ env.LLVM_PATH }}/bin
     - name: Cache
       uses: actions/cache@v2.1.6
       with:
