@@ -6,7 +6,12 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 
 # VTable
 - [Features]( #features )
-- [Ongoing development]( #ongoing-development )
+- [Development notes]( #development-notes )
+- [Install]( #install )
+    - [Using released binary]( #using-released-binary )
+    - [With cargo from Git]( #with-cargo-from-git )
+    - [From sources]( #from-sources )
+- [Quickstart]( #quickstart )
 
 ## Features
 
@@ -17,7 +22,7 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Parametric Polymorphism by default
 - Compile to LLVM IR
 
-## Ongoing development
+## Development notes
 
 This project, its syntax and its APIs are subject to change at any moment.  
 This is a personal project, so please bear with me  
@@ -27,7 +32,9 @@ This is a personal project, so please bear with me
 
 How to install and run the binary:
 
-### Using released [binary (v0.1.3)](https://github.com/Champii/Rock/releases/download/v0.1.3/rock) (tested on arch linux)
+### Using released binary
+
+[Rock v0.1.3](https://github.com/Champii/Rock/releases/download/v0.1.3/rock) (Tested on arch linux)
 
 ``` sh
 wget https://github.com/Champii/Rock/releases/download/v0.1.3/rock
@@ -35,7 +42,7 @@ chmod +x rock
 ./rock -V
 ```
 
-### With cargo (from git)
+### With cargo from git
 
 ``` sh
 cargo install --git https://github.com/Champii/Rock
@@ -50,7 +57,7 @@ cd Rock
 cargo run -- -V
 ```
 
-## Quickstart and Example
+## Quickstart
 
 Lets create a new project folder to compute some factorials
 
