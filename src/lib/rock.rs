@@ -100,12 +100,14 @@ pub mod test {
         };
         println!("FILE: {:?}", file);
         println!("ENV: {:?}", env!("PWD"));
+        println!("DIR: {:?}", std::fs::read_dir(env!("PWD")));
 
         if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
             return false;
         }
 
-        Command::new("llc")
+        println!("DIR2: {:?}", std::fs::read_dir(env!("PWD")));
+        let llc_cmd = Command::new("llc")
             .args(&[
                 "--relocation-model=pic",
                 build_path.join("out.ir").to_str().unwrap(),
@@ -113,7 +115,24 @@ pub mod test {
             .output()
             .expect("failed to execute IR -> ASM");
 
-        Command::new("clang")
+        match llc_cmd.status.code() {
+            Some(code) => {
+                if code != 0 {
+                    println!(
+                        "BUG: Cannot compile to ir: \n{}",
+                        String::from_utf8(llc_cmd.stderr).unwrap()
+                    );
+
+                    return false;
+                }
+            }
+            None => println!(
+                "\nError running: \n{}",
+                String::from_utf8(llc_cmd.stderr).unwrap()
+            ),
+        }
+
+        let clang_cmd = Command::new("clang")
             .args(&[
                 "-o",
                 build_path.join("a.out").to_str().unwrap(),
@@ -122,6 +141,22 @@ pub mod test {
             .output()
             .expect("failed to execute ASM -> BINARY");
 
+        match clang_cmd.status.code() {
+            Some(code) => {
+                if code != 0 {
+                    println!(
+                        "BUG: Cannot compile to binary: {}",
+                        String::from_utf8(clang_cmd.stderr).unwrap()
+                    );
+
+                    return false;
+                }
+            }
+            None => println!(
+                "\nError running: \n{}",
+                String::from_utf8(clang_cmd.stderr).unwrap()
+            ),
+        }
         true
     }
 
