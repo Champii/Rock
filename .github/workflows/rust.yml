@@ -38,8 +38,8 @@ jobs:
     # - name: Force rights
     #   run: |
     #     chmod 777 -R .
-    # - name: Run tests
-    #   run: cargo +nightly test
+    - name: Run tests
+      run: cargo +nightly test
     # - name: rustfmt-check
     #   uses: LoliGothick/rustfmt-check@v0.2.0
     #   with:
