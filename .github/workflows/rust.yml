@@ -43,8 +43,9 @@ jobs:
     #   with:
     #     token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: rust-clippy-check
-      uses: actions-rs/clippy-check@v1.0.7
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        toolchain: nightly
+    # NOT WORKING
+    # - name: rust-clippy-check
+    #   uses: actions-rs/clippy-check@v1.0.7
+    #   with:
+    #     token: ${{ secrets.GITHUB_TOKEN }}
+    #     toolchain: nightly
