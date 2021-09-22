@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name Apt Update
+    - name: Apt Update
       run: |
         sudo apt update
         sudo apt upgrade
