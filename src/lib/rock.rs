@@ -113,7 +113,7 @@ pub mod test {
         println!("BUILD PATH: {:?}", build_path);
         println!("CONFIG: {:?}", config);
         let file = SourceFile {
-            file_path: PathBuf::from("./src/lib").join(config.project_config.entry_point.clone()),
+            file_path: PathBuf::from("src/lib").join(config.project_config.entry_point.clone()),
             mod_path: PathBuf::from("main"),
             content: input,
         };
@@ -190,7 +190,7 @@ pub mod test {
     }
 
     pub fn run(path: &str, input: String, config: Config) -> i64 {
-        let path = Path::new("./src/lib/").join(path);
+        let path = Path::new("src/lib/").join(path);
 
         let build_path = path.parent().unwrap().join("build");
 
