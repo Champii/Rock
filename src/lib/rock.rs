@@ -188,7 +188,7 @@ pub mod test {
     pub fn run(path: &str, input: String, config: Config) -> i64 {
         let path = Path::new("./src/lib/").join(path);
 
-        let build_path = path.with_extension("").join("build");
+        let build_path = path.parent().unwrap().join("build");
 
         let mut config = config.clone();
         config.build_folder = build_path.clone();
@@ -203,7 +203,7 @@ pub mod test {
             .output()
             .expect("failed to execute BINARY");
 
-        fs::remove_dir_all(build_path.parent().unwrap()).unwrap();
+        fs::remove_dir_all(build_path).unwrap();
 
         match cmd.status.code() {
             Some(code) => code.into(),
