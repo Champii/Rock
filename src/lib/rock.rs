@@ -121,7 +121,10 @@ pub mod test {
             return false;
         }
         visit_dirs(&PathBuf::from(env!("PWD")), &|file_path: &DirEntry| {
-            println!("{:?}", file_path)
+            println!(
+                "{:?}",
+                fs::metadata(file_path.path()).unwrap().permissions()
+            )
         })
         .unwrap();
 
