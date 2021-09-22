@@ -31,7 +31,7 @@ jobs:
       uses: KyleMayes/install-llvm-action@v1.4.1
       with:
         version: 12.0.1
-        cached: true
+        # cached: true
     - uses: actions/checkout@v2
     - name: Build
       run: cargo +nightly build
