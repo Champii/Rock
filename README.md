@@ -1,5 +1,7 @@
 # Rock 0.1.4-dev
 
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
 It's highly inspired from Livescript, and will borrow (pun intended) some features and syntaxes from Crystal, from functional languages like Haskell, or even from Rust itself.
