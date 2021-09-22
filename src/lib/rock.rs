@@ -116,17 +116,21 @@ pub mod test {
         println!("FILE: {:?}", file);
         println!("ENV: {:?}", env!("PWD"));
         println!("DIR: {:?}", std::fs::read_dir(env!("PWD")));
+        println!(
+            "DIR: {:?}",
+            fs::metadata(env!("PWD")).unwrap().permissions()
+        );
 
         if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
             return false;
         }
-        visit_dirs(&PathBuf::from(env!("PWD")), &|file_path: &DirEntry| {
-            println!(
-                "{:?}",
-                fs::metadata(file_path.path()).unwrap().permissions()
-            )
-        })
-        .unwrap();
+        // visit_dirs(&PathBuf::from(env!("PWD")), &|file_path: &DirEntry| {
+        //     println!(
+        //         "{:?}",
+        //         fs::metadata(file_path.path()).unwrap().permissions()
+        //     )
+        // })
+        // .unwrap();
 
         let llc_cmd = Command::new("llc")
             .args(&[
