@@ -15,8 +15,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: rust-toolchain
+      # You may pin to the exact commit or the version.
+      # uses: actions-rs/toolchain@b2417cde72dcf67f306c0ae8e0828a81bf0b189f
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+        default: nightly
+    - name: Install LLVM and Clang
+      # You may pin to the exact commit or the version.
+      # uses: KyleMayes/install-llvm-action@3c8956ce3469123af1c39125f684835e56ac58ee
+      uses: KyleMayes/install-llvm-action@v1.4.1
+      with:
+        # The version of LLVM and Clang binaries to install.
+        version: 11.0.1
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: rustfmt-check
+      # You may pin to the exact commit or the version.
+      # uses: LoliGothick/rustfmt-check@b33969cbaf75218fe4461f5f12ff0c10878a2c9e
+      uses: LoliGothick/rustfmt-check@v0.2.0
+      with:
+        # GitHub token
+        token: ${{ secrets.GITHUB_TOKEN }}
+    - name: rust-clippy-check
+      # You may pin to the exact commit or the version.
+      # uses: actions-rs/clippy-check@b5b5f21f4797c02da247df37026fcd0a5024aa4d
+      uses: actions-rs/clippy-check@v1.0.7
+      with:
+        # GitHub token
+        token: ${{ secrets.GITHUB_TOKEN }}
+        # Toolchain to use (without the `+` sign, ex. `nightly`)
+        toolchain: nightly
