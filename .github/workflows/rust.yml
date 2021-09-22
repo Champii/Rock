@@ -41,6 +41,8 @@ jobs:
     - name: Run tests
       run: |
         cargo +nightly test
+        whereis llc
+        whereis clang
         llc --relocation-model=pic ./src/lib/testcases/basic/fn_arg/build/out.ir
     # - name: rustfmt-check
     #   uses: LoliGothick/rustfmt-check@v0.2.0

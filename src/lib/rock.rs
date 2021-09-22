@@ -202,8 +202,6 @@ pub mod test {
         let mut config = config.clone();
         config.build_folder = build_path;
 
-        println!("CREATING FOLDER {:?}", config.build_folder);
-
         fs::create_dir_all(config.build_folder.clone()).unwrap();
 
         if !build(input, config.clone()) {
