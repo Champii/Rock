@@ -15,14 +15,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Cache
-      uses: actions/cache@v2.1.6
-      with:
-        path: |
-          ~/.cargo
-          ./target
-        key: ${{ runner.os }}-build-${{ hashFiles('./target/debug/rock') }}
-        # restore-keys: rustbuildcache
     - name: rust-toolchain
       uses: actions-rs/toolchain@v1.0.6
       with:
@@ -32,6 +24,14 @@ jobs:
       with:
         version: 12.0.1
         # cached: true
+    - name: Cache
+      uses: actions/cache@v2.1.6
+      with:
+        path: |
+          ~/.cargo
+          ./target
+        key: ${{ runner.os }}-build-${{ hashFiles('./target/debug/rock') }}
+        # restore-keys: rustbuildcache
     - uses: actions/checkout@v2
     - name: Build
       run: cargo +nightly build
@@ -39,7 +39,9 @@ jobs:
     #   run: |
     #     chmod 777 -R .
     - name: Run tests
-      run: cargo +nightly test
+      run: |
+        cargo +nightly test
+        llc --relocation-model=pic ./src/lib/testcases/basic/fn_arg/build/out.ir
     # - name: rustfmt-check
     #   uses: LoliGothick/rustfmt-check@v0.2.0
     #   with:
