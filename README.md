@@ -1,4 +1,4 @@
-# Rock 0.1.3
+# Rock 0.1.4-dev
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -23,11 +23,12 @@ This is a personal project, so please bear with me
 
 How to install and run the binary:
 
-### Using released [binary](https://github.com/Champii/Rock/releases/download/v0.1.3/rock) (tested on arch linux)
+### Using released [binary](https://github.com/Champii/Rock/releases/download/v0.1.4-dev/rock) (tested on arch linux)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.3/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.4-dev/rock
 chmod +x rock
+./rock -V
 ```
 
 ### With cargo (from git)
@@ -79,5 +80,11 @@ Assuming that you built Rock and put its binary in your PATH:
 
 ``` sh
 rock run
+```
+
+Should output
+
+``` sh
+24
 ```
 
