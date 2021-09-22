@@ -37,13 +37,13 @@ jobs:
     - name: Run tests
       run: cargo +nightly test
 
-    # - name: rustfmt-check
-    #   uses: LoliGothick/rustfmt-check@v0.2.0
-    #   with:
-    #     token: ${{ secrets.GITHUB_TOKEN }}
+    - name: rustfmt-check
+      uses: LoliGothick/rustfmt-check@v0.2.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
-    # - name: rust-clippy-check
-    #   uses: actions-rs/clippy-check@v1.0.7
-    #   with:
-    #     token: ${{ secrets.GITHUB_TOKEN }}
-    #     toolchain: nightly
+    - name: rust-clippy-check
+      uses: actions-rs/clippy-check@v1.0.7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        toolchain: nightly
