@@ -96,7 +96,10 @@ pub mod test {
                 let entry = entry?;
                 let path = entry.path();
                 if path.is_dir() {
-                    println!("{:?}", fs::metadata(&path).unwrap().permissions());
+                    println!(
+                        "{:?}",
+                        fs::metadata(&path).unwrap().permissions().readonly()
+                    );
                     visit_dirs(&path, cb)?;
                 } else {
                     cb(&entry);
@@ -194,7 +197,7 @@ pub mod test {
         let mut config = config.clone();
         config.build_folder = build_path.clone();
 
-        fs::create_dir_all(build_path.clone()).unwrap();
+        fs::create_dir(build_path.clone()).unwrap();
 
         if !build(&build_path, input, config) {
             return -1;
