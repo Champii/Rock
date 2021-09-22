@@ -45,7 +45,9 @@ where
 }
 
 pub fn parse_root(ctx: &mut ParsingCtx) -> Result<crate::ast::Root, Diagnostic> {
-    println!(" -> Compiling {}", "root".green());
+    if ctx.config.verbose {
+        println!(" -> Compiling {}", "root".green());
+    }
 
     debug!("      -> Parsing Root");
 

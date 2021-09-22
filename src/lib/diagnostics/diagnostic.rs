@@ -3,7 +3,6 @@ use std::fmt::Display;
 use crate::{
     ast::{Type, TypeSignature},
     hir::HirId,
-    infer::TypeId,
     parser::SourceFile,
 };
 use crate::{diagnostics::DiagnosticType, parser::Span};
@@ -50,8 +49,8 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::ModuleNotFound)
     }
 
-    pub fn new_unresolved_type(span: Span, t: TypeId, hir_id: HirId) -> Self {
-        Self::new(span, DiagnosticKind::UnresolvedType(t, hir_id))
+    pub fn new_unresolved_type(span: Span, t: Type) -> Self {
+        Self::new(span, DiagnosticKind::UnresolvedType(t))
     }
 
     pub fn new_unresolved_trait_call(
@@ -177,7 +176,7 @@ pub enum DiagnosticKind {
     UnusedFunction,
     DuplicatedOperator,
     TypeConflict(Type, Type, Type, Type),
-    UnresolvedType(TypeId, HirId),
+    UnresolvedType(Type),
     CodegenError(HirId, String),
     NoMain,
     NoError, //TODO: remove that
@@ -194,8 +193,11 @@ impl Display for DiagnosticKind {
             Self::TypeConflict(t1, t2, _in1, _in2) => {
                 format!("Type conflict: Expected {:?} but got {:?} ", t1, t2)
             }
-            Self::UnresolvedType(t_id, hir_id) => {
-                format!("Unresolved type_id {} (hir_id {:?})", t_id, hir_id)
+            Self::UnresolvedType(t) => {
+                format!(
+                    "Unresolved type: Type {:?} should be known at this point",
+                    t
+                )
             }
             Self::UnresolvedTraitCall {
                 call_hir_id: _,

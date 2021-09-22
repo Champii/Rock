@@ -97,6 +97,10 @@ fn testcases_basic_operator_precedence_main() {
     run("./testcases/basic/operator_precedence/main.rk", include_str!("./testcases/basic/operator_precedence/main.rk"), include_str!("./testcases/basic/operator_precedence/main.rk.out"));
 }
 #[test]
+fn testcases_basic_deep_monomorph_main() {
+    run("./testcases/basic/deep_monomorph/main.rk", include_str!("./testcases/basic/deep_monomorph/main.rk"), include_str!("./testcases/basic/deep_monomorph/main.rk.out"));
+}
+#[test]
 fn testcases_basic_let_main() {
     run("./testcases/basic/let/main.rk", include_str!("./testcases/basic/let/main.rk"), include_str!("./testcases/basic/let/main.rk.out"));
 }
