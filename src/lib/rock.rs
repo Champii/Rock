@@ -85,7 +85,7 @@ pub mod test {
     use super::*;
     use crate::{parser::SourceFile, Config};
     use std::{
-        fs::{self, DirEntry},
+        fs,
         path::{Path, PathBuf},
         process::Command,
     };
