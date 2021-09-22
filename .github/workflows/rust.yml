@@ -28,6 +28,7 @@ jobs:
       with:
         # The version of LLVM and Clang binaries to install.
         version: 11.0.1
+        cached: true
     - uses: actions/checkout@v2
     - name: Build
       run: cargo +nightly build --verbose
