@@ -54,5 +54,6 @@ impl_indirect_get_hir_id_trait!(
     Body
     Statement
     Expression
+    Array
     Else
 );

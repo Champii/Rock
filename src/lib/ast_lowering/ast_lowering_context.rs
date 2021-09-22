@@ -323,7 +323,18 @@ impl AstLoweringContext {
                 LiteralKind::Float(f) => hir::LiteralKind::Float(*f),
                 LiteralKind::String(s) => hir::LiteralKind::String(s.clone()),
                 LiteralKind::Bool(b) => hir::LiteralKind::Bool(*b),
+                LiteralKind::Array(arr) => hir::LiteralKind::Array(self.lower_array(arr)),
             },
+        }
+    }
+
+    pub fn lower_array(&mut self, arr: &Array) -> hir::Array {
+        hir::Array {
+            values: arr
+                .values
+                .iter()
+                .map(|expr| self.lower_expression(expr))
+                .collect(),
         }
     }
 

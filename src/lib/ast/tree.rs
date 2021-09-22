@@ -490,6 +490,12 @@ pub enum LiteralKind {
     Float(f64),
     String(String),
     Bool(bool),
+    Array(Array),
+}
+
+#[derive(Debug, Clone)]
+pub struct Array {
+    pub values: Vec<Expression>,
 }
 
 pub type Arguments = Vec<Argument>;

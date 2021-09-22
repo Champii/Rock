@@ -403,9 +403,34 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             LiteralKind::Float(_f) => Type::Primitive(PrimitiveType::Float64),
             LiteralKind::String(_s) => Type::Primitive(PrimitiveType::String),
             LiteralKind::Bool(_b) => Type::Primitive(PrimitiveType::Bool),
+            LiteralKind::Array(arr) => {
+                self.visit_array(arr);
+
+                let inner_t = self.envs.get_type(&arr.get_hir_id()).unwrap();
+
+                Type::Primitive(PrimitiveType::Array(
+                    Box::new(inner_t.clone()),
+                    arr.values.len(),
+                ))
+            }
         };
 
         self.envs.set_type(&lit.hir_id, &t);
+    }
+
+    fn visit_array(&mut self, arr: &'a Array) {
+        let mut arr = arr.clone();
+
+        let first = arr.values.remove(0);
+
+        self.visit_expression(&first);
+
+        for value in &arr.values {
+            self.visit_expression(value);
+
+            self.envs
+                .set_type_eq(&value.get_hir_id(), &first.get_hir_id());
+        }
     }
 
     fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {

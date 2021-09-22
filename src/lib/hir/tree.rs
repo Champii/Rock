@@ -484,6 +484,18 @@ pub enum LiteralKind {
     Float(f64),
     String(String),
     Bool(bool),
+    Array(Array),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Array {
+    pub values: Vec<Expression>,
+}
+
+impl Array {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.values.get(0).unwrap().get_hir_id()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

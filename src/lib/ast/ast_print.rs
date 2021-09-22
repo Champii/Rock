@@ -114,6 +114,7 @@ impl_visitor_trait!(
     Operand, operand
     Argument, argument
     Literal, literal
+    Array, array
     NativeOperator, native_operator
     TypeSignature, type_signature
 );

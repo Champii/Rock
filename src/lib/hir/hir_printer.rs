@@ -141,6 +141,7 @@ impl_visitor_trait2!(
     Else
     FunctionCall
     Literal
+    Array
     NativeOperator
 );
 

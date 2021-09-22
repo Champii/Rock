@@ -45,6 +45,7 @@ generate_visitor_trait!(
     Else, r#else
     FunctionCall, function_call
     Literal, literal
+    Array, array
     NativeOperator, native_operator
     Type, r#type
     TypeSignature, type_signature
@@ -159,7 +160,12 @@ pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
         LiteralKind::Float(f) => visitor.visit_primitive(f),
         LiteralKind::String(s) => visitor.visit_primitive(s),
         LiteralKind::Bool(b) => visitor.visit_primitive(b),
+        LiteralKind::Array(arr) => visitor.visit_array(arr),
     }
+}
+
+pub fn walk_array<'a, V: Visitor<'a>>(visitor: &mut V, arr: &'a Array) {
+    walk_list!(visitor, visit_expression, &arr.values);
 }
 
 pub fn walk_native_operator<'a, V: Visitor<'a>>(visitor: &mut V, operator: &'a NativeOperator) {

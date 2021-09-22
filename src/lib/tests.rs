@@ -61,6 +61,10 @@ fn testcases_basic_monomorph_in_trait_main() {
     run("testcases/basic/monomorph_in_trait/main.rk", include_str!("testcases/basic/monomorph_in_trait/main.rk"), include_str!("testcases/basic/monomorph_in_trait/main.rk.out"));
 }
 #[test]
+fn testcases_basic_array_main() {
+    run("testcases/basic/array/main.rk", include_str!("testcases/basic/array/main.rk"), include_str!("testcases/basic/array/main.rk.out"));
+}
+#[test]
 fn testcases_basic_extern_main() {
     run("testcases/basic/extern/main.rk", include_str!("testcases/basic/extern/main.rk"), include_str!("testcases/basic/extern/main.rk.out"));
 }
@@ -95,10 +99,6 @@ fn testcases_basic_if_else_main() {
 #[test]
 fn testcases_basic_operator_precedence_main() {
     run("testcases/basic/operator_precedence/main.rk", include_str!("testcases/basic/operator_precedence/main.rk"), include_str!("testcases/basic/operator_precedence/main.rk.out"));
-}
-#[test]
-fn testcases_basic_deep_monomorph_main() {
-    run("./testcases/basic/deep_monomorph/main.rk", include_str!("./testcases/basic/deep_monomorph/main.rk"), include_str!("./testcases/basic/deep_monomorph/main.rk.out"));
 }
 #[test]
 fn testcases_basic_let_main() {

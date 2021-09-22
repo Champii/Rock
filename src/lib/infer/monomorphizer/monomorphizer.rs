@@ -178,6 +178,10 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 .node_types
                 .insert(literal.hir_id.clone(), t.clone());
         }
+
+        if let LiteralKind::Array(arr) = &mut literal.kind {
+            self.visit_array(arr);
+        }
     }
 
     fn visit_function_decl(&mut self, f: &'a mut FunctionDecl) {
