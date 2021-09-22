@@ -103,6 +103,11 @@ pub mod test {
                     );
                     visit_dirs(&path, cb)?;
                 } else {
+                    println!(
+                        "{:?} {:?}",
+                        path,
+                        fs::metadata(&path).unwrap().permissions().readonly()
+                    );
                     cb(&entry);
                 }
             }
