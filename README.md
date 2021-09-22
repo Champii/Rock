@@ -5,8 +5,8 @@ Aim to follow the Rust model with enforced safeness with a borrow checker and na
 It's highly inspired from Livescript, and will borrow (pun intended) some features and syntaxes from Crystal, from functional languages like Haskell, or even from Rust itself.
 
 # VTable
-- [Features][Features]
-- [Ongoing development][Ongoing development]
+- [Features][#features]
+- [Ongoing development][#ongoing-development]
 
 ## [Features]
 
