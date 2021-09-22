@@ -89,57 +89,17 @@ pub mod test {
         path::{Path, PathBuf},
         process::Command,
     };
-    // one possible implementation of walking a directory only visiting files
-    fn visit_dirs(dir: &Path, cb: &dyn Fn(&DirEntry)) -> std::io::Result<()> {
-        if dir.is_dir() {
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.is_dir() {
-                    println!(
-                        "{:?} {:?}",
-                        path,
-                        fs::metadata(&path).unwrap().permissions().readonly()
-                    );
-                    visit_dirs(&path, cb)?;
-                } else {
-                    println!(
-                        "{:?} {:?}",
-                        path,
-                        fs::metadata(&path).unwrap().permissions().readonly()
-                    );
-                    cb(&entry);
-                }
-            }
-        }
-        Ok(())
-    }
 
     fn build(input: String, config: Config) -> bool {
-        println!("CONFIG: {:?}", config);
         let file = SourceFile {
             file_path: PathBuf::from("src/lib").join(config.project_config.entry_point.clone()),
             mod_path: PathBuf::from("main"),
             content: input,
         };
-        println!("FILE: {:?}", file);
-        println!("ENV: {:?}", env!("PWD"));
-        println!("DIR: {:?}", std::fs::read_dir(env!("PWD")));
-        println!(
-            "DIR: {:?}",
-            fs::metadata(env!("PWD")).unwrap().permissions().readonly()
-        );
 
         if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
             return false;
         }
-        visit_dirs(&PathBuf::from("./src/lib/"), &|file_path: &DirEntry| {
-            //     println!(
-            //         "{:?}",
-            //         fs::metadata(file_path.path()).unwrap().permissions()
-            //     )
-        })
-        .unwrap();
 
         let llc_cmd = Command::new("llc")
             .args(&[
