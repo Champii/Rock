@@ -28,7 +28,6 @@ jobs:
     #   run: |
     #     echo "${LLVM_PATH}/bin" >> $GITHUB_PATH
     - name: Symlink libclang.so (Linux)
-      if: contains(matrix.os, 'ubuntu')
       run: sudo ln -s llc /bin
       working-directory: ${{ env.LLVM_PATH }}/bin
     - name: Cache
