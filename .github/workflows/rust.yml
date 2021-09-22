@@ -19,35 +19,30 @@ jobs:
       run: |
         sudo apt update
         sudo apt install llvm clang
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v1.3.0
+
     - name: rust-toolchain
       uses: actions-rs/toolchain@v1.0.6
       with:
         toolchain: nightly
-    - name: Cache
-      uses: actions/cache@v2.1.6
-      with:
-        path: |
-          ${HOME}/.cargo/**
-          ./target/**
-        key: ${{ runner.os }}-build-${{ hashFiles('./target/debug/rock') }}
-        # restore-keys: rustbuildcache
+
     - uses: actions/checkout@v2
+
     - name: Build
       run: cargo +nightly build
-    # - name: Force rights
-    #   run: |
-    #     chmod 777 -R .
+
     - name: Run tests
-      run: |
-        whereis llc
-        whereis clang
-        cargo +nightly test
-    # - name: rustfmt-check
-    #   uses: LoliGothick/rustfmt-check@v0.2.0
-    #   with:
-    #     token: ${{ secrets.GITHUB_TOKEN }}
-    # - name: rust-clippy-check
-    #   uses: actions-rs/clippy-check@v1.0.7
-    #   with:
-    #     token: ${{ secrets.GITHUB_TOKEN }}
-    #     toolchain: nightly
+      run: cargo +nightly test
+
+    - name: rustfmt-check
+      uses: LoliGothick/rustfmt-check@v0.2.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: rust-clippy-check
+      uses: actions-rs/clippy-check@v1.0.7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        toolchain: nightly
