@@ -40,10 +40,9 @@ jobs:
     #     chmod 777 -R .
     - name: Run tests
       run: |
-        cargo +nightly test
         whereis llc
         whereis clang
-        llc --relocation-model=pic ./src/lib/testcases/basic/fn_arg/build/out.ir
+        cargo +nightly test
     # - name: rustfmt-check
     #   uses: LoliGothick/rustfmt-check@v0.2.0
     #   with:
