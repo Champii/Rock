@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master, develop ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, develop ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,8 +15,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Apt Update
+      run: |
+        sudo apt update
+        sudo apt install llvm clang
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v1.3.0
+
+    - name: rust-toolchain
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+        toolchain: nightly
+        override: true
+
     - uses: actions/checkout@v2
+
     - name: Build
-      run: cargo build --verbose
+      run: cargo +nightly build
+
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo +nightly test
+
+    # NOT WORKING
+    # - name: rustfmt-check
+    #   uses: LoliGothick/rustfmt-check@v0.2.0
+    #   with:
+    #     token: ${{ secrets.GITHUB_TOKEN }}
+
+    # NOT WORKING
+    # - name: rust-clippy-check
+    #   uses: actions-rs/clippy-check@v1.0.7
+    #   with:
+    #     token: ${{ secrets.GITHUB_TOKEN }}
+    #     toolchain: nightly

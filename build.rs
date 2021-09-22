@@ -29,20 +29,20 @@ fn visit_dirs(dir: &Path) -> io::Result<Vec<String>> {
 
 // build script's entry point
 fn main() {
-    let out_dir = "./src/lib";
+    let out_dir = "src/lib";
     let destination = Path::new(&out_dir).join("tests.rs");
     let mut output_file = File::create(&destination).unwrap();
 
     // write test file header, put `use`, `const` etc there
     write_header(&mut output_file);
 
-    for file in visit_dirs(Path::new(&"./src/lib/testcases".to_string())).unwrap() {
+    for file in visit_dirs(Path::new(&"src/lib/testcases".to_string())).unwrap() {
         write_test(&mut output_file, &file);
     }
 }
 
 fn write_test(output_file: &mut File, path: &String) {
-    let path = path.replace("/src/lib", "");
+    let path = path.replace("src/lib/", "");
 
     let name = path.replace("./", "");
     let name = name.replace("/", "_");
@@ -51,7 +51,7 @@ fn write_test(output_file: &mut File, path: &String) {
 
     write!(
         output_file,
-        include_str!("./src/lib/testcases/test_template"),
+        include_str!("src/lib/testcases/test_template"),
         name = test_name,
         path = path
     )
