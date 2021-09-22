@@ -90,10 +90,9 @@ pub mod test {
         process::Command,
     };
 
-    // TODO: compile in each separated folder OR make tests sync
-    fn build(build_path: &PathBuf, input: String, config: Config) -> bool {
+    fn build(input: String, config: Config) -> bool {
         let file = SourceFile {
-            file_path: PathBuf::from("./src/lib").join(config.project_config.entry_point.clone()),
+            file_path: PathBuf::from("src/lib").join(config.project_config.entry_point.clone()),
             mod_path: PathBuf::from("main"),
             content: input,
         };
@@ -102,45 +101,78 @@ pub mod test {
             return false;
         }
 
-        Command::new("llc")
+        let llc_cmd = Command::new("llc")
             .args(&[
                 "--relocation-model=pic",
-                build_path.join("out.ir").to_str().unwrap(),
+                config.build_folder.join("out.ir").to_str().unwrap(),
             ])
             .output()
             .expect("failed to execute IR -> ASM");
 
-        Command::new("clang")
+        match llc_cmd.status.code() {
+            Some(code) => {
+                if code != 0 {
+                    println!(
+                        "BUG: Cannot compile to ir: \n{}",
+                        String::from_utf8(llc_cmd.stderr).unwrap()
+                    );
+
+                    return false;
+                }
+            }
+            None => println!(
+                "\nError running: \n{}",
+                String::from_utf8(llc_cmd.stderr).unwrap()
+            ),
+        }
+
+        let clang_cmd = Command::new("clang")
             .args(&[
                 "-o",
-                build_path.join("a.out").to_str().unwrap(),
-                build_path.join("out.ir.s").to_str().unwrap(),
+                config.build_folder.join("a.out").to_str().unwrap(),
+                config.build_folder.join("out.ir.s").to_str().unwrap(),
             ])
             .output()
             .expect("failed to execute ASM -> BINARY");
 
+        match clang_cmd.status.code() {
+            Some(code) => {
+                if code != 0 {
+                    println!(
+                        "BUG: Cannot compile to binary: {}",
+                        String::from_utf8(clang_cmd.stderr).unwrap()
+                    );
+
+                    return false;
+                }
+            }
+            None => println!(
+                "\nError running: \n{}",
+                String::from_utf8(clang_cmd.stderr).unwrap()
+            ),
+        }
         true
     }
 
     pub fn run(path: &str, input: String, config: Config) -> i64 {
-        let path = Path::new("./src/lib/").join(path);
+        let path = Path::new("src/lib/").join(path);
 
-        let build_path = path.with_extension("").join("build");
+        let build_path = path.parent().unwrap().join("build");
 
         let mut config = config.clone();
-        config.build_folder = build_path.clone();
+        config.build_folder = build_path;
 
-        fs::create_dir_all(build_path.clone()).unwrap();
+        fs::create_dir_all(config.build_folder.clone()).unwrap();
 
-        if !build(&build_path, input, config) {
+        if !build(input, config.clone()) {
             return -1;
         }
 
-        let cmd = Command::new(build_path.join("a.out").to_str().unwrap())
+        let cmd = Command::new(config.build_folder.join("a.out").to_str().unwrap())
             .output()
             .expect("failed to execute BINARY");
 
-        fs::remove_dir_all(build_path.parent().unwrap()).unwrap();
+        fs::remove_dir_all(config.build_folder.clone()).unwrap();
 
         match cmd.status.code() {
             Some(code) => code.into(),

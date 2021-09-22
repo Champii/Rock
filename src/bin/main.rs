@@ -113,7 +113,7 @@ fn main() {
         .about("Simple toy language")
         .arg(
             Arg::with_name("verbose")
-                .takes_value(true)
+                .takes_value(false)
                 .short("v")
                 .help("Verbose level"),
         )
@@ -158,8 +158,8 @@ fn main() {
         .subcommand(SubCommand::with_name("run").about("Run the current project directory"))
         .get_matches();
 
-    let mut config = rock::Config {
-        verbose: 2,
+    let config = rock::Config {
+        verbose: matches.is_present("verbose"),
         show_tokens: matches.is_present("tokens"),
         show_ast: matches.is_present("ast"),
         show_hir: matches.is_present("hir"),
@@ -168,10 +168,6 @@ fn main() {
         build_folder: PathBuf::from(matches.value_of("output-folder").unwrap()),
         ..Default::default()
     };
-
-    if let Some(value) = matches.value_of("verbose") {
-        config.verbose = value.parse::<u8>().unwrap();
-    }
 
     logger::init_logger();
 

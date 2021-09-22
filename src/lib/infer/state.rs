@@ -41,8 +41,15 @@ impl Envs {
             .and_then(|map| map.get(&self.current_fn.1))
     }
 
-    pub fn set_current_fn(&mut self, f: (HirId, TypeSignature)) {
-        assert!(f.1.are_args_solved());
+    pub fn set_current_fn(&mut self, f: (HirId, TypeSignature)) -> bool {
+        // if !f.1.are_args_solved() {
+        //     self.diagnostics.push_error(Diagnostic::new_unresolved_type(
+        //         self.spans.get(&f.0).unwrap().clone(),
+        //         f.1.to_func_type(),
+        //     ));
+
+        //     return false;
+        // }
 
         self.fns
             .entry(f.0.clone())
@@ -51,6 +58,8 @@ impl Envs {
             .or_insert_with(|| Env::default());
 
         self.current_fn = f;
+
+        return true;
     }
 
     pub fn get_current_fn(&self) -> (HirId, TypeSignature) {

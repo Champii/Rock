@@ -30,7 +30,7 @@ This is a personal project, so please bear with me
 
 ## Install
 
-How to install and run the binary:
+How to install and run the compiler:
 
 ### Using released binary
 
