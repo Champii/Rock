@@ -85,10 +85,25 @@ pub mod test {
     use super::*;
     use crate::{parser::SourceFile, Config};
     use std::{
-        fs,
+        fs::{self, DirEntry},
         path::{Path, PathBuf},
         process::Command,
     };
+    // one possible implementation of walking a directory only visiting files
+    fn visit_dirs(dir: &Path, cb: &dyn Fn(&DirEntry)) -> std::io::Result<()> {
+        if dir.is_dir() {
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_dir() {
+                    visit_dirs(&path, cb)?;
+                } else {
+                    cb(&entry);
+                }
+            }
+        }
+        Ok(())
+    }
 
     fn build(build_path: &PathBuf, input: String, config: Config) -> bool {
         println!("BUILD PATH: {:?}", build_path);
@@ -105,8 +120,11 @@ pub mod test {
         if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
             return false;
         }
+        visit_dirs(&PathBuf::from(env!("PWD")), &|file_path: &DirEntry| {
+            println!("{:?}", file_path)
+        })
+        .unwrap();
 
-        println!("DIR2: {:?}", std::fs::read_dir(env!("PWD")));
         let llc_cmd = Command::new("llc")
             .args(&[
                 "--relocation-model=pic",
