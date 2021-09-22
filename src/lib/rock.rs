@@ -90,13 +90,16 @@ pub mod test {
         process::Command,
     };
 
-    // TODO: compile in each separated folder OR make tests sync
     fn build(build_path: &PathBuf, input: String, config: Config) -> bool {
+        println!("BUILD PATH: {:?}", build_path);
+        println!("CONFIG: {:?}", config);
         let file = SourceFile {
             file_path: PathBuf::from("./src/lib").join(config.project_config.entry_point.clone()),
             mod_path: PathBuf::from("main"),
             content: input,
         };
+        println!("FILE: {:?}", file);
+        println!("ENV: {:?}", env!("PWD"));
 
         if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
             return false;
