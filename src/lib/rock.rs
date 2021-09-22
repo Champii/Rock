@@ -118,7 +118,7 @@ pub mod test {
         println!("DIR: {:?}", std::fs::read_dir(env!("PWD")));
         println!(
             "DIR: {:?}",
-            fs::metadata(env!("PWD")).unwrap().permissions()
+            fs::metadata(env!("PWD")).unwrap().permissions().readonly()
         );
 
         if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
