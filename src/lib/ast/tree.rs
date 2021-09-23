@@ -314,6 +314,7 @@ pub struct Assign {
     // pub identity: Identity,
     pub name: Identifier,
     pub value: Expression,
+    pub is_let: bool,
 }
 
 #[derive(Debug, Clone)]

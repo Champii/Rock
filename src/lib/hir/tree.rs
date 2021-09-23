@@ -338,6 +338,7 @@ pub struct Assign {
     // pub hir_id: HirId,
     pub name: Identifier,
     pub value: Expression,
+    pub is_let: bool,
 }
 
 impl Assign {

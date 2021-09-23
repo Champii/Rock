@@ -233,6 +233,7 @@ impl AstLoweringContext {
         hir::Assign {
             name: self.lower_identifier(&assign.name),
             value: self.lower_expression(&assign.value),
+            is_let: assign.is_let,
         }
     }
 

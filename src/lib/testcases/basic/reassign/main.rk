@@ -1,0 +1,5 @@
+id a = a
+main =
+    let a = id 2
+    a = id 42
+    a

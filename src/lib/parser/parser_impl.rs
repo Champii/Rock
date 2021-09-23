@@ -561,7 +561,10 @@ impl Parse for Statement {
                 Ok(expr) => StatementKind::If(expr),
                 Err(_e) => error!("Expected if".to_string(), ctx),
             }
-        } else if ctx.cur_tok().t == TokenType::Let {
+        } else if ctx.cur_tok().t == TokenType::Let
+            || (matches!(ctx.cur_tok().t, TokenType::Identifier(_a)) // FIXME: This prevents array index assignation
+                && matches!(ctx.seek(1).t, TokenType::Operator(ref op) if *op == "="))
+        {
             StatementKind::Assign(Assign::parse(ctx)?)
         } else {
             match Expression::parse(ctx) {
@@ -580,7 +583,13 @@ impl Parse for Assign {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         ctx.save();
 
-        expect_or_restore!(TokenType::Let, ctx);
+        let is_let = if TokenType::Let == ctx.cur_tok().t {
+            expect!(TokenType::Let, ctx);
+
+            true
+        } else {
+            false
+        };
 
         let name = try_or_restore!(Identifier::parse(ctx), ctx);
 
@@ -590,7 +599,11 @@ impl Parse for Assign {
 
         ctx.save_pop();
 
-        Ok(Assign { name, value })
+        Ok(Assign {
+            name,
+            value,
+            is_let,
+        })
     }
 }
 
