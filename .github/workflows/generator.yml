@@ -1,0 +1,21 @@
+name: Generator
+
+on:
+  [create, push]
+
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    name: Generate files.
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Generate replacements
+        run: |
+          ./.github/templates/replacer.sh
+
+      - name: Add & Commit
+        uses: EndBug/add-and-commit@v7.3.0
+        with:
+          message: Generated files for new version

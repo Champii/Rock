@@ -25,6 +25,7 @@ impl_direct_get_hir_id_trait!(
     Identifier
     If
     FunctionCall
+    Indice
     Literal
     NativeOperator
 );
@@ -54,5 +55,6 @@ impl_indirect_get_hir_id_trait!(
     Body
     Statement
     Expression
+    Array
     Else
 );

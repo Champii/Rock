@@ -281,18 +281,13 @@ impl AstLoweringContext {
             return self.lower_operand(&primary.op);
         }
 
-        hir::Expression::new_function_call(hir::FunctionCall {
-            hir_id: self.hir_map.next_hir_id(primary.identity.clone()),
-            op: self.lower_operand(&primary.op),
-            args: primary
-                .secondaries
-                .clone()
-                .unwrap()
-                .iter()
-                .map(|sec| self.lower_secondary(&sec))
-                .flatten() // FIXME: This is bad, we mix secondaries with arguments and we flatten.
-                .collect(),
-        })
+        let mut expr = self.lower_operand(&primary.op);
+
+        for secondary in &primary.secondaries.clone().unwrap() {
+            expr = self.lower_secondary(expr, secondary, &primary.identity.clone());
+        }
+
+        expr
     }
 
     pub fn lower_operand(&mut self, operand: &Operand) -> hir::Expression {
@@ -305,11 +300,25 @@ impl AstLoweringContext {
         }
     }
 
-    pub fn lower_secondary(&mut self, secondary: &SecondaryExpr) -> Vec<hir::Expression> {
+    pub fn lower_secondary(
+        &mut self,
+        op: hir::Expression,
+        secondary: &SecondaryExpr,
+        identity: &Identity,
+    ) -> hir::Expression {
         match secondary {
             SecondaryExpr::Arguments(args) => {
-                args.iter().map(|arg| self.lower_unary(&arg.arg)).collect()
+                hir::Expression::new_function_call(hir::FunctionCall {
+                    hir_id: self.hir_map.next_hir_id(identity.clone()),
+                    op,
+                    args: args.iter().map(|arg| self.lower_unary(&arg.arg)).collect(),
+                })
             }
+            SecondaryExpr::Indice(expr) => hir::Expression::new_indice(hir::Indice {
+                hir_id: self.hir_map.next_hir_id(identity.clone()),
+                op,
+                value: self.lower_expression(expr),
+            }),
         }
     }
 
@@ -323,7 +332,18 @@ impl AstLoweringContext {
                 LiteralKind::Float(f) => hir::LiteralKind::Float(*f),
                 LiteralKind::String(s) => hir::LiteralKind::String(s.clone()),
                 LiteralKind::Bool(b) => hir::LiteralKind::Bool(*b),
+                LiteralKind::Array(arr) => hir::LiteralKind::Array(self.lower_array(arr)),
             },
+        }
+    }
+
+    pub fn lower_array(&mut self, arr: &Array) -> hir::Array {
+        hir::Array {
+            values: arr
+                .values
+                .iter()
+                .map(|expr| self.lower_expression(expr))
+                .collect(),
         }
     }
 

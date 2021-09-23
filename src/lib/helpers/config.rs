@@ -45,6 +45,6 @@ pub struct Config {
     pub show_hir: bool,
     pub show_ir: bool,
     pub show_state: bool,
-    pub verbose: u8,
+    pub verbose: bool,
     pub build_folder: PathBuf,
 }

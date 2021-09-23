@@ -31,9 +31,12 @@ pub fn generate<'a>(
         }
     }
 
-    codegen_ctx
+    if !codegen_ctx
         .module
-        .write_bitcode_to_path(&config.build_folder.join("out.ir"));
+        .write_bitcode_to_path(&config.build_folder.join("out.ir"))
+    {
+        panic!("CANNOT IR WRITE TO PATH");
+    }
 
     Ok(codegen_ctx.parsing_ctx)
 }

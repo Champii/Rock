@@ -58,7 +58,9 @@ impl ParsingCtx {
                 "warnings".yellow(),
             );
         } else {
-            println!("[{}] Compilation successful", "Success".green(),);
+            if self.config.verbose {
+                println!("[{}] Compilation successful", "Success".green(),);
+            }
         }
     }
 
@@ -107,23 +109,25 @@ impl ParsingCtx {
             Diagnostic::new_module_not_found(Span::new(current_file.file_path.clone(), 0, 0))
         })?;
 
-        println!(
-            " -> Compiling {}",
-            new_file
-                .mod_path
-                .components()
-                .map(|m| {
-                    match m {
-                        Component::RootDir => "main",
-                        Component::Normal(m) => m.to_str().unwrap(),
-                        _ => "",
-                    }
-                    .green()
-                    .to_string()
-                })
-                .collect::<Vec<_>>()
-                .join(" -> "),
-        );
+        if self.config.verbose {
+            println!(
+                " -> Compiling {}",
+                new_file
+                    .mod_path
+                    .components()
+                    .map(|m| {
+                        match m {
+                            Component::RootDir => "main",
+                            Component::Normal(m) => m.to_str().unwrap(),
+                            _ => "",
+                        }
+                        .green()
+                        .to_string()
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" -> "),
+            );
+        }
 
         self.add_file(new_file.clone());
 

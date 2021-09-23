@@ -17,7 +17,6 @@ struct ConstraintContext<'a> {
 
 impl<'a> ConstraintContext<'a> {
     pub fn new(envs: Envs, hir: &'a Root) -> Self {
-        // println!("ROOT PRE CONSTRAINT {:#?}", hir);
         Self {
             envs,
             hir,
@@ -28,10 +27,12 @@ impl<'a> ConstraintContext<'a> {
     pub fn constraint(&mut self, root: &'a Root) {
         let entry_point = root.get_function_by_name("main").unwrap();
 
-        self.envs.set_current_fn((
+        if !self.envs.set_current_fn((
             entry_point.hir_id.clone(),
             TypeSignature::default().with_ret(Type::int64()),
-        ));
+        )) {
+            return;
+        }
 
         self.tmp_resolutions
             .entry(entry_point.hir_id.clone())
@@ -58,6 +59,7 @@ impl<'a> ConstraintContext<'a> {
             .and_then(|reso| self.resolve_rec(&reso).or(Some(reso)))
     }
 
+    // FIXME: This is ugly
     pub fn setup_call(&mut self, fc: &FunctionCall, call_hir_id: &HirId) {
         if let Some(top_id) = self.resolve(call_hir_id) {
             if let Some(reso) = self.hir.arena.get(&top_id) {
@@ -81,7 +83,6 @@ impl<'a> ConstraintContext<'a> {
                                     ),
                                 );
                                 return;
-                                // panic!("CANNOT RESOLVE TRAIT");
                             }
                         } else {
                             self.setup_prototype_call(fc, p);
@@ -119,10 +120,16 @@ impl<'a> ConstraintContext<'a> {
     pub fn setup_prototype_call(&mut self, fc: &FunctionCall, p: &Prototype) {
         let old_f = self.envs.get_current_fn();
 
-        self.envs
-            .set_current_fn((p.hir_id.clone(), p.signature.clone()));
+        if !self
+            .envs
+            .set_current_fn((p.hir_id.clone(), p.signature.clone()))
+        {
+            return;
+        }
 
-        self.envs.set_current_fn(old_f);
+        if !self.envs.set_current_fn(old_f) {
+            return;
+        }
 
         self.visit_prototype(p);
 
@@ -133,29 +140,25 @@ impl<'a> ConstraintContext<'a> {
     }
 
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
+        // Creating a fresh signature by merging arguments types with function signature
         let sig = f.signature.apply_partial_types(
             &f.arguments
                 .iter()
                 .enumerate()
                 .into_iter()
                 .map(|(i, arg)| {
+                    // Here we check if the argument is a function
+                    // in order to set the proper resolution
                     let arg_id = &fc.args.get(i).unwrap().get_hir_id();
+
                     self.envs.get_type(arg_id).cloned().or_else(|| {
                         if let HirNode::FunctionDecl(f2) =
                             self.hir.arena.get(&self.resolve(&arg_id)?)?
                         {
-                            self.tmp_resolutions
-                                .entry(f2.hir_id.clone())
-                                .or_insert_with(|| ResolutionMap::default())
-                                .insert(arg.get_hir_id(), f2.hir_id.clone());
-
+                            // Solving the func arg in the scope of the arg
+                            // Adds a link like `arg` => `out fn` where the arg is defined
                             self.tmp_resolutions
                                 .entry(f.hir_id.clone())
-                                .or_insert_with(|| ResolutionMap::default())
-                                .insert(arg.get_hir_id(), f2.hir_id.clone());
-
-                            self.tmp_resolutions
-                                .entry(self.envs.get_current_fn().0.clone())
                                 .or_insert_with(|| ResolutionMap::default())
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
 
@@ -171,38 +174,50 @@ impl<'a> ConstraintContext<'a> {
             None,
         );
 
+        // Carring about recursion
         if self.envs.get_current_fn().0 == f.hir_id {
             warn!("Recursion ! {:#?}", sig);
 
+            // Setting the proper call's types
             self.envs.set_type_eq(
                 &fc.get_hir_id(),
                 &self.hir.bodies.get(&f.body_id).unwrap().get_hir_id(),
             );
+
             self.envs.set_type(&fc.op.get_hir_id(), &sig.to_func_type());
 
             return;
         }
 
+        // Saving the current function (id,sig)
         let old_f = self.envs.get_current_fn();
 
         // We change scope here
-        self.envs.set_current_fn((f.hir_id.clone(), sig.clone()));
+        if !self.envs.set_current_fn((f.hir_id.clone(), sig.clone())) {
+            return;
+        }
 
+        // Create empty scope
+        // TODO: might be unnecessary
         self.tmp_resolutions
             .entry(f.hir_id.clone())
             .or_insert_with(|| ResolutionMap::default());
 
-        //
+        // We go down the rabbit hole
         //
         self.visit_function_decl(f);
         //
-        //
+        // Annnd out we go !
 
+        // Retrieve the newly defined function type
         let new_f_type = self.envs.get_type(&f.hir_id).unwrap().clone();
 
         let mut new_f_arg_types = vec![];
         let new_f_sig;
 
+        // Get the func return type either
+        // if it has been defined by the callee
+        // or we take the sig's one
         let new_f_ret = if let Type::FuncType(new_f_type_inner) = &new_f_type.clone() {
             new_f_arg_types = new_f_type_inner
                 .arguments
@@ -217,21 +232,27 @@ impl<'a> ConstraintContext<'a> {
             sig.ret.clone()
         };
 
+        // Fix the current sig if some types were still unknown
         self.envs.amend_current_sig(&new_f_sig);
 
         // We restore the scope here
-        self.envs.set_current_fn(old_f);
+        if !self.envs.set_current_fn(old_f) {
+            return;
+        }
 
+        // Setting the proper call's types
         self.envs.set_type(&fc.get_hir_id(), &new_f_ret);
         self.envs.set_type(&fc.op.get_hir_id(), &new_f_type);
 
-        // Setting of the calling identifier
+        // Setting up the calling identifier's type if one
         if let Some(reso) = self.resolve(&fc.op.get_hir_id()) {
             if let HirNode::Identifier(_) = self.hir.arena.get(&reso).unwrap() {
                 self.envs.set_type(&reso, &new_f_type);
             }
         }
 
+        // Set the call's arguments based on fn type.
+        // This is only for type-checking purpose
         fc.args.iter().enumerate().for_each(|(i, arg)| {
             if let Some(_reso_id) = self.resolve_rec(&arg.get_hir_id()) {
                 self.envs
@@ -373,6 +394,59 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                 self.setup_call(&fc, &fc.op.get_hir_id());
             }
+            ExpressionKind::Indice(i) => {
+                self.visit_expression(&i.op);
+                self.visit_expression(&i.value);
+
+                let value_t = self.envs.get_type(&i.value.get_hir_id()).unwrap().clone();
+
+                match self.envs.get_type(&i.op.get_hir_id()).unwrap().clone() {
+                    Type::Primitive(PrimitiveType::Array(inner, size)) => {
+                        self.envs.set_type(&i.get_hir_id(), &inner);
+
+                        match self.envs.get_type(&i.value.get_hir_id()).unwrap().clone() {
+                            Type::Primitive(PrimitiveType::Int64) => {
+                                if let ExpressionKind::Lit(literal) = &*i.value.kind {
+                                    if literal.as_number() >= size as i64 {
+                                        self.envs.diagnostics.push_error(
+                                            Diagnostic::new_out_of_bounds(
+                                                self.envs
+                                                    .spans
+                                                    .get(&i.value.get_hir_id())
+                                                    .unwrap()
+                                                    .clone(),
+                                                i.value.as_literal().as_number() as u64,
+                                                size as u64,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                            other => {
+                                self.envs
+                                    .diagnostics
+                                    .push_error(Diagnostic::new_type_conflict(
+                                        self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                                        Type::Primitive(PrimitiveType::Int64),
+                                        other.clone(),
+                                        Type::Primitive(PrimitiveType::Int64),
+                                        other,
+                                    ))
+                            }
+                        }
+                    }
+                    other => self
+                        .envs
+                        .diagnostics
+                        .push_error(Diagnostic::new_type_conflict(
+                            self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                            Type::Primitive(PrimitiveType::Array(Box::new(value_t.clone()), 0)),
+                            other.clone(),
+                            Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
+                            other,
+                        )),
+                }
+            }
         }
     }
 
@@ -382,9 +456,34 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             LiteralKind::Float(_f) => Type::Primitive(PrimitiveType::Float64),
             LiteralKind::String(_s) => Type::Primitive(PrimitiveType::String),
             LiteralKind::Bool(_b) => Type::Primitive(PrimitiveType::Bool),
+            LiteralKind::Array(arr) => {
+                self.visit_array(arr);
+
+                let inner_t = self.envs.get_type(&arr.get_hir_id()).unwrap();
+
+                Type::Primitive(PrimitiveType::Array(
+                    Box::new(inner_t.clone()),
+                    arr.values.len(),
+                ))
+            }
         };
 
         self.envs.set_type(&lit.hir_id, &t);
+    }
+
+    fn visit_array(&mut self, arr: &'a Array) {
+        let mut arr = arr.clone();
+
+        let first = arr.values.remove(0);
+
+        self.visit_expression(&first);
+
+        for value in &arr.values {
+            self.visit_expression(value);
+
+            self.envs
+                .set_type_eq(&value.get_hir_id(), &first.get_hir_id());
+        }
     }
 
     fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
@@ -392,13 +491,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_identifier(&mut self, id: &Identifier) {
+        // We set the type to resolution if any
         if let Some(reso) = self.resolve_rec(&id.hir_id) {
             if self.envs.get_type(&reso).is_some() {
-                if let HirNode::Prototype(_) = self.hir.arena.get(&reso).unwrap() {
-                    self.envs.set_type_eq(&id.get_hir_id(), &reso);
-                } else {
-                    self.envs.set_type_eq(&id.get_hir_id(), &reso);
-                }
+                self.envs.set_type_eq(&id.get_hir_id(), &reso);
             }
         } else {
             warn!("No identifier resolution {:?}", id);
@@ -446,12 +542,6 @@ pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Dia
     let envs = constraint_ctx.get_envs();
 
     root.type_envs = envs.clone();
-
-    // if let Err(diags) = infer_state.solve() {
-    //     for diag in diags {
-    //         diagnostics.push_error(diag.clone());
-    //     }
-    // }
 
     (tmp_resolutions, envs.get_diagnostics())
 }
