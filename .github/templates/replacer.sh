@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cp ./.github/templates/README.md .
-sed "s/{version}/${NEW_VERSION}/g" README.md
+sed "s/{version}/${NEW_VERSION}/g" ./.github/templates/README.md > README.md
 
-cp ./.github/templates/Cargo.toml .
-sed "s/{version}/${NEW_VERSION}/g" Cargo.toml
+sed "s/{version}/${NEW_VERSION}/g" ./.github/templates/Cargo.toml > Cargo.toml
