@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cp ./.github/templates/README.md .
-sed "s/{version}/${NEW_VERSION}/g" README.md
+NEW_VERSION=$(cat .github/version)-$(basename $GITHUB_REF)
 
-cp ./.github/templates/Cargo.toml .
-sed "s/{version}/${NEW_VERSION}/g" Cargo.toml
+REPLACE=$(printf '%s\n' "$NEW_VERSION" | sed -e 's/[\/&]/\\&/g')
+
+sed "s/{version}/$REPLACE/g" "./.github/templates/README.md" > README.md
+
+sed "s/{version}/$REPLACE/g" "./.github/templates/Cargo.toml" > Cargo.toml

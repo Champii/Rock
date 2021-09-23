@@ -1,6 +1,6 @@
-# Rock 0.1.4-dev
+# Rock v0.1.4-file_generator
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch={branch})](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -36,10 +36,10 @@ How to install and run the compiler:
 
 ### Using released binary
 
-[Rock v0.1.3](https://github.com/Champii/Rock/releases/download/v0.1.3/rock) (Tested on arch linux)
+[Rock v0.1.4-file_generator](https://github.com/Champii/Rock/releases/download/v0.1.4-file_generator}/rock) (Tested on arch linux)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.3/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.4-file_generator/rock
 chmod +x rock
 ./rock -V
 ```
