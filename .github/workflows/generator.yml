@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Generate files.
     env:
-      NEW_VERSION: $(cat .github/version)-${{ env.GITHUB_REF }}
+      NEW_VERSION: $(cat .github/version)-${{ GITHUB_REF }}
 
     steps:
       - uses: actions/checkout@v2
