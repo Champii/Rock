@@ -358,6 +358,24 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         }
     }
 
+    fn visit_indice(&mut self, indice: &'a mut Indice) {
+        let old_hir_id = indice.hir_id.clone();
+
+        indice.hir_id = self.duplicate_hir_id(&old_hir_id);
+
+        if let Some(t) = self.root.type_envs.get_type(&old_hir_id) {
+            self.root
+                .node_types
+                .insert(indice.hir_id.clone(), t.clone());
+        }
+
+        self.trans_resolutions
+            .insert(old_hir_id, indice.hir_id.clone());
+
+        self.visit_expression(&mut indice.op);
+        self.visit_expression(&mut indice.value);
+    }
+
     fn visit_identifier(&mut self, id: &'a mut Identifier) {
         let old_hir_id = id.hir_id.clone();
 

@@ -394,6 +394,59 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                 self.setup_call(&fc, &fc.op.get_hir_id());
             }
+            ExpressionKind::Indice(i) => {
+                self.visit_expression(&i.op);
+                self.visit_expression(&i.value);
+
+                let value_t = self.envs.get_type(&i.value.get_hir_id()).unwrap().clone();
+
+                match self.envs.get_type(&i.op.get_hir_id()).unwrap().clone() {
+                    Type::Primitive(PrimitiveType::Array(inner, size)) => {
+                        self.envs.set_type(&i.get_hir_id(), &inner);
+
+                        match self.envs.get_type(&i.value.get_hir_id()).unwrap().clone() {
+                            Type::Primitive(PrimitiveType::Int64) => {
+                                if let ExpressionKind::Lit(literal) = &*i.value.kind {
+                                    if literal.as_number() >= size as i64 {
+                                        self.envs.diagnostics.push_error(
+                                            Diagnostic::new_out_of_bounds(
+                                                self.envs
+                                                    .spans
+                                                    .get(&i.value.get_hir_id())
+                                                    .unwrap()
+                                                    .clone(),
+                                                i.value.as_literal().as_number() as u64,
+                                                size as u64,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                            other => {
+                                self.envs
+                                    .diagnostics
+                                    .push_error(Diagnostic::new_type_conflict(
+                                        self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                                        Type::Primitive(PrimitiveType::Int64),
+                                        other.clone(),
+                                        Type::Primitive(PrimitiveType::Int64),
+                                        other,
+                                    ))
+                            }
+                        }
+                    }
+                    other => self
+                        .envs
+                        .diagnostics
+                        .push_error(Diagnostic::new_type_conflict(
+                            self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                            Type::Primitive(PrimitiveType::Array(Box::new(value_t.clone()), 0)),
+                            other.clone(),
+                            Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
+                            other,
+                        )),
+                }
+            }
         }
     }
 

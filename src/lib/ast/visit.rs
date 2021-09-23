@@ -205,6 +205,9 @@ pub fn walk_secondary_expr<'a, V: Visitor<'a>>(visitor: &mut V, secondary: &'a S
         SecondaryExpr::Arguments(args) => {
             walk_list!(visitor, visit_argument, args);
         }
+        SecondaryExpr::Indice(expr) => {
+            visitor.visit_expression(expr);
+        }
     }
 }
 

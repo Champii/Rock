@@ -476,6 +476,7 @@ impl OperandKind {
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
     Arguments(Vec<Argument>),
+    Indice(Expression),
 }
 
 #[derive(Debug, Clone)]

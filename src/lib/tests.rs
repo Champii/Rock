@@ -93,6 +93,10 @@ fn testcases_basic_recur_main() {
     run("testcases/basic/recur/main.rk", include_str!("testcases/basic/recur/main.rk"), include_str!("testcases/basic/recur/main.rk.out"));
 }
 #[test]
+fn testcases_basic_nested_array_main() {
+    run("testcases/basic/nested_array/main.rk", include_str!("testcases/basic/nested_array/main.rk"), include_str!("testcases/basic/nested_array/main.rk.out"));
+}
+#[test]
 fn testcases_basic_if_else_main() {
     run("testcases/basic/if_else/main.rk", include_str!("testcases/basic/if_else/main.rk"), include_str!("testcases/basic/if_else/main.rk.out"));
 }

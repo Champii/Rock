@@ -75,33 +75,6 @@ macro_rules! impl_visitor_trait2 {
                 self.print_primitive(t);
             }
 
-            // fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
-            //     let indent_str = String::from("  ").repeat(self.indent());
-
-            //     let types = self.hir.type_envs.get_fn_types(&f.get_hir_id())
-            //         .map(|types| {
-            //             types
-            //                 .into_iter()
-            //                 .map(|(sig, env)| {
-            //                     sig.to_string()
-            //                 })
-            //                 .collect::<Vec<_>>()
-            //                 .join(", ")
-            //         });
-
-
-            //     println!(
-            //         "{:?}{}{:15}{:?}",
-            //         f.get_hir_id(),
-            //         indent_str,
-            //         f.class_name_self(),
-            //         types,
-            //     );
-
-            //     walk_function_decl(self, f);
-            // }
-
-
             fn visit_primitive<T>(&mut self, val: T)
             where
                 T: Debug + std::fmt::Display,
@@ -140,6 +113,7 @@ impl_visitor_trait2!(
     If
     Else
     FunctionCall
+    Indice
     Literal
     Array
     NativeOperator

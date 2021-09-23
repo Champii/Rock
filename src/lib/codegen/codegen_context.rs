@@ -350,6 +350,7 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::Lit(l) => self.lower_literal(&l, builder)?,
             ExpressionKind::Identifier(id) => self.lower_identifier_path(&id, builder)?,
             ExpressionKind::FunctionCall(fc) => self.lower_function_call(fc, builder)?,
+            ExpressionKind::Indice(i) => self.lower_indice(i, builder)?,
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.lower_native_operation(op, left, right, builder)?
             }
@@ -403,6 +404,28 @@ impl<'a> CodegenContext<'a> {
             .try_as_basic_value()
             .left()
             .unwrap())
+    }
+
+    pub fn lower_indice(
+        &mut self,
+        indice: &'a Indice,
+        builder: &'a Builder,
+    ) -> Result<BasicValueEnum<'a>, ()> {
+        let op = self
+            .lower_expression(&indice.op, builder)?
+            .into_pointer_value();
+
+        let indice = self
+            .lower_expression(&indice.value, builder)?
+            .into_int_value();
+
+        let i64_type = self.context.i64_type();
+
+        let const_0 = i64_type.const_zero();
+
+        let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "index") };
+
+        Ok(builder.build_load(ptr, "load_indice").as_basic_value_enum())
     }
 
     pub fn lower_literal(

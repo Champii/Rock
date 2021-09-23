@@ -44,6 +44,7 @@ generate_visitor_trait!(
     If, r#if
     Else, r#else
     FunctionCall, function_call
+    Indice, indice
     Literal, literal
     Array, array
     NativeOperator, native_operator
@@ -139,6 +140,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
         ExpressionKind::Lit(lit) => visitor.visit_literal(&lit),
         ExpressionKind::Identifier(id) => visitor.visit_identifier_path(&id),
         ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(&fc),
+        ExpressionKind::Indice(indice) => visitor.visit_indice(indice),
         ExpressionKind::NativeOperation(op, left, right) => {
             visitor.visit_native_operator(&op);
             visitor.visit_identifier(&left);
@@ -152,6 +154,11 @@ pub fn walk_function_call<'a, V: Visitor<'a>>(visitor: &mut V, fc: &'a FunctionC
     visitor.visit_expression(&fc.op);
 
     walk_list!(visitor, visit_expression, &fc.args);
+}
+
+pub fn walk_indice<'a, V: Visitor<'a>>(visitor: &mut V, indice: &'a Indice) {
+    visitor.visit_expression(&indice.op);
+    visitor.visit_expression(&indice.value);
 }
 
 pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {

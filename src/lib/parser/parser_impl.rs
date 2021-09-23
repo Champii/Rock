@@ -792,8 +792,21 @@ impl Parse for Operand {
 
 impl Parse for SecondaryExpr {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        if let Ok(args) = Arguments::parse(ctx) {
-            return Ok(SecondaryExpr::Arguments(args));
+        if TokenType::OpenArray == ctx.cur_tok().t {
+            ctx.save();
+
+            ctx.consume();
+
+            if let Ok(expr) = Expression::parse(ctx) {
+                expect_or_restore!(TokenType::CloseArray, ctx);
+
+                ctx.save_pop();
+                return Ok(SecondaryExpr::Indice(expr));
+            }
+        } else {
+            if let Ok(args) = Arguments::parse(ctx) {
+                return Ok(SecondaryExpr::Arguments(args));
+            }
         }
 
         error!("Expected secondary".to_string(), ctx);

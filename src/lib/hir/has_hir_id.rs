@@ -25,6 +25,7 @@ impl_direct_get_hir_id_trait!(
     Identifier
     If
     FunctionCall
+    Indice
     Literal
     NativeOperator
 );
