@@ -8,12 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Generate files.
     env:
-      NEW_VERSION: $(cat .github/version)-${{ GITHUB_REF }}
+      NEW_VERSION: $(cat .github/version)-$GITHUB_REF
 
     steps:
       - uses: actions/checkout@v2
       - name: Generate replacers
         run: |
-          ./.github/templates/replacer.sh
+          NEW_VERSION=$(cat .github/version)-$GITHUB_REF ./.github/templates/replacer.sh
           git commit -am "Generated files for version $NEW_VERSION"
           git push origin $GITHUB_REF
