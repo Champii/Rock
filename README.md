@@ -1,4 +1,4 @@
-# Rock v0.1.4-generate_file_more_often
+# Rock v0.1.4-generate_files_again
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch={branch})](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -36,10 +36,10 @@ How to install and run the compiler:
 
 ### Using released binary
 
-[Rock v0.1.4-generate_file_more_often](https://github.com/Champii/Rock/releases/download/v0.1.4-generate_file_more_often}/rock) (Tested on arch linux)
+[Rock v0.1.4-generate_files_again](https://github.com/Champii/Rock/releases/download/v0.1.4-generate_files_again}/rock) (Tested on arch linux)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.4-generate_file_more_often/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.4-generate_files_again/rock
 chmod +x rock
 ./rock -V
 ```
