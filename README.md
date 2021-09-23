@@ -1,4 +1,4 @@
-# Rock v0.1.4-develop
+# Rock v0.1.4
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch={branch})](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
