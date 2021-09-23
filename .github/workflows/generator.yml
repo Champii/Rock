@@ -10,11 +10,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+
       - name: Generate replacements
         run: |
           ./.github/templates/replacer.sh
-          git commit -am "Generated files for version $NEW_VERSION"
-          git push origin $GITHUB_REF
+
+      - name: Add & Commit
+        uses: EndBug/add-and-commit@v7.3.0
+        with:
+          message: Generated files for new version
+
       - name: GitHub Push
         uses: ad-m/github-push-action@v0.6.0
         with:
