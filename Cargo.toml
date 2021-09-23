@@ -1,6 +1,6 @@
 [package]
 name = "rock"
-version = "v0.1.4-file_generator"
+version = "v0.1.4-generate_file_more_often"
 authors = ["champii <contact@champii>"]
 edition = "2018"
 
