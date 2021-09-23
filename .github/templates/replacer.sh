@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NEW_VERSION=$(cat github/version)-$(basename $GITHUB_REF)
+NEW_VERSION=$(cat .github/version)-$(basename $GITHUB_REF)
 
 REPLACE=$(printf '%s\n' "$NEW_VERSION" | sed -e 's/[\/&]/\\&/g')
 
