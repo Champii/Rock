@@ -6,11 +6,11 @@ on:
 jobs:
   replace:
     runs-on: ubuntu-latest
-    name: Generate Readme.
+    name: Generate files.
     env:
       VERSION: $(cat .github/version)
-      NEW_VERSION: $VERSION-$GITHUB_REF
-      
+      NEW_VERSION: ${{ env.VERSION}}-${{ GITHUB_REF }}
+
     steps:
       - uses: actions/checkout@v2
       - name: Generate replacers
