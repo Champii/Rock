@@ -1,0 +1,17 @@
+name: Generator
+
+on:
+  create
+
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    name: Generate Readme.
+    env:
+      VERSION: $(cat .github/version)
+      NEW_VERSION: $VERSION-$GITHUB_REF
+      
+    steps:
+      - uses: actions/checkout@v2
+      - name: Generate replacers
+        run: ./.github/templates/replacer.sh
