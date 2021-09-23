@@ -36,7 +36,7 @@ How to install and run the compiler:
 
 ### Using released binary
 
-[Rock v0.1.4](https://github.com/Champii/Rock/releases/download/v0.1.4}/rock) (Tested on arch linux)
+[Rock v0.1.4](https://github.com/Champii/Rock/releases/download/v0.1.4/rock) (Tested on arch linux)
 
 ``` sh
 wget https://github.com/Champii/Rock/releases/download/v0.1.4/rock
