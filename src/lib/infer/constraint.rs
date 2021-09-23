@@ -394,6 +394,59 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                 self.setup_call(&fc, &fc.op.get_hir_id());
             }
+            ExpressionKind::Indice(i) => {
+                self.visit_expression(&i.op);
+                self.visit_expression(&i.value);
+
+                let value_t = self.envs.get_type(&i.value.get_hir_id()).unwrap().clone();
+
+                match self.envs.get_type(&i.op.get_hir_id()).unwrap().clone() {
+                    Type::Primitive(PrimitiveType::Array(inner, size)) => {
+                        self.envs.set_type(&i.get_hir_id(), &inner);
+
+                        match self.envs.get_type(&i.value.get_hir_id()).unwrap().clone() {
+                            Type::Primitive(PrimitiveType::Int64) => {
+                                if let ExpressionKind::Lit(literal) = &*i.value.kind {
+                                    if literal.as_number() >= size as i64 {
+                                        self.envs.diagnostics.push_error(
+                                            Diagnostic::new_out_of_bounds(
+                                                self.envs
+                                                    .spans
+                                                    .get(&i.value.get_hir_id())
+                                                    .unwrap()
+                                                    .clone(),
+                                                i.value.as_literal().as_number() as u64,
+                                                size as u64,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                            other => {
+                                self.envs
+                                    .diagnostics
+                                    .push_error(Diagnostic::new_type_conflict(
+                                        self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                                        Type::Primitive(PrimitiveType::Int64),
+                                        other.clone(),
+                                        Type::Primitive(PrimitiveType::Int64),
+                                        other,
+                                    ))
+                            }
+                        }
+                    }
+                    other => self
+                        .envs
+                        .diagnostics
+                        .push_error(Diagnostic::new_type_conflict(
+                            self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                            Type::Primitive(PrimitiveType::Array(Box::new(value_t.clone()), 0)),
+                            other.clone(),
+                            Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
+                            other,
+                        )),
+                }
+            }
         }
     }
 
@@ -403,9 +456,34 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             LiteralKind::Float(_f) => Type::Primitive(PrimitiveType::Float64),
             LiteralKind::String(_s) => Type::Primitive(PrimitiveType::String),
             LiteralKind::Bool(_b) => Type::Primitive(PrimitiveType::Bool),
+            LiteralKind::Array(arr) => {
+                self.visit_array(arr);
+
+                let inner_t = self.envs.get_type(&arr.get_hir_id()).unwrap();
+
+                Type::Primitive(PrimitiveType::Array(
+                    Box::new(inner_t.clone()),
+                    arr.values.len(),
+                ))
+            }
         };
 
         self.envs.set_type(&lit.hir_id, &t);
+    }
+
+    fn visit_array(&mut self, arr: &'a Array) {
+        let mut arr = arr.clone();
+
+        let first = arr.values.remove(0);
+
+        self.visit_expression(&first);
+
+        for value in &arr.values {
+            self.visit_expression(value);
+
+            self.envs
+                .set_type_eq(&value.get_hir_id(), &first.get_hir_id());
+        }
     }
 
     fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {

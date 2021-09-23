@@ -396,6 +396,11 @@ impl Expression {
             kind: Box::new(ExpressionKind::FunctionCall(f)),
         }
     }
+    pub fn new_indice(f: Indice) -> Self {
+        Self {
+            kind: Box::new(ExpressionKind::Indice(f)),
+        }
+    }
     pub fn new_native_operation(op: NativeOperator, left: Identifier, right: Identifier) -> Self {
         Self {
             kind: Box::new(ExpressionKind::NativeOperation(op, left, right)),
@@ -407,6 +412,7 @@ impl Expression {
             ExpressionKind::Lit(l) => l.get_hir_id(),
             ExpressionKind::Identifier(i) => i.get_hir_id(),
             ExpressionKind::FunctionCall(fc) => fc.get_hir_id(),
+            ExpressionKind::Indice(i) => i.get_hir_id(),
             ExpressionKind::NativeOperation(op, _left, _right) => op.get_hir_id(),
             ExpressionKind::Return(expr) => expr.get_hir_id(),
         }
@@ -419,6 +425,13 @@ impl Expression {
             panic!("Not an identifier");
         }
     }
+    pub fn as_literal(&self) -> Literal {
+        if let ExpressionKind::Lit(l) = &*self.kind {
+            l.clone()
+        } else {
+            panic!("Not a literal");
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -426,8 +439,16 @@ pub enum ExpressionKind {
     Lit(Literal),
     Identifier(IdentifierPath),
     FunctionCall(FunctionCall),
+    Indice(Indice),
     NativeOperation(NativeOperator, Identifier, Identifier),
     Return(Expression),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Indice {
+    pub hir_id: HirId,
+    pub op: Expression,
+    pub value: Expression,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -478,12 +499,34 @@ pub struct Literal {
     pub kind: LiteralKind,
 }
 
+impl Literal {
+    pub fn as_number(&self) -> i64 {
+        if let LiteralKind::Number(n) = &self.kind {
+            *n
+        } else {
+            panic!("Not a number");
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LiteralKind {
     Number(i64),
     Float(f64),
     String(String),
     Bool(bool),
+    Array(Array),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Array {
+    pub values: Vec<Expression>,
+}
+
+impl Array {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.values.get(0).unwrap().get_hir_id()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

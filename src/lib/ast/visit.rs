@@ -53,6 +53,7 @@ generate_visitor_trait!(
     Operand, operand
     Argument, argument
     Literal, literal
+    Array, array
     NativeOperator, native_operator
     TypeSignature, type_signature
     Type, r#type
@@ -204,6 +205,9 @@ pub fn walk_secondary_expr<'a, V: Visitor<'a>>(visitor: &mut V, secondary: &'a S
         SecondaryExpr::Arguments(args) => {
             walk_list!(visitor, visit_argument, args);
         }
+        SecondaryExpr::Indice(expr) => {
+            visitor.visit_expression(expr);
+        }
     }
 }
 
@@ -229,7 +233,12 @@ pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
         LiteralKind::Float(f) => visitor.visit_primitive(f),
         LiteralKind::String(s) => visitor.visit_primitive(s),
         LiteralKind::Bool(b) => visitor.visit_primitive(b),
+        LiteralKind::Array(arr) => visitor.visit_array(arr),
     }
+}
+
+pub fn walk_array<'a, V: Visitor<'a>>(visitor: &mut V, arr: &'a Array) {
+    walk_list!(visitor, visit_expression, &arr.values);
 }
 
 pub fn walk_native_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a NativeOperator) {

@@ -53,6 +53,10 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::UnresolvedType(t))
     }
 
+    pub fn new_out_of_bounds(span: Span, got: u64, expected: u64) -> Self {
+        Self::new(span, DiagnosticKind::OutOfBounds(got, expected))
+    }
+
     pub fn new_unresolved_trait_call(
         span: Span,
         call_hir_id: HirId,
@@ -178,6 +182,7 @@ pub enum DiagnosticKind {
     TypeConflict(Type, Type, Type, Type),
     UnresolvedType(Type),
     CodegenError(HirId, String),
+    OutOfBounds(u64, u64),
     NoMain,
     NoError, //TODO: remove that
 }
@@ -216,6 +221,10 @@ impl Display for DiagnosticKind {
             }
             Self::FileNotFound(path) => format!("FileNotFound {}", path),
             Self::CodegenError(hir_id, msg) => format!("CodegenError: {} {:?}", msg, hir_id),
+            Self::OutOfBounds(got, expected) => format!(
+                "Out of bounds error: got indice {} but array len is {}",
+                got, expected
+            ),
             DiagnosticKind::NotAFunction => "NotAFunction".to_string(),
             DiagnosticKind::UnusedParameter => "UnusedParameter".to_string(),
             DiagnosticKind::UnusedFunction => "UnusedFunction".to_string(),

@@ -44,7 +44,9 @@ generate_visitor_trait!(
     If, r#if
     Else, r#else
     FunctionCall, function_call
+    Indice, indice
     Literal, literal
+    Array, array
     NativeOperator, native_operator
     Type, r#type
     TypeSignature, type_signature
@@ -138,6 +140,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
         ExpressionKind::Lit(lit) => visitor.visit_literal(&lit),
         ExpressionKind::Identifier(id) => visitor.visit_identifier_path(&id),
         ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(&fc),
+        ExpressionKind::Indice(indice) => visitor.visit_indice(indice),
         ExpressionKind::NativeOperation(op, left, right) => {
             visitor.visit_native_operator(&op);
             visitor.visit_identifier(&left);
@@ -153,13 +156,23 @@ pub fn walk_function_call<'a, V: Visitor<'a>>(visitor: &mut V, fc: &'a FunctionC
     walk_list!(visitor, visit_expression, &fc.args);
 }
 
+pub fn walk_indice<'a, V: Visitor<'a>>(visitor: &mut V, indice: &'a Indice) {
+    visitor.visit_expression(&indice.op);
+    visitor.visit_expression(&indice.value);
+}
+
 pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
     match &literal.kind {
         LiteralKind::Number(n) => visitor.visit_primitive(n),
         LiteralKind::Float(f) => visitor.visit_primitive(f),
         LiteralKind::String(s) => visitor.visit_primitive(s),
         LiteralKind::Bool(b) => visitor.visit_primitive(b),
+        LiteralKind::Array(arr) => visitor.visit_array(arr),
     }
+}
+
+pub fn walk_array<'a, V: Visitor<'a>>(visitor: &mut V, arr: &'a Array) {
+    walk_list!(visitor, visit_expression, &arr.values);
 }
 
 pub fn walk_native_operator<'a, V: Visitor<'a>>(visitor: &mut V, operator: &'a NativeOperator) {

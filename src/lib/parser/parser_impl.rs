@@ -792,8 +792,21 @@ impl Parse for Operand {
 
 impl Parse for SecondaryExpr {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        if let Ok(args) = Arguments::parse(ctx) {
-            return Ok(SecondaryExpr::Arguments(args));
+        if TokenType::OpenArray == ctx.cur_tok().t {
+            ctx.save();
+
+            ctx.consume();
+
+            if let Ok(expr) = Expression::parse(ctx) {
+                expect_or_restore!(TokenType::CloseArray, ctx);
+
+                ctx.save_pop();
+                return Ok(SecondaryExpr::Indice(expr));
+            }
+        } else {
+            if let Ok(args) = Arguments::parse(ctx) {
+                return Ok(SecondaryExpr::Arguments(args));
+            }
         }
 
         error!("Expected secondary".to_string(), ctx);
@@ -840,7 +853,36 @@ impl Parse for LiteralKind {
             return Ok(LiteralKind::String(s));
         }
 
+        if TokenType::OpenArray == ctx.cur_tok().t {
+            return Ok(LiteralKind::Array(Array::parse(ctx)?));
+        }
+
         error!("Expected literal".to_string(), ctx);
+    }
+}
+
+impl Parse for Array {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        expect!(TokenType::OpenArray, ctx);
+
+        let mut values = vec![];
+
+        if TokenType::CloseArray == ctx.cur_tok().t {
+            ctx.consume();
+        } else {
+            loop {
+                values.push(Expression::parse(ctx)?);
+
+                if TokenType::CloseArray == ctx.cur_tok().t {
+                    ctx.consume();
+
+                    break;
+                } else {
+                    expect!(TokenType::Coma, ctx);
+                }
+            }
+        }
+        return Ok(Array { values });
     }
 }
 
