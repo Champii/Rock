@@ -10,7 +10,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Generate replacers
+      - name: Generate replacements
         run: |
           ./.github/templates/replacer.sh
           git commit -am "Generated files for version $NEW_VERSION"

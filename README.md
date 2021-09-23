@@ -1,4 +1,4 @@
-# Rock v0.1.4-
+# Rock v1.2.2
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch={branch})](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -36,10 +36,10 @@ How to install and run the compiler:
 
 ### Using released binary
 
-[Rock v0.1.4-](https://github.com/Champii/Rock/releases/download/v0.1.4-}/rock) (Tested on arch linux)
+[Rock v1.2.2](https://github.com/Champii/Rock/releases/download/v1.2.2}/rock) (Tested on arch linux)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.4-/rock
+wget https://github.com/Champii/Rock/releases/download/v1.2.2/rock
 chmod +x rock
 ./rock -V
 ```
