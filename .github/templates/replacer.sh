@@ -3,6 +3,8 @@ set -euo pipefail
 
 NEW_VERSION=$(sed "s/\./\\\./" .github/version)-$GITHUB_REF
 
-sed "s/{version}/$NEW_VERSION/g" "./.github/templates/README.md" > README.md
+REPLACE=$(printf '%s\n' "$NEW_REPLACE" | sed -e 's/[\/&]/\\&/g')
 
-sed "s/{version}/$NEW_VERSION/g" "./.github/templates/Cargo.toml" > Cargo.toml
+sed "s/{version}/$REPLACE/g" "./.github/templates/README.md" > README.md
+
+sed "s/{version}/$REPLACE/g" "./.github/templates/Cargo.toml" > Cargo.toml
