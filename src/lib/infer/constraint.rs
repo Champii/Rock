@@ -320,7 +320,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_assign(&mut self, assign: &'a Assign) {
-        self.visit_identifier(&assign.name);
+        self.visit_assign_left_side(&assign.name);
         self.visit_expression(&assign.value);
 
         self.envs

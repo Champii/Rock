@@ -32,6 +32,7 @@ generate_visitor_trait!(
     Trait, r#trait
     Impl, r#impl
     Assign, assign
+    AssignLeftSide, assign_left_side
     Prototype, prototype
     FunctionDecl, function_decl
     ArgumentDecl, argument_decl
@@ -122,8 +123,15 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
     walk_list!(visitor, visit_statement, &body.stmts);
 }
 
+pub fn walk_assign_left_side<'a, V: Visitor<'a>>(visitor: &mut V, assign_left: &'a AssignLeftSide) {
+    match assign_left {
+        AssignLeftSide::Identifier(id) => visitor.visit_identifier(id),
+        AssignLeftSide::Indice(expr) => visitor.visit_indice(expr),
+    }
+}
+
 pub fn walk_assign<'a, V: Visitor<'a>>(visitor: &mut V, assign: &'a Assign) {
-    visitor.visit_identifier(&assign.name);
+    visitor.visit_assign_left_side(&assign.name);
     visitor.visit_expression(&assign.value);
 }
 

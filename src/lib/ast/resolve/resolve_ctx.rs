@@ -82,19 +82,21 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     }
 
     fn visit_assign(&mut self, assign: &'a Assign) {
-        if !assign.is_let {
-            let previous_assign_node_id = self.get(assign.name.name.clone()).unwrap();
+        match &assign.name {
+            AssignLeftSide::Identifier(id) => {
+                if !assign.is_let {
+                    let previous_assign_node_id = self.get(id.name.clone()).unwrap();
 
-            self.resolutions.insert(
-                assign.name.identity.node_id.clone(),
-                previous_assign_node_id.node_id,
-            );
+                    self.resolutions
+                        .insert(id.identity.node_id.clone(), previous_assign_node_id.node_id);
 
-            self.visit_identifier(&assign.name);
-        } else {
+                    self.visit_identifier(id)
+                }
+
+                self.add_to_current_scope(id.name.clone(), id.identity.clone());
+            }
+            AssignLeftSide::Indice(expr) => self.visit_expression(expr),
         }
-
-        self.add_to_current_scope(assign.name.name.clone(), assign.name.identity.clone());
 
         self.visit_expression(&assign.value);
     }

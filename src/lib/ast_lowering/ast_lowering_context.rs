@@ -229,9 +229,26 @@ impl AstLoweringContext {
         }
     }
 
+    pub fn lower_assign_left_side(&mut self, assign_left: &AssignLeftSide) -> hir::AssignLeftSide {
+        match assign_left {
+            AssignLeftSide::Identifier(id) => {
+                hir::AssignLeftSide::Identifier(self.lower_identifier(&id))
+            }
+            AssignLeftSide::Indice(indice) => {
+                let expr_hir = self.lower_expression(&indice);
+                let indice = match &*expr_hir.kind {
+                    hir::ExpressionKind::Indice(indice) => indice,
+                    _ => unimplemented!("Assign left hand side can be Identifiers or Indices"),
+                };
+
+                hir::AssignLeftSide::Indice(indice.clone())
+            }
+        }
+    }
+
     pub fn lower_assign(&mut self, assign: &Assign) -> hir::Assign {
         hir::Assign {
-            name: self.lower_identifier(&assign.name),
+            name: self.lower_assign_left_side(&assign.name),
             value: self.lower_expression(&assign.value),
             is_let: assign.is_let,
         }

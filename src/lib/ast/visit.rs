@@ -33,6 +33,7 @@ generate_visitor_trait!(
     Mod, r#mod
     TopLevel, top_level
     Assign, assign
+    AssignLeftSide, assign_left_side
     Prototype, prototype
     Use, r#use
     Trait, r#trait
@@ -143,8 +144,15 @@ pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statem
     }
 }
 
+pub fn walk_assign_left_side<'a, V: Visitor<'a>>(visitor: &mut V, assign_left: &'a AssignLeftSide) {
+    match assign_left {
+        AssignLeftSide::Identifier(id) => visitor.visit_identifier(id),
+        AssignLeftSide::Indice(expr) => visitor.visit_expression(expr),
+    }
+}
+
 pub fn walk_assign<'a, V: Visitor<'a>>(visitor: &mut V, assign: &'a Assign) {
-    visitor.visit_identifier(&assign.name);
+    visitor.visit_assign_left_side(&assign.name);
     visitor.visit_expression(&assign.value);
 }
 

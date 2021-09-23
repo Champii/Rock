@@ -69,6 +69,10 @@ fn testcases_basic_reassign_main() {
     run("testcases/basic/reassign/main.rk", include_str!("testcases/basic/reassign/main.rk"), include_str!("testcases/basic/reassign/main.rk.out"));
 }
 #[test]
+fn testcases_basic_indice_assign_main() {
+    run("testcases/basic/indice_assign/main.rk", include_str!("testcases/basic/indice_assign/main.rk"), include_str!("testcases/basic/indice_assign/main.rk.out"));
+}
+#[test]
 fn testcases_basic_extern_main() {
     run("testcases/basic/extern/main.rk", include_str!("testcases/basic/extern/main.rk"), include_str!("testcases/basic/extern/main.rk.out"));
 }

@@ -561,15 +561,14 @@ impl Parse for Statement {
                 Ok(expr) => StatementKind::If(expr),
                 Err(_e) => error!("Expected if".to_string(), ctx),
             }
-        } else if ctx.cur_tok().t == TokenType::Let
-            || (matches!(ctx.cur_tok().t, TokenType::Identifier(_a)) // FIXME: This prevents array index assignation
-                && matches!(ctx.seek(1).t, TokenType::Operator(ref op) if *op == "="))
-        {
-            StatementKind::Assign(Assign::parse(ctx)?)
         } else {
-            match Expression::parse(ctx) {
-                Ok(expr) => StatementKind::Expression(expr),
-                Err(_e) => error!("Expected expression".to_string(), ctx),
+            if let Ok(assign) = Assign::parse(ctx) {
+                StatementKind::Assign(assign)
+            } else {
+                match Expression::parse(ctx) {
+                    Ok(expr) => StatementKind::Expression(expr),
+                    Err(_e) => error!("Expected expression".to_string(), ctx),
+                }
             }
         };
 
@@ -579,19 +578,46 @@ impl Parse for Statement {
     }
 }
 
+impl Parse for AssignLeftSide {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        if ctx.seek(1).t == TokenType::OpenArray {
+            if let Ok(expr) = PrimaryExpr::parse(ctx) {
+                // TODO:
+                // if expr.is_indice() {
+
+                return Ok(AssignLeftSide::Indice(Expression::from_unary(
+                    &UnaryExpr::PrimaryExpr(expr),
+                )));
+                // }
+            }
+        }
+
+        if let Ok(id) = Identifier::parse(ctx) {
+            return Ok(AssignLeftSide::Identifier(id));
+        }
+
+        error!(
+            "Expected Identifier or Indice as assignation left side".to_string(),
+            ctx
+        )
+    }
+}
+
 impl Parse for Assign {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         ctx.save();
 
-        let is_let = if TokenType::Let == ctx.cur_tok().t {
+        let (is_let, name) = if TokenType::Let == ctx.cur_tok().t {
             expect!(TokenType::Let, ctx);
 
-            true
-        } else {
-            false
-        };
+            let name = AssignLeftSide::Identifier(try_or_restore!(Identifier::parse(ctx), ctx));
 
-        let name = try_or_restore!(Identifier::parse(ctx), ctx);
+            (true, name)
+        } else {
+            let name = try_or_restore!(AssignLeftSide::parse(ctx), ctx);
+
+            (false, name)
+        };
 
         expect_or_restore!(TokenType::Operator("=".to_string()), ctx);
 
