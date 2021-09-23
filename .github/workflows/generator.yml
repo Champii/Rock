@@ -15,3 +15,8 @@ jobs:
           ./.github/templates/replacer.sh
           git commit -am "Generated files for version $NEW_VERSION"
           git push origin $GITHUB_REF
+      - name: GitHub Push
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: $GITHUB_REF
