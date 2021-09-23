@@ -93,10 +93,10 @@ impl Envs {
             (src, Some(previous)) if *src != previous => {
                 self.diagnostics.push_error(Diagnostic::new_type_conflict(
                     self.spans.get(dest).unwrap().clone(),
+                    src.clone(),
                     previous.clone(),
                     src.clone(),
                     previous,
-                    src.clone(),
                 ));
             }
             _ => (),

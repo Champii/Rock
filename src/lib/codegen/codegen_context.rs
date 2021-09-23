@@ -53,6 +53,13 @@ impl<'a> CodegenContext<'a> {
                 .i8_type()
                 .ptr_type(AddressSpace::Generic)
                 .into(),
+            Type::Primitive(PrimitiveType::Array(arr, size)) => {
+                // assuming all types are equals
+                self.lower_type(arr, builder)?
+                    .array_type(*size as u32)
+                    .ptr_type(AddressSpace::Generic)
+                    .into()
+            }
             Type::FuncType(f) => {
                 // FIXME: Don't rely on names for resolution
                 let f2 = match self.module.get_function(&f.get_mangled_name()) {
@@ -207,10 +214,11 @@ impl<'a> CodegenContext<'a> {
             let f_decl = self.hir.get_function_by_hir_id(&fn_body.fn_id).unwrap();
 
             for (i, arg) in f_decl.arguments.iter().enumerate() {
-                self.scopes.add(
-                    arg.name.hir_id.clone(),
-                    f.get_nth_param(i.try_into().unwrap()).unwrap(),
-                );
+                let param = f.get_nth_param(i.try_into().unwrap()).unwrap();
+
+                param.set_name(&arg.name.name);
+
+                self.scopes.add(arg.name.hir_id.clone(), param);
             }
 
             self.lower_body(&fn_body.body, "entry", builder)?;
@@ -342,6 +350,7 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::Lit(l) => self.lower_literal(&l, builder)?,
             ExpressionKind::Identifier(id) => self.lower_identifier_path(&id, builder)?,
             ExpressionKind::FunctionCall(fc) => self.lower_function_call(fc, builder)?,
+            ExpressionKind::Indice(i) => self.lower_indice(i, builder)?,
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.lower_native_operation(op, left, right, builder)?
             }
@@ -397,9 +406,31 @@ impl<'a> CodegenContext<'a> {
             .unwrap())
     }
 
+    pub fn lower_indice(
+        &mut self,
+        indice: &'a Indice,
+        builder: &'a Builder,
+    ) -> Result<BasicValueEnum<'a>, ()> {
+        let op = self
+            .lower_expression(&indice.op, builder)?
+            .into_pointer_value();
+
+        let indice = self
+            .lower_expression(&indice.value, builder)?
+            .into_int_value();
+
+        let i64_type = self.context.i64_type();
+
+        let const_0 = i64_type.const_zero();
+
+        let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "index") };
+
+        Ok(builder.build_load(ptr, "load_indice").as_basic_value_enum())
+    }
+
     pub fn lower_literal(
         &mut self,
-        lit: &Literal,
+        lit: &'a Literal,
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &lit.kind {
@@ -422,6 +453,33 @@ impl<'a> CodegenContext<'a> {
                 let global_str = builder.build_global_string_ptr(s, "str");
 
                 global_str.as_basic_value_enum()
+            }
+            LiteralKind::Array(arr) => {
+                let arr_type = self
+                    .lower_type(self.hir.node_types.get(&lit.hir_id).unwrap(), builder)
+                    .unwrap()
+                    .into_pointer_type()
+                    .get_element_type()
+                    .into_array_type();
+
+                let ptr = builder.build_alloca(arr_type, "array");
+
+                arr.values.iter().enumerate().for_each(|(i, expr)| {
+                    let expr = self.lower_expression(expr, builder).unwrap();
+
+                    let i64_type = self.context.i64_type();
+
+                    let const_i = i64_type.const_int(i as u64, false).into();
+                    let const_0 = i64_type.const_zero();
+
+                    let inner_ptr = unsafe {
+                        builder.build_gep(ptr, &[const_0, const_i], format!("elem_{}", i).as_str())
+                    };
+
+                    builder.build_store(inner_ptr, expr);
+                });
+
+                ptr.as_basic_value_enum()
             }
         })
     }

@@ -178,6 +178,10 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 .node_types
                 .insert(literal.hir_id.clone(), t.clone());
         }
+
+        if let LiteralKind::Array(arr) = &mut literal.kind {
+            self.visit_array(arr);
+        }
     }
 
     fn visit_function_decl(&mut self, f: &'a mut FunctionDecl) {
@@ -352,6 +356,24 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
             }
         }
+    }
+
+    fn visit_indice(&mut self, indice: &'a mut Indice) {
+        let old_hir_id = indice.hir_id.clone();
+
+        indice.hir_id = self.duplicate_hir_id(&old_hir_id);
+
+        if let Some(t) = self.root.type_envs.get_type(&old_hir_id) {
+            self.root
+                .node_types
+                .insert(indice.hir_id.clone(), t.clone());
+        }
+
+        self.trans_resolutions
+            .insert(old_hir_id, indice.hir_id.clone());
+
+        self.visit_expression(&mut indice.op);
+        self.visit_expression(&mut indice.value);
     }
 
     fn visit_identifier(&mut self, id: &'a mut Identifier) {
