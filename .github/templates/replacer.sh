@@ -7,4 +7,6 @@ REPLACE=$(printf '%s\n' "$NEW_VERSION" | sed -e 's/[\/&]/\\&/g')
 
 sed "s/{version}/$REPLACE/g" "./.github/templates/README.md" > README.md
 
+REPLACE="${REPLACE:1}"
+
 sed "s/{version}/$REPLACE/g" "./.github/templates/Cargo.toml" > Cargo.toml
