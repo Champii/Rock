@@ -95,6 +95,7 @@ impl_visitor_trait!(
     Root, root
     Mod, r#mod
     TopLevel, top_level
+    StructDecl, struct_decl
     Use, r#use
     Trait, r#trait
     Assign, assign
@@ -108,6 +109,7 @@ impl_visitor_trait!(
     If, r#if
     Else, r#else
     UnaryExpr, unary
+    StructCtor, struct_ctor
     Operator, operator
     PrimaryExpr, primary_expr
     SecondaryExpr, secondary_expr

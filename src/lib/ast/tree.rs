@@ -117,9 +117,24 @@ pub enum TopLevelKind {
     Function(FunctionDecl),
     Trait(Trait),
     Impl(Impl),
+    Struct(StructDecl),
     Mod(Identifier, Mod),
     Use(Use),
     Infix(Identifier, u8),
+}
+
+#[derive(Debug, Clone)]
+pub struct StructDecl {
+    pub identity: Identity,
+    pub name: Type,
+    pub defs: Vec<Prototype>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructCtor {
+    pub identity: Identity,
+    pub name: Type,
+    pub defs: HashMap<Identifier, Expression>,
 }
 
 #[derive(Debug, Clone)]
@@ -405,6 +420,7 @@ pub enum ExpressionKind {
     BinopExpr(UnaryExpr, Operator, Box<Expression>),
     UnaryExpr(UnaryExpr),
     NativeOperation(NativeOperator, Identifier, Identifier),
+    StructCtor(StructCtor),
     Return(Box<Expression>),
 }
 

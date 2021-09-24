@@ -313,6 +313,52 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         walk_prototype(self, p);
     }
 
+    fn visit_struct_decl(&mut self, s: &StructDecl) {
+        // self.envs.set_type(&s.hir_id, &s.signature.to_func_type());
+
+        // self.tmp_resolutions
+        //     .get_mut(&self.envs.get_current_fn().0)
+        //     .unwrap()
+        //     .insert(s.name.hir_id.clone(), s.hir_id.clone());
+        let t = s.to_type();
+
+        self.envs.set_type(&s.hir_id, &t);
+
+        let struct_t = t.into_struct_type();
+
+        s.defs.iter().for_each(|p| {
+            self.envs
+                .set_type(&p.hir_id, &struct_t.defs.get(&p.name.name).unwrap());
+        });
+
+        // walk_struct_decl(self, s);
+    }
+    fn visit_struct_ctor(&mut self, s: &StructCtor) {
+        // self.envs.set_type(&s.hir_id, &s.signature.to_func_type());
+
+        // self.tmp_resolutions
+        //     .get_mut(&self.envs.get_current_fn().0)
+        //     .unwrap()
+        //     .insert(s.name.hir_id.clone(), s.hir_id.clone());
+
+        let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
+
+        self.visit_struct_decl(&s_decl);
+
+        let t = s_decl.to_type();
+
+        self.envs.set_type(&s.hir_id, &t);
+
+        let struct_t = t.into_struct_type();
+
+        s.defs.iter().for_each(|(k, p)| {
+            self.envs
+                .set_type(&p.get_hir_id(), &struct_t.defs.get(&k.name).unwrap());
+        });
+
+        // walk_struct_ctor(self, s);
+    }
+
     fn visit_body(&mut self, body: &'a Body) {
         body.stmts
             .iter()
@@ -353,6 +399,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             ExpressionKind::Lit(lit) => self.visit_literal(&lit),
             ExpressionKind::Return(expr) => self.visit_expression(&expr),
             ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
+            ExpressionKind::StructCtor(s) => self.visit_struct_ctor(&s),
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.visit_identifier(&left);
                 self.visit_identifier(&right);
@@ -449,6 +496,16 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             }
         }
     }
+
+    // fn visit_struct_ctor(&mut self, s: &StructCtor) {
+    //     let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
+
+    //     self.visit_struct_decl(s_decl);
+
+    //     self.envs.set_type(&s.hir_id, &s_decl.to_type());
+
+    //     // println!("Struct ctor {:#?}", s);
+    // }
 
     fn visit_literal(&mut self, lit: &Literal) {
         let t = match &lit.kind {

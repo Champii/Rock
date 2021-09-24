@@ -61,6 +61,13 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                         self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
                     }
                 }
+                TopLevelKind::Struct(s) => {
+                    self.add_to_current_scope(s.name.get_name(), s.identity.clone());
+
+                    s.defs.iter().for_each(|p| {
+                        self.add_to_current_scope((*p.name).clone(), p.identity.clone());
+                    })
+                }
                 TopLevelKind::Impl(i) => {
                     for proto in &i.defs {
                         let mut proto = proto.clone();
@@ -110,6 +117,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             TopLevelKind::Infix(_, _) => (),
             TopLevelKind::Trait(t) => self.visit_trait(&t),
             TopLevelKind::Impl(i) => self.visit_impl(&i),
+            TopLevelKind::Struct(s) => self.visit_struct_decl(&s),
             TopLevelKind::Function(f) => self.visit_function_decl(&f),
             TopLevelKind::Mod(name, m) => {
                 let current_mod = self.cur_scope.clone();
@@ -121,6 +129,28 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 self.cur_scope = current_mod;
             }
         };
+    }
+
+    fn visit_struct_decl(&mut self, s: &'a StructDecl) {
+        self.push_scope();
+        // walk_list!(visitor, visit_prototype, &s.defs);
+
+        // s.defs.iter().for_each(|proto| {});
+        walk_struct_decl(self, s);
+
+        self.pop_scope()
+    }
+
+    fn visit_struct_ctor(&mut self, s: &'a StructCtor) {
+        match self.get(s.name.get_name()) {
+            Some(pointed) => self.resolutions.insert(s.identity.node_id, pointed.node_id),
+            None => self
+                .parsing_ctx
+                .diagnostics
+                .push_error(Diagnostic::new_unknown_identifier(s.identity.span.clone())),
+        };
+
+        walk_struct_ctor(self, s);
     }
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {

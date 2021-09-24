@@ -1,5 +1,8 @@
 use colored::*;
-use std::fmt;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+};
 
 use crate::ast::PrimitiveType;
 // use crate::ast::Prototype;
@@ -9,7 +12,7 @@ pub enum Type {
     Primitive(PrimitiveType),
     // Proto(Box<Prototype>),
     FuncType(FuncType),
-    Class(String),
+    Struct(StructType),
     Trait(String),
     ForAll(String), // TODO
     Undefined(u64),
@@ -35,7 +38,7 @@ impl Type {
             Self::Primitive(p) => p.get_name(),
             // Self::Proto(p) => p.name.clone().unwrap_or(String::new()),
             Self::FuncType(f) => f.name.clone(),
-            Self::Class(c) => c.clone(),
+            Self::Struct(s) => s.name.clone(),
             Self::Trait(t) => t.clone(),
             Self::ForAll(n) => String::from(n),
             Self::Undefined(s) => s.to_string(),
@@ -44,6 +47,14 @@ impl Type {
 
     pub fn is_forall(&self) -> bool {
         matches!(self, Self::ForAll(_x))
+    }
+
+    pub fn into_struct_type(&self) -> StructType {
+        if let Type::Struct(t) = self {
+            t.clone()
+        } else {
+            panic!("Not a struct type");
+        }
     }
 }
 
@@ -121,6 +132,33 @@ impl FuncType {
 
         format!("{}_{}", self.name, prefixes.join("_"))
     }
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StructType {
+    pub name: String,
+    pub defs: BTreeMap<String, Box<Type>>,
+}
+
+impl fmt::Debug for StructType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}{} {} {}",
+            self.name.yellow(),
+            "{".green(),
+            self.defs
+                .iter()
+                .map(|(n, b)| format!("{}: {:?}", n, b))
+                .collect::<Vec<_>>()
+                .join(", "),
+            "}".green(),
+        )
+    }
+}
+
+impl StructType {
+    // pub fn
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]

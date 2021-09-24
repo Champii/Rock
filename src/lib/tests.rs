@@ -65,6 +65,10 @@ fn testcases_basic_array_main() {
     run("testcases/basic/array/main.rk", include_str!("testcases/basic/array/main.rk"), include_str!("testcases/basic/array/main.rk.out"));
 }
 #[test]
+fn testcases_basic_simple_struct_main() {
+    run("testcases/basic/simple_struct/main.rk", include_str!("testcases/basic/simple_struct/main.rk"), include_str!("testcases/basic/simple_struct/main.rk.out"));
+}
+#[test]
 fn testcases_basic_reassign_main() {
     run("testcases/basic/reassign/main.rk", include_str!("testcases/basic/reassign/main.rk"), include_str!("testcases/basic/reassign/main.rk.out"));
 }

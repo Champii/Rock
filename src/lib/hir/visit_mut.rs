@@ -33,6 +33,7 @@ generate_visitor_mut_trait!(
     Impl, r#impl
     Prototype, prototype
     FunctionDecl, function_decl
+    StructDecl, struct_decl
     Assign, assign
     AssignLeftSide, assign_left_side
     ArgumentDecl, argument_decl
@@ -45,6 +46,7 @@ generate_visitor_mut_trait!(
     If, r#if
     Else, r#else
     FunctionCall, function_call
+    StructCtor, struct_ctor
     Indice, indice
     Literal, literal
     Array, array
@@ -56,6 +58,10 @@ generate_visitor_mut_trait!(
 pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
     walk_list!(visitor, visit_top_level, &mut root.top_levels);
 
+    for (_, r#struct) in &mut root.structs {
+        visitor.visit_struct_decl(r#struct);
+    }
+
     // for (_, r#trait) in &mut root.traits {
     //     visitor.visit_trait(r#trait);
     // }
@@ -65,6 +71,18 @@ pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
     // }
 
     walk_map!(visitor, visit_fn_body, &mut root.bodies);
+}
+
+pub fn walk_struct_decl<'a, V: VisitorMut<'a>>(visitor: &mut V, s: &'a mut StructDecl) {
+    visitor.visit_type(&mut s.name);
+
+    walk_list!(visitor, visit_prototype, &mut s.defs);
+}
+
+pub fn walk_struct_ctor<'a, V: VisitorMut<'a>>(visitor: &mut V, s: &'a mut StructCtor) {
+    visitor.visit_type(&mut s.name);
+
+    walk_map!(visitor, visit_expression, &mut s.defs);
 }
 
 pub fn walk_top_level<'a, V: VisitorMut<'a>>(visitor: &mut V, top_level: &'a mut TopLevel) {
@@ -158,6 +176,7 @@ pub fn walk_expression<'a, V: VisitorMut<'a>>(visitor: &mut V, expr: &'a mut Exp
         ExpressionKind::Lit(lit) => visitor.visit_literal(lit),
         ExpressionKind::Identifier(id) => visitor.visit_identifier_path(id),
         ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(fc),
+        ExpressionKind::StructCtor(s) => visitor.visit_struct_ctor(s),
         ExpressionKind::Indice(indice) => visitor.visit_indice(indice),
         ExpressionKind::NativeOperation(op, left, right) => {
             visitor.visit_identifier(left);

@@ -15,6 +15,7 @@ pub struct Monomorphizer<'a> {
     pub body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
     pub generated_fn_hir_id: HashMap<(HirId, TypeSignature), HirId>, // (Old_fn_id, target_sig) => generated fn hir_id
     pub tmp_resolutions: BTreeMap<HirId, ResolutionMap<HirId>>,
+    pub structs: HashMap<String, StructDecl>,
 }
 
 impl<'a> Monomorphizer<'a> {
@@ -138,6 +139,7 @@ impl<'a> Monomorphizer<'a> {
         new_root.arena = crate::hir::collect_arena(&new_root);
         new_root.hir_map = self.root.hir_map.clone();
         new_root.spans = self.root.spans.clone();
+        new_root.structs = self.structs.clone(); // TODO: monomorphize that
         new_root.node_types = self.root.node_types.clone();
 
         new_root
@@ -374,6 +376,51 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
         self.visit_expression(&mut indice.op);
         self.visit_expression(&mut indice.value);
+    }
+
+    fn visit_struct_decl(&mut self, s: &'a mut StructDecl) {
+        let old_hir_id = s.hir_id.clone();
+
+        s.hir_id = self.duplicate_hir_id(&old_hir_id);
+
+        if let Some(t) = self.root.type_envs.get_type(&old_hir_id) {
+            self.root.node_types.insert(s.hir_id.clone(), t.clone());
+        }
+
+        self.trans_resolutions.insert(old_hir_id, s.hir_id.clone());
+
+        s.defs.iter().for_each(|p| {
+            let t = *s
+                .to_type()
+                .into_struct_type()
+                .defs
+                .get(&p.name.name)
+                .unwrap()
+                .clone();
+            self.root.node_types.insert(p.get_hir_id(), t.clone());
+            self.root.node_types.insert(p.name.get_hir_id(), t.clone());
+        });
+
+        self.structs.insert(s.name.get_name(), s.clone());
+    }
+
+    fn visit_struct_ctor(&mut self, s: &'a mut StructCtor) {
+        let old_hir_id = s.hir_id.clone();
+
+        let mut s_decl = self.root.structs.get(&s.name.get_name()).unwrap().clone();
+
+        // TODO: Do that once
+        self.visit_struct_decl(&mut s_decl);
+
+        s.hir_id = self.duplicate_hir_id(&old_hir_id);
+
+        if let Some(t) = self.root.type_envs.get_type(&old_hir_id) {
+            self.root.node_types.insert(s.hir_id.clone(), t.clone());
+        }
+
+        self.trans_resolutions.insert(old_hir_id, s.hir_id.clone());
+
+        walk_struct_ctor(self, s);
     }
 
     fn visit_identifier(&mut self, id: &'a mut Identifier) {

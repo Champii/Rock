@@ -1,5 +1,5 @@
-use std::convert::TryFrom;
 use std::convert::TryInto;
+use std::{cmp::Ordering, convert::TryFrom};
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -78,6 +78,17 @@ impl<'a> CodegenContext<'a> {
 
                 f2.get_type().ptr_type(AddressSpace::Generic).into()
             }
+            Type::Struct(s) => self
+                .context
+                .struct_type(
+                    s.defs
+                        .iter()
+                        .map(|(k, b)| self.lower_type(&(*b), builder).unwrap())
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                    false,
+                )
+                .into(),
             _ => unimplemented!("Codegen: Cannot lower type {:#?}", t),
         })
     }
@@ -136,6 +147,8 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<(), ()> {
         let mangled_name = f.get_name();
+
+        // FIXME: This should not happen, panic here or return an error instead
         if self.module.get_function(&mangled_name).is_some() {
             return Ok(());
         }
@@ -359,6 +372,7 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::Lit(l) => self.lower_literal(&l, builder)?,
             ExpressionKind::Identifier(id) => self.lower_identifier_path(&id, builder)?,
             ExpressionKind::FunctionCall(fc) => self.lower_function_call(fc, builder)?,
+            ExpressionKind::StructCtor(s) => self.lower_struct_ctor(s, builder)?,
             ExpressionKind::Indice(i) => self.lower_indice(i, builder)?,
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.lower_native_operation(op, left, right, builder)?
@@ -366,15 +380,78 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::Return(expr) => {
                 let val = self.lower_expression(expr, builder)?;
 
-                // if val.is_pointer_value() {
-                //     val = builder.build_load(val.into_pointer_value(), "deref");
-                // }
-
                 builder.build_return(Some(&val.as_basic_value_enum()));
 
                 val
             }
         })
+    }
+
+    pub fn lower_struct_ctor(
+        &mut self,
+        s: &'a StructCtor,
+        builder: &'a Builder,
+    ) -> Result<BasicValueEnum<'a>, ()> {
+        let t = self.hir.node_types.get(&s.get_hir_id()).unwrap();
+
+        let llvm_struct_t = self.lower_type(&t, builder).unwrap().into_struct_type();
+
+        let struct_t = t.into_struct_type();
+
+        // FIXME: types should be ordered already
+        let defs = struct_t
+            .defs
+            .iter()
+            .map(|(k, b)| {
+                let def = s
+                    .defs
+                    .iter()
+                    .find(|(k2, _b2)| k2.name == *k)
+                    .map(|(_k2, b2)| b2)
+                    .unwrap();
+
+                self.lower_expression(def, builder).unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        let struct_val = llvm_struct_t.const_named_struct(defs.as_slice());
+
+        Ok(struct_val.into())
+        // let terminal_hir_id = s.op.get_terminal_hir_id();
+
+        // let f_id = self.hir.resolutions.get(&terminal_hir_id).unwrap();
+
+        // let callable_value = match self.hir.get_top_level(f_id.clone()) {
+        //     Some(top) => CallableValue::try_from(match &top.kind {
+        //         TopLevelKind::Prototype(p) => {
+        //             self.module.get_function(&p.name.to_string()).unwrap()
+        //         }
+        //         TopLevelKind::Function(f) => {
+        //             self.module.get_function(&f.get_name().to_string()).unwrap()
+        //         }
+        //     })
+        //     .unwrap(),
+        //     None => CallableValue::try_from(
+        //         self.lower_expression(&fc.op, builder)?.into_pointer_value(),
+        //     )
+        //     .unwrap(),
+        // };
+
+        // let mut arguments = vec![];
+
+        // for arg in &fc.args {
+        //     arguments.push(self.lower_expression(&arg, builder)?);
+        // }
+
+        // Ok(builder
+        //     .build_call(
+        //         callable_value,
+        //         arguments.as_slice(),
+        //         format!("call_{}", fc.op.as_identifier().name).as_str(),
+        //     )
+        //     .try_as_basic_value()
+        //     .left()
+        //     .unwrap())
     }
 
     pub fn lower_function_call(

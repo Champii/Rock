@@ -15,6 +15,7 @@ pub struct AstLoweringContext {
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
     trait_methods: HashMap<String, HashMap<TypeSignature, hir::FunctionDecl>>,
+    structs: HashMap<String, hir::StructDecl>,
 }
 
 impl AstLoweringContext {
@@ -25,6 +26,7 @@ impl AstLoweringContext {
             bodies: BTreeMap::new(),
             traits: HashMap::new(),
             trait_methods: HashMap::new(),
+            structs: HashMap::new(),
             operators_list,
         }
     }
@@ -45,6 +47,7 @@ impl AstLoweringContext {
             traits: self.traits.clone(),
             trait_methods: self.trait_methods.clone(),
             spans: root.spans.clone(),
+            structs: self.structs.clone(),
         };
 
         hir.arena = hir::collect_arena(&hir);
@@ -78,6 +81,9 @@ impl AstLoweringContext {
             TopLevelKind::Trait(t) => {
                 self.lower_trait(t);
             }
+            TopLevelKind::Struct(s) => {
+                self.lower_struct_decl(s);
+            }
             TopLevelKind::Impl(i) => {
                 self.lower_impl(&i);
             }
@@ -85,6 +91,22 @@ impl AstLoweringContext {
             TopLevelKind::Infix(_, _) => (),
             TopLevelKind::Use(_u) => (),
         };
+    }
+
+    pub fn lower_struct_decl(&mut self, s: &StructDecl) -> hir::StructDecl {
+        let hir_t = hir::StructDecl {
+            hir_id: self.hir_map.next_hir_id(s.identity.clone()),
+            name: s.name.clone(),
+            defs: s
+                .defs
+                .iter()
+                .map(|proto| self.lower_prototype(&proto))
+                .collect(),
+        };
+
+        self.structs.insert(s.name.get_name(), hir_t.clone());
+
+        hir_t
     }
 
     pub fn lower_trait(&mut self, t: &Trait) -> hir::Trait {
@@ -109,8 +131,6 @@ impl AstLoweringContext {
 
             let mut types = vec![i.name.get_name()];
             types.extend(i.types.iter().map(|t| t.get_name()));
-
-            // hir_f.mangle(types.clone());
 
             let body = self.bodies.get_mut(&hir_f.body_id).unwrap();
             body.mangle(&types);
@@ -257,6 +277,7 @@ impl AstLoweringContext {
     pub fn lower_expression(&mut self, expr: &Expression) -> hir::Expression {
         match &expr.kind {
             ExpressionKind::UnaryExpr(unary) => self.lower_unary(&unary),
+            ExpressionKind::StructCtor(s) => self.lower_struct_ctor(&s),
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.lower_native_operation(&op, &left, &right)
             }
@@ -271,6 +292,17 @@ impl AstLoweringContext {
         }
     }
 
+    pub fn lower_struct_ctor(&mut self, s: &StructCtor) -> hir::Expression {
+        hir::Expression::new_struct_ctor(hir::StructCtor {
+            hir_id: self.hir_map.next_hir_id(s.identity.clone()),
+            name: s.name.clone(),
+            defs: s
+                .defs
+                .iter()
+                .map(|(k, expr)| (self.lower_identifier(k), self.lower_expression(expr)))
+                .collect(),
+        })
+    }
     pub fn lower_if(&mut self, r#if: &If) -> hir::If {
         hir::If {
             hir_id: self.hir_map.next_hir_id(r#if.identity.clone()),

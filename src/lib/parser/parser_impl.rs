@@ -246,6 +246,11 @@ impl Parse for TopLevel {
 
                 TopLevelKind::Impl(Impl::parse(ctx)?)
             }
+            TokenType::Struct => {
+                ctx.consume();
+
+                TopLevelKind::Struct(StructDecl::parse(ctx)?)
+            }
             TokenType::Mod => {
                 ctx.consume(); // mod keyword
 
@@ -311,6 +316,43 @@ impl Parse for TopLevel {
         Ok(TopLevel {
             kind,
             identity: Identity::new(token_id, token.span),
+        })
+    }
+}
+
+impl Parse for StructDecl {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
+
+        let mut defs = vec![];
+
+        ctx.save();
+
+        let name = try_or_restore!(Type::parse(ctx), ctx);
+
+        ctx.consume(); // EOL
+
+        loop {
+            if let TokenType::Indent(_) = ctx.cur_tok().t {
+                ctx.consume(); // indent
+
+                let f = Prototype::parse(ctx)?;
+
+                defs.push(f);
+
+                expect!(TokenType::EOL, ctx);
+            } else {
+                break;
+            }
+        }
+
+        ctx.save_pop();
+
+        Ok(StructDecl {
+            identity: Identity::new(token_id, token.span),
+            name,
+            defs,
         })
     }
 }
@@ -517,8 +559,9 @@ impl Parse for Body {
                         ctx.consume();
                     }
                 } else {
-                    ctx.restore();
-                    break;
+                    // Deactivated because of struct last EOF
+                    // ctx.restore();
+                    // break;
                 }
 
                 if ctx.cur_tok().t != TokenType::Indent(ctx.block_indent) {
@@ -701,6 +744,16 @@ impl Parse for Expression {
             });
         }
 
+        if let TokenType::Type(_) = ctx.cur_tok().t {
+            if let Ok(s) = StructCtor::parse(ctx) {
+                return Ok(Expression {
+                    kind: ExpressionKind::StructCtor(s),
+                });
+            } else {
+                println!("NOT A CTOR");
+            }
+        }
+
         let left = UnaryExpr::parse(ctx)?;
 
         let mut res = Expression {
@@ -724,6 +777,54 @@ impl Parse for Expression {
         res.kind = ExpressionKind::BinopExpr(left, op, Box::new(right));
 
         Ok(res)
+    }
+}
+
+impl Parse for StructCtor {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        let token_id = ctx.cur_tok_id;
+        let token = ctx.cur_tok();
+
+        let mut defs = HashMap::new();
+
+        ctx.save();
+
+        let name = try_or_restore!(Type::parse(ctx), ctx);
+
+        ctx.consume(); // EOL
+
+        let mut cur_indent = ctx.block_indent + 1;
+        loop {
+            if let TokenType::Indent(i) = ctx.cur_tok().t {
+                if i != cur_indent {
+                    break;
+                }
+
+                cur_indent = i;
+
+                ctx.consume(); // indent
+
+                let def_name = try_or_restore!(Identifier::parse(ctx), ctx);
+
+                expect_or_restore!(TokenType::SemiColon, ctx);
+
+                let expr = try_or_restore!(Expression::parse(ctx), ctx);
+
+                defs.insert(def_name, expr);
+
+                expect!(TokenType::EOL, ctx);
+            } else {
+                break;
+            }
+        }
+
+        ctx.save_pop();
+
+        Ok(StructCtor {
+            identity: Identity::new(token_id, token.span),
+            name,
+            defs,
+        })
     }
 }
 

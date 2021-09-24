@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{resolve::ResolutionMap, Type, TypeSignature},
+    ast::{resolve::ResolutionMap, StructType, Type, TypeSignature},
     ast_lowering::HirMap,
     hir::hir_id::*,
     parser::Span,
@@ -24,6 +24,7 @@ pub struct Root {
     pub top_levels: Vec<TopLevel>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub spans: HashMap<NodeId, Span>,
+    pub structs: HashMap<String, StructDecl>,
 }
 
 impl Root {
@@ -154,6 +155,45 @@ pub struct Impl {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StructDecl {
+    pub hir_id: HirId,
+    pub name: Type,
+    pub defs: Vec<Prototype>,
+}
+
+impl StructDecl {
+    pub fn to_type(&self) -> Type {
+        Type::Struct(StructType {
+            name: self.name.get_name(),
+            defs: self
+                .defs
+                .iter()
+                .map(|proto| {
+                    if proto.signature.args.is_empty() {
+                        (
+                            proto.name.name.clone(),
+                            Box::new(proto.signature.ret.clone()),
+                        )
+                    } else {
+                        (
+                            proto.name.name.clone(),
+                            Box::new(proto.signature.to_func_type()),
+                        )
+                    }
+                })
+                .collect(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StructCtor {
+    pub hir_id: HirId,
+    pub name: Type,
+    pub defs: BTreeMap<Identifier, Expression>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopLevel {
     pub kind: TopLevelKind,
     // pub hir_id: HirId,
@@ -258,7 +298,7 @@ impl IdentifierPath {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Identifier {
     pub hir_id: HirId,
     pub name: String,
@@ -411,6 +451,11 @@ impl Expression {
             kind: Box::new(ExpressionKind::FunctionCall(f)),
         }
     }
+    pub fn new_struct_ctor(s: StructCtor) -> Self {
+        Self {
+            kind: Box::new(ExpressionKind::StructCtor(s)),
+        }
+    }
     pub fn new_indice(f: Indice) -> Self {
         Self {
             kind: Box::new(ExpressionKind::Indice(f)),
@@ -427,6 +472,7 @@ impl Expression {
             ExpressionKind::Lit(l) => l.get_hir_id(),
             ExpressionKind::Identifier(i) => i.get_hir_id(),
             ExpressionKind::FunctionCall(fc) => fc.get_hir_id(),
+            ExpressionKind::StructCtor(s) => s.get_hir_id(),
             ExpressionKind::Indice(i) => i.get_hir_id(),
             ExpressionKind::NativeOperation(op, _left, _right) => op.get_hir_id(),
             ExpressionKind::Return(expr) => expr.get_hir_id(),
@@ -454,6 +500,7 @@ pub enum ExpressionKind {
     Lit(Literal),
     Identifier(IdentifierPath),
     FunctionCall(FunctionCall),
+    StructCtor(StructCtor),
     Indice(Indice),
     NativeOperation(NativeOperator, Identifier, Identifier),
     Return(Expression),

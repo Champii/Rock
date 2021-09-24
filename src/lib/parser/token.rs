@@ -17,7 +17,7 @@ pub enum TokenType {
     Else,
     For,
     In,
-    Class,
+    Struct,
     Infix,
     Trait,
     Impl,
