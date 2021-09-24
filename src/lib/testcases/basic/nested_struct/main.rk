@@ -1,0 +1,20 @@
+struct Bar
+  toto :: Int64
+
+struct Foo
+  bar :: Bar
+
+struct Toto
+  foo :: Foo
+
+main =
+  let b = Bar
+    toto: 42
+
+  let a = Foo
+    bar: b
+
+  let lol = Toto
+    foo: a
+
+  lol.foo.bar.toto

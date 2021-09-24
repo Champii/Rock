@@ -416,11 +416,15 @@ impl<'a> CodegenContext<'a> {
             })
             .collect::<Vec<_>>();
 
-        let struct_val = llvm_struct_t.const_named_struct(defs.as_slice());
+        let ptr = builder.build_alloca(llvm_struct_t, "struct_ptr");
 
-        let ptr = builder.build_alloca(llvm_struct_t, "struct");
+        for (i, def) in defs.iter().enumerate() {
+            let inner_ptr = builder
+                .build_struct_gep(ptr, i as u32, "struct_inner")
+                .unwrap();
 
-        builder.build_store(ptr, struct_val);
+            builder.build_store(inner_ptr, def.clone());
+        }
 
         Ok(ptr.into())
     }
@@ -523,7 +527,7 @@ impl<'a> CodegenContext<'a> {
         let i32_type = self.context.i32_type();
 
         let const_0 = i32_type.const_zero();
-        let indice = i32_type.const_int(indice as u64, true);
+        let indice = i32_type.const_int(indice as u64, false);
 
         let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "struct_index") };
 

@@ -62,12 +62,14 @@ impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
             Self::FuncType(f) => format!("{:?}", f),
+            Self::Struct(s) => format!("{:?}", s),
             _ => self.get_name().cyan().to_string(),
         };
 
         write!(f, "{}", s)
     }
 }
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.get_name())

@@ -103,6 +103,7 @@ pub struct Parser<'a> {
     save: Vec<TokenId>,
     pub block_indent: u8,
     func_sigs: HashMap<String, TypeSignature>,
+    pub struct_types: HashMap<String, StructDecl>,
 }
 
 impl<'a> Parser<'a> {
@@ -117,6 +118,7 @@ impl<'a> Parser<'a> {
             cur_tok_id: 0,
             block_indent: 0,
             func_sigs: HashMap::new(),
+            struct_types: HashMap::new(),
         }
     }
 
@@ -174,6 +176,10 @@ impl<'a> Parser<'a> {
 
     pub fn add_func_sig(&mut self, name: String, sig: TypeSignature) {
         self.func_sigs.insert(name, sig);
+    }
+
+    pub fn add_struct_type(&mut self, s: &StructDecl) {
+        self.struct_types.insert(s.name.get_name(), s.clone());
     }
 }
 
@@ -331,6 +337,9 @@ impl Parse for StructDecl {
 
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
+        // TODO: resolve type here ? else it is infered as Trait(name)
+        //
+
         ctx.consume(); // EOL
 
         loop {
@@ -349,11 +358,15 @@ impl Parse for StructDecl {
 
         ctx.save_pop();
 
-        Ok(StructDecl {
+        let struct_decl = StructDecl {
             identity: Identity::new(token_id, token.span),
             name,
             defs,
-        })
+        };
+
+        ctx.add_struct_type(&struct_decl);
+
+        Ok(struct_decl)
     }
 }
 
@@ -1177,6 +1190,9 @@ impl Parse for Type {
             if let Some(prim) = PrimitiveType::from_name(&token.txt) {
                 return Ok(Type::Primitive(prim));
             } else {
+                if let Some(s) = ctx.struct_types.get(&token.txt) {
+                    return Ok(s.to_type());
+                }
                 return Ok(Type::Trait(token.txt));
             }
         } else if token.txt.len() == 1 && token.txt.chars().nth(0).unwrap().is_lowercase() {

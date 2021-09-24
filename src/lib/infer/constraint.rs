@@ -341,8 +341,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             self.envs
                 .set_type(&p.get_hir_id(), &struct_t.defs.get(&k.name).unwrap());
         });
-
-        // walk_struct_ctor(self, s);
     }
 
     fn visit_body(&mut self, body: &'a Body) {
@@ -490,38 +488,25 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     t @ Type::Struct(struct_t) => {
                         self.envs.set_type(&d.op.get_hir_id(), &t);
 
-                        self.envs.set_type(
-                            &d.value.get_hir_id(),
-                            &struct_t.defs.get(&d.value.name).unwrap(),
-                        );
-
                         self.envs
-                            .set_type_eq(&d.get_hir_id(), &d.value.get_hir_id());
+                            .set_type(&d.get_hir_id(), &struct_t.defs.get(&d.value.name).unwrap());
+
+                        self.envs.set_type_eq(&d.hir_id, &d.value.get_hir_id());
                     }
                     other => self
                         .envs
                         .diagnostics
                         .push_error(Diagnostic::new_type_conflict(
                             self.envs.spans.get(&d.value.get_hir_id()).unwrap().clone(),
-                            Type::Primitive(PrimitiveType::Array(Box::new(value_t.clone()), 0)),
+                            value_t.clone(),
                             other.clone(),
-                            Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
+                            value_t,
                             other.clone(),
                         )),
                 }
             }
         }
     }
-
-    // fn visit_struct_ctor(&mut self, s: &StructCtor) {
-    //     let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
-
-    //     self.visit_struct_decl(s_decl);
-
-    //     self.envs.set_type(&s.hir_id, &s_decl.to_type());
-
-    //     // println!("Struct ctor {:#?}", s);
-    // }
 
     fn visit_literal(&mut self, lit: &Literal) {
         let t = match &lit.kind {
