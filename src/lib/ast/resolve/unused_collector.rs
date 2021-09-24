@@ -48,7 +48,7 @@ impl<'a> Visitor<'a> for UnusedCollector {
                     }
                 }
                 TopLevelKind::Impl(_i) => {}
-                TopLevelKind::Struct(s) => {}
+                TopLevelKind::Struct(_s) => {}
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {

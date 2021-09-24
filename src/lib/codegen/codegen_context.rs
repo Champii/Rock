@@ -1,5 +1,5 @@
 use std::convert::TryInto;
-use std::{cmp::Ordering, convert::TryFrom};
+use std::{convert::TryFrom};
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -83,7 +83,7 @@ impl<'a> CodegenContext<'a> {
                 .struct_type(
                     s.defs
                         .iter()
-                        .map(|(k, b)| self.lower_type(&(*b), builder).unwrap())
+                        .map(|(_k, b)| self.lower_type(&(*b), builder).unwrap())
                         .collect::<Vec<_>>()
                         .as_slice(),
                     false,
@@ -404,7 +404,7 @@ impl<'a> CodegenContext<'a> {
         let defs = struct_t
             .defs
             .iter()
-            .map(|(k, b)| {
+            .map(|(k, _b)| {
                 let def = s
                     .defs
                     .iter()
@@ -520,7 +520,7 @@ impl<'a> CodegenContext<'a> {
             .defs
             .iter()
             .enumerate()
-            .find(|(i, (k, _v))| **k == dot.value.name)
+            .find(|(_i, (k, _v))| **k == dot.value.name)
             .map(|(i, _)| i)
             .unwrap();
 

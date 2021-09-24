@@ -1,6 +1,6 @@
 use colored::*;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap},
     fmt,
 };
 
