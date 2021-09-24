@@ -364,7 +364,7 @@ impl<'a> CodegenContext<'a> {
                 self.lower_native_operation(op, left, right, builder)?
             }
             ExpressionKind::Return(expr) => {
-                let mut val = self.lower_expression(expr, builder)?;
+                let val = self.lower_expression(expr, builder)?;
 
                 // if val.is_pointer_value() {
                 //     val = builder.build_load(val.into_pointer_value(), "deref");
