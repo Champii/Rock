@@ -34,6 +34,7 @@ generate_visitor_mut_trait!(
     Prototype, prototype
     FunctionDecl, function_decl
     Assign, assign
+    AssignLeftSide, assign_left_side
     ArgumentDecl, argument_decl
     IdentifierPath, identifier_path
     Identifier, identifier
@@ -137,8 +138,18 @@ pub fn walk_statement<'a, V: VisitorMut<'a>>(visitor: &mut V, statement: &'a mut
     }
 }
 
+pub fn walk_assign_left_side<'a, V: VisitorMut<'a>>(
+    visitor: &mut V,
+    assign_left: &'a mut AssignLeftSide,
+) {
+    match assign_left {
+        AssignLeftSide::Identifier(id) => visitor.visit_identifier(id),
+        AssignLeftSide::Indice(expr) => visitor.visit_indice(expr),
+    }
+}
+
 pub fn walk_assign<'a, V: VisitorMut<'a>>(visitor: &mut V, assign: &'a mut Assign) {
-    visitor.visit_identifier(&mut assign.name);
+    visitor.visit_assign_left_side(&mut assign.name);
     visitor.visit_expression(&mut assign.value);
 }
 

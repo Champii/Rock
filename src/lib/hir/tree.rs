@@ -334,10 +334,25 @@ pub enum StatementKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AssignLeftSide {
+    Identifier(Identifier),
+    Indice(Indice),
+}
+
+impl AssignLeftSide {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        match &self {
+            AssignLeftSide::Indice(e) => e.get_hir_id(),
+            AssignLeftSide::Identifier(a) => a.get_hir_id(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Assign {
-    // pub hir_id: HirId,
-    pub name: Identifier,
+    pub name: AssignLeftSide,
     pub value: Expression,
+    pub is_let: bool,
 }
 
 impl Assign {

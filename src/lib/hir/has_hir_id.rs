@@ -49,6 +49,7 @@ macro_rules! impl_indirect_get_hir_id_trait {
 impl_indirect_get_hir_id_trait!(
     TopLevel
     Assign
+    AssignLeftSide
     ArgumentDecl
     IdentifierPath
     FnBody

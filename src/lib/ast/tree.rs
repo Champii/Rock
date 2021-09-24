@@ -310,10 +310,26 @@ pub enum StatementKind {
 }
 
 #[derive(Debug, Clone)]
+pub enum AssignLeftSide {
+    Identifier(Identifier),
+    Indice(Expression),
+}
+// impl AssignLeftSide {
+//     pub fn get_node_id(&self) -> NodeId {
+//         use AssignLeftSide::*;
+
+//         match self {
+//             Identifier(id) => id.identity.node_id,
+//             Indice(expr) => expr.,
+//         }
+//     }
+// }
+
+#[derive(Debug, Clone)]
 pub struct Assign {
-    // pub identity: Identity,
-    pub name: Identifier,
+    pub name: AssignLeftSide,
     pub value: Expression,
+    pub is_let: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -357,6 +373,13 @@ impl Expression {
         }
     }
 
+    pub fn is_indice(&self) -> bool {
+        match &self.kind {
+            ExpressionKind::UnaryExpr(unary) => unary.is_indice(),
+            _ => false,
+        }
+    }
+
     pub fn from_unary(unary: &UnaryExpr) -> Expression {
         Expression {
             kind: ExpressionKind::UnaryExpr(unary.clone()),
@@ -376,6 +399,7 @@ impl Expression {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
     BinopExpr(UnaryExpr, Operator, Box<Expression>),
@@ -405,6 +429,13 @@ impl UnaryExpr {
         }
     }
 
+    pub fn is_indice(&self) -> bool {
+        match self {
+            UnaryExpr::UnaryExpr(_, unary) => unary.is_indice(),
+            UnaryExpr::PrimaryExpr(prim) => prim.is_indice(),
+        }
+    }
+
     pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> UnaryExpr {
         UnaryExpr::PrimaryExpr(PrimaryExpr {
             identity: Identity::new_placeholder(),
@@ -430,6 +461,14 @@ pub struct PrimaryExpr {
 impl PrimaryExpr {
     pub fn has_secondaries(&self) -> bool {
         self.secondaries.is_some()
+    }
+
+    pub fn is_indice(&self) -> bool {
+        if let Some(secondaries) = &self.secondaries {
+            secondaries.iter().any(|secondary| secondary.is_indice())
+        } else {
+            false
+        }
     }
 }
 
@@ -477,6 +516,14 @@ impl OperandKind {
 pub enum SecondaryExpr {
     Arguments(Vec<Argument>),
     Indice(Expression),
+}
+impl SecondaryExpr {
+    pub fn is_indice(&self) -> bool {
+        match self {
+            SecondaryExpr::Indice(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

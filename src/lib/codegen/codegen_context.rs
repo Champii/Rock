@@ -270,8 +270,17 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<AnyValueEnum<'a>, ()> {
         let value = self.lower_expression(&assign.value, builder)?;
 
-        self.scopes
-            .add(assign.name.hir_id.clone(), value.as_basic_value_enum());
+        match &assign.name {
+            AssignLeftSide::Identifier(id) => {
+                self.scopes
+                    .add(id.get_hir_id(), value.as_basic_value_enum());
+            }
+            AssignLeftSide::Indice(indice) => {
+                let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
+
+                builder.build_store(ptr, value);
+            }
+        }
 
         Ok(value.as_any_value_enum())
     }
@@ -357,6 +366,10 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::Return(expr) => {
                 let val = self.lower_expression(expr, builder)?;
 
+                // if val.is_pointer_value() {
+                //     val = builder.build_load(val.into_pointer_value(), "deref");
+                // }
+
                 builder.build_return(Some(&val.as_basic_value_enum()));
 
                 val
@@ -406,7 +419,7 @@ impl<'a> CodegenContext<'a> {
             .unwrap())
     }
 
-    pub fn lower_indice(
+    pub fn lower_indice_ptr(
         &mut self,
         indice: &'a Indice,
         builder: &'a Builder,
@@ -424,8 +437,18 @@ impl<'a> CodegenContext<'a> {
         let const_0 = i64_type.const_zero();
 
         let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "index") };
+        // builder.build_load(ptr, "load_indice");
+        Ok(ptr.as_basic_value_enum())
+    }
 
-        Ok(builder.build_load(ptr, "load_indice").as_basic_value_enum())
+    pub fn lower_indice(
+        &mut self,
+        indice: &'a Indice,
+        builder: &'a Builder,
+    ) -> Result<BasicValueEnum<'a>, ()> {
+        let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
+
+        Ok(builder.build_load(ptr, "load_indice"))
     }
 
     pub fn lower_literal(
