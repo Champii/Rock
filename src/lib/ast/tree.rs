@@ -532,6 +532,7 @@ impl OperandKind {
 pub enum SecondaryExpr {
     Arguments(Vec<Argument>),
     Indice(Expression),
+    Dot(Identifier),
 }
 impl SecondaryExpr {
     pub fn is_indice(&self) -> bool {

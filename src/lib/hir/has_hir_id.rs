@@ -28,6 +28,7 @@ impl_direct_get_hir_id_trait!(
     FunctionCall
     StructCtor
     Indice
+    Dot
     Literal
     NativeOperator
 );

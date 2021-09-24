@@ -232,6 +232,9 @@ pub fn walk_secondary_expr<'a, V: Visitor<'a>>(visitor: &mut V, secondary: &'a S
         SecondaryExpr::Indice(expr) => {
             visitor.visit_expression(expr);
         }
+        SecondaryExpr::Dot(expr) => {
+            visitor.visit_identifier(expr);
+        }
     }
 }
 

@@ -105,6 +105,10 @@ fn testcases_basic_recur_main() {
     run("testcases/basic/recur/main.rk", include_str!("testcases/basic/recur/main.rk"), include_str!("testcases/basic/recur/main.rk.out"));
 }
 #[test]
+fn testcases_basic_struct_index_main() {
+    run("testcases/basic/struct_index/main.rk", include_str!("testcases/basic/struct_index/main.rk"), include_str!("testcases/basic/struct_index/main.rk.out"));
+}
+#[test]
 fn testcases_basic_nested_array_main() {
     run("testcases/basic/nested_array/main.rk", include_str!("testcases/basic/nested_array/main.rk"), include_str!("testcases/basic/nested_array/main.rk.out"));
 }

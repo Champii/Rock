@@ -369,6 +369,11 @@ impl AstLoweringContext {
                 op,
                 value: self.lower_expression(expr),
             }),
+            SecondaryExpr::Dot(expr) => hir::Expression::new_dot(hir::Dot {
+                hir_id: self.hir_map.next_hir_id(identity.clone()),
+                op,
+                value: self.lower_identifier(expr),
+            }),
         }
     }
 

@@ -314,12 +314,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_struct_decl(&mut self, s: &StructDecl) {
-        // self.envs.set_type(&s.hir_id, &s.signature.to_func_type());
-
-        // self.tmp_resolutions
-        //     .get_mut(&self.envs.get_current_fn().0)
-        //     .unwrap()
-        //     .insert(s.name.hir_id.clone(), s.hir_id.clone());
         let t = s.to_type();
 
         self.envs.set_type(&s.hir_id, &t);
@@ -330,17 +324,9 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             self.envs
                 .set_type(&p.hir_id, &struct_t.defs.get(&p.name.name).unwrap());
         });
-
-        // walk_struct_decl(self, s);
     }
+
     fn visit_struct_ctor(&mut self, s: &StructCtor) {
-        // self.envs.set_type(&s.hir_id, &s.signature.to_func_type());
-
-        // self.tmp_resolutions
-        //     .get_mut(&self.envs.get_current_fn().0)
-        //     .unwrap()
-        //     .insert(s.name.hir_id.clone(), s.hir_id.clone());
-
         let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
 
         self.visit_struct_decl(&s_decl);
@@ -491,6 +477,36 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                             other.clone(),
                             Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
                             other,
+                        )),
+                }
+            }
+            ExpressionKind::Dot(d) => {
+                self.visit_expression(&d.op);
+                self.visit_identifier(&d.value);
+
+                let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();
+
+                match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
+                    t @ Type::Struct(struct_t) => {
+                        self.envs.set_type(&d.op.get_hir_id(), &t);
+
+                        self.envs.set_type(
+                            &d.value.get_hir_id(),
+                            &struct_t.defs.get(&d.value.name).unwrap(),
+                        );
+
+                        self.envs
+                            .set_type_eq(&d.get_hir_id(), &d.value.get_hir_id());
+                    }
+                    other => self
+                        .envs
+                        .diagnostics
+                        .push_error(Diagnostic::new_type_conflict(
+                            self.envs.spans.get(&d.value.get_hir_id()).unwrap().clone(),
+                            Type::Primitive(PrimitiveType::Array(Box::new(value_t.clone()), 0)),
+                            other.clone(),
+                            Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
+                            other.clone(),
                         )),
                 }
             }

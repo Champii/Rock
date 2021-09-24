@@ -48,6 +48,7 @@ generate_visitor_mut_trait!(
     FunctionCall, function_call
     StructCtor, struct_ctor
     Indice, indice
+    Dot, dot
     Literal, literal
     Array, array
     NativeOperator, native_operator
@@ -178,6 +179,7 @@ pub fn walk_expression<'a, V: VisitorMut<'a>>(visitor: &mut V, expr: &'a mut Exp
         ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(fc),
         ExpressionKind::StructCtor(s) => visitor.visit_struct_ctor(s),
         ExpressionKind::Indice(indice) => visitor.visit_indice(indice),
+        ExpressionKind::Dot(dot) => visitor.visit_dot(dot),
         ExpressionKind::NativeOperation(op, left, right) => {
             visitor.visit_identifier(left);
             visitor.visit_identifier(right);
@@ -196,6 +198,11 @@ pub fn walk_function_call<'a, V: VisitorMut<'a>>(visitor: &mut V, fc: &'a mut Fu
 pub fn walk_indice<'a, V: VisitorMut<'a>>(visitor: &mut V, indice: &'a mut Indice) {
     visitor.visit_expression(&mut indice.op);
     visitor.visit_expression(&mut indice.value);
+}
+
+pub fn walk_dot<'a, V: VisitorMut<'a>>(visitor: &mut V, dot: &'a mut Dot) {
+    visitor.visit_expression(&mut dot.op);
+    visitor.visit_identifier(&mut dot.value);
 }
 
 pub fn walk_literal<'a, V: VisitorMut<'a>>(visitor: &mut V, literal: &'a mut Literal) {

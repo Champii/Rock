@@ -466,6 +466,11 @@ impl Expression {
             kind: Box::new(ExpressionKind::NativeOperation(op, left, right)),
         }
     }
+    pub fn new_dot(dot: Dot) -> Self {
+        Self {
+            kind: Box::new(ExpressionKind::Dot(dot)),
+        }
+    }
 
     pub fn get_terminal_hir_id(&self) -> HirId {
         match &*self.kind {
@@ -474,6 +479,7 @@ impl Expression {
             ExpressionKind::FunctionCall(fc) => fc.get_hir_id(),
             ExpressionKind::StructCtor(s) => s.get_hir_id(),
             ExpressionKind::Indice(i) => i.get_hir_id(),
+            ExpressionKind::Dot(d) => d.get_hir_id(),
             ExpressionKind::NativeOperation(op, _left, _right) => op.get_hir_id(),
             ExpressionKind::Return(expr) => expr.get_hir_id(),
         }
@@ -502,8 +508,16 @@ pub enum ExpressionKind {
     FunctionCall(FunctionCall),
     StructCtor(StructCtor),
     Indice(Indice),
+    Dot(Dot),
     NativeOperation(NativeOperator, Identifier, Identifier),
     Return(Expression),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Dot {
+    pub hir_id: HirId,
+    pub op: Expression,
+    pub value: Identifier,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

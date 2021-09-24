@@ -941,7 +941,18 @@ impl Parse for SecondaryExpr {
                 expect_or_restore!(TokenType::CloseArray, ctx);
 
                 ctx.save_pop();
+
                 return Ok(SecondaryExpr::Indice(expr));
+            }
+        } else if TokenType::Dot == ctx.cur_tok().t {
+            ctx.save();
+
+            ctx.consume();
+
+            if let Ok(expr) = Identifier::parse(ctx) {
+                ctx.save_pop();
+
+                return Ok(SecondaryExpr::Dot(expr));
             }
         } else {
             if let Ok(args) = Arguments::parse(ctx) {
