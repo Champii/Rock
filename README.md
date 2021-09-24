@@ -1,6 +1,6 @@
-# Rock v0.1.5-reassign
+# Rock v0.1.5-develop
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=reassign)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -36,10 +36,10 @@ How to install and run the compiler:
 
 ### Using released binary
 
-[Rock v0.1.5-reassign](https://github.com/Champii/Rock/releases/download/v0.1.5-reassign/rock) (Tested on arch linux)
+[Rock v0.1.5-develop](https://github.com/Champii/Rock/releases/download/v0.1.5-develop/rock) (Tested on arch linux)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.5-reassign/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.5-develop/rock
 chmod +x rock
 ./rock -V
 ```
