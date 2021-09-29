@@ -1,0 +1,10 @@
+struct Foo
+  foo :: Int64
+
+main =
+  let inst = Foo
+    foo: 5
+
+  inst.foo = 42
+
+  inst.foo

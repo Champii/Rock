@@ -1,0 +1,10 @@
+struct Foo
+  bar :: Int64
+  toto :: String
+
+main =
+  let a = Foo
+    bar: 42
+    toto: "lol"
+  let b = a.bar
+  b

@@ -48,6 +48,7 @@ impl<'a> Visitor<'a> for UnusedCollector {
                     }
                 }
                 TopLevelKind::Impl(_i) => {}
+                TopLevelKind::Struct(_s) => {}
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {
@@ -69,6 +70,7 @@ impl<'a> Visitor<'a> for UnusedCollector {
             TopLevelKind::Use(_u) => (),
             TopLevelKind::Trait(t) => self.visit_trait(&t),
             TopLevelKind::Impl(i) => self.visit_impl(&i),
+            TopLevelKind::Struct(i) => self.visit_struct_decl(&i),
             TopLevelKind::Mod(name, m) => {
                 self.visit_identifier(&name);
                 self.visit_mod(&m);

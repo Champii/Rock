@@ -61,8 +61,20 @@ fn testcases_basic_monomorph_in_trait_main() {
     run("testcases/basic/monomorph_in_trait/main.rk", include_str!("testcases/basic/monomorph_in_trait/main.rk"), include_str!("testcases/basic/monomorph_in_trait/main.rk.out"));
 }
 #[test]
+fn testcases_basic_trait_use_before_decl_main() {
+    run("testcases/basic/trait_use_before_decl/main.rk", include_str!("testcases/basic/trait_use_before_decl/main.rk"), include_str!("testcases/basic/trait_use_before_decl/main.rk.out"));
+}
+#[test]
 fn testcases_basic_array_main() {
     run("testcases/basic/array/main.rk", include_str!("testcases/basic/array/main.rk"), include_str!("testcases/basic/array/main.rk.out"));
+}
+#[test]
+fn testcases_basic_nested_struct_main() {
+    run("testcases/basic/nested_struct/main.rk", include_str!("testcases/basic/nested_struct/main.rk"), include_str!("testcases/basic/nested_struct/main.rk.out"));
+}
+#[test]
+fn testcases_basic_simple_struct_main() {
+    run("testcases/basic/simple_struct/main.rk", include_str!("testcases/basic/simple_struct/main.rk"), include_str!("testcases/basic/simple_struct/main.rk.out"));
 }
 #[test]
 fn testcases_basic_reassign_main() {
@@ -71,6 +83,10 @@ fn testcases_basic_reassign_main() {
 #[test]
 fn testcases_basic_indice_assign_main() {
     run("testcases/basic/indice_assign/main.rk", include_str!("testcases/basic/indice_assign/main.rk"), include_str!("testcases/basic/indice_assign/main.rk.out"));
+}
+#[test]
+fn testcases_basic_dot_assign_main() {
+    run("testcases/basic/dot_assign/main.rk", include_str!("testcases/basic/dot_assign/main.rk"), include_str!("testcases/basic/dot_assign/main.rk.out"));
 }
 #[test]
 fn testcases_basic_extern_main() {
@@ -99,6 +115,10 @@ fn testcases_basic_fn_arg_main() {
 #[test]
 fn testcases_basic_recur_main() {
     run("testcases/basic/recur/main.rk", include_str!("testcases/basic/recur/main.rk"), include_str!("testcases/basic/recur/main.rk.out"));
+}
+#[test]
+fn testcases_basic_struct_index_main() {
+    run("testcases/basic/struct_index/main.rk", include_str!("testcases/basic/struct_index/main.rk"), include_str!("testcases/basic/struct_index/main.rk.out"));
 }
 #[test]
 fn testcases_basic_nested_array_main() {

@@ -35,6 +35,7 @@ generate_visitor_trait!(
     AssignLeftSide, assign_left_side
     Prototype, prototype
     FunctionDecl, function_decl
+    StructDecl, struct_decl
     ArgumentDecl, argument_decl
     IdentifierPath, identifier_path
     Identifier, identifier
@@ -45,7 +46,9 @@ generate_visitor_trait!(
     If, r#if
     Else, r#else
     FunctionCall, function_call
+    StructCtor, struct_ctor
     Indice, indice
+    Dot, dot
     Literal, literal
     Array, array
     NativeOperator, native_operator
@@ -55,6 +58,10 @@ generate_visitor_trait!(
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     walk_list!(visitor, visit_top_level, &root.top_levels);
+
+    for (_, r#struct) in &root.structs {
+        visitor.visit_struct_decl(r#struct);
+    }
 
     for (_, r#trait) in &root.traits {
         visitor.visit_trait(r#trait);
@@ -72,6 +79,12 @@ pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLev
         TopLevelKind::Prototype(p) => visitor.visit_prototype(&p),
         TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
     };
+}
+
+pub fn walk_struct_decl<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructDecl) {
+    visitor.visit_type(&s.name);
+
+    walk_list!(visitor, visit_prototype, &s.defs);
 }
 
 pub fn walk_trait<'a, V: Visitor<'a>>(visitor: &mut V, t: &'a Trait) {
@@ -127,6 +140,7 @@ pub fn walk_assign_left_side<'a, V: Visitor<'a>>(visitor: &mut V, assign_left: &
     match assign_left {
         AssignLeftSide::Identifier(id) => visitor.visit_identifier(id),
         AssignLeftSide::Indice(expr) => visitor.visit_indice(expr),
+        AssignLeftSide::Dot(expr) => visitor.visit_dot(expr),
     }
 }
 
@@ -148,7 +162,9 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
         ExpressionKind::Lit(lit) => visitor.visit_literal(&lit),
         ExpressionKind::Identifier(id) => visitor.visit_identifier_path(&id),
         ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(&fc),
+        ExpressionKind::StructCtor(s) => visitor.visit_struct_ctor(&s),
         ExpressionKind::Indice(indice) => visitor.visit_indice(indice),
+        ExpressionKind::Dot(dot) => visitor.visit_dot(dot),
         ExpressionKind::NativeOperation(op, left, right) => {
             visitor.visit_native_operator(&op);
             visitor.visit_identifier(&left);
@@ -158,10 +174,21 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
     }
 }
 
+pub fn walk_struct_ctor<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructCtor) {
+    visitor.visit_type(&s.name);
+
+    walk_map!(visitor, visit_expression, &s.defs);
+}
+
 pub fn walk_function_call<'a, V: Visitor<'a>>(visitor: &mut V, fc: &'a FunctionCall) {
     visitor.visit_expression(&fc.op);
 
     walk_list!(visitor, visit_expression, &fc.args);
+}
+
+pub fn walk_dot<'a, V: Visitor<'a>>(visitor: &mut V, dot: &'a Dot) {
+    visitor.visit_expression(&dot.op);
+    visitor.visit_identifier(&dot.value);
 }
 
 pub fn walk_indice<'a, V: Visitor<'a>>(visitor: &mut V, indice: &'a Indice) {

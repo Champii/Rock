@@ -1,6 +1,6 @@
-# Rock v0.1.5-develop
+# Rock v0.1.5-structs
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=structs)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -14,6 +14,7 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
+- [Showcases]( #showcases )
 
 ## Features
 
@@ -36,10 +37,10 @@ How to install and run the compiler:
 
 ### Using released binary
 
-[Rock v0.1.5-develop](https://github.com/Champii/Rock/releases/download/v0.1.5-develop/rock) (Tested on arch linux)
+[Rock v0.1.5-structs](https://github.com/Champii/Rock/releases/download/v0.1.5-structs/rock) (Tested on arch linux)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.5-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.5-structs/rock
 chmod +x rock
 ./rock -V
 ```
@@ -101,3 +102,77 @@ Should output
 24
 ```
 
+## Showcases
+
+### Custom infix operator
+
+``` haskell
+mod lib
+
+use lib::prelude::*
+
+infix |> 1
+|> x f = f x
+
+f a = a + 2
+
+main = print (4 |> f)
+```
+
+``` sh
+rock run
+```
+
+Prints `6\n`
+
+### Trait definition
+
+This `trait ToString` is redondant with the `trait Show` implemented in the lib, and serves as a demonstration only
+
+``` haskell
+mod lib
+
+use lib::prelude::*
+
+trait ToString a
+  toString :: a -> String
+
+impl ToString Int64
+  toString x = show x
+
+impl ToString Float64
+  toString x = show x
+
+main =
+  print toString 33
+  print toString 42.42
+
+```
+
+### Struct instance and Show implementation
+
+``` haskell
+mod lib
+
+use lib::prelude::*
+
+struct Player
+  level :: Int64
+  name :: String
+
+impl Show Player
+  show p = show p.name
+
+main =
+  let player = Player
+    level: 42
+    name: "MyName"
+
+  print player
+```
+
+``` sh
+rock run
+```
+
+Prints `MyName\n`

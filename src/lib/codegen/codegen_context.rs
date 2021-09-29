@@ -78,6 +78,18 @@ impl<'a> CodegenContext<'a> {
 
                 f2.get_type().ptr_type(AddressSpace::Generic).into()
             }
+            Type::Struct(s) => self
+                .context
+                .struct_type(
+                    s.defs
+                        .iter()
+                        .map(|(_k, b)| self.lower_type(&(*b), builder).unwrap())
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic)
+                .into(),
             _ => unimplemented!("Codegen: Cannot lower type {:#?}", t),
         })
     }
@@ -136,6 +148,8 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<(), ()> {
         let mangled_name = f.get_name();
+
+        // FIXME: This should not happen, panic here or return an error instead
         if self.module.get_function(&mangled_name).is_some() {
             return Ok(());
         }
@@ -280,6 +294,11 @@ impl<'a> CodegenContext<'a> {
 
                 builder.build_store(ptr, value);
             }
+            AssignLeftSide::Dot(dot) => {
+                let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
+
+                builder.build_store(ptr, value);
+            }
         }
 
         Ok(value.as_any_value_enum())
@@ -359,22 +378,60 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::Lit(l) => self.lower_literal(&l, builder)?,
             ExpressionKind::Identifier(id) => self.lower_identifier_path(&id, builder)?,
             ExpressionKind::FunctionCall(fc) => self.lower_function_call(fc, builder)?,
+            ExpressionKind::StructCtor(s) => self.lower_struct_ctor(s, builder)?,
             ExpressionKind::Indice(i) => self.lower_indice(i, builder)?,
+            ExpressionKind::Dot(d) => self.lower_dot(d, builder)?,
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.lower_native_operation(op, left, right, builder)?
             }
             ExpressionKind::Return(expr) => {
                 let val = self.lower_expression(expr, builder)?;
 
-                // if val.is_pointer_value() {
-                //     val = builder.build_load(val.into_pointer_value(), "deref");
-                // }
-
                 builder.build_return(Some(&val.as_basic_value_enum()));
 
                 val
             }
         })
+    }
+
+    pub fn lower_struct_ctor(
+        &mut self,
+        s: &'a StructCtor,
+        builder: &'a Builder,
+    ) -> Result<BasicValueEnum<'a>, ()> {
+        let t = self.hir.node_types.get(&s.get_hir_id()).unwrap();
+        let struct_t = t.into_struct_type();
+
+        let llvm_struct_t_ptr = self.lower_type(&t, builder).unwrap().into_pointer_type();
+        let llvm_struct_t = llvm_struct_t_ptr.get_element_type().into_struct_type();
+
+        // FIXME: types should be ordered already
+        let defs = struct_t
+            .defs
+            .iter()
+            .map(|(k, _b)| {
+                let def = s
+                    .defs
+                    .iter()
+                    .find(|(k2, _b2)| k2.name == *k)
+                    .map(|(_k2, b2)| b2)
+                    .unwrap();
+
+                self.lower_expression(def, builder).unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        let ptr = builder.build_alloca(llvm_struct_t, "struct_ptr");
+
+        for (i, def) in defs.iter().enumerate() {
+            let inner_ptr = builder
+                .build_struct_gep(ptr, i as u32, "struct_inner")
+                .unwrap();
+
+            builder.build_store(inner_ptr, def.clone());
+        }
+
+        Ok(ptr.into())
     }
 
     pub fn lower_function_call(
@@ -449,6 +506,47 @@ impl<'a> CodegenContext<'a> {
         let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
 
         Ok(builder.build_load(ptr, "load_indice"))
+    }
+
+    pub fn lower_dot_ptr(
+        &mut self,
+        dot: &'a Dot,
+        builder: &'a Builder,
+    ) -> Result<BasicValueEnum<'a>, ()> {
+        let op = self
+            .lower_expression(&dot.op, builder)?
+            .into_pointer_value();
+
+        let t = self.hir.node_types.get(&dot.op.get_hir_id()).unwrap();
+
+        let struct_t = t.into_struct_type();
+
+        let indice = struct_t
+            .defs
+            .iter()
+            .enumerate()
+            .find(|(_i, (k, _v))| **k == dot.value.name)
+            .map(|(i, _)| i)
+            .unwrap();
+
+        let i32_type = self.context.i32_type();
+
+        let const_0 = i32_type.const_zero();
+        let indice = i32_type.const_int(indice as u64, false);
+
+        let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "struct_index") };
+
+        Ok(ptr.as_basic_value_enum())
+    }
+
+    pub fn lower_dot(
+        &mut self,
+        dot: &'a Dot,
+        builder: &'a Builder,
+    ) -> Result<BasicValueEnum<'a>, ()> {
+        let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
+
+        Ok(builder.build_load(ptr, "load_dot"))
     }
 
     pub fn lower_literal(

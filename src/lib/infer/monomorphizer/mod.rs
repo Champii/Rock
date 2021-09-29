@@ -20,6 +20,7 @@ pub fn monomophize(
         old_ordered_resolutions: HashMap::new(),
         body_arguments: BTreeMap::new(),
         generated_fn_hir_id: HashMap::new(),
+        structs: HashMap::new(),
         tmp_resolutions,
     }
     .run()

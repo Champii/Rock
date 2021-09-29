@@ -2,7 +2,7 @@ extern malloc :: Int64 -> String
 extern strlen :: String -> Int64
 extern strcpy :: String -> String -> Int64
 extern sprintf :: String -> String -> Int64 -> Int64
-extern fcvt :: Float64 -> Int64 -> String -> String -> String
+extern gcvt :: Float64 -> Int64 -> String -> String -> String
 
 itoa a =
     let s = malloc 10
@@ -10,7 +10,7 @@ itoa a =
     s
 
 ftoa c =
-    fcvt c, 10, (malloc 4), (malloc 4)
+    gcvt c, 10, (malloc 4), (malloc 4)
 
 trait Show a
     show :: a -> String

@@ -75,7 +75,7 @@ impl<'a> Lexer<'a> {
             Self::try_else_keyword,
             Self::try_then_keyword,
             Self::try_for_keyword,
-            Self::try_class_keyword,
+            Self::try_struct_keyword,
             Self::try_infix_keyword,
             Self::try_use_keyword,
             Self::try_trait_keyword,
@@ -235,8 +235,8 @@ impl<'a> Lexer<'a> {
         self.match_consume("for", TokenType::For, Sep::WS | Sep::EOL)
     }
 
-    fn try_class_keyword(&mut self) -> Option<Token> {
-        self.match_consume("class", TokenType::Class, Sep::WS)
+    fn try_struct_keyword(&mut self) -> Option<Token> {
+        self.match_consume("struct", TokenType::Struct, Sep::WS)
     }
 
     fn try_then_keyword(&mut self) -> Option<Token> {

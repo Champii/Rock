@@ -313,6 +313,36 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         walk_prototype(self, p);
     }
 
+    fn visit_struct_decl(&mut self, s: &StructDecl) {
+        let t = s.to_type();
+
+        self.envs.set_type(&s.hir_id, &t);
+
+        let struct_t = t.into_struct_type();
+
+        s.defs.iter().for_each(|p| {
+            self.envs
+                .set_type(&p.hir_id, &struct_t.defs.get(&p.name.name).unwrap());
+        });
+    }
+
+    fn visit_struct_ctor(&mut self, s: &StructCtor) {
+        let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
+
+        self.visit_struct_decl(&s_decl);
+
+        let t = s_decl.to_type();
+
+        self.envs.set_type(&s.hir_id, &t);
+
+        let struct_t = t.into_struct_type();
+
+        s.defs.iter().for_each(|(k, p)| {
+            self.envs
+                .set_type(&p.get_hir_id(), &struct_t.defs.get(&k.name).unwrap());
+        });
+    }
+
     fn visit_body(&mut self, body: &'a Body) {
         body.stmts
             .iter()
@@ -353,6 +383,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             ExpressionKind::Lit(lit) => self.visit_literal(&lit),
             ExpressionKind::Return(expr) => self.visit_expression(&expr),
             ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
+            ExpressionKind::StructCtor(s) => self.visit_struct_ctor(&s),
             ExpressionKind::NativeOperation(op, left, right) => {
                 self.visit_identifier(&left);
                 self.visit_identifier(&right);
@@ -445,6 +476,32 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                             Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
                             other,
                         )),
+                }
+            }
+            ExpressionKind::Dot(d) => {
+                self.visit_expression(&d.op);
+                self.visit_identifier(&d.value);
+
+                match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
+                    t @ Type::Struct(struct_t) => {
+                        self.envs.set_type(&d.op.get_hir_id(), &t);
+
+                        self.envs
+                            .set_type(&d.get_hir_id(), &struct_t.defs.get(&d.value.name).unwrap());
+                    }
+                    other => {
+                        let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();
+
+                        self.envs
+                            .diagnostics
+                            .push_error(Diagnostic::new_type_conflict(
+                                self.envs.spans.get(&d.value.get_hir_id()).unwrap().clone(),
+                                value_t.clone(),
+                                other.clone(),
+                                value_t,
+                                other.clone(),
+                            ))
+                    }
                 }
             }
         }

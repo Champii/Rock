@@ -1,0 +1,5 @@
+struct Foo
+  bar :: Int64
+  toto :: String
+
+main = 42

@@ -105,6 +105,7 @@ impl_visitor_trait2!(
     Assign
     Prototype
     FunctionDecl
+    StructDecl
     ArgumentDecl
     Identifier
     FnBody
@@ -113,6 +114,7 @@ impl_visitor_trait2!(
     If
     Else
     FunctionCall
+    StructCtor
     Indice
     Literal
     Array

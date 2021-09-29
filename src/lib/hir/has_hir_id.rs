@@ -22,10 +22,13 @@ macro_rules! impl_direct_get_hir_id_trait {
 impl_direct_get_hir_id_trait!(
     Prototype
     FunctionDecl
+    StructDecl
     Identifier
     If
     FunctionCall
+    StructCtor
     Indice
+    Dot
     Literal
     NativeOperator
 );
