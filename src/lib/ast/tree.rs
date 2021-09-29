@@ -261,13 +261,15 @@ impl IdentifierPath {
             .path
             .iter()
             .enumerate()
-            .filter_map(|(i, name)| {
-                if name.name == *"super" {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
+            .filter_map(
+                |(i, name)| {
+                    if name.name == *"super" {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                },
+            )
             .collect::<Vec<_>>();
 
         let mut to_remove_total = vec![];
@@ -607,14 +609,14 @@ pub enum NativeOperatorKind {
     FMul,
     FDiv,
     IEq,
-    IGT,
-    IGE,
-    ILT,
-    ILE,
+    Igt,
+    Ige,
+    Ilt,
+    Ile,
     FEq,
-    FGT,
-    FGE,
-    FLT,
-    FLE,
+    Fgt,
+    Fge,
+    Flt,
+    Fle,
     BEq,
 }
