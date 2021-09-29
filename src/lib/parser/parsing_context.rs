@@ -72,11 +72,10 @@ impl ParsingCtx {
                 .iter()
                 .enumerate()
                 .partition(|(i, _diag)| {
-                    if let DiagnosticType::Error = *self.diagnostics.list_types.get(*i).unwrap() {
-                        true
-                    } else {
-                        false
-                    }
+                    matches!(
+                        *self.diagnostics.list_types.get(*i).unwrap(),
+                        DiagnosticType::Error
+                    )
                 });
 
             println!(

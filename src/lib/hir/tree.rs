@@ -37,12 +37,7 @@ impl Root {
     pub fn get_trait_by_method(&self, ident: String) -> Option<Trait> {
         self.traits
             .iter()
-            .find(|(_, r#trait)| {
-                r#trait
-                    .defs
-                    .iter()
-                    .any(|proto| proto.name.name == ident)
-            })
+            .find(|(_, r#trait)| r#trait.defs.iter().any(|proto| proto.name.name == ident))
             .map(|(_, r#trait)| r#trait.clone())
     }
 
@@ -616,15 +611,15 @@ pub enum NativeOperatorKind {
     FMul,
     FDiv,
     IEq,
-    IGT,
-    IGE,
-    ILT,
-    ILE,
+    Igt,
+    Ige,
+    Ilt,
+    Ile,
     FEq,
-    FLE,
-    FGT,
-    FGE,
-    FLT,
+    Fle,
+    Fgt,
+    Fge,
+    Flt,
     BEq,
 }
 

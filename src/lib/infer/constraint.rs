@@ -82,7 +82,6 @@ impl<'a> ConstraintContext<'a> {
                                         existing_impls.keys().cloned().collect(),
                                     ),
                                 );
-                                
                             }
                         } else {
                             self.setup_prototype_call(fc, p);
@@ -392,19 +391,19 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 //FIXME: Put this in another func
                 let arg_t = match op.kind {
                     NativeOperatorKind::IEq
-                    | NativeOperatorKind::IGT
-                    | NativeOperatorKind::IGE
-                    | NativeOperatorKind::ILT
-                    | NativeOperatorKind::ILE
+                    | NativeOperatorKind::Igt
+                    | NativeOperatorKind::Ige
+                    | NativeOperatorKind::Ilt
+                    | NativeOperatorKind::Ile
                     | NativeOperatorKind::IAdd
                     | NativeOperatorKind::ISub
                     | NativeOperatorKind::IDiv
                     | NativeOperatorKind::IMul => PrimitiveType::Int64,
                     NativeOperatorKind::FEq
-                    | NativeOperatorKind::FGT
-                    | NativeOperatorKind::FGE
-                    | NativeOperatorKind::FLT
-                    | NativeOperatorKind::FLE
+                    | NativeOperatorKind::Fgt
+                    | NativeOperatorKind::Fge
+                    | NativeOperatorKind::Flt
+                    | NativeOperatorKind::Fle
                     | NativeOperatorKind::FAdd
                     | NativeOperatorKind::FSub
                     | NativeOperatorKind::FDiv
@@ -563,15 +562,15 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_native_operator(&mut self, op: &NativeOperator) {
         let t = match op.kind {
             NativeOperatorKind::IEq
-            | NativeOperatorKind::IGT
-            | NativeOperatorKind::IGE
-            | NativeOperatorKind::ILT
-            | NativeOperatorKind::ILE
+            | NativeOperatorKind::Igt
+            | NativeOperatorKind::Ige
+            | NativeOperatorKind::Ilt
+            | NativeOperatorKind::Ile
             | NativeOperatorKind::FEq
-            | NativeOperatorKind::FGT
-            | NativeOperatorKind::FGE
-            | NativeOperatorKind::FLT
-            | NativeOperatorKind::FLE
+            | NativeOperatorKind::Fgt
+            | NativeOperatorKind::Fge
+            | NativeOperatorKind::Flt
+            | NativeOperatorKind::Fle
             | NativeOperatorKind::BEq => PrimitiveType::Bool,
             NativeOperatorKind::IAdd
             | NativeOperatorKind::ISub

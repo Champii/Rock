@@ -331,7 +331,6 @@ impl<'a> CodegenContext<'a> {
         } else {
             //new empty block
             let f = self.module.get_last_function().unwrap();
-            
 
             self.context.append_basic_block(f, "else")
         };
@@ -735,7 +734,7 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::EQ, left, right, "ieq")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::IGT => {
+            NativeOperatorKind::Igt => {
                 let left = self.lower_identifier(left, builder)?.into_int_value();
                 let right = self.lower_identifier(right, builder)?.into_int_value();
 
@@ -743,7 +742,7 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::SGT, left, right, "isgt")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::IGE => {
+            NativeOperatorKind::Ige => {
                 let left = self.lower_identifier(left, builder)?.into_int_value();
                 let right = self.lower_identifier(right, builder)?.into_int_value();
 
@@ -751,7 +750,7 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::SGE, left, right, "isge")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::ILT => {
+            NativeOperatorKind::Ilt => {
                 let left = self.lower_identifier(left, builder)?.into_int_value();
                 let right = self.lower_identifier(right, builder)?.into_int_value();
 
@@ -759,7 +758,7 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::SLT, left, right, "islt")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::ILE => {
+            NativeOperatorKind::Ile => {
                 let left = self.lower_identifier(left, builder)?.into_int_value();
                 let right = self.lower_identifier(right, builder)?.into_int_value();
 
@@ -775,7 +774,7 @@ impl<'a> CodegenContext<'a> {
                     .build_float_compare(FloatPredicate::OEQ, left, right, "feq")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::FGT => {
+            NativeOperatorKind::Fgt => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
                 let right = self.lower_identifier(right, builder)?.into_float_value();
 
@@ -783,7 +782,7 @@ impl<'a> CodegenContext<'a> {
                     .build_float_compare(FloatPredicate::OGT, left, right, "fsgt")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::FGE => {
+            NativeOperatorKind::Fge => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
                 let right = self.lower_identifier(right, builder)?.into_float_value();
 
@@ -791,7 +790,7 @@ impl<'a> CodegenContext<'a> {
                     .build_float_compare(FloatPredicate::OGE, left, right, "fsge")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::FLT => {
+            NativeOperatorKind::Flt => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
                 let right = self.lower_identifier(right, builder)?.into_float_value();
 
@@ -799,7 +798,7 @@ impl<'a> CodegenContext<'a> {
                     .build_float_compare(FloatPredicate::OLT, left, right, "fslt")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::FLE => {
+            NativeOperatorKind::Fle => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
                 let right = self.lower_identifier(right, builder)?.into_float_value();
 
