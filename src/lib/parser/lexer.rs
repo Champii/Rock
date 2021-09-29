@@ -422,14 +422,12 @@ impl<'a> Lexer<'a> {
         if self
             .accepted_operator_chars
             .iter()
-            .find(|c| **c == self.last_char)
-            .is_some()
+            .any(|c| *c == self.last_char)
         {
             while self
                 .accepted_operator_chars
                 .iter()
-                .find(|c| **c == self.last_char)
-                .is_some()
+                .any(|c| *c == self.last_char)
             {
                 identifier.push(self.last_char);
 

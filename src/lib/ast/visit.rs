@@ -72,17 +72,17 @@ pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {
-        TopLevelKind::Prototype(p) => visitor.visit_prototype(&p),
-        TopLevelKind::Use(u) => visitor.visit_use(&u),
-        TopLevelKind::Trait(t) => visitor.visit_trait(&t),
-        TopLevelKind::Impl(i) => visitor.visit_impl(&i),
-        TopLevelKind::Struct(i) => visitor.visit_struct_decl(&i),
+        TopLevelKind::Prototype(p) => visitor.visit_prototype(p),
+        TopLevelKind::Use(u) => visitor.visit_use(u),
+        TopLevelKind::Trait(t) => visitor.visit_trait(t),
+        TopLevelKind::Impl(i) => visitor.visit_impl(i),
+        TopLevelKind::Struct(i) => visitor.visit_struct_decl(i),
         TopLevelKind::Mod(name, m) => {
-            visitor.visit_identifier(&name);
-            visitor.visit_mod(&m);
+            visitor.visit_identifier(name);
+            visitor.visit_mod(m);
         }
-        TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
-        TopLevelKind::Infix(ident, _) => visitor.visit_identifier(&ident),
+        TopLevelKind::Function(f) => visitor.visit_function_decl(f),
+        TopLevelKind::Infix(ident, _) => visitor.visit_identifier(ident),
     };
 }
 
@@ -147,9 +147,9 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
 
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
-        StatementKind::Expression(expr) => visitor.visit_expression(&expr),
-        StatementKind::Assign(assign) => visitor.visit_assign(&assign),
-        StatementKind::If(expr) => visitor.visit_if(&expr),
+        StatementKind::Expression(expr) => visitor.visit_expression(expr),
+        StatementKind::Assign(assign) => visitor.visit_assign(assign),
+        StatementKind::If(expr) => visitor.visit_if(expr),
     }
 }
 
@@ -170,33 +170,33 @@ pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {
     visitor.visit_expression(&r#if.predicat);
     visitor.visit_body(&r#if.body);
     if let Some(r#else) = &r#if.else_ {
-        visitor.visit_else(&r#else);
+        visitor.visit_else(r#else);
     }
 }
 
 pub fn walk_else<'a, V: Visitor<'a>>(visitor: &mut V, r#else: &'a Else) {
     match r#else {
-        Else::If(expr) => visitor.visit_if(&expr),
-        Else::Body(expr) => visitor.visit_body(&expr),
+        Else::If(expr) => visitor.visit_if(expr),
+        Else::Body(expr) => visitor.visit_body(expr),
     }
 }
 
 pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression) {
     match &expr.kind {
         ExpressionKind::BinopExpr(unary, operator, expr) => {
-            visitor.visit_unary(&unary);
-            visitor.visit_operator(&operator);
+            visitor.visit_unary(unary);
+            visitor.visit_operator(operator);
             visitor.visit_expression(&*expr);
         }
-        ExpressionKind::UnaryExpr(unary) => visitor.visit_unary(&unary),
-        ExpressionKind::StructCtor(ctor) => visitor.visit_struct_ctor(&ctor),
+        ExpressionKind::UnaryExpr(unary) => visitor.visit_unary(unary),
+        ExpressionKind::StructCtor(ctor) => visitor.visit_struct_ctor(ctor),
         ExpressionKind::NativeOperation(op, left, right) => {
-            visitor.visit_identifier(&left);
-            visitor.visit_identifier(&right);
-            visitor.visit_native_operator(&op);
+            visitor.visit_identifier(left);
+            visitor.visit_identifier(right);
+            visitor.visit_native_operator(op);
         }
         ExpressionKind::Return(expr) => {
-            visitor.visit_expression(&expr);
+            visitor.visit_expression(expr);
         }
     }
 }
@@ -245,8 +245,8 @@ pub fn walk_operator<'a, V: Visitor<'a>>(visitor: &mut V, operator: &'a Operator
 
 pub fn walk_operand<'a, V: Visitor<'a>>(visitor: &mut V, operand: &'a Operand) {
     match &operand.kind {
-        OperandKind::Literal(l) => visitor.visit_literal(&l),
-        OperandKind::Identifier(i) => visitor.visit_identifier_path(&i),
+        OperandKind::Literal(l) => visitor.visit_literal(l),
+        OperandKind::Identifier(i) => visitor.visit_identifier_path(i),
         OperandKind::Expression(e) => visitor.visit_expression(&*e),
     }
 }

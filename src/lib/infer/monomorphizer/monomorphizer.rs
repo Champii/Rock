@@ -80,13 +80,13 @@ impl<'a> Monomorphizer<'a> {
                                     .insert((proto_id.clone(), sig.clone()), new_f.hir_id.clone());
 
                                 self.trans_resolutions
-                                    .insert(old_f.hir_id.clone(), new_f.hir_id.clone());
+                                    .insert(old_f.hir_id, new_f.hir_id.clone());
 
                                 Some((proto_id.clone(), new_f, sig))
                             }
                             HirNode::Prototype(p) => {
                                 self.generated_fn_hir_id
-                                    .insert((proto_id.clone(), sig.clone()), p.hir_id.clone());
+                                    .insert((proto_id.clone(), sig), p.hir_id.clone());
 
                                 None
                             }
@@ -105,7 +105,7 @@ impl<'a> Monomorphizer<'a> {
             .map(|(proto_id, mut new_f, sig)| {
                 self.root
                     .type_envs
-                    .set_current_fn((proto_id.clone(), sig.clone()));
+                    .set_current_fn((proto_id, sig));
 
                 let fn_body = self.root.bodies.get(&new_f.body_id).unwrap();
 
@@ -157,13 +157,13 @@ impl<'a> Monomorphizer<'a> {
     }
 
     pub fn duplicate_hir_id(&mut self, old_hir_id: &HirId) -> HirId {
-        let new_hir_id = self
+        
+
+        self
             .root
             .hir_map
             .duplicate_hir_mapping(old_hir_id.clone())
-            .unwrap();
-
-        new_hir_id
+            .unwrap()
     }
 
     pub fn resolve(&self, id: &HirId) -> Option<HirId> {
@@ -247,7 +247,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                                         //     new_pointer_id, new_pointee_id
                                         // );
                                         self.new_resolutions
-                                            .insert(new_pointer_id.clone(), new_pointee_id.clone());
+                                            .insert(new_pointer_id.clone(), new_pointee_id);
                                     },
                                 );
                             });
@@ -327,7 +327,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
                 if let Type::FuncType(f_type) = f_type {
                     // Traits
-                    if let Some(f) = self.root.get_trait_method((*p.name).clone(), &f_type) {
+                    if let Some(f) = self.root.get_trait_method((*p.name).clone(), f_type) {
                         if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {
                             self.new_resolutions.insert(fc.op.get_hir_id(), trans_res);
                         } else {
@@ -360,7 +360,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
         for (i, arg) in fc.args.iter().enumerate() {
             if let Type::FuncType(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
-                if let Some(reso) = self.resolve(&old_fc_args.get(i).unwrap()) {
+                if let Some(reso) = self.resolve(old_fc_args.get(i).unwrap()) {
                     self.new_resolutions.insert(
                         arg.get_hir_id(),
                         self.generated_fn_hir_id
@@ -431,7 +431,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 .unwrap()
                 .clone();
             self.root.node_types.insert(p.get_hir_id(), t.clone());
-            self.root.node_types.insert(p.name.get_hir_id(), t.clone());
+            self.root.node_types.insert(p.name.get_hir_id(), t);
         });
 
         self.structs.insert(s.name.get_name(), s.clone());

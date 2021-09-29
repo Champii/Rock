@@ -104,13 +104,13 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_hir(&mut self, root: &'a Root, builder: &'a Builder) -> Result<(), ()> {
         for item in &root.top_levels {
             match &item.kind {
-                TopLevelKind::Prototype(p) => self.lower_prototype(&p, builder)?,
-                TopLevelKind::Function(f) => self.lower_function_decl(&f, builder)?,
+                TopLevelKind::Prototype(p) => self.lower_prototype(p, builder)?,
+                TopLevelKind::Function(f) => self.lower_function_decl(f, builder)?,
             }
         }
 
         for body in root.bodies.values() {
-            self.lower_fn_body(&body, builder)?;
+            self.lower_fn_body(body, builder)?;
         }
 
         Ok(())
@@ -125,7 +125,7 @@ impl<'a> CodegenContext<'a> {
             let mut args = vec![];
 
             for arg in &p.signature.arguments {
-                args.push(self.lower_type(&arg, builder)?);
+                args.push(self.lower_type(arg, builder)?);
             }
 
             let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
@@ -223,7 +223,7 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicTypeEnum<'a>, ()> {
         let t = self.hir.node_types.get(&arg.name.hir_id).unwrap();
 
-        self.lower_type(&t, builder)
+        self.lower_type(t, builder)
     }
 
     pub fn lower_fn_body(&mut self, fn_body: &'a FnBody, builder: &'a Builder) -> Result<(), ()> {
@@ -258,14 +258,14 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<(AnyValueEnum<'a>, BasicBlock<'a>), ()> {
         let basic_block = self
             .context
-            .append_basic_block(self.cur_func.clone().unwrap(), name);
+            .append_basic_block(self.cur_func.unwrap(), name);
 
         builder.position_at_end(basic_block);
 
         let stmt = body
             .stmts
             .iter()
-            .map(|stmt| self.lower_stmt(&stmt, builder))
+            .map(|stmt| self.lower_stmt(stmt, builder))
             .last()
             .unwrap()?;
 
@@ -278,9 +278,9 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<AnyValueEnum<'a>, ()> {
         Ok(match &*stmt.kind {
-            StatementKind::Expression(e) => self.lower_expression(&e, builder)?.as_any_value_enum(),
-            StatementKind::If(e) => self.lower_if(&e, builder)?.0,
-            StatementKind::Assign(a) => self.lower_assign(&a, builder)?,
+            StatementKind::Expression(e) => self.lower_expression(e, builder)?.as_any_value_enum(),
+            StatementKind::If(e) => self.lower_if(e, builder)?.0,
+            StatementKind::Assign(a) => self.lower_assign(a, builder)?,
         })
     }
 
@@ -331,9 +331,9 @@ impl<'a> CodegenContext<'a> {
         } else {
             //new empty block
             let f = self.module.get_last_function().unwrap();
-            let else_block = self.context.append_basic_block(f, "else");
+            
 
-            else_block
+            self.context.append_basic_block(f, "else")
         };
 
         // FIXME: Need a last block if the 'if' is not the last statement in the fn body
@@ -366,7 +366,7 @@ impl<'a> CodegenContext<'a> {
             Else::If(i) => {
                 let block = self
                     .context
-                    .append_basic_block(self.cur_func.clone().unwrap(), "if");
+                    .append_basic_block(self.cur_func.unwrap(), "if");
 
                 builder.position_at_end(block);
 
@@ -382,8 +382,8 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &*expr.kind {
-            ExpressionKind::Lit(l) => self.lower_literal(&l, builder)?,
-            ExpressionKind::Identifier(id) => self.lower_identifier_path(&id, builder)?,
+            ExpressionKind::Lit(l) => self.lower_literal(l, builder)?,
+            ExpressionKind::Identifier(id) => self.lower_identifier_path(id, builder)?,
             ExpressionKind::FunctionCall(fc) => self.lower_function_call(fc, builder)?,
             ExpressionKind::StructCtor(s) => self.lower_struct_ctor(s, builder)?,
             ExpressionKind::Indice(i) => self.lower_indice(i, builder)?,
@@ -409,7 +409,7 @@ impl<'a> CodegenContext<'a> {
         let t = self.hir.node_types.get(&s.get_hir_id()).unwrap();
         let struct_t = t.into_struct_type();
 
-        let llvm_struct_t_ptr = self.lower_type(&t, builder).unwrap().into_pointer_type();
+        let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
         let llvm_struct_t = llvm_struct_t_ptr.get_element_type().into_struct_type();
 
         // FIXME: types should be ordered already
@@ -435,7 +435,7 @@ impl<'a> CodegenContext<'a> {
                 .build_struct_gep(ptr, i as u32, "struct_inner")
                 .unwrap();
 
-            builder.build_store(inner_ptr, def.clone());
+            builder.build_store(inner_ptr, *def);
         }
 
         Ok(ptr.into())
@@ -450,7 +450,7 @@ impl<'a> CodegenContext<'a> {
 
         let f_id = self.hir.resolutions.get(&terminal_hir_id).unwrap();
 
-        let callable_value = match self.hir.get_top_level(f_id.clone()) {
+        let callable_value = match self.hir.get_top_level(f_id) {
             Some(top) => CallableValue::try_from(match &top.kind {
                 TopLevelKind::Prototype(p) => {
                     self.module.get_function(&p.name.to_string()).unwrap()
@@ -469,7 +469,7 @@ impl<'a> CodegenContext<'a> {
         let mut arguments = vec![];
 
         for arg in &fc.args {
-            arguments.push(self.lower_expression(&arg, builder)?);
+            arguments.push(self.lower_expression(arg, builder)?);
         }
 
         Ok(builder
@@ -597,7 +597,7 @@ impl<'a> CodegenContext<'a> {
 
                     let i64_type = self.context.i64_type();
 
-                    let const_i = i64_type.const_int(i as u64, false).into();
+                    let const_i = i64_type.const_int(i as u64, false);
                     let const_0 = i64_type.const_zero();
 
                     let inner_ptr = unsafe {
@@ -617,7 +617,7 @@ impl<'a> CodegenContext<'a> {
         id: &IdentifierPath,
         _builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
-        Ok(self.lower_identifier(id.path.iter().last().unwrap(), _builder)?)
+        self.lower_identifier(id.path.iter().last().unwrap(), _builder)
     }
 
     pub fn lower_identifier(
@@ -628,7 +628,7 @@ impl<'a> CodegenContext<'a> {
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
         // println!("SCOPES {:#?}", self.scopes);
-        let val = match self.scopes.get(reso.clone()) {
+        let val = match self.scopes.get(reso) {
             None => {
                 let span = self
                     .hir

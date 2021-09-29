@@ -14,10 +14,9 @@ impl<'a> ReturnInserter<'a> {
     }
 
     fn visit_body(&mut self, body: &mut Body) {
-        body.stmts
+        if let Some(stmt) = body.stmts
             .iter_mut()
-            .last()
-            .map(|stmt| self.visit_statement(stmt));
+            .last() { self.visit_statement(stmt) }
     }
 
     fn visit_statement(&mut self, stmt: &mut Statement) {

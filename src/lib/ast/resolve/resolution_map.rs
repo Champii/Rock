@@ -15,7 +15,7 @@ impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
     }
 
     pub fn get(&self, pointer_id: &T) -> Option<T> {
-        self.0.get(&pointer_id).cloned()
+        self.0.get(pointer_id).cloned()
     }
 
     pub fn get_recur(&self, pointer_id: &T) -> Option<T> {
@@ -23,7 +23,7 @@ impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
             if *pointer_id == pointee_id {
                 warn!("Resolution loop");
 
-                return Some(pointee_id);
+                Some(pointee_id)
             } else {
                 self.get_recur(&pointee_id).or(Some(pointee_id))
             }

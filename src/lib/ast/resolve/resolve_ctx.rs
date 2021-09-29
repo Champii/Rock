@@ -95,7 +95,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     let previous_assign_node_id = self.get(id.name.clone()).unwrap();
 
                     self.resolutions
-                        .insert(id.identity.node_id.clone(), previous_assign_node_id.node_id);
+                        .insert(id.identity.node_id, previous_assign_node_id.node_id);
 
                     self.visit_identifier(id)
                 }
@@ -111,15 +111,15 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top.kind {
-            TopLevelKind::Prototype(p) => self.visit_prototype(&p),
+            TopLevelKind::Prototype(p) => self.visit_prototype(p),
             TopLevelKind::Use(u) => {
-                self.visit_use(&u);
+                self.visit_use(u);
             }
             TopLevelKind::Infix(_, _) => (),
-            TopLevelKind::Trait(t) => self.visit_trait(&t),
-            TopLevelKind::Impl(i) => self.visit_impl(&i),
-            TopLevelKind::Struct(s) => self.visit_struct_decl(&s),
-            TopLevelKind::Function(f) => self.visit_function_decl(&f),
+            TopLevelKind::Trait(t) => self.visit_trait(t),
+            TopLevelKind::Impl(i) => self.visit_impl(i),
+            TopLevelKind::Struct(s) => self.visit_struct_decl(s),
+            TopLevelKind::Function(f) => self.visit_function_decl(f),
             TopLevelKind::Mod(name, m) => {
                 let current_mod = self.cur_scope.clone();
 

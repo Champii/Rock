@@ -47,7 +47,7 @@ pub fn parse_str(
     _output_name: String,
     config: &Config,
 ) -> Result<(), Diagnostic> {
-    let mut parsing_ctx = ParsingCtx::new(&config);
+    let mut parsing_ctx = ParsingCtx::new(config);
 
     parsing_ctx.add_file(input);
 

@@ -36,7 +36,7 @@ impl<'a> ConstraintContext<'a> {
 
         self.tmp_resolutions
             .entry(entry_point.hir_id.clone())
-            .or_insert_with(|| ResolutionMap::default());
+            .or_insert_with(ResolutionMap::default);
 
         self.visit_function_decl(&entry_point);
     }
@@ -82,7 +82,7 @@ impl<'a> ConstraintContext<'a> {
                                         existing_impls.keys().cloned().collect(),
                                     ),
                                 );
-                                return;
+                                
                             }
                         } else {
                             self.setup_prototype_call(fc, p);
@@ -110,7 +110,7 @@ impl<'a> ConstraintContext<'a> {
             .unwrap()
             .insert(fc.op.get_hir_id(), f.hir_id.clone());
 
-        self.setup_function_call(fc, &f);
+        self.setup_function_call(fc, f);
     }
 
     pub fn setup_identifier_call(&mut self, fc: &FunctionCall, id: &Identifier) {
@@ -153,16 +153,16 @@ impl<'a> ConstraintContext<'a> {
 
                     self.envs.get_type(arg_id).cloned().or_else(|| {
                         if let HirNode::FunctionDecl(f2) =
-                            self.hir.arena.get(&self.resolve(&arg_id)?)?
+                            self.hir.arena.get(&self.resolve(arg_id)?)?
                         {
                             // Solving the func arg in the scope of the arg
                             // Adds a link like `arg` => `out fn` where the arg is defined
                             self.tmp_resolutions
                                 .entry(f.hir_id.clone())
-                                .or_insert_with(|| ResolutionMap::default())
+                                .or_insert_with(ResolutionMap::default)
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
 
-                            self.envs.set_type(&arg_id, &f.signature.to_type());
+                            self.envs.set_type(arg_id, &f.signature.to_type());
 
                             Some(f.signature.to_type())
                         } else {
@@ -201,7 +201,7 @@ impl<'a> ConstraintContext<'a> {
         // TODO: might be unnecessary
         self.tmp_resolutions
             .entry(f.hir_id.clone())
-            .or_insert_with(|| ResolutionMap::default());
+            .or_insert_with(ResolutionMap::default);
 
         // We go down the rabbit hole
         //
@@ -229,7 +229,7 @@ impl<'a> ConstraintContext<'a> {
             *new_f_type_inner.ret.clone()
         } else {
             new_f_sig = sig.clone();
-            *sig.ret.clone()
+            *sig.ret
         };
 
         // Fix the current sig if some types were still unknown
@@ -256,7 +256,7 @@ impl<'a> ConstraintContext<'a> {
         fc.args.iter().enumerate().for_each(|(i, arg)| {
             if let Some(_reso_id) = self.resolve_rec(&arg.get_hir_id()) {
                 self.envs
-                    .set_type(&arg.get_hir_id().clone(), new_f_arg_types.get(i).unwrap());
+                    .set_type(&arg.get_hir_id(), new_f_arg_types.get(i).unwrap());
             }
         });
     }
@@ -275,7 +275,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         // walk_function_decl(self, f);
         walk_list!(self, visit_argument_decl, &f.arguments);
 
-        self.visit_fn_body(&self.hir.get_body(&f.body_id).unwrap());
+        self.visit_fn_body(self.hir.get_body(&f.body_id).unwrap());
 
         self.envs.set_type(
             &f.hir_id,
@@ -323,14 +323,14 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         s.defs.iter().for_each(|p| {
             self.envs
-                .set_type(&p.hir_id, &struct_t.defs.get(&p.name.name).unwrap());
+                .set_type(&p.hir_id, struct_t.defs.get(&p.name.name).unwrap());
         });
     }
 
     fn visit_struct_ctor(&mut self, s: &StructCtor) {
         let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
 
-        self.visit_struct_decl(&s_decl);
+        self.visit_struct_decl(s_decl);
 
         let t = s_decl.to_type();
 
@@ -340,14 +340,14 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         s.defs.iter().for_each(|(k, p)| {
             self.envs
-                .set_type(&p.get_hir_id(), &struct_t.defs.get(&k.name).unwrap());
+                .set_type(&p.get_hir_id(), struct_t.defs.get(&k.name).unwrap());
         });
     }
 
     fn visit_body(&mut self, body: &'a Body) {
         body.stmts
             .iter()
-            .for_each(|stmt| self.visit_statement(&stmt));
+            .for_each(|stmt| self.visit_statement(stmt));
     }
 
     fn visit_assign(&mut self, assign: &'a Assign) {
@@ -381,13 +381,13 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
     fn visit_expression(&mut self, expr: &'a Expression) {
         match &*expr.kind {
-            ExpressionKind::Lit(lit) => self.visit_literal(&lit),
-            ExpressionKind::Return(expr) => self.visit_expression(&expr),
-            ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
-            ExpressionKind::StructCtor(s) => self.visit_struct_ctor(&s),
+            ExpressionKind::Lit(lit) => self.visit_literal(lit),
+            ExpressionKind::Return(expr) => self.visit_expression(expr),
+            ExpressionKind::Identifier(id) => self.visit_identifier_path(id),
+            ExpressionKind::StructCtor(s) => self.visit_struct_ctor(s),
             ExpressionKind::NativeOperation(op, left, right) => {
-                self.visit_identifier(&left);
-                self.visit_identifier(&right);
+                self.visit_identifier(left);
+                self.visit_identifier(right);
 
                 //FIXME: Put this in another func
                 let arg_t = match op.kind {
@@ -417,14 +417,14 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.envs
                     .set_type(&right.hir_id.clone(), &Type::Primitive(arg_t));
 
-                self.visit_native_operator(&op);
+                self.visit_native_operator(op);
             }
             ExpressionKind::FunctionCall(fc) => {
                 self.visit_expression(&fc.op);
 
                 walk_list!(self, visit_expression, &fc.args);
 
-                self.setup_call(&fc, &fc.op.get_hir_id());
+                self.setup_call(fc, &fc.op.get_hir_id());
             }
             ExpressionKind::Indice(i) => {
                 self.visit_expression(&i.op);
@@ -486,10 +486,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                 match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
                     t @ Type::Struct(struct_t) => {
-                        self.envs.set_type(&d.op.get_hir_id(), &t);
+                        self.envs.set_type(&d.op.get_hir_id(), t);
 
                         self.envs
-                            .set_type(&d.get_hir_id(), &struct_t.defs.get(&d.value.name).unwrap());
+                            .set_type(&d.get_hir_id(), struct_t.defs.get(&d.value.name).unwrap());
                     }
                     other => {
                         let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();
@@ -546,7 +546,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
-        self.visit_identifier(&id.path.iter().last().unwrap());
+        self.visit_identifier(id.path.iter().last().unwrap());
     }
 
     fn visit_identifier(&mut self, id: &Identifier) {
@@ -592,9 +592,9 @@ pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Dia
 
     let infer_state = Envs::new(diagnostics, root.get_hir_spans());
 
-    let mut constraint_ctx = ConstraintContext::new(infer_state, &root);
+    let mut constraint_ctx = ConstraintContext::new(infer_state, root);
 
-    constraint_ctx.constraint(&root);
+    constraint_ctx.constraint(root);
 
     let tmp_resolutions = constraint_ctx.tmp_resolutions.clone();
 

@@ -207,7 +207,7 @@ impl FuncType {
 
         // FIXME: must remplace all occurences of ret
         orig.push((*self.ret).clone());
-        dest.push(ret.clone());
+        dest.push(ret);
 
         (orig, dest)
     }
@@ -241,7 +241,7 @@ impl FuncType {
 
             // FIXME: must remplace all occurences of ret
             orig.push(*self.ret.clone());
-            dest.push(t.clone());
+            dest.push(t);
         }
 
         (orig, dest)
@@ -311,7 +311,7 @@ impl FuncType {
 
     pub fn from_args_nb(nb: usize) -> Self {
         let mut new = Self::default();
-        let forall_generator = 'a'..'z';
+        let mut forall_generator = 'a'..'z';
 
         new.arguments = forall_generator
             .clone()
@@ -320,7 +320,7 @@ impl FuncType {
             .collect();
 
         new.ret = Box::new(Type::ForAll(
-            forall_generator.skip(nb).next().unwrap().to_string(),
+            forall_generator.nth(nb).unwrap().to_string(),
         ));
 
         new

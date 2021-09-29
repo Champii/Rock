@@ -23,7 +23,7 @@ impl PrimitiveType {
             Self::Int32 => "Int32".to_string(),
             Self::Int64 => "Int64".to_string(),
             Self::Float64 => "Float64".to_string(),
-            Self::String => format!("String"),
+            Self::String => "String".to_string(),
             Self::Array(t, size) => format!("[{}; {}]", t.get_name(), size),
         }
     }

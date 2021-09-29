@@ -41,8 +41,7 @@ impl Root {
                 r#trait
                     .defs
                     .iter()
-                    .find(|proto| proto.name.name == ident)
-                    .is_some()
+                    .any(|proto| proto.name.name == ident)
             })
             .map(|(_, r#trait)| r#trait.clone())
     }
@@ -482,7 +481,7 @@ impl Expression {
 
     pub fn as_identifier(&self) -> Identifier {
         if let ExpressionKind::Identifier(i) = &*self.kind {
-            i.last_segment().clone()
+            i.last_segment()
         } else {
             panic!("Not an identifier");
         }

@@ -22,7 +22,7 @@ impl SpanCollector {
     }
 
     pub fn insert(&mut self, ident: &Identity) {
-        self.list.insert(ident.node_id.clone(), ident.span.clone());
+        self.list.insert(ident.node_id, ident.span.clone());
     }
 }
 

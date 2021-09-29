@@ -194,7 +194,7 @@ impl Parse for Root {
                 TopLevelKind::Function(f) => *f.name == "main".to_string(),
                 _ => false,
             })
-            .ok_or_else(|| Diagnostic::new_no_main())?;
+            .ok_or_else(Diagnostic::new_no_main)?;
 
         Ok(Root {
             spans: HashMap::new(),
@@ -617,14 +617,12 @@ impl Parse for Statement {
                 Ok(expr) => StatementKind::If(expr),
                 Err(_e) => error!("Expected if".to_string(), ctx),
             }
+        } else if let Ok(assign) = Assign::parse(ctx) {
+            StatementKind::Assign(assign)
         } else {
-            if let Ok(assign) = Assign::parse(ctx) {
-                StatementKind::Assign(assign)
-            } else {
-                match Expression::parse(ctx) {
-                    Ok(expr) => StatementKind::Expression(expr),
-                    Err(_e) => error!("Expected expression".to_string(), ctx),
-                }
+            match Expression::parse(ctx) {
+                Ok(expr) => StatementKind::Expression(expr),
+                Err(_e) => error!("Expected expression".to_string(), ctx),
             }
         };
 
@@ -978,10 +976,8 @@ impl Parse for SecondaryExpr {
 
                 return Ok(SecondaryExpr::Dot(expr));
             }
-        } else {
-            if let Ok(args) = Arguments::parse(ctx) {
-                return Ok(SecondaryExpr::Arguments(args));
-            }
+        } else if let Ok(args) = Arguments::parse(ctx) {
+            return Ok(SecondaryExpr::Arguments(args));
         }
 
         error!("Expected secondary".to_string(), ctx);
@@ -1017,7 +1013,7 @@ impl Parse for LiteralKind {
         if let TokenType::Bool(b) = ctx.cur_tok().t {
             ctx.consume();
 
-            let v = if b { true } else { false };
+            let v = b;
 
             return Ok(LiteralKind::Bool(v));
         }
@@ -1057,7 +1053,7 @@ impl Parse for Array {
                 }
             }
         }
-        return Ok(Array { values });
+        Ok(Array { values })
     }
 }
 
@@ -1112,15 +1108,13 @@ impl Parse for Arguments {
         ctx.save();
 
         // TODO: factorise this with a match! macro ?
-        if TokenType::OpenParens == ctx.cur_tok().t {
-            if TokenType::CloseParens == ctx.seek(1).t {
-                ctx.consume();
-                ctx.consume();
+        if TokenType::OpenParens == ctx.cur_tok().t && TokenType::CloseParens == ctx.seek(1).t {
+            ctx.consume();
+            ctx.consume();
 
-                ctx.save_pop();
+            ctx.save_pop();
 
-                return Ok(res);
-            }
+            return Ok(res);
         }
 
         loop {
@@ -1199,17 +1193,17 @@ impl Parse for Type {
             ctx.consume();
 
             if let Some(prim) = PrimitiveType::from_name(&token.txt) {
-                return Ok(Type::Primitive(prim));
+                Ok(Type::Primitive(prim))
             } else {
                 if let Some(s) = ctx.struct_types.get(&token.txt) {
                     return Ok(s.to_type());
                 }
-                return Ok(Type::Trait(token.txt));
+                Ok(Type::Trait(token.txt))
             }
-        } else if token.txt.len() == 1 && token.txt.chars().nth(0).unwrap().is_lowercase() {
+        } else if token.txt.len() == 1 && token.txt.chars().next().unwrap().is_lowercase() {
             ctx.consume();
 
-            return Ok(Type::ForAll(token.txt));
+            Ok(Type::ForAll(token.txt))
         } else if TokenType::OpenArray == token.t {
             ctx.consume();
 
@@ -1220,7 +1214,7 @@ impl Parse for Type {
 
             expect!(TokenType::CloseArray, ctx);
 
-            return Ok(t);
+            Ok(t)
         } else if TokenType::OpenParens == token.t {
             ctx.consume();
 
@@ -1228,7 +1222,7 @@ impl Parse for Type {
 
             expect!(TokenType::CloseParens, ctx);
 
-            return Ok(t);
+            Ok(t)
         } else {
             panic!("Not a type");
         }

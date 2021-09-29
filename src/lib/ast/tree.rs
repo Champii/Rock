@@ -249,7 +249,7 @@ impl IdentifierPath {
     }
 
     pub fn prepend_mod(&self, path: IdentifierPath) -> Self {
-        let mut path = path.clone();
+        let mut path = path;
 
         path.path.extend::<_>(self.path.clone());
 
@@ -262,7 +262,7 @@ impl IdentifierPath {
             .iter()
             .enumerate()
             .filter_map(|(i, name)| {
-                if name.name == "super".to_string() {
+                if name.name == *"super" {
                     Some(i)
                 } else {
                     None

@@ -57,10 +57,8 @@ impl ParsingCtx {
                 self.diagnostics.list.len().to_string().yellow(),
                 "warnings".yellow(),
             );
-        } else {
-            if self.config.verbose {
-                println!("[{}] Compilation successful", "Success".green(),);
-            }
+        } else if self.config.verbose {
+            println!("[{}] Compilation successful", "Success".green(),);
         }
     }
 

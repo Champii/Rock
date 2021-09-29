@@ -53,13 +53,13 @@ impl Envs {
 
         self.fns
             .entry(f.0.clone())
-            .or_insert_with(|| HashMap::new())
+            .or_insert_with(HashMap::new)
             .entry(f.1.clone())
-            .or_insert_with(|| Env::default());
+            .or_insert_with(Env::default);
 
         self.current_fn = f;
 
-        return true;
+        true
     }
 
     pub fn get_current_fn(&self) -> (HirId, FuncType) {
@@ -86,7 +86,7 @@ impl Envs {
                         src.clone(),
                         previous.clone().unwrap(),
                         src.clone(),
-                        previous.clone().unwrap(),
+                        previous.unwrap(),
                     ));
                 }
             }
@@ -140,7 +140,7 @@ impl Envs {
     pub fn add_empty(&mut self, hir_id: &HirId) {
         self.fns
             .entry(hir_id.clone())
-            .or_insert_with(|| HashMap::new());
+            .or_insert_with(HashMap::new);
     }
 
     pub fn amend_current_sig(&mut self, new_sig: &FuncType) {
