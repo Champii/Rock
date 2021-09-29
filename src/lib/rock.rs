@@ -34,22 +34,22 @@ mod tests;
 
 pub use crate::helpers::config::Config;
 
-pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Diagnostic> {
+pub fn parse_file(in_name: String, out_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;
 
     source_file.mod_path = PathBuf::from("root");
 
-    parse_str(source_file, out_name, config)
+    parse_str(&source_file, out_name, &config)
 }
 
 pub fn parse_str(
-    input: SourceFile,
+    input: &SourceFile,
     _output_name: String,
-    config: Config,
+    config: &Config,
 ) -> Result<(), Diagnostic> {
     let mut parsing_ctx = ParsingCtx::new(&config);
 
-    parsing_ctx.add_file(input.clone());
+    parsing_ctx.add_file(&input);
 
     // Text to Ast
     debug!("    -> Parsing");
@@ -92,12 +92,12 @@ pub mod test {
 
     fn build(input: String, config: Config) -> bool {
         let file = SourceFile {
-            file_path: PathBuf::from("src/lib").join(config.project_config.entry_point.clone()),
+            file_path: PathBuf::from("src/lib").join(&config.project_config.entry_point),
             mod_path: PathBuf::from("main"),
             content: input,
         };
 
-        if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
+        if let Err(_e) = parse_str(&file, "main".to_string(), &config) {
             return false;
         }
 

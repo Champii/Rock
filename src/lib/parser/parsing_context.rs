@@ -29,10 +29,10 @@ impl ParsingCtx {
         }
     }
 
-    pub fn add_file(&mut self, file: SourceFile) {
+    pub fn add_file(&mut self, file: &SourceFile) {
         self.current_file = Some(file.file_path.clone());
 
-        self.files.insert(file.file_path.clone(), file);
+        self.files.insert(file.file_path.clone(), file.clone());
     }
 
     pub fn get_current_file(&self) -> SourceFile {
@@ -129,7 +129,7 @@ impl ParsingCtx {
             );
         }
 
-        self.add_file(new_file.clone());
+        self.add_file(&new_file);
 
         Ok(new_file)
     }
