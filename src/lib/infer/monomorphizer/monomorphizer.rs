@@ -72,11 +72,8 @@ impl<'a> Monomorphizer<'a> {
                                     .type_envs
                                     .set_current_fn((proto_id.clone(), sig.clone()));
 
-                                if sig.is_solved() {
-                                    new_f.signature = sig.clone();
-                                } else {
-                                    println!("WHAT");
-                                }
+                                new_f.signature = sig.clone();
+
                                 self.visit_function_decl(&mut new_f);
 
                                 self.generated_fn_hir_id
@@ -88,10 +85,8 @@ impl<'a> Monomorphizer<'a> {
                                 Some((proto_id.clone(), new_f, sig))
                             }
                             HirNode::Prototype(p) => {
-                                if p.signature.is_solved() {
-                                    self.generated_fn_hir_id
-                                        .insert((proto_id.clone(), sig.clone()), p.hir_id.clone());
-                                }
+                                self.generated_fn_hir_id
+                                    .insert((proto_id.clone(), sig.clone()), p.hir_id.clone());
 
                                 None
                             }
@@ -331,7 +326,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 let f_type = self.root.type_envs.get_type(&old_fc_op).unwrap();
 
                 if let Type::FuncType(f_type) = f_type {
-                    println!("FN CALL PROTO {:?}", p);
                     // Traits
                     if let Some(f) = self.root.get_trait_method((*p.name).clone(), &f_type) {
                         if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {

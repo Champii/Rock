@@ -1213,7 +1213,10 @@ impl Parse for Type {
         } else if TokenType::OpenArray == token.t {
             ctx.consume();
 
-            let t = Type::Primitive(PrimitiveType::Array(Box::new(Type::parse(ctx)?), 1));
+            let inner_t = Type::parse(ctx)?;
+
+            // FIXME: FIXED ARRAY SIZE OF 1KB !
+            let t = Type::Primitive(PrimitiveType::Array(Box::new(inner_t), 1024));
 
             expect!(TokenType::CloseArray, ctx);
 

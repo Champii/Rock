@@ -440,17 +440,18 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                             Type::Primitive(PrimitiveType::Int64) => {
                                 if let ExpressionKind::Lit(literal) = &*i.value.kind {
                                     if literal.as_number() >= size as i64 {
-                                        self.envs.diagnostics.push_error(
-                                            Diagnostic::new_out_of_bounds(
-                                                self.envs
-                                                    .spans
-                                                    .get(&i.value.get_hir_id())
-                                                    .unwrap()
-                                                    .clone(),
-                                                i.value.as_literal().as_number() as u64,
-                                                size as u64,
-                                            ),
-                                        )
+                                        // Deactivated for now
+                                        // self.envs.diagnostics.push_error(
+                                        //     Diagnostic::new_out_of_bounds(
+                                        //         self.envs
+                                        //             .spans
+                                        //             .get(&i.value.get_hir_id())
+                                        //             .unwrap()
+                                        //             .clone(),
+                                        //         i.value.as_literal().as_number() as u64,
+                                        //         size as u64,
+                                        //     ),
+                                        // )
                                     }
                                 }
                             }
