@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{resolve::ResolutionMap, StructType, Type, TypeSignature},
+    ast::{resolve::ResolutionMap, FuncType, StructType, Type},
     ast_lowering::HirMap,
     hir::hir_id::*,
     parser::Span,
@@ -20,7 +20,7 @@ pub struct Root {
     pub types: BTreeMap<TypeId, Type>,
     pub node_types: BTreeMap<HirId, Type>,
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
-    pub trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
+    pub trait_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,
     pub top_levels: Vec<TopLevel>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub spans: HashMap<NodeId, Span>,
@@ -47,11 +47,7 @@ impl Root {
             .map(|(_, r#trait)| r#trait.clone())
     }
 
-    pub fn get_trait_method(
-        &self,
-        ident: String,
-        applied_type: &TypeSignature,
-    ) -> Option<FunctionDecl> {
+    pub fn get_trait_method(&self, ident: String, applied_type: &FuncType) -> Option<FunctionDecl> {
         self.trait_methods
             .get(&ident)?
             .get(applied_type)
@@ -60,7 +56,7 @@ impl Root {
                 self.trait_methods
                     .get(&ident)?
                     .iter()
-                    .find(|(sig, _)| sig.args == applied_type.args)
+                    .find(|(sig, _)| sig.arguments == applied_type.arguments)
                     .map(|(_, f)| f.clone())
             })
     }
@@ -69,7 +65,7 @@ impl Root {
         let map = self.trait_methods.get(&ident)?;
 
         map.iter()
-            .find(|(sig, _)| sig.args[0] == *applied_type)
+            .find(|(sig, _)| *sig.arguments[0] == *applied_type)
             .map(|(_, fn_decl)| fn_decl.clone())
     }
 
@@ -169,15 +165,12 @@ impl StructDecl {
                 .defs
                 .iter()
                 .map(|proto| {
-                    if proto.signature.args.is_empty() {
-                        (
-                            proto.name.name.clone(),
-                            Box::new(proto.signature.ret.clone()),
-                        )
+                    if proto.signature.arguments.is_empty() {
+                        (proto.name.name.clone(), proto.signature.ret.clone())
                     } else {
                         (
                             proto.name.name.clone(),
-                            Box::new(proto.signature.to_func_type()),
+                            Box::new(Type::FuncType(proto.signature.clone())),
                         )
                     }
                 })
@@ -217,7 +210,7 @@ pub enum TopLevelKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Prototype {
     pub name: Identifier,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
     pub hir_id: HirId,
 }
 
@@ -228,7 +221,7 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub body_id: FnBodyId,
     pub hir_id: HirId,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
 }
 
 impl FunctionDecl {
@@ -560,8 +553,8 @@ impl FunctionCall {
         }
     }
 
-    pub fn to_type_signature(&self, env: &BTreeMap<HirId, Type>) -> TypeSignature {
-        TypeSignature::from_args_nb(self.args.len()).apply_partial_types(
+    pub fn to_func_type(&self, env: &BTreeMap<HirId, Type>) -> FuncType {
+        FuncType::from_args_nb(self.args.len()).apply_partial_types(
             &self
                 .args
                 .iter()

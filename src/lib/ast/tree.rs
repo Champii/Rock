@@ -7,7 +7,7 @@ use crate::ast::resolve::ResolutionMap;
 use crate::generate_has_name;
 use crate::helpers::*;
 
-use super::{StructType, Type, TypeSignature};
+use super::{FuncType, StructType, Type};
 
 #[derive(Debug, Clone)]
 pub struct Root {
@@ -138,16 +138,10 @@ impl StructDecl {
                 .defs
                 .iter()
                 .map(|proto| {
-                    if proto.signature.args.is_empty() {
-                        (
-                            proto.name.name.clone(),
-                            Box::new(proto.signature.ret.clone()),
-                        )
+                    if proto.signature.arguments.is_empty() {
+                        (proto.name.name.clone(), proto.signature.ret.clone())
                     } else {
-                        (
-                            proto.name.name.clone(),
-                            Box::new(proto.signature.to_func_type()),
-                        )
+                        (proto.name.name.clone(), Box::new(proto.signature.to_type()))
                     }
                 })
                 .collect(),
@@ -179,7 +173,7 @@ pub struct Impl {
 #[derive(Debug, Clone)]
 pub struct Prototype {
     pub name: Identifier,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
     pub identity: Identity,
 }
 
@@ -202,7 +196,7 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
     pub identity: Identity,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
 }
 
 impl FunctionDecl {

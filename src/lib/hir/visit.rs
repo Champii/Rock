@@ -1,7 +1,7 @@
 use concat_idents::concat_idents;
 
+use crate::{ast::FuncType, walk_list};
 use crate::{ast::Type, hir::*};
-use crate::{ast::TypeSignature, walk_list};
 
 macro_rules! generate_visitor_trait {
     ($(
@@ -53,7 +53,7 @@ generate_visitor_trait!(
     Array, array
     NativeOperator, native_operator
     Type, r#type
-    TypeSignature, type_signature
+    FuncType, func_type
 );
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
@@ -107,7 +107,7 @@ pub fn walk_impl<'a, V: Visitor<'a>>(visitor: &mut V, i: &'a Impl) {
 pub fn walk_prototype<'a, V: Visitor<'a>>(visitor: &mut V, prototype: &'a Prototype) {
     visitor.visit_identifier(&prototype.name);
 
-    visitor.visit_type_signature(&prototype.signature);
+    visitor.visit_func_type(&prototype.signature);
 }
 
 pub fn walk_function_decl<'a, V: Visitor<'a>>(visitor: &mut V, function_decl: &'a FunctionDecl) {
@@ -234,8 +234,8 @@ pub fn walk_type<'a, V: Visitor<'a>>(_visitor: &mut V, _t: &'a Type) {
     // Nothing to do
 }
 
-pub fn walk_type_signature<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a TypeSignature) {
-    walk_list!(visitor, visit_type, &signature.args);
+pub fn walk_func_type<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a FuncType) {
+    walk_list!(visitor, visit_type, &signature.arguments);
 
     visitor.visit_type(&signature.ret);
 }

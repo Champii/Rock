@@ -102,7 +102,7 @@ pub struct Parser<'a> {
     pub cur_tok_id: TokenId,
     save: Vec<TokenId>,
     pub block_indent: u8,
-    func_sigs: HashMap<String, TypeSignature>,
+    func_sigs: HashMap<String, FuncType>,
     pub struct_types: HashMap<String, StructDecl>,
 }
 
@@ -174,7 +174,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn add_func_sig(&mut self, name: String, sig: TypeSignature) {
+    pub fn add_func_sig(&mut self, name: String, sig: FuncType) {
         self.func_sigs.insert(name, sig);
     }
 
@@ -456,7 +456,7 @@ impl Parse for Prototype {
 
         expect_or_restore!(TokenType::DoubleSemiColon, ctx);
 
-        let signature = try_or_restore!(TypeSignature::parse(ctx), ctx);
+        let signature = try_or_restore!(FuncType::parse(ctx), ctx);
 
         ctx.save_pop();
 
@@ -506,7 +506,7 @@ impl Parse for FunctionDecl {
 
         Ok(FunctionDecl {
             name,
-            signature: TypeSignature::from_args_nb(arguments.len()),
+            signature: FuncType::from_args_nb(arguments.len()),
             arguments,
             body,
             identity: Identity::new(token_id, token.span),
@@ -1210,20 +1210,36 @@ impl Parse for Type {
             ctx.consume();
 
             return Ok(Type::ForAll(token.txt));
+        } else if TokenType::OpenArray == token.t {
+            ctx.consume();
+
+            let t = Type::Primitive(PrimitiveType::Array(Box::new(Type::parse(ctx)?), 1));
+
+            expect!(TokenType::CloseArray, ctx);
+
+            return Ok(t);
+        } else if TokenType::OpenParens == token.t {
+            ctx.consume();
+
+            let t = Type::FuncType(FuncType::parse(ctx)?);
+
+            expect!(TokenType::CloseParens, ctx);
+
+            return Ok(t);
         } else {
             panic!("Not a type");
         }
     }
 }
 
-impl Parse for TypeSignature {
+impl Parse for FuncType {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut args = vec![];
 
         loop {
             let t = Type::parse(ctx)?;
 
-            args.push(t);
+            args.push(Box::new(t));
 
             if ctx.cur_tok().t != TokenType::Arrow {
                 break;
@@ -1234,9 +1250,9 @@ impl Parse for TypeSignature {
 
         let ret = args.pop().unwrap();
 
-        let mut t_sig = TypeSignature::default();
+        let mut t_sig = FuncType::default();
 
-        t_sig.args = args;
+        t_sig.arguments = args;
         t_sig.ret = ret;
 
         Ok(t_sig)

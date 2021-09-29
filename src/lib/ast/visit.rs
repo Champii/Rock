@@ -58,7 +58,7 @@ generate_visitor_trait!(
     StructCtor, struct_ctor
     Array, array
     NativeOperator, native_operator
-    TypeSignature, type_signature
+    FuncType, func_type
     Type, r#type
 );
 
@@ -111,7 +111,7 @@ pub fn walk_impl<'a, V: Visitor<'a>>(visitor: &mut V, i: &'a Impl) {
 pub fn walk_prototype<'a, V: Visitor<'a>>(visitor: &mut V, prototype: &'a Prototype) {
     visitor.visit_identifier(&prototype.name);
 
-    visitor.visit_type_signature(&prototype.signature);
+    visitor.visit_func_type(&prototype.signature);
 }
 
 pub fn walk_use<'a, V: Visitor<'a>>(visitor: &mut V, r#use: &'a Use) {
@@ -273,8 +273,8 @@ pub fn walk_native_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a
     // Nothing to do
 }
 
-pub fn walk_type_signature<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a TypeSignature) {
-    walk_list!(visitor, visit_type, &signature.args);
+pub fn walk_func_type<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a FuncType) {
+    walk_list!(visitor, visit_type, &signature.arguments);
 
     visitor.visit_type(&signature.ret);
 }

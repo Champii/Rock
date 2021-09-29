@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{Type, TypeSignature},
+    ast::{FuncType, Type},
     diagnostics::{Diagnostic, Diagnostics},
     hir::*,
     parser::Span,
@@ -15,8 +15,8 @@ pub type Env = BTreeMap<HirId, Type>;
 
 #[derive(Debug, Default, Clone)]
 pub struct Envs {
-    fns: BTreeMap<HirId, HashMap<TypeSignature, Env>>,
-    current_fn: (HirId, TypeSignature),
+    fns: BTreeMap<HirId, HashMap<FuncType, Env>>,
+    current_fn: (HirId, FuncType),
     pub spans: HashMap<HirId, Span>,
     pub diagnostics: Diagnostics,
 }
@@ -41,7 +41,7 @@ impl Envs {
             .and_then(|map| map.get(&self.current_fn.1))
     }
 
-    pub fn set_current_fn(&mut self, f: (HirId, TypeSignature)) -> bool {
+    pub fn set_current_fn(&mut self, f: (HirId, FuncType)) -> bool {
         // if !f.1.are_args_solved() {
         //     self.diagnostics.push_error(Diagnostic::new_unresolved_type(
         //         self.spans.get(&f.0).unwrap().clone(),
@@ -62,7 +62,7 @@ impl Envs {
         return true;
     }
 
-    pub fn get_current_fn(&self) -> (HirId, TypeSignature) {
+    pub fn get_current_fn(&self) -> (HirId, FuncType) {
         self.current_fn.clone()
     }
 
@@ -79,8 +79,8 @@ impl Envs {
             .insert(dest.clone(), src.clone());
 
         match (src, previous.clone()) {
-            (Type::FuncType(src_f), Some(Type::FuncType(prev_f))) if *src_f != prev_f => {
-                if prev_f.to_type_signature().is_solved() && src_f.to_type_signature().is_solved() {
+            (Type::FuncType(src_f), Some(Type::FuncType(prev_f))) if !src_f.eq(&prev_f) => {
+                if prev_f.is_solved() && src_f.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
                         self.spans.get(dest).unwrap().clone(),
                         src.clone(),
@@ -90,7 +90,7 @@ impl Envs {
                     ));
                 }
             }
-            (src, Some(previous)) if *src != previous => {
+            (src, Some(previous)) if !src.eq(&previous) => {
                 self.diagnostics.push_error(Diagnostic::new_type_conflict(
                     self.spans.get(dest).unwrap().clone(),
                     src.clone(),
@@ -119,7 +119,7 @@ impl Envs {
             .map(|(i, arg)| {
                 (
                     arg.get_hir_id(),
-                    self.current_fn.1.args.get(i).unwrap().clone(),
+                    self.current_fn.1.arguments.get(i).unwrap().clone(),
                 )
             })
             .collect::<Vec<_>>();
@@ -129,11 +129,11 @@ impl Envs {
         });
     }
 
-    pub fn get_fn_types(&self, f: &HirId) -> Option<&HashMap<TypeSignature, Env>> {
+    pub fn get_fn_types(&self, f: &HirId) -> Option<&HashMap<FuncType, Env>> {
         self.fns.get(f)
     }
 
-    pub fn get_inner(&self) -> &BTreeMap<HirId, HashMap<TypeSignature, Env>> {
+    pub fn get_inner(&self) -> &BTreeMap<HirId, HashMap<FuncType, Env>> {
         &self.fns
     }
 
@@ -143,7 +143,7 @@ impl Envs {
             .or_insert_with(|| HashMap::new());
     }
 
-    pub fn amend_current_sig(&mut self, new_sig: &TypeSignature) {
+    pub fn amend_current_sig(&mut self, new_sig: &FuncType) {
         if self.current_fn.1 == *new_sig {
             return;
         }

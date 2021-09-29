@@ -1,15 +1,14 @@
-use std::convert::TryFrom;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
-    values::{AnyValue, AnyValueEnum, BasicValueEnum, CallableValue, FunctionValue},
-    FloatPredicate, IntPredicate,
+    context::Context,
+    module::Module,
+    types::{BasicType, BasicTypeEnum},
+    values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue},
+    AddressSpace, FloatPredicate, IntPredicate,
 };
-use inkwell::{context::Context, types::BasicTypeEnum};
-use inkwell::{module::Module, values::BasicValue};
-use inkwell::{types::BasicType, AddressSpace};
 
 use crate::{
     ast::{PrimitiveType, Type},
@@ -53,30 +52,38 @@ impl<'a> CodegenContext<'a> {
                 .i8_type()
                 .ptr_type(AddressSpace::Generic)
                 .into(),
-            Type::Primitive(PrimitiveType::Array(arr, size)) => {
+            Type::Primitive(PrimitiveType::Array(inner, size)) => {
                 // assuming all types are equals
-                self.lower_type(arr, builder)?
+                self.lower_type(inner, builder)?
                     .array_type(*size as u32)
                     .ptr_type(AddressSpace::Generic)
                     .into()
             }
             Type::FuncType(f) => {
-                // FIXME: Don't rely on names for resolution
-                let f2 = match self.module.get_function(&f.get_mangled_name()) {
-                    Some(f2) => f2,
-                    None => {
-                        let f = self
-                            .hir
-                            .get_function_by_mangled_name(&f.get_mangled_name())
-                            .unwrap();
+                let ret_t = f.ret.clone();
 
-                        self.lower_function_decl(&f, builder)?;
+                let args = f
+                    .arguments
+                    .iter()
+                    .map(|arg| self.lower_type(arg, builder))
+                    .collect::<Vec<_>>();
 
-                        self.module.get_function(&f.get_name()).unwrap()
-                    }
+                let mut args_ret = vec![];
+
+                for arg in args {
+                    args_ret.push(arg?);
+                }
+
+                let args = args_ret;
+
+                let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
+                    self.context.void_type().fn_type(args.as_slice(), false)
+                } else {
+                    self.lower_type(&ret_t, builder)?
+                        .fn_type(args.as_slice(), false)
                 };
 
-                f2.get_type().ptr_type(AddressSpace::Generic).into()
+                fn_type.ptr_type(AddressSpace::Generic).into()
             }
             Type::Struct(s) => self
                 .context
@@ -117,7 +124,7 @@ impl<'a> CodegenContext<'a> {
 
             let mut args = vec![];
 
-            for arg in &p.signature.args {
+            for arg in &p.signature.arguments {
                 args.push(self.lower_type(&arg, builder)?);
             }
 

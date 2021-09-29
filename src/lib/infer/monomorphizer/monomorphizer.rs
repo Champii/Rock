@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{resolve::ResolutionMap, Type, TypeSignature},
+    ast::{resolve::ResolutionMap, FuncType, Type},
     hir::visit_mut::*,
     hir::*,
     Env,
@@ -14,13 +14,13 @@ pub struct Monomorphizer<'a> {
     pub new_resolutions: ResolutionMap<HirId>,
     pub old_ordered_resolutions: HashMap<HirId, Vec<HirId>>, // fn_call => [fn_decl]
     pub body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
-    pub generated_fn_hir_id: HashMap<(HirId, TypeSignature), HirId>, // (Old_fn_id, target_sig) => generated fn hir_id
+    pub generated_fn_hir_id: HashMap<(HirId, FuncType), HirId>, // (Old_fn_id, target_sig) => generated fn hir_id
     pub tmp_resolutions: BTreeMap<HirId, ResolutionMap<HirId>>,
     pub structs: HashMap<String, StructDecl>,
 }
 
 impl<'a> Monomorphizer<'a> {
-    pub fn get_fn_envs_pairs(&self) -> Vec<(HirId, HashMap<TypeSignature, Env>)> {
+    pub fn get_fn_envs_pairs(&self) -> Vec<(HirId, HashMap<FuncType, Env>)> {
         self.root
             .type_envs
             .get_inner()
@@ -35,7 +35,7 @@ impl<'a> Monomorphizer<'a> {
             .top_levels
             .iter()
             .filter(|top| match &top.kind {
-                TopLevelKind::Prototype(_) => true,
+                TopLevelKind::Prototype(p) => p.signature.is_solved(),
                 _ => false,
             })
             .cloned()
@@ -43,12 +43,14 @@ impl<'a> Monomorphizer<'a> {
 
         for top in &prototypes {
             if let TopLevelKind::Prototype(p) = &top.kind {
+                let f_type = p.signature.clone();
+
                 self.root
                     .node_types
-                    .insert(p.hir_id.clone(), p.signature.to_func_type());
+                    .insert(p.hir_id.clone(), Type::FuncType(f_type.clone()));
                 self.root
                     .node_types
-                    .insert(p.name.hir_id.clone(), p.signature.to_func_type());
+                    .insert(p.name.hir_id.clone(), Type::FuncType(f_type.clone()));
             }
         }
 
@@ -70,6 +72,11 @@ impl<'a> Monomorphizer<'a> {
                                     .type_envs
                                     .set_current_fn((proto_id.clone(), sig.clone()));
 
+                                if sig.is_solved() {
+                                    new_f.signature = sig.clone();
+                                } else {
+                                    println!("WHAT");
+                                }
                                 self.visit_function_decl(&mut new_f);
 
                                 self.generated_fn_hir_id
@@ -81,8 +88,11 @@ impl<'a> Monomorphizer<'a> {
                                 Some((proto_id.clone(), new_f, sig))
                             }
                             HirNode::Prototype(p) => {
-                                self.generated_fn_hir_id
-                                    .insert((proto_id.clone(), sig.clone()), p.hir_id.clone());
+                                if p.signature.is_solved() {
+                                    self.generated_fn_hir_id
+                                        .insert((proto_id.clone(), sig.clone()), p.hir_id.clone());
+                                }
+
                                 None
                             }
                             _ => {
@@ -191,6 +201,8 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             self.visit_array(arr);
         }
     }
+
+    fn visit_prototype(&mut self, _p: &'a mut Prototype) {}
 
     fn visit_function_decl(&mut self, f: &'a mut FunctionDecl) {
         let old_f_hir_id = f.hir_id.clone();
@@ -307,7 +319,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     self.generated_fn_hir_id
                         .get(&(
                             self.resolve_rec(&old_fc_op).unwrap(),
-                            fc.to_type_signature(&self.root.node_types),
+                            fc.to_func_type(&self.root.node_types),
                         ))
                         .unwrap()
                         .clone(),
@@ -319,11 +331,9 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 let f_type = self.root.type_envs.get_type(&old_fc_op).unwrap();
 
                 if let Type::FuncType(f_type) = f_type {
+                    println!("FN CALL PROTO {:?}", p);
                     // Traits
-                    if let Some(f) = self
-                        .root
-                        .get_trait_method((*p.name).clone(), &f_type.to_type_signature())
-                    {
+                    if let Some(f) = self.root.get_trait_method((*p.name).clone(), &f_type) {
                         if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {
                             self.new_resolutions.insert(fc.op.get_hir_id(), trans_res);
                         } else {
@@ -360,7 +370,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     self.new_resolutions.insert(
                         arg.get_hir_id(),
                         self.generated_fn_hir_id
-                            .get(&(reso, f.to_type_signature()))
+                            .get(&(reso, f.clone()))
                             .unwrap()
                             .clone(),
                     );

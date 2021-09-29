@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    ast::{resolve::ResolutionMap, FuncType, PrimitiveType, Type, TypeSignature},
+    ast::{resolve::ResolutionMap, FuncType, PrimitiveType, Type},
     diagnostics::{Diagnostic, Diagnostics},
     hir::visit::*,
     hir::*,
@@ -29,7 +29,7 @@ impl<'a> ConstraintContext<'a> {
 
         if !self.envs.set_current_fn((
             entry_point.hir_id.clone(),
-            TypeSignature::default().with_ret(Type::int64()),
+            FuncType::default().with_ret(Type::int64()),
         )) {
             return;
         }
@@ -68,7 +68,7 @@ impl<'a> ConstraintContext<'a> {
                         if let Some(existing_impls) = self.hir.trait_methods.get(&p.name.name) {
                             if let Some(f) = self.hir.get_trait_method(
                                 (*p.name).clone(),
-                                &fc.to_type_signature(self.envs.get_current_env().unwrap())
+                                &fc.to_func_type(self.envs.get_current_env().unwrap())
                                     .merge_with(&p.signature),
                             ) {
                                 self.setup_trait_call(fc, &f);
@@ -77,7 +77,7 @@ impl<'a> ConstraintContext<'a> {
                                     Diagnostic::new_unresolved_trait_call(
                                         self.envs.spans.get(&call_hir_id.clone()).unwrap().clone(),
                                         call_hir_id.clone(),
-                                        fc.to_type_signature(self.envs.get_current_env().unwrap())
+                                        fc.to_func_type(self.envs.get_current_env().unwrap())
                                             .merge_with(&p.signature),
                                         existing_impls.keys().cloned().collect(),
                                     ),
@@ -136,7 +136,7 @@ impl<'a> ConstraintContext<'a> {
         self.envs.set_type(&fc.get_hir_id(), &p.signature.ret);
 
         self.envs
-            .set_type(&fc.op.get_hir_id(), &p.signature.to_func_type());
+            .set_type(&fc.op.get_hir_id(), &Type::FuncType(p.signature.clone()));
     }
 
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
@@ -162,9 +162,9 @@ impl<'a> ConstraintContext<'a> {
                                 .or_insert_with(|| ResolutionMap::default())
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
 
-                            self.envs.set_type(&arg_id, &f.signature.to_func_type());
+                            self.envs.set_type(&arg_id, &f.signature.to_type());
 
-                            Some(f.signature.to_func_type())
+                            Some(f.signature.to_type())
                         } else {
                             None
                         }
@@ -184,7 +184,7 @@ impl<'a> ConstraintContext<'a> {
                 &self.hir.bodies.get(&f.body_id).unwrap().get_hir_id(),
             );
 
-            self.envs.set_type(&fc.op.get_hir_id(), &sig.to_func_type());
+            self.envs.set_type(&fc.op.get_hir_id(), &sig.to_type());
 
             return;
         }
@@ -225,11 +225,11 @@ impl<'a> ConstraintContext<'a> {
                 .map(|arg| *arg.clone())
                 .collect();
 
-            new_f_sig = new_f_type_inner.to_type_signature();
+            new_f_sig = new_f_type_inner.clone();
             *new_f_type_inner.ret.clone()
         } else {
             new_f_sig = sig.clone();
-            sig.ret.clone()
+            *sig.ret.clone()
         };
 
         // Fix the current sig if some types were still unknown
@@ -280,7 +280,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         self.envs.set_type(
             &f.hir_id,
             &Type::FuncType(FuncType::new(
-                f.name.name.clone(),
                 f.arguments
                     .iter()
                     .map(|arg| self.envs.get_type(&arg.get_hir_id()).unwrap())
@@ -303,7 +302,9 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_prototype(&mut self, p: &Prototype) {
-        self.envs.set_type(&p.hir_id, &p.signature.to_func_type());
+        if p.signature.is_solved() {
+            self.envs.set_type(&p.hir_id, &p.signature.to_type());
+        }
 
         self.tmp_resolutions
             .get_mut(&self.envs.get_current_fn().0)

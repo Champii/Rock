@@ -14,7 +14,7 @@ pub struct AstLoweringContext {
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
-    trait_methods: HashMap<String, HashMap<TypeSignature, hir::FunctionDecl>>,
+    trait_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
     structs: HashMap<String, hir::StructDecl>,
 }
 

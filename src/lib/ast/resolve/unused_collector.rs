@@ -81,7 +81,7 @@ impl<'a> Visitor<'a> for UnusedCollector {
     }
 
     fn visit_prototype(&mut self, prototype: &'a Prototype) {
-        self.visit_type_signature(&prototype.signature);
+        self.visit_func_type(&prototype.signature);
     }
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
