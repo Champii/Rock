@@ -1,6 +1,6 @@
-# Rock v0.1.5-develop
+# Rock v0.1.5-structs
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=structs)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -36,10 +36,10 @@ How to install and run the compiler:
 
 ### Using released binary
 
-[Rock v0.1.5-develop](https://github.com/Champii/Rock/releases/download/v0.1.5-develop/rock) (Tested on arch linux)
+[Rock v0.1.5-structs](https://github.com/Champii/Rock/releases/download/v0.1.5-structs/rock) (Tested on arch linux)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.5-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.5-structs/rock
 chmod +x rock
 ./rock -V
 ```
