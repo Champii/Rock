@@ -2,6 +2,10 @@
 set -euo pipefail
 
 BRANCH=$(basename $GITHUB_REF)
+
+
+BRANCH=$(printf '%s' "$BRANCH" | sed -e 's/_/-/g')
+
 NEW_VERSION=$(cat .github/version)-$BRANCH
 
 REPLACE=$(printf '%s\n' "$NEW_VERSION" | sed -e 's/[\/&]/\\&/g')
