@@ -39,7 +39,7 @@ fn main() {
     }
 }
 
-fn write_test(output_file: &mut File, path: &String) {
+fn write_test(output_file: &mut File, path: &str) {
     let path = path.replace("src/lib/", "");
 
     let name = path.replace("./", "");
@@ -69,7 +69,7 @@ fn run(path: &str, input: &str, expected_output: &str) {{
 
     let expected_output = expected_output.parse::<i64>().unwrap();
 
-    let actual_output = super::test::run(path, input.to_string(), config.clone());
+    let actual_output = super::test::run(path, input.to_string(), config);
 
     assert_eq!(expected_output, actual_output);
 }}

@@ -39,7 +39,7 @@ pub fn parse_file(in_name: String, out_name: String, config: &Config) -> Result<
 
     source_file.mod_path = PathBuf::from("root");
 
-    parse_str(&source_file, out_name, &config)
+    parse_str(&source_file, out_name, config)
 }
 
 pub fn parse_str(
@@ -49,7 +49,7 @@ pub fn parse_str(
 ) -> Result<(), Diagnostic> {
     let mut parsing_ctx = ParsingCtx::new(&config);
 
-    parsing_ctx.add_file(&input);
+    parsing_ctx.add_file(input);
 
     // Text to Ast
     debug!("    -> Parsing");
@@ -65,11 +65,11 @@ pub fn parse_str(
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    let new_hir = infer::infer(&mut hir, &mut parsing_ctx, &config)?;
+    let new_hir = infer::infer(&mut hir, &mut parsing_ctx, config)?;
 
     // Generate code
     debug!("    -> Lower to LLVM IR");
-    let parsing_ctx = codegen::generate(&config, parsing_ctx, new_hir)?;
+    let parsing_ctx = codegen::generate(config, parsing_ctx, new_hir)?;
 
     // debug!("    -> Save MetaData");
     // PackageMetaData { hir }
@@ -159,7 +159,7 @@ pub mod test {
 
         let build_path = path.parent().unwrap().join("build");
 
-        let mut config = config.clone();
+        let mut config = config;
         config.build_folder = build_path;
 
         fs::create_dir_all(config.build_folder.clone()).unwrap();
@@ -172,7 +172,7 @@ pub mod test {
             .output()
             .expect("failed to execute BINARY");
 
-        fs::remove_dir_all(config.build_folder.clone()).unwrap();
+        fs::remove_dir_all(config.build_folder).unwrap();
 
         match cmd.status.code() {
             Some(code) => code.into(),

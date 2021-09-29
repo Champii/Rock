@@ -311,7 +311,7 @@ impl FuncType {
 
     pub fn from_args_nb(nb: usize) -> Self {
         let mut new = Self::default();
-        let mut forall_generator = 'a'..'z';
+        let forall_generator = 'a'..'z';
 
         new.arguments = forall_generator
             .clone()
