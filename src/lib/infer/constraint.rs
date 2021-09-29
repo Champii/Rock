@@ -482,27 +482,26 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.visit_expression(&d.op);
                 self.visit_identifier(&d.value);
 
-                let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();
-
                 match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
                     t @ Type::Struct(struct_t) => {
                         self.envs.set_type(&d.op.get_hir_id(), &t);
 
                         self.envs
                             .set_type(&d.get_hir_id(), &struct_t.defs.get(&d.value.name).unwrap());
-
-                        self.envs.set_type_eq(&d.hir_id, &d.value.get_hir_id());
                     }
-                    other => self
-                        .envs
-                        .diagnostics
-                        .push_error(Diagnostic::new_type_conflict(
-                            self.envs.spans.get(&d.value.get_hir_id()).unwrap().clone(),
-                            value_t.clone(),
-                            other.clone(),
-                            value_t,
-                            other.clone(),
-                        )),
+                    other => {
+                        let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();
+
+                        self.envs
+                            .diagnostics
+                            .push_error(Diagnostic::new_type_conflict(
+                                self.envs.spans.get(&d.value.get_hir_id()).unwrap().clone(),
+                                value_t.clone(),
+                                other.clone(),
+                                value_t,
+                                other.clone(),
+                            ))
+                    }
                 }
             }
         }

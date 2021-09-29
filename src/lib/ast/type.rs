@@ -1,8 +1,5 @@
 use colored::*;
-use std::{
-    collections::{BTreeMap},
-    fmt,
-};
+use std::{collections::BTreeMap, fmt};
 
 use crate::ast::PrimitiveType;
 // use crate::ast::Prototype;
@@ -146,7 +143,7 @@ impl fmt::Debug for StructType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}{} {} {}",
+            "{} {} {} {}",
             self.name.yellow(),
             "{".green(),
             self.defs

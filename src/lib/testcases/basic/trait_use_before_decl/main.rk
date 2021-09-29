@@ -1,0 +1,24 @@
+puts a = a
+
+struct Bar
+  toto :: Int64
+  mdr :: String
+
+trait Show a
+  show :: a -> String
+
+impl Show Int64
+  show a = "2"
+
+print a = puts show a
+
+impl Show Bar
+  show b =
+    show b.toto
+
+main =
+  let bar = Bar
+    toto: 42
+    mdr: "haha"
+
+  print bar

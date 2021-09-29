@@ -4,6 +4,7 @@ use crate::{
     ast::{resolve::ResolutionMap, Type, TypeSignature},
     hir::visit_mut::*,
     hir::*,
+    Env,
 };
 
 #[derive(Debug)]
@@ -19,8 +20,16 @@ pub struct Monomorphizer<'a> {
 }
 
 impl<'a> Monomorphizer<'a> {
+    pub fn get_fn_envs_pairs(&self) -> Vec<(HirId, HashMap<TypeSignature, Env>)> {
+        self.root
+            .type_envs
+            .get_inner()
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<Vec<_>>()
+    }
+
     pub fn run(&mut self) -> Root {
-        // println!("ENV MONO {:#?}", self.root.type_envs);
         let prototypes = self
             .root
             .top_levels
@@ -43,14 +52,11 @@ impl<'a> Monomorphizer<'a> {
             }
         }
 
-        let fresh_top_levels = self
-            .root
-            .type_envs
-            .clone()
-            .get_inner()
-            .iter()
+        let fresh_top_levels_flat = self
+            .get_fn_envs_pairs()
+            .into_iter()
             .map(|(proto_id, sig_map)| {
-                let f_decls = sig_map
+                sig_map
                     .into_iter()
                     .filter_map(|(sig, _env)| {
                         let f = self.root.arena.get(&proto_id).unwrap();
@@ -72,7 +78,7 @@ impl<'a> Monomorphizer<'a> {
                                 self.trans_resolutions
                                     .insert(old_f.hir_id.clone(), new_f.hir_id.clone());
 
-                                Some((new_f, sig))
+                                Some((proto_id.clone(), new_f, sig))
                             }
                             HirNode::Prototype(p) => {
                                 self.generated_fn_hir_id
@@ -84,37 +90,37 @@ impl<'a> Monomorphizer<'a> {
                             }
                         }
                     })
-                    .collect::<Vec<_>>();
-
-                f_decls
-                    .into_iter()
-                    .map(|(mut new_f, sig)| {
-                        self.root
-                            .type_envs
-                            .set_current_fn((proto_id.clone(), sig.clone()));
-
-                        let fn_body = self.root.bodies.get(&new_f.body_id).unwrap();
-
-                        let mut new_fn_body = fn_body.clone();
-
-                        new_f.body_id = self.root.hir_map.next_body_id();
-                        new_fn_body.id = new_f.body_id.clone();
-
-                        self.body_arguments
-                            .insert(new_f.body_id.clone(), new_f.arguments.clone());
-
-                        self.visit_fn_body(&mut new_fn_body);
-
-                        new_fn_body.name = new_f.name.clone();
-                        new_fn_body.fn_id = new_f.hir_id.clone();
-
-                        new_f.arguments = self.body_arguments.get(&new_f.body_id).unwrap().clone();
-
-                        (new_f, new_fn_body)
-                    })
                     .collect::<Vec<_>>()
             })
             .flatten()
+            .collect::<Vec<_>>();
+
+        let fresh_top_levels = fresh_top_levels_flat
+            .into_iter()
+            .map(|(proto_id, mut new_f, sig)| {
+                self.root
+                    .type_envs
+                    .set_current_fn((proto_id.clone(), sig.clone()));
+
+                let fn_body = self.root.bodies.get(&new_f.body_id).unwrap();
+
+                let mut new_fn_body = fn_body.clone();
+
+                new_f.body_id = self.root.hir_map.next_body_id();
+                new_fn_body.id = new_f.body_id.clone();
+
+                self.body_arguments
+                    .insert(new_f.body_id.clone(), new_f.arguments.clone());
+
+                self.visit_fn_body(&mut new_fn_body);
+
+                new_fn_body.name = new_f.name.clone();
+                new_fn_body.fn_id = new_f.hir_id.clone();
+
+                new_f.arguments = self.body_arguments.get(&new_f.body_id).unwrap().clone();
+
+                (new_f, new_fn_body)
+            })
             .collect::<Vec<_>>();
 
         let mut new_root = Root::default();
@@ -188,15 +194,12 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
     fn visit_function_decl(&mut self, f: &'a mut FunctionDecl) {
         let old_f_hir_id = f.hir_id.clone();
-        let old_f_name_hir_id = f.name.hir_id.clone();
 
         f.hir_id = self.duplicate_hir_id(&f.hir_id);
         f.name.hir_id = self.duplicate_hir_id(&f.name.hir_id);
 
         if let Some(t) = self.root.type_envs.get_type(&old_f_hir_id) {
             self.root.node_types.insert(f.hir_id.clone(), t.clone());
-        }
-        if let Some(t) = self.root.type_envs.get_type(&old_f_name_hir_id) {
             self.root
                 .node_types
                 .insert(f.name.hir_id.clone(), t.clone());
@@ -321,10 +324,20 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                         .root
                         .get_trait_method((*p.name).clone(), &f_type.to_type_signature())
                     {
-                        self.new_resolutions.insert(
-                            fc.op.get_hir_id(),
-                            self.trans_resolutions.get(&f.hir_id).unwrap(),
-                        );
+                        if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {
+                            self.new_resolutions.insert(fc.op.get_hir_id(), trans_res);
+                        } else {
+                            panic!(
+                                "NO TRANS RES FOR TRAIT {:#?} {:#?} {:#?}",
+                                self.trans_resolutions,
+                                fc.op.get_hir_id(),
+                                f.hir_id,
+                            );
+                            // self.new_resolutions.insert(
+                            //     fc.op.get_hir_id(),
+                            //     self.resolve(&f.hir_id.clone()).unwrap(),
+                            // );
+                        }
                     // Extern Prototypes
                     } else {
                         self.new_resolutions
@@ -332,12 +345,12 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     }
                 }
 
-                self.trans_resolutions.remove(&old_fc_op);
+                // self.trans_resolutions.remove(&old_fc_op);
             }
             _ => {
                 // FIXME: This may be bad
-                self.new_resolutions
-                    .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
+                // self.new_resolutions
+                //     .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
             }
         }
 
@@ -355,7 +368,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     println!("NO RESO FOR {:#?}", arg.get_hir_id())
                 }
 
-                self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
+                // self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
             }
         }
     }

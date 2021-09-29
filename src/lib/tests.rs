@@ -61,6 +61,10 @@ fn testcases_basic_monomorph_in_trait_main() {
     run("testcases/basic/monomorph_in_trait/main.rk", include_str!("testcases/basic/monomorph_in_trait/main.rk"), include_str!("testcases/basic/monomorph_in_trait/main.rk.out"));
 }
 #[test]
+fn testcases_basic_trait_use_before_decl_main() {
+    run("testcases/basic/trait_use_before_decl/main.rk", include_str!("testcases/basic/trait_use_before_decl/main.rk"), include_str!("testcases/basic/trait_use_before_decl/main.rk.out"));
+}
+#[test]
 fn testcases_basic_array_main() {
     run("testcases/basic/array/main.rk", include_str!("testcases/basic/array/main.rk"), include_str!("testcases/basic/array/main.rk.out"));
 }
