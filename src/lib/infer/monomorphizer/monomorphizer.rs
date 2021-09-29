@@ -240,16 +240,8 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                         self.trans_resolutions
                             .get(existing_pointer)
                             .map(|new_pointer_id| {
-                                self.trans_resolutions.get(existing_pointee).map(
-                                    |new_pointee_id| {
-                                        // println!(
-                                        //     "NEW RESO FRON TRANS {:?} {:?}",
-                                        //     new_pointer_id, new_pointee_id
-                                        // );
-                                        self.new_resolutions
-                                            .insert(new_pointer_id.clone(), new_pointee_id);
-                                    },
-                                );
+                                if let Some(new_pointee_id) = self.trans_resolutions.get(existing_pointee) { self.new_resolutions
+                                            .insert(new_pointer_id, new_pointee_id); }
                             });
                     });
             });
