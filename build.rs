@@ -45,7 +45,7 @@ fn write_test(output_file: &mut File, path: &String) {
     let name = path.replace("./", "");
     let name = name.replace("/", "_");
     let name = name.replace(".rk", "");
-    let test_name = name.to_string();
+    let test_name = name;
 
     write!(
         output_file,
