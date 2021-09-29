@@ -41,7 +41,7 @@ impl Root {
                 r#trait
                     .defs
                     .iter()
-                    .find(|proto| *proto.name == ident)
+                    .find(|proto| proto.name.name == ident)
                     .is_some()
             })
             .map(|(_, r#trait)| r#trait.clone())
