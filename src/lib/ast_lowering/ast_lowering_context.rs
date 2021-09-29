@@ -258,10 +258,23 @@ impl AstLoweringContext {
                 let expr_hir = self.lower_expression(&indice);
                 let indice = match &*expr_hir.kind {
                     hir::ExpressionKind::Indice(indice) => indice,
-                    _ => unimplemented!("Assign left hand side can be Identifiers or Indices"),
+                    _ => unimplemented!(
+                        "Assign left hand side can be Identifiers, Indices or dot notation"
+                    ),
                 };
 
                 hir::AssignLeftSide::Indice(indice.clone())
+            }
+            AssignLeftSide::Dot(dot) => {
+                let expr_hir = self.lower_expression(&dot);
+                let dot = match &*expr_hir.kind {
+                    hir::ExpressionKind::Dot(dot) => dot,
+                    _ => unimplemented!(
+                        "Assign left hand side can be Identifiers, Indices or dot notation"
+                    ),
+                };
+
+                hir::AssignLeftSide::Dot(dot.clone())
             }
         }
     }
@@ -303,6 +316,7 @@ impl AstLoweringContext {
                 .collect(),
         })
     }
+
     pub fn lower_if(&mut self, r#if: &If) -> hir::If {
         hir::If {
             hir_id: self.hir_map.next_hir_id(r#if.identity.clone()),

@@ -157,6 +157,7 @@ pub fn walk_assign_left_side<'a, V: Visitor<'a>>(visitor: &mut V, assign_left: &
     match assign_left {
         AssignLeftSide::Identifier(id) => visitor.visit_identifier(id),
         AssignLeftSide::Indice(expr) => visitor.visit_expression(expr),
+        AssignLeftSide::Dot(expr) => visitor.visit_expression(expr),
     }
 }
 

@@ -377,6 +377,7 @@ pub enum StatementKind {
 pub enum AssignLeftSide {
     Identifier(Identifier),
     Indice(Indice),
+    Dot(Dot),
 }
 
 impl AssignLeftSide {
@@ -384,6 +385,7 @@ impl AssignLeftSide {
         match &self {
             AssignLeftSide::Indice(e) => e.get_hir_id(),
             AssignLeftSide::Identifier(a) => a.get_hir_id(),
+            AssignLeftSide::Dot(a) => a.get_hir_id(),
         }
     }
 }

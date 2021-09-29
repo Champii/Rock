@@ -647,6 +647,17 @@ impl Parse for AssignLeftSide {
                 // }
             }
         }
+        if ctx.seek(1).t == TokenType::Dot {
+            if let Ok(expr) = PrimaryExpr::parse(ctx) {
+                // TODO:
+                // if expr.is_indice() {
+
+                return Ok(AssignLeftSide::Dot(Expression::from_unary(
+                    &UnaryExpr::PrimaryExpr(expr),
+                )));
+                // }
+            }
+        }
 
         if let Ok(id) = Identifier::parse(ctx) {
             return Ok(AssignLeftSide::Identifier(id));

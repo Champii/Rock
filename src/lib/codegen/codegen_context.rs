@@ -1,5 +1,5 @@
+use std::convert::TryFrom;
 use std::convert::TryInto;
-use std::{convert::TryFrom};
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -291,6 +291,11 @@ impl<'a> CodegenContext<'a> {
             }
             AssignLeftSide::Indice(indice) => {
                 let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
+
+                builder.build_store(ptr, value);
+            }
+            AssignLeftSide::Dot(dot) => {
+                let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
 
                 builder.build_store(ptr, value);
             }

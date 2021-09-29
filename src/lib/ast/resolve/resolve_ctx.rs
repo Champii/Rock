@@ -103,6 +103,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 self.add_to_current_scope(id.name.clone(), id.identity.clone());
             }
             AssignLeftSide::Indice(expr) => self.visit_expression(expr),
+            AssignLeftSide::Dot(expr) => self.visit_expression(expr),
         }
 
         self.visit_expression(&assign.value);

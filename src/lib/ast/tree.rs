@@ -353,6 +353,7 @@ pub enum StatementKind {
 pub enum AssignLeftSide {
     Identifier(Identifier),
     Indice(Expression),
+    Dot(Expression),
 }
 // impl AssignLeftSide {
 //     pub fn get_node_id(&self) -> NodeId {
