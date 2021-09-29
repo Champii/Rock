@@ -14,11 +14,9 @@ fn visit_dirs(dir: &Path) -> io::Result<Vec<String>> {
 
             if path.is_dir() {
                 res.extend(visit_dirs(&path)?);
-            } else {
-                if let Some(ext) = path.extension() {
-                    if ext == "rk" && path.file_name().unwrap() == "main.rk" {
-                        res.push(entry.path().to_str().unwrap().to_string());
-                    }
+            } else if let Some(ext) = path.extension() {
+                if ext == "rk" && path.file_name().unwrap() == "main.rk" {
+                    res.push(entry.path().to_str().unwrap().to_string());
                 }
             }
         }
@@ -47,7 +45,7 @@ fn write_test(output_file: &mut File, path: &String) {
     let name = path.replace("./", "");
     let name = name.replace("/", "_");
     let name = name.replace(".rk", "");
-    let test_name = format!("{}", name);
+    let test_name = name.to_string();
 
     write!(
         output_file,
