@@ -524,26 +524,14 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    // pub fn get_mangled_name(&self, prefixes: Vec<String>) -> Option<String> {
-    //     match &*self.op.kind {
-    //         ExpressionKind::Identifier(id) => {
-    //             let identifier = id.path.iter().last().unwrap();
-
-    //             Some(prefixes.join("_") + "_" + &identifier.name)
-    //         }
-    //         _ => None, // FIXME: recurse on '(expr)' parenthesis expression
-    //     }
-    // }
-
     pub fn mangle(&mut self, prefixes: Vec<String>) {
         match &mut *self.op.kind {
             ExpressionKind::Identifier(id) => {
                 let identifier = id.path.iter_mut().last().unwrap();
 
                 identifier.name = format!("{}_{}", identifier.name, &prefixes.join("_"));
-                // identifier.name = prefixes.join("_") + "_" + &identifier.name;
             }
-            _ => (), // FIXME: recurse on '(expr)' parenthesis expression
+            _ => unimplemented!("Need to recurse on expr"), // FIXME: recurse on '(expr)' parenthesis expression
         }
     }
 
@@ -558,6 +546,7 @@ impl FunctionCall {
         )
     }
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Literal {
     pub hir_id: HirId,

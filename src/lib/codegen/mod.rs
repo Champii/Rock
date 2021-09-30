@@ -5,7 +5,7 @@ use inkwell::context::Context;
 
 use crate::{diagnostics::Diagnostic, hir::Root, parser::ParsingCtx, Config};
 
-pub fn generate<'a>(
+pub fn generate(
     config: &Config,
     parsing_ctx: ParsingCtx,
     hir: Root,

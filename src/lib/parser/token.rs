@@ -55,13 +55,13 @@ pub enum TokenType {
     Indent(u8),
 
     // whitespaces
-    EOL,
-    EOF,
+    Eol,
+    Eof,
 }
 
 impl Default for TokenType {
     fn default() -> TokenType {
-        TokenType::EOF
+        TokenType::Eof
     }
 }
 

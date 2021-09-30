@@ -152,7 +152,7 @@ impl AstLoweringContext {
             let fn_decls = self
                 .trait_methods
                 .entry(hir_f.name.name.clone())
-                .or_insert(HashMap::new());
+                .or_insert_with(HashMap::new);
 
             let _hir_id = self.hir_map.next_hir_id(f.identity.clone());
 

@@ -569,7 +569,7 @@ impl<'a> CodegenContext<'a> {
             LiteralKind::Float(n) => {
                 let f64_type = self.context.f64_type();
 
-                f64_type.const_float((*n).try_into().unwrap()).into()
+                f64_type.const_float(*n).into()
             }
             LiteralKind::Bool(b) => {
                 let bool_type = self.context.bool_type();

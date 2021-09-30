@@ -167,7 +167,7 @@ impl<'a> Parser<'a> {
         match self.tokens.get(self.cur_tok_id as usize + distance) {
             Some(a) => a.clone(),
             _ => Token {
-                t: TokenType::EOF,
+                t: TokenType::Eof,
                 span: Span::new_placeholder(),
                 txt: "".to_string(),
             },
@@ -210,7 +210,7 @@ impl Parse for Mod {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut res = vec![];
 
-        while TokenType::EOF != ctx.cur_tok().t {
+        while TokenType::Eof != ctx.cur_tok().t {
             match TopLevel::parse(ctx) {
                 Ok(top) => res.push(top),
                 Err(e) => {
@@ -221,7 +221,7 @@ impl Parse for Mod {
             };
         }
 
-        expect!(TokenType::EOF, ctx);
+        expect!(TokenType::Eof, ctx);
 
         Ok(Mod {
             tokens: ctx.tokens.clone(),
@@ -315,7 +315,7 @@ impl Parse for TopLevel {
             }
         };
 
-        while ctx.cur_tok().t == TokenType::EOL {
+        while ctx.cur_tok().t == TokenType::Eol {
             ctx.consume();
         }
 
@@ -338,22 +338,15 @@ impl Parse for StructDecl {
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
         // TODO: resolve type here ? else it is infered as Trait(name)
-        //
 
-        ctx.consume(); // EOL
+        ctx.consume(); // Eol
 
-        loop {
-            if let TokenType::Indent(_) = ctx.cur_tok().t {
-                ctx.consume(); // indent
+        while let TokenType::Indent(_) = ctx.cur_tok().t {
+            ctx.consume(); // indent
 
-                let f = Prototype::parse(ctx)?;
+            defs.push(Prototype::parse(ctx)?);
 
-                defs.push(f);
-
-                expect!(TokenType::EOL, ctx);
-            } else {
-                break;
-            }
+            expect!(TokenType::Eol, ctx);
         }
 
         ctx.save_pop();
@@ -379,26 +372,18 @@ impl Parse for Trait {
 
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
-        while ctx.cur_tok().t != TokenType::EOL {
+        while ctx.cur_tok().t != TokenType::Eol {
             types.push(Type::parse(ctx)?);
         }
 
-        ctx.consume(); // EOL
+        ctx.consume(); // Eol
 
-        loop {
-            if let TokenType::Indent(_) = ctx.cur_tok().t {
-                ctx.consume(); // indent
+        while let TokenType::Indent(_) = ctx.cur_tok().t {
+            ctx.consume(); // indent
 
-                let f = Prototype::parse(ctx)?;
+            defs.push(Prototype::parse(ctx)?);
 
-                // f.mangle(name.get_name());
-
-                defs.push(f);
-
-                expect!(TokenType::EOL, ctx);
-            } else {
-                break;
-            }
+            expect!(TokenType::Eol, ctx);
         }
 
         ctx.save_pop();
@@ -416,27 +401,22 @@ impl Parse for Impl {
 
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
-        while ctx.cur_tok().t != TokenType::EOL {
+        while ctx.cur_tok().t != TokenType::Eol {
             types.push(Type::parse(ctx)?);
         }
 
-        ctx.consume(); // EOL
+        ctx.consume(); // Eol
 
         ctx.block_indent += 1;
-        loop {
-            if let TokenType::Indent(_) = ctx.cur_tok().t {
-                ctx.consume(); // indent
-                let f = FunctionDecl::parse(ctx)?;
 
-                // f.mangle(&types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
+        while let TokenType::Indent(_) = ctx.cur_tok().t {
+            ctx.consume(); // indent
 
-                defs.push(f);
+            defs.push(FunctionDecl::parse(ctx)?);
 
-                expect!(TokenType::EOL, ctx);
-            } else {
-                break;
-            }
+            expect!(TokenType::Eol, ctx);
         }
+
         ctx.block_indent -= 1;
 
         ctx.save_pop();
@@ -555,7 +535,7 @@ impl Parse for Body {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut multi = false;
 
-        if ctx.cur_tok().t == TokenType::EOL {
+        if ctx.cur_tok().t == TokenType::Eol {
             multi = true;
 
             ctx.block_indent += 1;
@@ -567,8 +547,8 @@ impl Parse for Body {
             loop {
                 ctx.save();
 
-                if ctx.cur_tok().t == TokenType::EOL {
-                    while ctx.cur_tok().t == TokenType::EOL {
+                if ctx.cur_tok().t == TokenType::Eol {
+                    while ctx.cur_tok().t == TokenType::Eol {
                         ctx.consume();
                     }
                 } else {
@@ -709,14 +689,14 @@ impl Parse for If {
 
         let expr = try_or_restore!(Expression::parse(ctx), ctx);
 
-        expect_or_restore!(TokenType::EOL, ctx);
+        expect_or_restore!(TokenType::Eol, ctx);
         expect_or_restore!(TokenType::Indent(ctx.block_indent), ctx);
         expect_or_restore!(TokenType::Then, ctx);
 
         let body = try_or_restore!(Body::parse(ctx), ctx);
         // in case of single line body
-        if ctx.cur_tok().t == TokenType::EOL {
-            expect!(TokenType::EOL, ctx);
+        if ctx.cur_tok().t == TokenType::Eol {
+            expect!(TokenType::Eol, ctx);
             // expect_or_restore!(TokenType::Indent(ctx.block_indent + 2), ctx);
         }
 
@@ -813,31 +793,28 @@ impl Parse for StructCtor {
 
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
-        ctx.consume(); // EOL
+        ctx.consume(); // Eol
 
         let mut cur_indent = ctx.block_indent + 1;
-        loop {
-            if let TokenType::Indent(i) = ctx.cur_tok().t {
-                if i != cur_indent {
-                    break;
-                }
 
-                cur_indent = i;
-
-                ctx.consume(); // indent
-
-                let def_name = try_or_restore!(Identifier::parse(ctx), ctx);
-
-                expect_or_restore!(TokenType::SemiColon, ctx);
-
-                let expr = try_or_restore!(Expression::parse(ctx), ctx);
-
-                defs.insert(def_name, expr);
-
-                expect!(TokenType::EOL, ctx);
-            } else {
+        while let TokenType::Indent(i) = ctx.cur_tok().t {
+            if i != cur_indent {
                 break;
             }
+
+            cur_indent = i;
+
+            ctx.consume(); // indent
+
+            let def_name = try_or_restore!(Identifier::parse(ctx), ctx);
+
+            expect_or_restore!(TokenType::SemiColon, ctx);
+
+            let expr = try_or_restore!(Expression::parse(ctx), ctx);
+
+            defs.insert(def_name, expr);
+
+            expect!(TokenType::Eol, ctx);
         }
 
         ctx.save_pop();
@@ -1231,12 +1208,12 @@ impl Parse for Type {
 
 impl Parse for FuncType {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let mut args = vec![];
+        let mut arguments = vec![];
 
         loop {
             let t = Type::parse(ctx)?;
 
-            args.push(Box::new(t));
+            arguments.push(Box::new(t));
 
             if ctx.cur_tok().t != TokenType::Arrow {
                 break;
@@ -1245,13 +1222,8 @@ impl Parse for FuncType {
             ctx.consume();
         }
 
-        let ret = args.pop().unwrap();
+        let ret = arguments.pop().unwrap();
 
-        let mut t_sig = FuncType::default();
-
-        t_sig.arguments = args;
-        t_sig.ret = ret;
-
-        Ok(t_sig)
+        Ok(FuncType { arguments, ret })
     }
 }
