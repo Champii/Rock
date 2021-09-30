@@ -14,15 +14,15 @@ impl<'a> ReturnInserter<'a> {
     }
 
     fn visit_body(&mut self, body: &mut Body) {
-        if let Some(stmt) = body.stmts
-            .iter_mut()
-            .last() { self.visit_statement(stmt) }
+        if let Some(stmt) = body.stmts.iter_mut().last() {
+            self.visit_statement(stmt)
+        }
     }
 
     fn visit_statement(&mut self, stmt: &mut Statement) {
         match *stmt.kind {
             StatementKind::Expression(ref mut e) => {
-                e.kind = ExpressionKind::Return(Box::new(e.clone()));
+                e.kind = ExpressionKind::Return(e.clone());
             }
             StatementKind::If(ref mut i) => {
                 self.visit_if(i);
@@ -32,6 +32,7 @@ impl<'a> ReturnInserter<'a> {
             }
         }
     }
+
     fn visit_if(&mut self, r#if: &mut If) {
         self.visit_body(&mut r#if.body);
 

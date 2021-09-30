@@ -598,10 +598,10 @@ impl Parse for Statement {
                 Err(_e) => error!("Expected if".to_string(), ctx),
             }
         } else if let Ok(assign) = Assign::parse(ctx) {
-            StatementKind::Assign(assign)
+            StatementKind::Assign(Box::new(assign))
         } else {
             match Expression::parse(ctx) {
-                Ok(expr) => StatementKind::Expression(expr),
+                Ok(expr) => StatementKind::Expression(Box::new(expr)),
                 Err(_e) => error!("Expected expression".to_string(), ctx),
             }
         };
@@ -941,7 +941,7 @@ impl Parse for SecondaryExpr {
 
                 ctx.save_pop();
 
-                return Ok(SecondaryExpr::Indice(expr));
+                return Ok(SecondaryExpr::Indice(Box::new(expr)));
             }
         } else if TokenType::Dot == ctx.cur_tok().t {
             ctx.save();

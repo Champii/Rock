@@ -13,7 +13,6 @@ pub fn infer(
     config: &Config,
 ) -> Result<crate::hir::Root, Diagnostic> {
     let (tmp_resolutions, diags) = constraint::solve(root);
-    // super::hir::hir_printer::print(&*root);
 
     parsing_ctx.diagnostics.append(diags);
 

@@ -541,7 +541,7 @@ impl FunctionCall {
                 .args
                 .iter()
                 .map(|arg| env.get(&arg.get_hir_id()).cloned())
-                .collect(),
+                .collect::<Vec<_>>(),
             env.get(&self.hir_id).cloned(),
         )
     }

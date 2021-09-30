@@ -155,7 +155,7 @@ impl FuncType {
         format!("{}_{}", name, prefixes.join("_"))
     }
 
-    pub fn apply_forall_types(&self, orig: &Vec<Type>, dest: &Vec<Type>) -> Self {
+    pub fn apply_forall_types(&self, orig: &[Type], dest: &[Type]) -> Self {
         assert_eq!(orig.len(), dest.len());
 
         let (dest, orig): (Vec<_>, Vec<_>) = dest
@@ -227,7 +227,7 @@ impl FuncType {
 
     fn collect_partial_forall_types(
         &self,
-        arguments: &Vec<Option<Type>>,
+        arguments: &[Option<Type>],
         ret: Option<Type>,
     ) -> (Vec<Type>, Vec<Type>) {
         let mut orig = vec![];
@@ -290,7 +290,7 @@ impl FuncType {
         resolved.apply_forall_types(&orig, &dest)
     }
 
-    pub fn apply_partial_types(&self, arguments: &Vec<Option<Type>>, ret: Option<Type>) -> Self {
+    pub fn apply_partial_types(&self, arguments: &[Option<Type>], ret: Option<Type>) -> Self {
         let mut resolved = self.clone();
 
         resolved.arguments = self
@@ -352,32 +352,6 @@ impl FuncType {
     }
 
     pub fn merge_with(&self, other: &Self) -> Self {
-        // let mut resolved = self.clone();
-
-        // resolved.arguments = self
-        //     .arguments
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(i, arg)| {
-        //         if let Type::FuncType(f_t) = &**arg {
-        //             Box::new(
-        //                 f_t.merge_with(&other.arguments.get(i).unwrap().into_func_type())
-        //                     .to_type(),
-        //             )
-        //         } else {
-        //             (*arg).clone()
-        //         }
-        //     })
-        //     .collect::<Vec<_>>();
-
-        // resolved.ret = if let Type::FuncType(f_t) = &*self.ret {
-        //     Box::new(f_t.merge_with(&other.ret.into_func_type()).to_type())
-        // } else {
-        //     self.ret.clone()
-        // };
-
-        // println!("RESOLVED {:#?}", resolved);
-
         self.apply_types(
             other.arguments.iter().map(|b| (**b).clone()).collect(),
             *other.ret.clone(),

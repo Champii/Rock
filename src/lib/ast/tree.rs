@@ -340,8 +340,8 @@ pub struct Statement {
 
 #[derive(Debug, Clone)]
 pub enum StatementKind {
-    Expression(Expression),
-    Assign(Assign),
+    Expression(Box<Expression>),
+    Assign(Box<Assign>),
     If(If),
 }
 
@@ -404,10 +404,7 @@ impl Expression {
     }
 
     pub fn is_binop(&self) -> bool {
-        match &self.kind {
-            ExpressionKind::BinopExpr(_, _, _) => true,
-            _ => false,
-        }
+        matches!(&self.kind, ExpressionKind::BinopExpr(_, _, _))
     }
 
     pub fn is_indice(&self) -> bool {
@@ -553,15 +550,12 @@ impl OperandKind {
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
     Arguments(Vec<Argument>),
-    Indice(Expression),
+    Indice(Box<Expression>), // Boxing here to keep the enum size low
     Dot(Identifier),
 }
 impl SecondaryExpr {
     pub fn is_indice(&self) -> bool {
-        match self {
-            SecondaryExpr::Indice(_) => true,
-            _ => false,
-        }
+        matches!(self, SecondaryExpr::Indice(_))
     }
 }
 

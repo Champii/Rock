@@ -169,7 +169,7 @@ impl<'a> ConstraintContext<'a> {
                         }
                     })
                 })
-                .collect(),
+                .collect::<Vec<_>>(),
             None,
         );
 
@@ -286,9 +286,9 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     .collect(),
                 self.envs
                     .get_type(&self.hir.get_body(&f.body_id).unwrap().get_hir_id())
-                    .or(Some(&Type::forall("z")))
-                    .unwrap()
-                    .clone(),
+                    .cloned()
+                    .or_else(|| Some(Type::forall("z")))
+                    .unwrap(),
             )),
         );
 
@@ -586,7 +586,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 }
 
-pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnostics) {
+pub fn solve(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnostics) {
     let diagnostics = Diagnostics::default();
 
     let infer_state = Envs::new(diagnostics, root.get_hir_spans());
