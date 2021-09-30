@@ -338,7 +338,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     }
                 }
 
-                // self.trans_resolutions.remove(&old_fc_op);
+                self.trans_resolutions.remove(&old_fc_op);
             }
             _ => {
                 // FIXME: This may be bad
@@ -361,7 +361,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     println!("NO RESO FOR {:#?}", arg.get_hir_id())
                 }
 
-                // self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
+                self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
             }
         }
     }

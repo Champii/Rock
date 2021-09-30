@@ -137,6 +137,10 @@ fn testcases_basic_let_main() {
     run("testcases/basic/let/main.rk", include_str!("testcases/basic/let/main.rk"), include_str!("testcases/basic/let/main.rk.out"));
 }
 #[test]
+fn testcases_basic_fn_arg_array_main() {
+    run("testcases/basic/fn_arg_array/main.rk", include_str!("testcases/basic/fn_arg_array/main.rk"), include_str!("testcases/basic/fn_arg_array/main.rk.out"));
+}
+#[test]
 fn testcases_basic_0_arg_fn_main() {
     run("testcases/basic/0_arg_fn/main.rk", include_str!("testcases/basic/0_arg_fn/main.rk"), include_str!("testcases/basic/0_arg_fn/main.rk.out"));
 }
