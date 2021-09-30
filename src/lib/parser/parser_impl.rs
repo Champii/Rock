@@ -594,7 +594,7 @@ impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let kind = if ctx.cur_tok().t == TokenType::If {
             match If::parse(ctx) {
-                Ok(expr) => StatementKind::If(expr),
+                Ok(expr) => StatementKind::If(Box::new(expr)),
                 Err(_e) => error!("Expected if".to_string(), ctx),
             }
         } else if let Ok(assign) = Assign::parse(ctx) {
