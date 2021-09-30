@@ -83,15 +83,12 @@ mod lib
 
 use lib::prelude::*
 
-# Polymophic function
-id a = a
-
 fact a =
     if a <= 1
     then 1
     else a * fact (a - 1)
 
-main = print fact id 4
+main = print fact 4
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -107,6 +104,34 @@ Should output
 ```
 
 ## Showcases
+
+### Polymophic function
+
+
+``` haskell
+mod lib
+
+use lib::prelude::*
+
+id a = a
+
+main =
+  print id 1
+  print id 2.2
+  print id "Test"
+```
+
+``` sh
+rock run
+```
+
+Prints 
+
+``` sh
+1
+2.2
+Test
+```
 
 ### Custom infix operator
 
@@ -127,7 +152,7 @@ main = print (4 |> f)
 rock run
 ```
 
-Prints `6\n`
+Prints `6`
 
 ### Trait definition
 
@@ -151,6 +176,17 @@ main =
   print toString 33
   print toString 42.42
 
+```
+
+``` sh
+rock run
+```
+
+Prints 
+
+```
+33
+42.42
 ```
 
 ### Struct instance and Show implementation
@@ -179,4 +215,4 @@ main =
 rock run
 ```
 
-Prints `MyName\n`
+Prints `MyName`
