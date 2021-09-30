@@ -66,6 +66,10 @@ fn testcases_basic_op_func_main() {
     run("testcases/basic/op_func/main.rk", include_str!("testcases/basic/op_func/main.rk"), include_str!("testcases/basic/op_func/main.rk.out"), include_str!("testcases/basic/op_func/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_multiline_struct_const_main() {
+    run("testcases/basic/multiline_struct_const/main.rk", include_str!("testcases/basic/multiline_struct_const/main.rk"), include_str!("testcases/basic/multiline_struct_const/main.rk.out"), include_str!("testcases/basic/multiline_struct_const/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_2_arg_fn_main() {
     run("testcases/basic/2_arg_fn/main.rk", include_str!("testcases/basic/2_arg_fn/main.rk"), include_str!("testcases/basic/2_arg_fn/main.rk.out"), include_str!("testcases/basic/2_arg_fn/main.rk.stdout"));
 }

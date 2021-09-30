@@ -666,7 +666,22 @@ impl Parse for Assign {
 
         expect_or_restore!(TokenType::Operator("=".to_string()), ctx);
 
+        let mut multi = false;
+
+        if matches!(ctx.cur_tok().t, TokenType::Eol) {
+            ctx.consume(); // Eol
+            ctx.consume(); // Indent
+
+            multi = true;
+
+            ctx.block_indent += 1;
+        }
+
         let value = try_or_restore!(Expression::parse(ctx), ctx);
+
+        if multi {
+            ctx.block_indent -= 1;
+        }
 
         ctx.save_pop();
 
@@ -795,14 +810,12 @@ impl Parse for StructCtor {
 
         ctx.consume(); // Eol
 
-        let mut cur_indent = ctx.block_indent + 1;
+        ctx.block_indent += 1;
 
         while let TokenType::Indent(i) = ctx.cur_tok().t {
-            if i != cur_indent {
+            if i != ctx.block_indent {
                 break;
             }
-
-            cur_indent = i;
 
             ctx.consume(); // indent
 
@@ -816,6 +829,8 @@ impl Parse for StructCtor {
 
             expect!(TokenType::Eol, ctx);
         }
+
+        ctx.block_indent -= 1;
 
         ctx.save_pop();
 
