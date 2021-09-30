@@ -57,7 +57,7 @@ macro_rules! impl_visitor_trait {
         $name:ident, $method:ident
     )*) => {
         impl<'ast> Visitor<'ast> for AstPrintContext {
-            fn visit_name(&mut self, name: String) {
+            fn visit_name(&mut self, name: &str) {
                 self.print_primitive(name);
             }
 

@@ -8,7 +8,7 @@ macro_rules! generate_visitor_trait {
         $name:ident, $method:ident
     )*) => {
         pub trait Visitor<'ast>: Sized {
-            fn visit_name(&mut self, _name: String) {}
+            fn visit_name(&mut self, _name: &str) {}
 
             fn visit_primitive<T: std::fmt::Debug + std::fmt::Display>(&mut self, _val: T)
             {}
@@ -59,15 +59,15 @@ generate_visitor_trait!(
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     walk_list!(visitor, visit_top_level, &root.top_levels);
 
-    for (_, r#struct) in &root.structs {
+    for r#struct in root.structs.values() {
         visitor.visit_struct_decl(r#struct);
     }
 
-    for (_, r#trait) in &root.traits {
+    for r#trait in root.traits.values() {
         visitor.visit_trait(r#trait);
     }
 
-    for (_, impls) in &root.trait_methods {
+    for impls in root.trait_methods.values() {
         walk_map!(visitor, visit_function_decl, impls);
     }
 
@@ -121,7 +121,7 @@ pub fn walk_identifier_path<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a
 }
 
 pub fn walk_identifier<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a Identifier) {
-    visitor.visit_name(identifier.name.clone());
+    visitor.visit_name(&identifier.name);
 }
 
 pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a ArgumentDecl) {

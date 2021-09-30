@@ -59,7 +59,7 @@ generate_visitor_mut_trait!(
 pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
     walk_list!(visitor, visit_top_level, &mut root.top_levels);
 
-    for (_, r#struct) in &mut root.structs {
+    for r#struct in &mut root.structs.values_mut() {
         visitor.visit_struct_decl(r#struct);
     }
 

@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt};
 
 use crate::ast::PrimitiveType;
 
-#[derive(Clone, Hash, Eq, Serialize, Deserialize)]
+#[derive(Clone, Eq, Serialize, Deserialize)]
 pub enum Type {
     Primitive(PrimitiveType),
     FuncType(FuncType),
@@ -11,6 +11,12 @@ pub enum Type {
     Trait(String),
     ForAll(String),
     Undefined(u64), // FIXME: To remove
+}
+
+impl std::hash::Hash for Type {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+    }
 }
 
 impl PartialEq for Type {
@@ -78,10 +84,17 @@ impl fmt::Display for Type {
     }
 }
 
-#[derive(Clone, Hash, Eq, Serialize, Deserialize)]
+#[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct FuncType {
     pub arguments: Vec<Box<Type>>,
     pub ret: Box<Type>,
+}
+
+impl std::hash::Hash for FuncType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.arguments.hash(state);
+        self.ret.hash(state);
+    }
 }
 
 impl PartialEq for FuncType {
@@ -319,9 +332,7 @@ impl FuncType {
             .map(|n| Box::new(Type::ForAll(n.to_string())))
             .collect();
 
-        new.ret = Box::new(Type::ForAll(
-            forall_generator.nth(nb).unwrap().to_string(),
-        ));
+        new.ret = Box::new(Type::ForAll(forall_generator.nth(nb).unwrap().to_string()));
 
         new
     }

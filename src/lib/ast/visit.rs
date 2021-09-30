@@ -8,7 +8,7 @@ macro_rules! generate_visitor_trait {
         $name:ident, $method:ident
     )*) => {
         pub trait Visitor<'ast>: Sized {
-            fn visit_name(&mut self, _name: String) {}
+            fn visit_name(&mut self, _name: &str) {}
 
             fn visit_primitive<T>(&mut self, _val: T)
             where
@@ -134,11 +134,11 @@ pub fn walk_identifier_path<'a, V: Visitor<'a>>(
 }
 
 pub fn walk_identifier<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a Identifier) {
-    visitor.visit_name(identifier.name.clone());
+    visitor.visit_name(&identifier.name);
 }
 
 pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a ArgumentDecl) {
-    visitor.visit_name(argument.name.clone());
+    visitor.visit_name(&argument.name);
 }
 
 pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {

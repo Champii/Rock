@@ -67,7 +67,7 @@ macro_rules! impl_visitor_trait2 {
         $name:ident
     )*) => {
         impl<'a> Visitor<'a> for HirPrinter<'a> {
-            fn visit_name(&mut self, name: String) {
+            fn visit_name(&mut self, name: &str) {
                 self.print_primitive(name);
             }
 

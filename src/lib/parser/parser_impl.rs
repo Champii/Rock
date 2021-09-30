@@ -191,7 +191,7 @@ impl Parse for Root {
             .top_levels
             .iter()
             .find(|top| match &top.kind {
-                TopLevelKind::Function(f) => *f.name == "main".to_string(),
+                TopLevelKind::Function(f) => f.name.name == "main",
                 _ => false,
             })
             .ok_or_else(Diagnostic::new_no_main)?;
