@@ -54,6 +54,8 @@ impl<'a> Monomorphizer<'a> {
             }
         }
 
+        // The collect here is needed as we NEED the generated_fn_hir_id.insert() side effect
+        #[allow(clippy::needless_collect)]
         let fresh_top_levels_flat = self
             .get_fn_envs_pairs()
             .into_iter()
@@ -100,38 +102,35 @@ impl<'a> Monomorphizer<'a> {
             .flatten()
             .collect::<Vec<_>>();
 
-        let fresh_top_levels = fresh_top_levels_flat
-            .into_iter()
-            .map(|(proto_id, mut new_f, sig)| {
-                self.root
-                    .type_envs
-                    .set_current_fn((proto_id, sig));
+        let fresh_top_levels =
+            fresh_top_levels_flat
+                .into_iter()
+                .map(|(proto_id, mut new_f, sig)| {
+                    self.root.type_envs.set_current_fn((proto_id, sig));
 
-                let fn_body = self.root.bodies.get(&new_f.body_id).unwrap();
+                    let fn_body = self.root.bodies.get(&new_f.body_id).unwrap();
 
-                let mut new_fn_body = fn_body.clone();
+                    let mut new_fn_body = fn_body.clone();
 
-                new_f.body_id = self.root.hir_map.next_body_id();
-                new_fn_body.id = new_f.body_id.clone();
+                    new_f.body_id = self.root.hir_map.next_body_id();
+                    new_fn_body.id = new_f.body_id.clone();
 
-                self.body_arguments
-                    .insert(new_f.body_id.clone(), new_f.arguments.clone());
+                    self.body_arguments
+                        .insert(new_f.body_id.clone(), new_f.arguments.clone());
 
-                self.visit_fn_body(&mut new_fn_body);
+                    self.visit_fn_body(&mut new_fn_body);
 
-                new_fn_body.name = new_f.name.clone();
-                new_fn_body.fn_id = new_f.hir_id.clone();
+                    new_fn_body.name = new_f.name.clone();
+                    new_fn_body.fn_id = new_f.hir_id.clone();
 
-                new_f.arguments = self.body_arguments.get(&new_f.body_id).unwrap().clone();
+                    new_f.arguments = self.body_arguments.get(&new_f.body_id).unwrap().clone();
 
-                (new_f, new_fn_body)
-            })
-            .collect::<Vec<_>>();
+                    (new_f, new_fn_body)
+                });
 
         let mut new_root = Root::default();
 
         let (tops, bodies) = fresh_top_levels
-            .into_iter()
             .map(|(f, body)| {
                 let top = TopLevel {
                     kind: TopLevelKind::Function(f),
@@ -157,10 +156,7 @@ impl<'a> Monomorphizer<'a> {
     }
 
     pub fn duplicate_hir_id(&mut self, old_hir_id: &HirId) -> HirId {
-        
-
-        self
-            .root
+        self.root
             .hir_map
             .duplicate_hir_mapping(old_hir_id.clone())
             .unwrap()
@@ -237,12 +233,13 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     .iter()
                     .filter(|(pointer, _pointee)| *pointer == old_pointer_id)
                     .for_each(|(existing_pointer, existing_pointee)| {
-                        self.trans_resolutions
-                            .get(existing_pointer)
-                            .map(|new_pointer_id| {
-                                if let Some(new_pointee_id) = self.trans_resolutions.get(existing_pointee) { self.new_resolutions
-                                            .insert(new_pointer_id, new_pointee_id); }
-                            });
+                        if let Some(new_pointer_id) = self.trans_resolutions.get(existing_pointer) {
+                            if let Some(new_pointee_id) =
+                                self.trans_resolutions.get(existing_pointee)
+                            {
+                                self.new_resolutions.insert(new_pointer_id, new_pointee_id);
+                            }
+                        }
                     });
             });
 
@@ -252,7 +249,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
     fn visit_if(&mut self, r#if: &'a mut If) {
         let old_if_id = r#if.hir_id.clone();
 
-        r#if.hir_id = self.duplicate_hir_id(&mut r#if.hir_id);
+        r#if.hir_id = self.duplicate_hir_id(&r#if.hir_id);
 
         if let Some(t) = self.root.type_envs.get_type(&old_if_id) {
             self.root.node_types.insert(r#if.hir_id.clone(), t.clone());
