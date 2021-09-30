@@ -1,6 +1,6 @@
 mod constraint;
 mod mangle;
-mod monomorphizer;
+mod monomorphize;
 mod state;
 
 pub use self::state::*;
@@ -19,7 +19,7 @@ pub fn infer(
 
     parsing_ctx.return_if_error()?;
 
-    let mut new_root = monomorphizer::monomophize(root, tmp_resolutions);
+    let mut new_root = monomorphize::monomophize(root, tmp_resolutions);
 
     mangle::mangle(&mut new_root);
 
