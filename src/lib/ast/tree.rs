@@ -342,7 +342,7 @@ pub struct Statement {
 pub enum StatementKind {
     Expression(Box<Expression>),
     Assign(Box<Assign>),
-    If(If),
+    If(Box<If>),
 }
 
 #[derive(Debug, Clone)]
