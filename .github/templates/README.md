@@ -83,15 +83,12 @@ mod lib
 
 use lib::prelude::*
 
-# Polymophic function
-id a = a
-
 fact a =
     if a <= 1
     then 1
     else a * fact (a - 1)
 
-main = print fact id 4
+main = print fact 4
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
