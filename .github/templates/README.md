@@ -33,11 +33,15 @@ This is a personal project, so please bear with me
 
 ## Install
 
+Warning: This project has only been tested on Linux x86_64.
+
 How to install and run the compiler:
 
-### Using released binary
+### Using released binary 
 
-[Rock {version}](https://github.com/Champii/Rock/releases/download/{version}/rock) (Tested on arch linux)
+Linux x86_64 only
+
+[Rock {version}](https://github.com/Champii/Rock/releases/download/{version}/rock) (Tested on arch, btw)
 
 ``` sh
 wget https://github.com/Champii/Rock/releases/download/{version}/rock
