@@ -112,21 +112,16 @@ impl Envs {
     }
 
     pub fn apply_args_type(&mut self, f: &FunctionDecl) {
-        let eq_types = f
-            .arguments
-            .iter()
+        f.arguments
+            .clone()
+            .into_iter()
             .enumerate()
-            .map(|(i, arg)| {
-                (
-                    arg.get_hir_id(),
-                    self.current_fn.1.arguments.get(i).unwrap().clone(),
+            .for_each(|(i, arg)| {
+                self.set_type(
+                    &arg.get_hir_id(),
+                    &self.current_fn.1.arguments.get(i).unwrap().clone(),
                 )
-            })
-            .collect::<Vec<_>>();
-
-        eq_types.into_iter().for_each(|(id, t)| {
-            self.set_type(&id, &t);
-        });
+            });
     }
 
     pub fn get_fn_types(&self, f: &HirId) -> Option<&HashMap<FuncType, Env>> {
@@ -138,9 +133,7 @@ impl Envs {
     }
 
     pub fn add_empty(&mut self, hir_id: &HirId) {
-        self.fns
-            .entry(hir_id.clone())
-            .or_insert_with(HashMap::new);
+        self.fns.entry(hir_id.clone()).or_insert_with(HashMap::new);
     }
 
     pub fn amend_current_sig(&mut self, new_sig: &FuncType) {
