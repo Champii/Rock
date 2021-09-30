@@ -1,0 +1,4 @@
+f :: Int64 -> Int64
+f a = a
+
+main = f 2.2

@@ -139,6 +139,22 @@ impl<'a> ConstraintContext<'a> {
     }
 
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
+        if f.signature.arguments.len() != fc.args.len() {
+            self.envs
+                .diagnostics
+                .push_error(Diagnostic::new_type_conflict(
+                    self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap())
+                        .to_type(),
+                    f.signature.to_type(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap())
+                        .to_type(),
+                    f.signature.to_type(),
+                ));
+
+            return;
+        }
+
         // Creating a fresh signature by merging arguments types with function signature
         let sig = f.signature.apply_partial_types(
             &f.arguments
@@ -172,6 +188,30 @@ impl<'a> ConstraintContext<'a> {
                 .collect::<Vec<_>>(),
             None,
         );
+
+        if sig.arguments
+            != fc
+                .to_func_type(self.envs.get_current_env().unwrap())
+                .arguments
+        {
+            self.envs
+                .diagnostics
+                .push_error(Diagnostic::new_type_conflict(
+                    self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap())
+                        .to_type(),
+                    sig.to_type(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap())
+                        .to_type(),
+                    sig.to_type(),
+                ));
+            return;
+            // panic!(
+            //     "BAD CALL {:#?} {:#?}",
+            //     fc.to_func_type(self.envs.get_current_env().unwrap()),
+            //     sig
+            // );
+        }
 
         // Carring about recursion
         if self.envs.get_current_fn().0 == f.hir_id {

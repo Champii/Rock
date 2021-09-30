@@ -298,16 +298,17 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             .unwrap()
         {
             HirNode::FunctionDecl(_) => {
-                self.new_resolutions.insert(
-                    fc.op.get_hir_id(),
-                    self.generated_fn_hir_id
-                        .get(&(
-                            self.resolve_rec(&old_fc_op).unwrap(),
-                            fc.to_func_type(&self.root.node_types),
-                        ))
-                        .unwrap()
-                        .clone(),
-                );
+                // println!("ENV {:#?}", self.root.type_envs);
+                if let Some(generated_fn) = self.generated_fn_hir_id.get(&(
+                    self.resolve_rec(&old_fc_op).unwrap(),
+                    fc.to_func_type(&self.root.node_types),
+                )) {
+                    self.new_resolutions
+                        .insert(fc.op.get_hir_id(), generated_fn.clone());
+                } else {
+                    // self.
+                    panic!("BUG: Cannot find function from signature");
+                }
 
                 self.trans_resolutions.remove(&old_fc_op);
             }

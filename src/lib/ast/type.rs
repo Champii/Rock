@@ -34,10 +34,21 @@ impl Type {
         Self::ForAll(String::from(t))
     }
 
+    pub fn is_solved(&self) -> bool {
+        match self {
+            Type::Primitive(p) => p.is_solved(),
+            Type::FuncType(ft) => ft.is_solved(),
+            Type::Struct(_) => true,
+            Type::Trait(_) => true,
+            Type::ForAll(_) => false,
+            Type::Undefined(_) => false,
+        }
+    }
+
     pub fn get_name(&self) -> String {
         match self {
             Self::Primitive(p) => p.get_name(),
-            Self::FuncType(_f) => String::from(""),
+            Self::FuncType(_f) => String::from("(fn)"),
             Self::Struct(s) => s.name.clone(),
             Self::Trait(t) => t.clone(),
             Self::ForAll(n) => String::from(n),
@@ -338,11 +349,11 @@ impl FuncType {
     }
 
     pub fn is_solved(&self) -> bool {
-        self.are_args_solved() && !self.ret.is_forall()
+        self.are_args_solved() && self.ret.is_solved()
     }
 
     pub fn are_args_solved(&self) -> bool {
-        !self.arguments.iter().any(|arg| arg.is_forall())
+        !self.arguments.iter().any(|arg| !arg.is_solved())
     }
 
     pub fn with_ret(mut self, ret: Type) -> Self {

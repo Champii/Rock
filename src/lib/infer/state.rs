@@ -91,13 +91,15 @@ impl Envs {
                 }
             }
             (src, Some(previous)) if !src.eq(&previous) => {
-                self.diagnostics.push_error(Diagnostic::new_type_conflict(
-                    self.spans.get(dest).unwrap().clone(),
-                    src.clone(),
-                    previous.clone(),
-                    src.clone(),
-                    previous,
-                ));
+                if previous.is_solved() && src.is_solved() {
+                    self.diagnostics.push_error(Diagnostic::new_type_conflict(
+                        self.spans.get(dest).unwrap().clone(),
+                        src.clone(),
+                        previous.clone(),
+                        src.clone(),
+                        previous,
+                    ));
+                }
             }
             _ => (),
         }

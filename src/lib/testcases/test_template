@@ -1,4 +1,4 @@
 #[test]
 fn {name}() {{
-    run("{path}", include_str!("{path}"), include_str!("{path}.out"));
+    run("{path}", include_str!("{path}"), include_str!("{path}.out"), include_str!("{path}.stdout"));
 }}

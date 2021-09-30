@@ -62,16 +62,17 @@ fn write_header(output_file: &mut File) {
         r##"use std::path::PathBuf;
 
 #[allow(dead_code)]
-fn run(path: &str, input: &str, expected_output: &str) {{
+fn run(path: &str, input: &str, expected_ret: &str, expected_output: &str) {{
     let mut config = super::Config::default();
 
     config.project_config.entry_point = PathBuf::from(path);
 
-    let expected_output = expected_output.parse::<i64>().unwrap();
+    let expected_ret = expected_ret.parse::<i64>().unwrap();
 
-    let actual_output = super::test::run(path, input.to_string(), config);
+    let (ret_code, stdout) = super::test::run(path, input.to_string(), config);
 
-    assert_eq!(expected_output, actual_output);
+    assert_eq!(expected_ret, ret_code);
+    assert_eq!(expected_output, stdout);
 }}
 "##
     )
