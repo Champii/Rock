@@ -204,9 +204,10 @@ impl Show Player
   show p = show p.name
 
 main =
-  let player = Player
-    level: 42
-    name: "MyName"
+  let player = 
+    Player
+      level: 42
+      name: "MyName"
 
   print player
 ```

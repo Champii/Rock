@@ -30,6 +30,10 @@ fn testcases_fails_basic_fn_bad_arg_nb_main() {
     run("testcases/fails/basic/fn_bad_arg_nb/main.rk", include_str!("testcases/fails/basic/fn_bad_arg_nb/main.rk"), include_str!("testcases/fails/basic/fn_bad_arg_nb/main.rk.out"), include_str!("testcases/fails/basic/fn_bad_arg_nb/main.rk.stdout"));
 }
 #[test]
+fn testcases_fails_basic_struct_bad_field_type_main() {
+    run("testcases/fails/basic/struct_bad_field_type/main.rk", include_str!("testcases/fails/basic/struct_bad_field_type/main.rk"), include_str!("testcases/fails/basic/struct_bad_field_type/main.rk.out"), include_str!("testcases/fails/basic/struct_bad_field_type/main.rk.stdout"));
+}
+#[test]
 fn testcases_fails_basic_fn_bad_arg_main() {
     run("testcases/fails/basic/fn_bad_arg/main.rk", include_str!("testcases/fails/basic/fn_bad_arg/main.rk"), include_str!("testcases/fails/basic/fn_bad_arg/main.rk.out"), include_str!("testcases/fails/basic/fn_bad_arg/main.rk.stdout"));
 }
@@ -80,6 +84,10 @@ fn testcases_basic_monomorph_in_trait_main() {
 #[test]
 fn testcases_basic_trait_use_before_decl_main() {
     run("testcases/basic/trait_use_before_decl/main.rk", include_str!("testcases/basic/trait_use_before_decl/main.rk"), include_str!("testcases/basic/trait_use_before_decl/main.rk.out"), include_str!("testcases/basic/trait_use_before_decl/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_nested_struct_dect_multiline_main() {
+    run("testcases/basic/nested_struct_dect_multiline/main.rk", include_str!("testcases/basic/nested_struct_dect_multiline/main.rk"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.out"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_array_main() {

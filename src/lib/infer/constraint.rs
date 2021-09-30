@@ -5,7 +5,7 @@ use crate::{
     diagnostics::{Diagnostic, Diagnostics},
     hir::visit::*,
     hir::*,
-    walk_list, Envs,
+    walk_list, walk_map, Envs,
 };
 
 #[derive(Debug)]
@@ -377,9 +377,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         let struct_t = t.into_struct_type();
 
-        s.defs.iter().for_each(|(k, p)| {
+        walk_map!(self, visit_expression, &s.defs);
+
+        s.defs.iter().for_each(|(k, expr)| {
             self.envs
-                .set_type(&p.get_hir_id(), struct_t.defs.get(&k.name).unwrap());
+                .set_type(&expr.get_hir_id(), struct_t.defs.get(&k.name).unwrap());
         });
     }
 

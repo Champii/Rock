@@ -823,11 +823,29 @@ impl Parse for StructCtor {
 
             expect_or_restore!(TokenType::SemiColon, ctx);
 
+            let mut multi = false;
+
+            if matches!(ctx.cur_tok().t, TokenType::Eol) {
+                ctx.consume(); // Eol
+                ctx.consume(); // Indent
+
+                multi = true;
+
+                ctx.block_indent += 1;
+            }
+
             let expr = try_or_restore!(Expression::parse(ctx), ctx);
+
+            if multi {
+                ctx.block_indent -= 1;
+            }
 
             defs.insert(def_name, expr);
 
-            expect!(TokenType::Eol, ctx);
+            if matches!(ctx.cur_tok().t, TokenType::Eol) {
+                ctx.consume();
+            }
+            // expect!(TokenType::Eol, ctx);
         }
 
         ctx.block_indent -= 1;
