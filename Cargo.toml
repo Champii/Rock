@@ -1,6 +1,6 @@
 [package]
 name = "rock"
-version = "0.1.6-typesignature-parse"
+version = "0.1.6-develop"
 authors = ["champii <contact@champii>"]
 edition = "2018"
 
