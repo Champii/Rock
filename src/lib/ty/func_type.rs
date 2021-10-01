@@ -187,8 +187,8 @@ impl FuncType {
             .iter()
             .enumerate()
             .map(|(i, arg)| {
-                if let Type::FuncType(f_t) = arg {
-                    f_t.merge_with(&arguments.get(i).unwrap().into_func_type())
+                if let Type::Func(f_t) = arg {
+                    f_t.merge_with(&arguments.get(i).unwrap().as_func_type())
                         .into()
                 } else {
                     arg.clone()
@@ -196,8 +196,8 @@ impl FuncType {
             })
             .collect::<Vec<_>>();
 
-        resolved.ret = if let Type::FuncType(f_t) = &*self.ret {
-            Box::new(f_t.merge_with(&ret.into_func_type()).into())
+        resolved.ret = if let Type::Func(f_t) = &*self.ret {
+            Box::new(f_t.merge_with(&ret.as_func_type()).into())
         } else {
             self.ret.clone()
         };
@@ -215,8 +215,8 @@ impl FuncType {
             .iter()
             .enumerate()
             .map(|(i, arg)| {
-                if let Type::FuncType(f_t) = arg {
-                    let inner = arguments.get(i).unwrap().as_ref().unwrap().into_func_type();
+                if let Type::Func(f_t) = arg {
+                    let inner = arguments.get(i).unwrap().as_ref().unwrap().as_func_type();
 
                     f_t.merge_with(&inner).into()
                 } else {
@@ -225,11 +225,8 @@ impl FuncType {
             })
             .collect::<Vec<_>>();
 
-        resolved.ret = if let Type::FuncType(f_t) = &*self.ret {
-            Box::new(
-                f_t.merge_with(&ret.as_ref().unwrap().into_func_type())
-                    .into(),
-            )
+        resolved.ret = if let Type::Func(f_t) = &*self.ret {
+            Box::new(f_t.merge_with(&ret.as_ref().unwrap().as_func_type()).into())
         } else {
             self.ret.clone()
         };

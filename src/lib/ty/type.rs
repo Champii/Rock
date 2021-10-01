@@ -9,7 +9,7 @@ use super::{FuncType, PrimitiveType, StructType};
 #[derive(Clone, Eq, Serialize, Deserialize)]
 pub enum Type {
     Primitive(PrimitiveType),
-    FuncType(FuncType),
+    Func(FuncType),
     Struct(StructType),
     Trait(String),
     ForAll(String),
@@ -40,7 +40,7 @@ impl Type {
     pub fn is_solved(&self) -> bool {
         match self {
             Type::Primitive(p) => p.is_solved(),
-            Type::FuncType(ft) => ft.is_solved(),
+            Type::Func(ft) => ft.is_solved(),
             Type::Struct(_) => true,
             Type::Trait(_) => true,
             Type::ForAll(_) => false,
@@ -54,49 +54,49 @@ impl Type {
 
     pub fn is_bool(&self) -> bool {
         self.is_primitive()
-            .then(|| self.into_primitive().is_bool())
+            .then(|| self.as_primitive().is_bool())
             .unwrap_or(false)
     }
 
     pub fn is_int8(&self) -> bool {
         self.is_primitive()
-            .then(|| self.into_primitive().is_int8())
+            .then(|| self.as_primitive().is_int8())
             .unwrap_or(false)
     }
 
     pub fn is_int16(&self) -> bool {
         self.is_primitive()
-            .then(|| self.into_primitive().is_int16())
+            .then(|| self.as_primitive().is_int16())
             .unwrap_or(false)
     }
 
     pub fn is_int32(&self) -> bool {
         self.is_primitive()
-            .then(|| self.into_primitive().is_int32())
+            .then(|| self.as_primitive().is_int32())
             .unwrap_or(false)
     }
 
     pub fn is_int64(&self) -> bool {
         self.is_primitive()
-            .then(|| self.into_primitive().is_int64())
+            .then(|| self.as_primitive().is_int64())
             .unwrap_or(false)
     }
 
     pub fn is_float64(&self) -> bool {
         self.is_primitive()
-            .then(|| self.into_primitive().is_float64())
+            .then(|| self.as_primitive().is_float64())
             .unwrap_or(false)
     }
 
     pub fn is_string(&self) -> bool {
         self.is_primitive()
-            .then(|| self.into_primitive().is_string())
+            .then(|| self.as_primitive().is_string())
             .unwrap_or(false)
     }
 
     pub fn is_array(&self) -> bool {
         self.is_primitive()
-            .then(|| self.into_primitive().is_array())
+            .then(|| self.as_primitive().is_array())
             .unwrap_or(false)
     }
 
@@ -109,7 +109,7 @@ impl Type {
     }
 
     pub fn is_func(&self) -> bool {
-        matches!(self, Self::FuncType(_x))
+        matches!(self, Self::Func(_x))
     }
 
     pub fn is_forall(&self) -> bool {
@@ -119,7 +119,7 @@ impl Type {
     pub fn get_name(&self) -> String {
         match self {
             Self::Primitive(p) => p.get_name(),
-            Self::FuncType(f) => format!("{:?}", f),
+            Self::Func(f) => format!("{:?}", f),
             Self::Struct(s) => s.name.clone(),
             Self::Trait(t) => t.clone(),
             Self::ForAll(n) => String::from(n),
@@ -127,7 +127,7 @@ impl Type {
         }
     }
 
-    pub fn into_struct_type(&self) -> StructType {
+    pub fn as_struct_type(&self) -> StructType {
         if let Type::Struct(t) = self {
             t.clone()
         } else {
@@ -135,15 +135,15 @@ impl Type {
         }
     }
 
-    pub fn into_func_type(&self) -> FuncType {
-        if let Type::FuncType(f) = self {
+    pub fn as_func_type(&self) -> FuncType {
+        if let Type::Func(f) = self {
             f.clone()
         } else {
             panic!("Not a func type");
         }
     }
 
-    pub fn into_primitive(&self) -> PrimitiveType {
+    pub fn as_primitive(&self) -> PrimitiveType {
         if let Type::Primitive(p) = self {
             p.clone()
         } else {
@@ -155,7 +155,7 @@ impl Type {
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
-            Self::FuncType(f) => format!("{:?}", f),
+            Self::Func(f) => format!("{:?}", f),
             Self::Struct(s) => format!("{:?}", s),
             _ => self.get_name().cyan().to_string(),
         };
@@ -178,13 +178,13 @@ impl From<PrimitiveType> for Type {
 
 impl From<FuncType> for Type {
     fn from(t: FuncType) -> Self {
-        Type::FuncType(t)
+        Type::Func(t)
     }
 }
 
 impl From<&FuncType> for Type {
     fn from(t: &FuncType) -> Self {
-        Type::FuncType(t.clone())
+        Type::Func(t.clone())
     }
 }
 

@@ -314,7 +314,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             HirNode::Prototype(p) => {
                 let f_type = self.root.type_envs.get_type(&old_fc_op).unwrap();
 
-                if let Type::FuncType(f_type) = f_type {
+                if let Type::Func(f_type) = f_type {
                     // Traits
                     if let Some(f) = self.root.get_trait_method((*p.name).clone(), f_type) {
                         if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {
@@ -348,7 +348,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         }
 
         for (i, arg) in fc.args.iter().enumerate() {
-            if let Type::FuncType(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
+            if let Type::Func(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
                 if let Some(reso) = self.resolve(old_fc_args.get(i).unwrap()) {
                     self.new_resolutions.insert(
                         arg.get_hir_id(),
@@ -414,7 +414,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         s.defs.iter().for_each(|p| {
             let t = *s
                 .to_type()
-                .into_struct_type()
+                .as_struct_type()
                 .defs
                 .get(&p.name.name)
                 .unwrap()
@@ -453,7 +453,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 let old_def_id = def.get_hir_id();
                 self.visit_expression(def);
 
-                if let Type::FuncType(ft) = self.root.node_types.get(&def.get_hir_id()).unwrap() {
+                if let Type::Func(ft) = self.root.node_types.get(&def.get_hir_id()).unwrap() {
                     if let Some(reso) = self.resolve(&old_def_id) {
                         if let HirNode::FunctionDecl(_f2) = self.root.arena.get(&reso).unwrap() {
                             // println!("LOL {:#?}", self.root);

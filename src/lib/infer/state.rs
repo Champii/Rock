@@ -79,7 +79,7 @@ impl Envs {
             .insert(dest.clone(), src.clone());
 
         match (src, previous.clone()) {
-            (Type::FuncType(src_f), Some(Type::FuncType(prev_f))) if !src_f.eq(&prev_f) => {
+            (Type::Func(src_f), Some(Type::Func(prev_f))) if !src_f.eq(&prev_f) => {
                 if prev_f.is_solved() && src_f.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
                         self.spans.get(dest).unwrap().clone(),

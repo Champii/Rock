@@ -1229,7 +1229,7 @@ impl Parse for Type {
         } else if TokenType::OpenParens == token.t {
             ctx.consume();
 
-            let t = Type::FuncType(FuncType::parse(ctx)?);
+            let t = Type::Func(FuncType::parse(ctx)?);
 
             expect!(TokenType::CloseParens, ctx);
 

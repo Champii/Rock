@@ -165,7 +165,7 @@ impl StructDecl {
                     } else {
                         (
                             proto.name.name.clone(),
-                            Box::new(Type::FuncType(proto.signature.clone())),
+                            Box::new(Type::Func(proto.signature.clone())),
                         )
                     }
                 })
@@ -526,13 +526,10 @@ pub struct FunctionCall {
 
 impl FunctionCall {
     pub fn mangle(&mut self, prefixes: Vec<String>) {
-        match &mut *self.op.kind {
-            ExpressionKind::Identifier(id) => {
-                let identifier = id.path.iter_mut().last().unwrap();
+        if let ExpressionKind::Identifier(id) = &mut *self.op.kind {
+            let identifier = id.path.iter_mut().last().unwrap();
 
-                identifier.name = format!("{}_{}", identifier.name, &prefixes.join("_"));
-            }
-            _ => (),
+            identifier.name = format!("{}_{}", identifier.name, &prefixes.join("_"));
             // _ => unimplemented!("Need to recurse on expr {:#?}", self), // FIXME: recurse on '(expr)' parenthesis expression
         }
     }

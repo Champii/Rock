@@ -153,7 +153,7 @@ impl<'a> ConstraintContext<'a> {
         self.envs.set_type(&fc.get_hir_id(), &p.signature.ret);
 
         self.envs
-            .set_type(&fc.op.get_hir_id(), &Type::FuncType(p.signature.clone()));
+            .set_type(&fc.op.get_hir_id(), &Type::Func(p.signature.clone()));
     }
 
     // FIXME: This is ugly as well
@@ -268,12 +268,8 @@ impl<'a> ConstraintContext<'a> {
         // Get the func return type either
         // if it has been defined by the callee
         // or we take the sig's one
-        let new_f_ret = if let Type::FuncType(new_f_type_inner) = &new_f_type.clone() {
-            new_f_arg_types = new_f_type_inner
-                .arguments
-                .iter()
-                .map(|arg| arg.clone())
-                .collect();
+        let new_f_ret = if let Type::Func(new_f_type_inner) = &new_f_type.clone() {
+            new_f_arg_types = new_f_type_inner.arguments.to_vec();
 
             new_f_sig = new_f_type_inner.clone();
             *new_f_type_inner.ret.clone()
@@ -328,7 +324,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         self.envs.set_type(
             &f.hir_id,
-            &Type::FuncType(FuncType::new(
+            &Type::Func(FuncType::new(
                 f.arguments
                     .iter()
                     .map(|arg| self.envs.get_type(&arg.get_hir_id()).unwrap())
@@ -362,7 +358,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         self.envs.set_type(&s.hir_id, &t);
 
-        let struct_t = t.into_struct_type();
+        let struct_t = t.as_struct_type();
 
         s.defs.iter().for_each(|p| {
             self.envs
@@ -379,7 +375,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         self.envs.set_type(&s.hir_id, &t);
 
-        let struct_t = t.into_struct_type();
+        let struct_t = t.as_struct_type();
 
         walk_map!(self, visit_expression, &s.defs);
 
@@ -548,7 +544,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         self.envs
                             .set_type(&d.get_hir_id(), struct_t.defs.get(&d.value.name).unwrap());
 
-                        if let Type::FuncType(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
+                        if let Type::Func(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
                             let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
 
                             self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);

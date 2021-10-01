@@ -11,7 +11,7 @@ impl<'a> VisitorMut<'a> for MangleContext {
     fn visit_function_decl(&mut self, f: &'a mut FunctionDecl) {
         let t = self.node_types.get(&f.hir_id).unwrap();
 
-        if let Type::FuncType(f_t) = t {
+        if let Type::Func(f_t) = t {
             f.mangle(f_t.to_prefixes());
         } else {
             panic!("Not a function {:?}", t);
@@ -21,7 +21,7 @@ impl<'a> VisitorMut<'a> for MangleContext {
     fn visit_function_call(&mut self, fc: &'a mut FunctionCall) {
         let t = self.node_types.get(&fc.op.get_hir_id()).unwrap();
 
-        if let Type::FuncType(f_t) = t {
+        if let Type::Func(f_t) = t {
             fc.mangle(f_t.to_prefixes());
 
             self.visit_expression(&mut fc.op);
