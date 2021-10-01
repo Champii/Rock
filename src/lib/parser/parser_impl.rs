@@ -1247,7 +1247,7 @@ impl Parse for FuncType {
         loop {
             let t = Type::parse(ctx)?;
 
-            arguments.push(Box::new(t));
+            arguments.push(t);
 
             if ctx.cur_tok().t != TokenType::Arrow {
                 break;
@@ -1256,7 +1256,7 @@ impl Parse for FuncType {
             ctx.consume();
         }
 
-        let ret = arguments.pop().unwrap();
+        let ret = Box::new(arguments.pop().unwrap());
 
         Ok(FuncType { arguments, ret })
     }

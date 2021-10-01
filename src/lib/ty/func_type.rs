@@ -5,7 +5,7 @@ use super::Type;
 
 #[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct FuncType {
-    pub arguments: Vec<Box<Type>>,
+    pub arguments: Vec<Type>,
     pub ret: Box<Type>,
 }
 
@@ -48,7 +48,7 @@ impl fmt::Debug for FuncType {
 impl FuncType {
     pub fn new(arguments: Vec<Type>, ret: Type) -> Self {
         Self {
-            arguments: arguments.into_iter().map(Box::new).collect(),
+            arguments: arguments.into_iter().collect(),
             ret: Box::new(ret),
         }
     }
@@ -93,9 +93,9 @@ impl FuncType {
                 match orig
                     .iter()
                     .enumerate()
-                    .find(|(_, orig_t)| **orig_t == **arg_t)
+                    .find(|(_, orig_t)| **orig_t == *arg_t)
                 {
-                    Some((i, _orig_t)) => Box::new(dest[i].clone()),
+                    Some((i, _orig_t)) => dest[i].clone(),
                     None => arg_t.clone(),
                 }
             })
@@ -128,9 +128,7 @@ impl FuncType {
                     return None;
                 }
 
-                arguments
-                    .get(i)
-                    .and_then(|t| Some((*arg_t.clone(), t.clone())))
+                arguments.get(i).map(|t| (arg_t.clone(), t.clone()))
             })
             .unzip();
 
@@ -164,7 +162,7 @@ impl FuncType {
                 arguments
                     .get(i)?
                     .as_ref()
-                    .and_then(|t| Some((*arg_t.clone(), t.clone())))
+                    .map(|t| (arg_t.clone(), t.clone()))
             })
             .unzip();
 
@@ -189,13 +187,11 @@ impl FuncType {
             .iter()
             .enumerate()
             .map(|(i, arg)| {
-                if let Type::FuncType(f_t) = &**arg {
-                    Box::new(
-                        f_t.merge_with(&arguments.get(i).unwrap().into_func_type())
-                            .into(),
-                    )
+                if let Type::FuncType(f_t) = arg {
+                    f_t.merge_with(&arguments.get(i).unwrap().into_func_type())
+                        .into()
                 } else {
-                    (*arg).clone()
+                    arg.clone()
                 }
             })
             .collect::<Vec<_>>();
@@ -219,12 +215,12 @@ impl FuncType {
             .iter()
             .enumerate()
             .map(|(i, arg)| {
-                if let Type::FuncType(f_t) = &**arg {
+                if let Type::FuncType(f_t) = arg {
                     let inner = arguments.get(i).unwrap().as_ref().unwrap().into_func_type();
 
-                    Box::new(f_t.merge_with(&inner).into())
+                    f_t.merge_with(&inner).into()
                 } else {
-                    (*arg).clone()
+                    arg.clone()
                 }
             })
             .collect::<Vec<_>>();
@@ -250,7 +246,7 @@ impl FuncType {
         new.arguments = forall_generator
             .clone()
             .take(nb)
-            .map(|n| Box::new(Type::ForAll(n.to_string())))
+            .map(|n| Type::ForAll(n.to_string()))
             .collect();
 
         new.ret = Box::new(Type::ForAll(forall_generator.nth(nb).unwrap().to_string()));
@@ -274,7 +270,7 @@ impl FuncType {
 
     pub fn merge_with(&self, other: &Self) -> Self {
         self.apply_types(
-            other.arguments.iter().map(|b| (**b).clone()).collect(),
+            other.arguments.iter().map(|b| (*b).clone()).collect(),
             *other.ret.clone(),
         )
     }
@@ -288,8 +284,8 @@ mod tests {
     fn basic_type_signature() {
         let sig = FuncType::from_args_nb(2);
 
-        assert_eq!(*sig.arguments[0], Type::forall("a"));
-        assert_eq!(*sig.arguments[1], Type::forall("b"));
+        assert_eq!(sig.arguments[0], Type::forall("a"));
+        assert_eq!(sig.arguments[1], Type::forall("b"));
         assert_eq!(*sig.ret, Type::forall("c"));
     }
 
@@ -299,8 +295,8 @@ mod tests {
 
         let res = sig.apply_forall_types(&vec![Type::forall("b")], &vec![Type::int64()]);
 
-        assert_eq!(*res.arguments[0], Type::forall("a"));
-        assert_eq!(*res.arguments[1], Type::int64());
+        assert_eq!(res.arguments[0], Type::forall("a"));
+        assert_eq!(res.arguments[1], Type::int64());
         assert_eq!(*res.ret, Type::forall("c"));
     }
 
@@ -310,8 +306,8 @@ mod tests {
 
         let res = sig.apply_types(vec![Type::int64()], Type::int64());
 
-        assert_eq!(*res.arguments[0], Type::int64());
-        assert_eq!(*res.arguments[1], Type::forall("b"));
+        assert_eq!(res.arguments[0], Type::int64());
+        assert_eq!(res.arguments[1], Type::forall("b"));
         assert_eq!(*res.ret, Type::int64());
     }
 
@@ -321,8 +317,8 @@ mod tests {
 
         let res = sig.apply_partial_types(&vec![None, Some(Type::int64())], Some(Type::int64()));
 
-        assert_eq!(*res.arguments[0], Type::forall("a"));
-        assert_eq!(*res.arguments[1], Type::int64());
+        assert_eq!(res.arguments[0], Type::forall("a"));
+        assert_eq!(res.arguments[1], Type::int64());
         assert_eq!(*res.ret, Type::int64());
     }
 }

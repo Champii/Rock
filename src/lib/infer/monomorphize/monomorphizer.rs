@@ -455,7 +455,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
                 if let Type::FuncType(ft) = self.root.node_types.get(&def.get_hir_id()).unwrap() {
                     if let Some(reso) = self.resolve(&old_def_id) {
-                        if let HirNode::FunctionDecl(f2) = self.root.arena.get(&reso).unwrap() {
+                        if let HirNode::FunctionDecl(_f2) = self.root.arena.get(&reso).unwrap() {
                             // println!("LOL {:#?}", self.root);
                             // println!("CTOR ATTR FN {:#?}", f2);
                             // println!(

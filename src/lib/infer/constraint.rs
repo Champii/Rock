@@ -27,7 +27,7 @@ impl<'a> ConstraintContext<'a> {
 
     pub fn add_tmp_resolution_to_current_fn(&mut self, source: &HirId, dest: &HirId) {
         self.tmp_resolutions
-            .entry(self.envs.get_current_fn().0.clone())
+            .entry(self.envs.get_current_fn().0)
             .or_insert_with(ResolutionMap::default)
             .insert(source.clone(), dest.clone());
     }
@@ -107,10 +107,8 @@ impl<'a> ConstraintContext<'a> {
                                 None
                             })
                     })
-                    .and_then(|f| {
+                    .map(|f| {
                         self.setup_trait_call(fc, &f);
-
-                        Some(())
                     }),
                 HirNode::FunctionDecl(f) => {
                     self.setup_function_call(fc, &f);
@@ -274,7 +272,7 @@ impl<'a> ConstraintContext<'a> {
             new_f_arg_types = new_f_type_inner
                 .arguments
                 .iter()
-                .map(|arg| *arg.clone())
+                .map(|arg| arg.clone())
                 .collect();
 
             new_f_sig = new_f_type_inner.clone();

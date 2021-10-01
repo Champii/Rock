@@ -60,7 +60,7 @@ impl Root {
         let map = self.trait_methods.get(&ident)?;
 
         map.iter()
-            .find(|(sig, _)| *sig.arguments[0] == *applied_type)
+            .find(|(sig, _)| sig.arguments[0] == *applied_type)
             .map(|(_, fn_decl)| fn_decl.clone())
     }
 

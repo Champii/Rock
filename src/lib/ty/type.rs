@@ -220,7 +220,7 @@ impl From<&hir::StructDecl> for Type {
 
 impl From<String> for Type {
     fn from(t: String) -> Self {
-        if t.len() == 1 && (t.chars().nth(0).unwrap()).is_lowercase() {
+        if t.len() == 1 && (t.chars().next().unwrap()).is_lowercase() {
             Type::ForAll(t)
         } else {
             Type::Trait(t)
