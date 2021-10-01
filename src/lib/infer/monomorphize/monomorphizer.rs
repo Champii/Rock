@@ -31,7 +31,6 @@ impl<'a> Monomorphizer<'a> {
     }
 
     pub fn run(&mut self) -> Root {
-        println!("ENVS {:#?}", self.root.type_envs);
         let prototypes = self
             .root
             .top_levels
@@ -45,14 +44,12 @@ impl<'a> Monomorphizer<'a> {
 
         for top in &prototypes {
             if let TopLevelKind::Prototype(p) = &top.kind {
-                let f_type = p.signature.clone();
+                let f_type: Type = p.signature.clone().into();
 
                 self.root
                     .node_types
-                    .insert(p.hir_id.clone(), Type::FuncType(f_type.clone()));
-                self.root
-                    .node_types
-                    .insert(p.name.hir_id.clone(), Type::FuncType(f_type.clone()));
+                    .insert(p.hir_id.clone(), f_type.clone());
+                self.root.node_types.insert(p.name.hir_id.clone(), f_type);
             }
         }
 
@@ -459,16 +456,16 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 if let Type::FuncType(ft) = self.root.node_types.get(&def.get_hir_id()).unwrap() {
                     if let Some(reso) = self.resolve(&old_def_id) {
                         if let HirNode::FunctionDecl(f2) = self.root.arena.get(&reso).unwrap() {
-                            println!("LOL {:#?}", self.root);
-                            println!("CTOR ATTR FN {:#?}", f2);
-                            println!(
-                                "GENERRATED FNS {:#?} {:#?} {:#?} {:#?} {:#?}",
-                                self.generated_fn_hir_id,
-                                old_def_id,
-                                reso,
-                                ft,
-                                self.resolve(&old_k.get_hir_id())
-                            );
+                            // println!("LOL {:#?}", self.root);
+                            // println!("CTOR ATTR FN {:#?}", f2);
+                            // println!(
+                            //     "GENERRATED FNS {:#?} {:#?} {:#?} {:#?} {:#?}",
+                            //     self.generated_fn_hir_id,
+                            //     old_def_id,
+                            //     reso,
+                            //     ft,
+                            //     self.resolve(&old_k.get_hir_id())
+                            // );
 
                             self.new_resolutions.insert(
                                 def.get_hir_id(),
@@ -497,7 +494,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                         }
                     }
                 }
-                println!("DEF {:#?}", def);
                 (k, def.clone())
             })
             .collect();

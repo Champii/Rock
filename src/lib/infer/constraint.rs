@@ -62,23 +62,28 @@ impl<'a> ConstraintContext<'a> {
             .and_then(|reso| self.resolve_rec(&reso).or(Some(reso)))
     }
 
+    pub fn resolve_and_get(&self, hir: &HirId) -> Option<&HirNode> {
+        self.hir
+            .arena
+            .get(
+                &self
+                    .resolve(hir)
+                    .or_else(|| panic!("NO RESO FOR {:?}", hir))?,
+            )
+            .or_else(|| panic!("NO ARENA ITEM FOR {:?}", hir))
+    }
+
     // FIXME: This is ugly
     pub fn setup_call(&mut self, fc: &FunctionCall, call_hir_id: &HirId) {
-        self.resolve(call_hir_id)
-            .or_else(|| panic!("NO RESO FOR {:?}", call_hir_id))
-            .and_then(|top_id| {
-                self.hir
-                    .arena
-                    .get(&top_id)
-                    .or_else(|| panic!("NO ARENA ITEM FOR {:?}", call_hir_id))
-            })
+        self.resolve_and_get(call_hir_id)
+            .cloned()
             .and_then(|reso| match reso {
                 HirNode::Prototype(p) => self
                     .hir
                     .trait_methods
                     .get(&p.name.name)
                     .or_else(|| {
-                        self.setup_prototype_call(fc, p);
+                        self.setup_prototype_call(fc, &p);
 
                         None
                     })
@@ -108,12 +113,12 @@ impl<'a> ConstraintContext<'a> {
                         Some(())
                     }),
                 HirNode::FunctionDecl(f) => {
-                    self.setup_function_call(fc, f);
+                    self.setup_function_call(fc, &f);
 
                     Some(())
                 }
                 HirNode::Identifier(id) => {
-                    self.setup_identifier_call(fc, id);
+                    self.setup_identifier_call(fc, &id);
 
                     Some(())
                 }
@@ -468,9 +473,8 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 };
 
                 self.envs
-                    .set_type(&left.hir_id.clone(), &Type::Primitive(arg_t.clone()));
-                self.envs
-                    .set_type(&right.hir_id.clone(), &Type::Primitive(arg_t));
+                    .set_type(&left.hir_id.clone(), &arg_t.clone().into());
+                self.envs.set_type(&right.hir_id.clone(), &arg_t.into());
 
                 self.visit_native_operator(op);
             }
