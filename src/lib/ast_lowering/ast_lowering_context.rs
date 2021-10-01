@@ -14,7 +14,7 @@ pub struct AstLoweringContext {
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
-    trait_methods: HashMap<String, HashMap<TypeSignature, hir::FunctionDecl>>,
+    trait_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
     structs: HashMap<String, hir::StructDecl>,
 }
 
@@ -59,21 +59,21 @@ impl AstLoweringContext {
         r#mod
             .top_levels
             .iter()
-            .for_each(|t| self.lower_top_level(&t));
+            .for_each(|t| self.lower_top_level(t));
     }
 
     pub fn lower_top_level(&mut self, top_level: &TopLevel) {
         match &top_level.kind {
             TopLevelKind::Prototype(p) => {
                 let top_level = hir::TopLevel {
-                    kind: hir::TopLevelKind::Prototype(self.lower_prototype(&p)),
+                    kind: hir::TopLevelKind::Prototype(self.lower_prototype(p)),
                 };
 
                 self.top_levels.push(top_level);
             }
             TopLevelKind::Function(f) => {
                 let top_level = hir::TopLevel {
-                    kind: hir::TopLevelKind::Function(self.lower_function_decl(&f)),
+                    kind: hir::TopLevelKind::Function(self.lower_function_decl(f)),
                 };
 
                 self.top_levels.push(top_level);
@@ -85,9 +85,9 @@ impl AstLoweringContext {
                 self.lower_struct_decl(s);
             }
             TopLevelKind::Impl(i) => {
-                self.lower_impl(&i);
+                self.lower_impl(i);
             }
-            TopLevelKind::Mod(_name, mod_) => self.lower_mod(&mod_),
+            TopLevelKind::Mod(_name, mod_) => self.lower_mod(mod_),
             TopLevelKind::Infix(_, _) => (),
             TopLevelKind::Use(_u) => (),
         };
@@ -100,7 +100,7 @@ impl AstLoweringContext {
             defs: s
                 .defs
                 .iter()
-                .map(|proto| self.lower_prototype(&proto))
+                .map(|proto| self.lower_prototype(proto))
                 .collect(),
         };
 
@@ -116,7 +116,7 @@ impl AstLoweringContext {
             defs: t
                 .defs
                 .iter()
-                .map(|proto| self.lower_prototype(&proto))
+                .map(|proto| self.lower_prototype(proto))
                 .collect(),
         };
 
@@ -152,7 +152,7 @@ impl AstLoweringContext {
             let fn_decls = self
                 .trait_methods
                 .entry(hir_f.name.name.clone())
-                .or_insert(HashMap::new());
+                .or_insert_with(HashMap::new);
 
             let _hir_id = self.hir_map.next_hir_id(f.identity.clone());
 
@@ -186,7 +186,7 @@ impl AstLoweringContext {
             arguments: f
                 .arguments
                 .iter()
-                .map(|arg| self.lower_argument_decl(&arg))
+                .map(|arg| self.lower_argument_decl(arg))
                 .collect(),
             body_id,
             signature: f.signature.clone(),
@@ -212,7 +212,7 @@ impl AstLoweringContext {
         body_id: FnBodyId,
         fn_id: HirId,
     ) -> hir::FnBody {
-        let body = ReturnInserter { body: &fn_body }.run();
+        let body = ReturnInserter { body: fn_body }.run();
 
         let body = self.lower_body(&body);
 
@@ -239,11 +239,11 @@ impl AstLoweringContext {
         hir::Statement {
             kind: match &*stmt.kind {
                 StatementKind::Expression(e) => {
-                    Box::new(hir::StatementKind::Expression(self.lower_expression(&e)))
+                    Box::new(hir::StatementKind::Expression(self.lower_expression(e)))
                 }
-                StatementKind::If(e) => Box::new(hir::StatementKind::If(self.lower_if(&e))),
+                StatementKind::If(e) => Box::new(hir::StatementKind::If(self.lower_if(e))),
                 StatementKind::Assign(a) => {
-                    Box::new(hir::StatementKind::Assign(self.lower_assign(&a)))
+                    Box::new(hir::StatementKind::Assign(self.lower_assign(a)))
                 }
             },
         }
@@ -252,10 +252,10 @@ impl AstLoweringContext {
     pub fn lower_assign_left_side(&mut self, assign_left: &AssignLeftSide) -> hir::AssignLeftSide {
         match assign_left {
             AssignLeftSide::Identifier(id) => {
-                hir::AssignLeftSide::Identifier(self.lower_identifier(&id))
+                hir::AssignLeftSide::Identifier(self.lower_identifier(id))
             }
             AssignLeftSide::Indice(indice) => {
-                let expr_hir = self.lower_expression(&indice);
+                let expr_hir = self.lower_expression(indice);
                 let indice = match &*expr_hir.kind {
                     hir::ExpressionKind::Indice(indice) => indice,
                     _ => unimplemented!(
@@ -266,7 +266,7 @@ impl AstLoweringContext {
                 hir::AssignLeftSide::Indice(indice.clone())
             }
             AssignLeftSide::Dot(dot) => {
-                let expr_hir = self.lower_expression(&dot);
+                let expr_hir = self.lower_expression(dot);
                 let dot = match &*expr_hir.kind {
                     hir::ExpressionKind::Dot(dot) => dot,
                     _ => unimplemented!(
@@ -289,10 +289,10 @@ impl AstLoweringContext {
 
     pub fn lower_expression(&mut self, expr: &Expression) -> hir::Expression {
         match &expr.kind {
-            ExpressionKind::UnaryExpr(unary) => self.lower_unary(&unary),
-            ExpressionKind::StructCtor(s) => self.lower_struct_ctor(&s),
+            ExpressionKind::UnaryExpr(unary) => self.lower_unary(unary),
+            ExpressionKind::StructCtor(s) => self.lower_struct_ctor(s),
             ExpressionKind::NativeOperation(op, left, right) => {
-                self.lower_native_operation(&op, &left, &right)
+                self.lower_native_operation(op, left, right)
             }
             ExpressionKind::BinopExpr(_unary, _op, _expr22) => {
                 let mut infix = InfixDesugar::new(self.operators_list.clone());
@@ -322,7 +322,7 @@ impl AstLoweringContext {
             hir_id: self.hir_map.next_hir_id(r#if.identity.clone()),
             predicat: self.lower_expression(&r#if.predicat),
             body: self.lower_body(&r#if.body),
-            else_: r#if.else_.as_ref().map(|e| Box::new(self.lower_else(&e))),
+            else_: r#if.else_.as_ref().map(|e| Box::new(self.lower_else(e))),
         }
     }
 
@@ -335,7 +335,7 @@ impl AstLoweringContext {
 
     pub fn lower_unary(&mut self, unary: &UnaryExpr) -> hir::Expression {
         match &unary {
-            UnaryExpr::PrimaryExpr(primary) => self.lower_primary(&primary),
+            UnaryExpr::PrimaryExpr(primary) => self.lower_primary(primary),
             _ => unimplemented!(),
         }
     }
@@ -356,9 +356,9 @@ impl AstLoweringContext {
 
     pub fn lower_operand(&mut self, operand: &Operand) -> hir::Expression {
         match &operand.kind {
-            OperandKind::Literal(l) => hir::Expression::new_literal(self.lower_literal(&l)),
+            OperandKind::Literal(l) => hir::Expression::new_literal(self.lower_literal(l)),
             OperandKind::Identifier(i) => {
-                hir::Expression::new_identifier_path(self.lower_identifier_path(&i))
+                hir::Expression::new_identifier_path(self.lower_identifier_path(i))
             }
             OperandKind::Expression(e) => self.lower_expression(&**e),
         }
@@ -457,15 +457,15 @@ impl AstLoweringContext {
             NativeOperatorKind::FMul => hir::NativeOperatorKind::FMul,
             NativeOperatorKind::FDiv => hir::NativeOperatorKind::FDiv,
             NativeOperatorKind::IEq => hir::NativeOperatorKind::IEq,
-            NativeOperatorKind::IGT => hir::NativeOperatorKind::IGT,
-            NativeOperatorKind::IGE => hir::NativeOperatorKind::IGE,
-            NativeOperatorKind::ILT => hir::NativeOperatorKind::ILT,
-            NativeOperatorKind::ILE => hir::NativeOperatorKind::ILE,
+            NativeOperatorKind::Igt => hir::NativeOperatorKind::Igt,
+            NativeOperatorKind::Ige => hir::NativeOperatorKind::Ige,
+            NativeOperatorKind::Ilt => hir::NativeOperatorKind::Ilt,
+            NativeOperatorKind::Ile => hir::NativeOperatorKind::Ile,
             NativeOperatorKind::FEq => hir::NativeOperatorKind::FEq,
-            NativeOperatorKind::FGT => hir::NativeOperatorKind::FGT,
-            NativeOperatorKind::FGE => hir::NativeOperatorKind::FGE,
-            NativeOperatorKind::FLT => hir::NativeOperatorKind::FLT,
-            NativeOperatorKind::FLE => hir::NativeOperatorKind::FLE,
+            NativeOperatorKind::Fgt => hir::NativeOperatorKind::Fgt,
+            NativeOperatorKind::Fge => hir::NativeOperatorKind::Fge,
+            NativeOperatorKind::Flt => hir::NativeOperatorKind::Flt,
+            NativeOperatorKind::Fle => hir::NativeOperatorKind::Fle,
             NativeOperatorKind::BEq => hir::NativeOperatorKind::BEq,
         };
 

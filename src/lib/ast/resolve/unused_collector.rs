@@ -44,7 +44,7 @@ impl<'a> Visitor<'a> for UnusedCollector {
                 TopLevelKind::Use(_u) => (),
                 TopLevelKind::Trait(t) => {
                     for f in &t.defs {
-                        self.method_list.insert(f.identity.node_id.clone(), false);
+                        self.method_list.insert(f.identity.node_id, false);
                     }
                 }
                 TopLevelKind::Impl(_i) => {}
@@ -52,10 +52,10 @@ impl<'a> Visitor<'a> for UnusedCollector {
                 TopLevelKind::Mod(_, _m) => (),
                 TopLevelKind::Infix(_, _) => (),
                 TopLevelKind::Function(f) => {
-                    self.fn_list.insert(f.identity.node_id.clone(), false);
+                    self.fn_list.insert(f.identity.node_id, false);
 
-                    if f.name.name == "main".to_string() {
-                        self.fn_list.insert(f.identity.node_id.clone(), true);
+                    if f.name.name == *"main" {
+                        self.fn_list.insert(f.identity.node_id, true);
                     }
                 }
             }
@@ -66,22 +66,22 @@ impl<'a> Visitor<'a> for UnusedCollector {
 
     fn visit_top_level(&mut self, top_level: &'a TopLevel) {
         match &top_level.kind {
-            TopLevelKind::Prototype(p) => self.visit_prototype(&p),
+            TopLevelKind::Prototype(p) => self.visit_prototype(p),
             TopLevelKind::Use(_u) => (),
-            TopLevelKind::Trait(t) => self.visit_trait(&t),
-            TopLevelKind::Impl(i) => self.visit_impl(&i),
-            TopLevelKind::Struct(i) => self.visit_struct_decl(&i),
+            TopLevelKind::Trait(t) => self.visit_trait(t),
+            TopLevelKind::Impl(i) => self.visit_impl(i),
+            TopLevelKind::Struct(i) => self.visit_struct_decl(i),
             TopLevelKind::Mod(name, m) => {
-                self.visit_identifier(&name);
-                self.visit_mod(&m);
+                self.visit_identifier(name);
+                self.visit_mod(m);
             }
-            TopLevelKind::Function(f) => self.visit_function_decl(&f),
+            TopLevelKind::Function(f) => self.visit_function_decl(f),
             TopLevelKind::Infix(_ident, _) => (),
         };
     }
 
     fn visit_prototype(&mut self, prototype: &'a Prototype) {
-        self.visit_type_signature(&prototype.signature);
+        self.visit_func_type(&prototype.signature);
     }
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {

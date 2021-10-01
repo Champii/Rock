@@ -96,7 +96,7 @@ generate_hirnode_collector!(
 pub fn collect_arena(root: &Root) -> Arena {
     let mut hir_node_collector = HirNodeCollector::new();
 
-    hir_node_collector.visit_root(&root);
+    hir_node_collector.visit_root(root);
 
     hir_node_collector.take_arena()
 }

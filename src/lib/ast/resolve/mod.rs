@@ -48,7 +48,7 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
     root.spans = span_collector.take_list();
 
     for unused_fn in &unused_fns {
-        let span = root.spans.get(&unused_fn).unwrap();
+        let span = root.spans.get(unused_fn).unwrap();
 
         parsing_ctx
             .diagnostics

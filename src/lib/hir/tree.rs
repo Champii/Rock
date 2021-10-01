@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{resolve::ResolutionMap, StructType, Type, TypeSignature},
+    ast::{resolve::ResolutionMap, FuncType, StructType, Type},
     ast_lowering::HirMap,
     hir::hir_id::*,
     parser::Span,
@@ -20,7 +20,7 @@ pub struct Root {
     pub types: BTreeMap<TypeId, Type>,
     pub node_types: BTreeMap<HirId, Type>,
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
-    pub trait_methods: HashMap<String, HashMap<TypeSignature, FunctionDecl>>,
+    pub trait_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,
     pub top_levels: Vec<TopLevel>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub spans: HashMap<NodeId, Span>,
@@ -37,21 +37,11 @@ impl Root {
     pub fn get_trait_by_method(&self, ident: String) -> Option<Trait> {
         self.traits
             .iter()
-            .find(|(_, r#trait)| {
-                r#trait
-                    .defs
-                    .iter()
-                    .find(|proto| *proto.name == ident)
-                    .is_some()
-            })
+            .find(|(_, r#trait)| r#trait.defs.iter().any(|proto| proto.name.name == ident))
             .map(|(_, r#trait)| r#trait.clone())
     }
 
-    pub fn get_trait_method(
-        &self,
-        ident: String,
-        applied_type: &TypeSignature,
-    ) -> Option<FunctionDecl> {
+    pub fn get_trait_method(&self, ident: String, applied_type: &FuncType) -> Option<FunctionDecl> {
         self.trait_methods
             .get(&ident)?
             .get(applied_type)
@@ -60,7 +50,7 @@ impl Root {
                 self.trait_methods
                     .get(&ident)?
                     .iter()
-                    .find(|(sig, _)| sig.args == applied_type.args)
+                    .find(|(sig, _)| sig.arguments == applied_type.arguments)
                     .map(|(_, f)| f.clone())
             })
     }
@@ -69,7 +59,7 @@ impl Root {
         let map = self.trait_methods.get(&ident)?;
 
         map.iter()
-            .find(|(sig, _)| sig.args[0] == *applied_type)
+            .find(|(sig, _)| *sig.arguments[0] == *applied_type)
             .map(|(_, fn_decl)| fn_decl.clone())
     }
 
@@ -169,15 +159,12 @@ impl StructDecl {
                 .defs
                 .iter()
                 .map(|proto| {
-                    if proto.signature.args.is_empty() {
-                        (
-                            proto.name.name.clone(),
-                            Box::new(proto.signature.ret.clone()),
-                        )
+                    if proto.signature.arguments.is_empty() {
+                        (proto.name.name.clone(), proto.signature.ret.clone())
                     } else {
                         (
                             proto.name.name.clone(),
-                            Box::new(proto.signature.to_func_type()),
+                            Box::new(Type::FuncType(proto.signature.clone())),
                         )
                     }
                 })
@@ -217,7 +204,7 @@ pub enum TopLevelKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Prototype {
     pub name: Identifier,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
     pub hir_id: HirId,
 }
 
@@ -228,7 +215,7 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub body_id: FnBodyId,
     pub hir_id: HirId,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
 }
 
 impl FunctionDecl {
@@ -489,7 +476,7 @@ impl Expression {
 
     pub fn as_identifier(&self) -> Identifier {
         if let ExpressionKind::Identifier(i) = &*self.kind {
-            i.last_segment().clone()
+            i.last_segment()
         } else {
             panic!("Not an identifier");
         }
@@ -537,40 +524,29 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    // pub fn get_mangled_name(&self, prefixes: Vec<String>) -> Option<String> {
-    //     match &*self.op.kind {
-    //         ExpressionKind::Identifier(id) => {
-    //             let identifier = id.path.iter().last().unwrap();
-
-    //             Some(prefixes.join("_") + "_" + &identifier.name)
-    //         }
-    //         _ => None, // FIXME: recurse on '(expr)' parenthesis expression
-    //     }
-    // }
-
     pub fn mangle(&mut self, prefixes: Vec<String>) {
         match &mut *self.op.kind {
             ExpressionKind::Identifier(id) => {
                 let identifier = id.path.iter_mut().last().unwrap();
 
                 identifier.name = format!("{}_{}", identifier.name, &prefixes.join("_"));
-                // identifier.name = prefixes.join("_") + "_" + &identifier.name;
             }
-            _ => (), // FIXME: recurse on '(expr)' parenthesis expression
+            _ => unimplemented!("Need to recurse on expr"), // FIXME: recurse on '(expr)' parenthesis expression
         }
     }
 
-    pub fn to_type_signature(&self, env: &BTreeMap<HirId, Type>) -> TypeSignature {
-        TypeSignature::from_args_nb(self.args.len()).apply_partial_types(
+    pub fn to_func_type(&self, env: &BTreeMap<HirId, Type>) -> FuncType {
+        FuncType::from_args_nb(self.args.len()).apply_partial_types(
             &self
                 .args
                 .iter()
                 .map(|arg| env.get(&arg.get_hir_id()).cloned())
-                .collect(),
+                .collect::<Vec<_>>(),
             env.get(&self.hir_id).cloned(),
         )
     }
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Literal {
     pub hir_id: HirId,
@@ -624,15 +600,15 @@ pub enum NativeOperatorKind {
     FMul,
     FDiv,
     IEq,
-    IGT,
-    IGE,
-    ILT,
-    ILE,
+    Igt,
+    Ige,
+    Ilt,
+    Ile,
     FEq,
-    FLE,
-    FGT,
-    FGE,
-    FLT,
+    Fle,
+    Fgt,
+    Fge,
+    Flt,
     BEq,
 }
 

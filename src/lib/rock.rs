@@ -34,22 +34,22 @@ mod tests;
 
 pub use crate::helpers::config::Config;
 
-pub fn parse_file(in_name: String, out_name: String, config: Config) -> Result<(), Diagnostic> {
+pub fn parse_file(in_name: String, out_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;
 
     source_file.mod_path = PathBuf::from("root");
 
-    parse_str(source_file, out_name, config)
+    parse_str(&source_file, out_name, config)
 }
 
 pub fn parse_str(
-    input: SourceFile,
+    input: &SourceFile,
     _output_name: String,
-    config: Config,
+    config: &Config,
 ) -> Result<(), Diagnostic> {
-    let mut parsing_ctx = ParsingCtx::new(&config);
+    let mut parsing_ctx = ParsingCtx::new(config);
 
-    parsing_ctx.add_file(input.clone());
+    parsing_ctx.add_file(input);
 
     // Text to Ast
     debug!("    -> Parsing");
@@ -65,11 +65,11 @@ pub fn parse_str(
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    let new_hir = infer::infer(&mut hir, &mut parsing_ctx, &config)?;
+    let new_hir = infer::infer(&mut hir, &mut parsing_ctx, config)?;
 
     // Generate code
     debug!("    -> Lower to LLVM IR");
-    let parsing_ctx = codegen::generate(&config, parsing_ctx, new_hir)?;
+    let parsing_ctx = codegen::generate(config, parsing_ctx, new_hir)?;
 
     // debug!("    -> Save MetaData");
     // PackageMetaData { hir }
@@ -92,12 +92,12 @@ pub mod test {
 
     fn build(input: String, config: Config) -> bool {
         let file = SourceFile {
-            file_path: PathBuf::from("src/lib").join(config.project_config.entry_point.clone()),
+            file_path: PathBuf::from("src/lib").join(&config.project_config.entry_point),
             mod_path: PathBuf::from("main"),
             content: input,
         };
 
-        if let Err(_e) = parse_str(file, "main".to_string(), config.clone()) {
+        if let Err(_e) = parse_str(&file, "main".to_string(), &config) {
             return false;
         }
 
@@ -154,29 +154,31 @@ pub mod test {
         true
     }
 
-    pub fn run(path: &str, input: String, config: Config) -> i64 {
+    pub fn run(path: &str, input: String, config: Config) -> (i64, String) {
         let path = Path::new("src/lib/").join(path);
 
         let build_path = path.parent().unwrap().join("build");
 
-        let mut config = config.clone();
+        let mut config = config;
         config.build_folder = build_path;
 
         fs::create_dir_all(config.build_folder.clone()).unwrap();
 
         if !build(input, config.clone()) {
-            return -1;
+            return (-1, String::new());
         }
 
         let cmd = Command::new(config.build_folder.join("a.out").to_str().unwrap())
             .output()
             .expect("failed to execute BINARY");
 
-        fs::remove_dir_all(config.build_folder.clone()).unwrap();
+        let stdout = String::from_utf8(cmd.stderr).unwrap();
+
+        fs::remove_dir_all(config.build_folder).unwrap();
 
         match cmd.status.code() {
-            Some(code) => code.into(),
-            None => -1,
+            Some(code) => (code.into(), stdout),
+            None => (-1, stdout),
         }
     }
 }

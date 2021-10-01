@@ -14,6 +14,14 @@ pub enum PrimitiveType {
 }
 
 impl PrimitiveType {
+    pub fn is_solved(&self) -> bool {
+        if let PrimitiveType::Array(t, _) = self {
+            t.is_solved()
+        } else {
+            true
+        }
+    }
+
     pub fn get_name(&self) -> String {
         match self {
             Self::Void => "Void".to_string(),
@@ -23,7 +31,7 @@ impl PrimitiveType {
             Self::Int32 => "Int32".to_string(),
             Self::Int64 => "Int64".to_string(),
             Self::Float64 => "Float64".to_string(),
-            Self::String => format!("String"),
+            Self::String => "String".to_string(),
             Self::Array(t, size) => format!("[{}; {}]", t.get_name(), size),
         }
     }

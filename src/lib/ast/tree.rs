@@ -7,7 +7,7 @@ use crate::ast::resolve::ResolutionMap;
 use crate::generate_has_name;
 use crate::helpers::*;
 
-use super::{StructType, Type, TypeSignature};
+use super::{FuncType, StructType, Type};
 
 #[derive(Debug, Clone)]
 pub struct Root {
@@ -138,16 +138,10 @@ impl StructDecl {
                 .defs
                 .iter()
                 .map(|proto| {
-                    if proto.signature.args.is_empty() {
-                        (
-                            proto.name.name.clone(),
-                            Box::new(proto.signature.ret.clone()),
-                        )
+                    if proto.signature.arguments.is_empty() {
+                        (proto.name.name.clone(), proto.signature.ret.clone())
                     } else {
-                        (
-                            proto.name.name.clone(),
-                            Box::new(proto.signature.to_func_type()),
-                        )
+                        (proto.name.name.clone(), Box::new(proto.signature.to_type()))
                     }
                 })
                 .collect(),
@@ -179,7 +173,7 @@ pub struct Impl {
 #[derive(Debug, Clone)]
 pub struct Prototype {
     pub name: Identifier,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
     pub identity: Identity,
 }
 
@@ -202,7 +196,7 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
     pub identity: Identity,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
 }
 
 impl FunctionDecl {
@@ -255,7 +249,7 @@ impl IdentifierPath {
     }
 
     pub fn prepend_mod(&self, path: IdentifierPath) -> Self {
-        let mut path = path.clone();
+        let mut path = path;
 
         path.path.extend::<_>(self.path.clone());
 
@@ -267,13 +261,15 @@ impl IdentifierPath {
             .path
             .iter()
             .enumerate()
-            .filter_map(|(i, name)| {
-                if name.name == "super".to_string() {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
+            .filter_map(
+                |(i, name)| {
+                    if name.name == *"super" {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                },
+            )
             .collect::<Vec<_>>();
 
         let mut to_remove_total = vec![];
@@ -344,9 +340,9 @@ pub struct Statement {
 
 #[derive(Debug, Clone)]
 pub enum StatementKind {
-    Expression(Expression),
-    Assign(Assign),
-    If(If),
+    Expression(Box<Expression>),
+    Assign(Box<Assign>),
+    If(Box<If>),
 }
 
 #[derive(Debug, Clone)]
@@ -408,10 +404,7 @@ impl Expression {
     }
 
     pub fn is_binop(&self) -> bool {
-        match &self.kind {
-            ExpressionKind::BinopExpr(_, _, _) => true,
-            _ => false,
-        }
+        matches!(&self.kind, ExpressionKind::BinopExpr(_, _, _))
     }
 
     pub fn is_indice(&self) -> bool {
@@ -557,15 +550,12 @@ impl OperandKind {
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
     Arguments(Vec<Argument>),
-    Indice(Expression),
+    Indice(Box<Expression>), // Boxing here to keep the enum size low
     Dot(Identifier),
 }
 impl SecondaryExpr {
     pub fn is_indice(&self) -> bool {
-        match self {
-            SecondaryExpr::Indice(_) => true,
-            _ => false,
-        }
+        matches!(self, SecondaryExpr::Indice(_))
     }
 }
 
@@ -613,14 +603,14 @@ pub enum NativeOperatorKind {
     FMul,
     FDiv,
     IEq,
-    IGT,
-    IGE,
-    ILT,
-    ILE,
+    Igt,
+    Ige,
+    Ilt,
+    Ile,
     FEq,
-    FGT,
-    FGE,
-    FLT,
-    FLE,
+    Fgt,
+    Fge,
+    Flt,
+    Fle,
     BEq,
 }

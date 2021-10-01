@@ -102,7 +102,7 @@ pub struct Parser<'a> {
     pub cur_tok_id: TokenId,
     save: Vec<TokenId>,
     pub block_indent: u8,
-    func_sigs: HashMap<String, TypeSignature>,
+    func_sigs: HashMap<String, FuncType>,
     pub struct_types: HashMap<String, StructDecl>,
 }
 
@@ -167,14 +167,14 @@ impl<'a> Parser<'a> {
         match self.tokens.get(self.cur_tok_id as usize + distance) {
             Some(a) => a.clone(),
             _ => Token {
-                t: TokenType::EOF,
+                t: TokenType::Eof,
                 span: Span::new_placeholder(),
                 txt: "".to_string(),
             },
         }
     }
 
-    pub fn add_func_sig(&mut self, name: String, sig: TypeSignature) {
+    pub fn add_func_sig(&mut self, name: String, sig: FuncType) {
         self.func_sigs.insert(name, sig);
     }
 
@@ -191,10 +191,10 @@ impl Parse for Root {
             .top_levels
             .iter()
             .find(|top| match &top.kind {
-                TopLevelKind::Function(f) => *f.name == "main".to_string(),
+                TopLevelKind::Function(f) => f.name.name == "main",
                 _ => false,
             })
-            .ok_or_else(|| Diagnostic::new_no_main())?;
+            .ok_or_else(Diagnostic::new_no_main)?;
 
         Ok(Root {
             spans: HashMap::new(),
@@ -210,7 +210,7 @@ impl Parse for Mod {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut res = vec![];
 
-        while TokenType::EOF != ctx.cur_tok().t {
+        while TokenType::Eof != ctx.cur_tok().t {
             match TopLevel::parse(ctx) {
                 Ok(top) => res.push(top),
                 Err(e) => {
@@ -221,7 +221,7 @@ impl Parse for Mod {
             };
         }
 
-        expect!(TokenType::EOF, ctx);
+        expect!(TokenType::Eof, ctx);
 
         Ok(Mod {
             tokens: ctx.tokens.clone(),
@@ -315,7 +315,7 @@ impl Parse for TopLevel {
             }
         };
 
-        while ctx.cur_tok().t == TokenType::EOL {
+        while ctx.cur_tok().t == TokenType::Eol {
             ctx.consume();
         }
 
@@ -338,22 +338,15 @@ impl Parse for StructDecl {
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
         // TODO: resolve type here ? else it is infered as Trait(name)
-        //
 
-        ctx.consume(); // EOL
+        ctx.consume(); // Eol
 
-        loop {
-            if let TokenType::Indent(_) = ctx.cur_tok().t {
-                ctx.consume(); // indent
+        while let TokenType::Indent(_) = ctx.cur_tok().t {
+            ctx.consume(); // indent
 
-                let f = Prototype::parse(ctx)?;
+            defs.push(Prototype::parse(ctx)?);
 
-                defs.push(f);
-
-                expect!(TokenType::EOL, ctx);
-            } else {
-                break;
-            }
+            expect!(TokenType::Eol, ctx);
         }
 
         ctx.save_pop();
@@ -379,26 +372,18 @@ impl Parse for Trait {
 
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
-        while ctx.cur_tok().t != TokenType::EOL {
+        while ctx.cur_tok().t != TokenType::Eol {
             types.push(Type::parse(ctx)?);
         }
 
-        ctx.consume(); // EOL
+        ctx.consume(); // Eol
 
-        loop {
-            if let TokenType::Indent(_) = ctx.cur_tok().t {
-                ctx.consume(); // indent
+        while let TokenType::Indent(_) = ctx.cur_tok().t {
+            ctx.consume(); // indent
 
-                let f = Prototype::parse(ctx)?;
+            defs.push(Prototype::parse(ctx)?);
 
-                // f.mangle(name.get_name());
-
-                defs.push(f);
-
-                expect!(TokenType::EOL, ctx);
-            } else {
-                break;
-            }
+            expect!(TokenType::Eol, ctx);
         }
 
         ctx.save_pop();
@@ -416,27 +401,22 @@ impl Parse for Impl {
 
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
-        while ctx.cur_tok().t != TokenType::EOL {
+        while ctx.cur_tok().t != TokenType::Eol {
             types.push(Type::parse(ctx)?);
         }
 
-        ctx.consume(); // EOL
+        ctx.consume(); // Eol
 
         ctx.block_indent += 1;
-        loop {
-            if let TokenType::Indent(_) = ctx.cur_tok().t {
-                ctx.consume(); // indent
-                let f = FunctionDecl::parse(ctx)?;
 
-                // f.mangle(&types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
+        while let TokenType::Indent(_) = ctx.cur_tok().t {
+            ctx.consume(); // indent
 
-                defs.push(f);
+            defs.push(FunctionDecl::parse(ctx)?);
 
-                expect!(TokenType::EOL, ctx);
-            } else {
-                break;
-            }
+            expect!(TokenType::Eol, ctx);
         }
+
         ctx.block_indent -= 1;
 
         ctx.save_pop();
@@ -456,7 +436,7 @@ impl Parse for Prototype {
 
         expect_or_restore!(TokenType::DoubleSemiColon, ctx);
 
-        let signature = try_or_restore!(TypeSignature::parse(ctx), ctx);
+        let signature = try_or_restore!(FuncType::parse(ctx), ctx);
 
         ctx.save_pop();
 
@@ -506,7 +486,7 @@ impl Parse for FunctionDecl {
 
         Ok(FunctionDecl {
             name,
-            signature: TypeSignature::from_args_nb(arguments.len()),
+            signature: FuncType::from_args_nb(arguments.len()),
             arguments,
             body,
             identity: Identity::new(token_id, token.span),
@@ -555,7 +535,7 @@ impl Parse for Body {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let mut multi = false;
 
-        if ctx.cur_tok().t == TokenType::EOL {
+        if ctx.cur_tok().t == TokenType::Eol {
             multi = true;
 
             ctx.block_indent += 1;
@@ -567,8 +547,8 @@ impl Parse for Body {
             loop {
                 ctx.save();
 
-                if ctx.cur_tok().t == TokenType::EOL {
-                    while ctx.cur_tok().t == TokenType::EOL {
+                if ctx.cur_tok().t == TokenType::Eol {
+                    while ctx.cur_tok().t == TokenType::Eol {
                         ctx.consume();
                     }
                 } else {
@@ -614,17 +594,15 @@ impl Parse for Statement {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
         let kind = if ctx.cur_tok().t == TokenType::If {
             match If::parse(ctx) {
-                Ok(expr) => StatementKind::If(expr),
+                Ok(expr) => StatementKind::If(Box::new(expr)),
                 Err(_e) => error!("Expected if".to_string(), ctx),
             }
+        } else if let Ok(assign) = Assign::parse(ctx) {
+            StatementKind::Assign(Box::new(assign))
         } else {
-            if let Ok(assign) = Assign::parse(ctx) {
-                StatementKind::Assign(assign)
-            } else {
-                match Expression::parse(ctx) {
-                    Ok(expr) => StatementKind::Expression(expr),
-                    Err(_e) => error!("Expected expression".to_string(), ctx),
-                }
+            match Expression::parse(ctx) {
+                Ok(expr) => StatementKind::Expression(Box::new(expr)),
+                Err(_e) => error!("Expected expression".to_string(), ctx),
             }
         };
 
@@ -688,7 +666,22 @@ impl Parse for Assign {
 
         expect_or_restore!(TokenType::Operator("=".to_string()), ctx);
 
+        let mut multi = false;
+
+        if matches!(ctx.cur_tok().t, TokenType::Eol) {
+            ctx.consume(); // Eol
+            ctx.consume(); // Indent
+
+            multi = true;
+
+            ctx.block_indent += 1;
+        }
+
         let value = try_or_restore!(Expression::parse(ctx), ctx);
+
+        if multi {
+            ctx.block_indent -= 1;
+        }
 
         ctx.save_pop();
 
@@ -711,14 +704,14 @@ impl Parse for If {
 
         let expr = try_or_restore!(Expression::parse(ctx), ctx);
 
-        expect_or_restore!(TokenType::EOL, ctx);
+        expect_or_restore!(TokenType::Eol, ctx);
         expect_or_restore!(TokenType::Indent(ctx.block_indent), ctx);
         expect_or_restore!(TokenType::Then, ctx);
 
         let body = try_or_restore!(Body::parse(ctx), ctx);
         // in case of single line body
-        if ctx.cur_tok().t == TokenType::EOL {
-            expect!(TokenType::EOL, ctx);
+        if ctx.cur_tok().t == TokenType::Eol {
+            expect!(TokenType::Eol, ctx);
             // expect_or_restore!(TokenType::Indent(ctx.block_indent + 2), ctx);
         }
 
@@ -815,32 +808,47 @@ impl Parse for StructCtor {
 
         let name = try_or_restore!(Type::parse(ctx), ctx);
 
-        ctx.consume(); // EOL
+        ctx.consume(); // Eol
 
-        let mut cur_indent = ctx.block_indent + 1;
-        loop {
-            if let TokenType::Indent(i) = ctx.cur_tok().t {
-                if i != cur_indent {
-                    break;
-                }
+        ctx.block_indent += 1;
 
-                cur_indent = i;
-
-                ctx.consume(); // indent
-
-                let def_name = try_or_restore!(Identifier::parse(ctx), ctx);
-
-                expect_or_restore!(TokenType::SemiColon, ctx);
-
-                let expr = try_or_restore!(Expression::parse(ctx), ctx);
-
-                defs.insert(def_name, expr);
-
-                expect!(TokenType::EOL, ctx);
-            } else {
+        while let TokenType::Indent(i) = ctx.cur_tok().t {
+            if i != ctx.block_indent {
                 break;
             }
+
+            ctx.consume(); // indent
+
+            let def_name = try_or_restore!(Identifier::parse(ctx), ctx);
+
+            expect_or_restore!(TokenType::SemiColon, ctx);
+
+            let mut multi = false;
+
+            if matches!(ctx.cur_tok().t, TokenType::Eol) {
+                ctx.consume(); // Eol
+                ctx.consume(); // Indent
+
+                multi = true;
+
+                ctx.block_indent += 1;
+            }
+
+            let expr = try_or_restore!(Expression::parse(ctx), ctx);
+
+            if multi {
+                ctx.block_indent -= 1;
+            }
+
+            defs.insert(def_name, expr);
+
+            if matches!(ctx.cur_tok().t, TokenType::Eol) {
+                ctx.consume();
+            }
+            // expect!(TokenType::Eol, ctx);
         }
+
+        ctx.block_indent -= 1;
 
         ctx.save_pop();
 
@@ -966,7 +974,7 @@ impl Parse for SecondaryExpr {
 
                 ctx.save_pop();
 
-                return Ok(SecondaryExpr::Indice(expr));
+                return Ok(SecondaryExpr::Indice(Box::new(expr)));
             }
         } else if TokenType::Dot == ctx.cur_tok().t {
             ctx.save();
@@ -978,10 +986,8 @@ impl Parse for SecondaryExpr {
 
                 return Ok(SecondaryExpr::Dot(expr));
             }
-        } else {
-            if let Ok(args) = Arguments::parse(ctx) {
-                return Ok(SecondaryExpr::Arguments(args));
-            }
+        } else if let Ok(args) = Arguments::parse(ctx) {
+            return Ok(SecondaryExpr::Arguments(args));
         }
 
         error!("Expected secondary".to_string(), ctx);
@@ -1017,7 +1023,7 @@ impl Parse for LiteralKind {
         if let TokenType::Bool(b) = ctx.cur_tok().t {
             ctx.consume();
 
-            let v = if b { true } else { false };
+            let v = b;
 
             return Ok(LiteralKind::Bool(v));
         }
@@ -1057,7 +1063,7 @@ impl Parse for Array {
                 }
             }
         }
-        return Ok(Array { values });
+        Ok(Array { values })
     }
 }
 
@@ -1112,15 +1118,13 @@ impl Parse for Arguments {
         ctx.save();
 
         // TODO: factorise this with a match! macro ?
-        if TokenType::OpenParens == ctx.cur_tok().t {
-            if TokenType::CloseParens == ctx.seek(1).t {
-                ctx.consume();
-                ctx.consume();
+        if TokenType::OpenParens == ctx.cur_tok().t && TokenType::CloseParens == ctx.seek(1).t {
+            ctx.consume();
+            ctx.consume();
 
-                ctx.save_pop();
+            ctx.save_pop();
 
-                return Ok(res);
-            }
+            return Ok(res);
         }
 
         loop {
@@ -1169,15 +1173,15 @@ impl Parse for NativeOperator {
             "~FMul" => NativeOperatorKind::FMul,
             "~FDiv" => NativeOperatorKind::FDiv,
             "~IEq" => NativeOperatorKind::IEq,
-            "~IGT" => NativeOperatorKind::IGT,
-            "~IGE" => NativeOperatorKind::IGE,
-            "~ILT" => NativeOperatorKind::ILT,
-            "~ILE" => NativeOperatorKind::ILE,
+            "~Igt" => NativeOperatorKind::Igt,
+            "~Ige" => NativeOperatorKind::Ige,
+            "~Ilt" => NativeOperatorKind::Ilt,
+            "~Ile" => NativeOperatorKind::Ile,
             "~FEq" => NativeOperatorKind::FEq,
-            "~FGT" => NativeOperatorKind::FGT,
-            "~FGE" => NativeOperatorKind::FGE,
-            "~FLT" => NativeOperatorKind::FLT,
-            "~FLE" => NativeOperatorKind::FLE,
+            "~Fgt" => NativeOperatorKind::Fgt,
+            "~Fge" => NativeOperatorKind::Fge,
+            "~Flt" => NativeOperatorKind::Flt,
+            "~Fle" => NativeOperatorKind::Fle,
             "~BEq" => NativeOperatorKind::BEq,
             _ => error!("Unknown native operator".to_string(), ctx),
         };
@@ -1199,31 +1203,50 @@ impl Parse for Type {
             ctx.consume();
 
             if let Some(prim) = PrimitiveType::from_name(&token.txt) {
-                return Ok(Type::Primitive(prim));
+                Ok(Type::Primitive(prim))
             } else {
                 if let Some(s) = ctx.struct_types.get(&token.txt) {
                     return Ok(s.to_type());
                 }
-                return Ok(Type::Trait(token.txt));
+                Ok(Type::Trait(token.txt))
             }
-        } else if token.txt.len() == 1 && token.txt.chars().nth(0).unwrap().is_lowercase() {
+        } else if token.txt.len() == 1 && token.txt.chars().next().unwrap().is_lowercase() {
             ctx.consume();
 
-            return Ok(Type::ForAll(token.txt));
+            Ok(Type::ForAll(token.txt))
+        } else if TokenType::OpenArray == token.t {
+            ctx.consume();
+
+            let inner_t = Type::parse(ctx)?;
+
+            // FIXME: FIXED ARRAY SIZE OF 1KB !
+            let t = Type::Primitive(PrimitiveType::Array(Box::new(inner_t), 1024));
+
+            expect!(TokenType::CloseArray, ctx);
+
+            Ok(t)
+        } else if TokenType::OpenParens == token.t {
+            ctx.consume();
+
+            let t = Type::FuncType(FuncType::parse(ctx)?);
+
+            expect!(TokenType::CloseParens, ctx);
+
+            Ok(t)
         } else {
             panic!("Not a type");
         }
     }
 }
 
-impl Parse for TypeSignature {
+impl Parse for FuncType {
     fn parse(ctx: &mut Parser) -> Result<Self, Error> {
-        let mut args = vec![];
+        let mut arguments = vec![];
 
         loop {
             let t = Type::parse(ctx)?;
 
-            args.push(t);
+            arguments.push(Box::new(t));
 
             if ctx.cur_tok().t != TokenType::Arrow {
                 break;
@@ -1232,13 +1255,8 @@ impl Parse for TypeSignature {
             ctx.consume();
         }
 
-        let ret = args.pop().unwrap();
+        let ret = arguments.pop().unwrap();
 
-        let mut t_sig = TypeSignature::default();
-
-        t_sig.args = args;
-        t_sig.ret = ret;
-
-        Ok(t_sig)
+        Ok(FuncType { arguments, ret })
     }
 }

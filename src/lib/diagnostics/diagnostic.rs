@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    ast::{Type, TypeSignature},
+    ast::{FuncType, Type},
     hir::HirId,
     parser::SourceFile,
 };
@@ -29,6 +29,7 @@ impl Diagnostic {
     pub fn new_file_not_found(span: Span, path: String) -> Self {
         Self::new(span, DiagnosticKind::FileNotFound(path))
     }
+
     pub fn new_unexpected_token(span: Span) -> Self {
         Self::new(span, DiagnosticKind::UnexpectedToken)
     }
@@ -60,8 +61,8 @@ impl Diagnostic {
     pub fn new_unresolved_trait_call(
         span: Span,
         call_hir_id: HirId,
-        given_sig: TypeSignature,
-        existing_impls: Vec<TypeSignature>,
+        given_sig: FuncType,
+        existing_impls: Vec<FuncType>,
     ) -> Self {
         Self::new(
             span,
@@ -174,8 +175,8 @@ pub enum DiagnosticKind {
     UnusedParameter,
     UnresolvedTraitCall {
         call_hir_id: HirId,
-        given_sig: TypeSignature,
-        existing_impls: Vec<TypeSignature>,
+        given_sig: FuncType,
+        existing_impls: Vec<FuncType>,
     },
     UnusedFunction,
     DuplicatedOperator,
@@ -210,11 +211,11 @@ impl Display for DiagnosticKind {
                 existing_impls,
             } => {
                 format!(
-                    "Unresolved trait call {}\n{}",
+                    "Unresolved trait call {:?}\n{}",
                     given_sig,
                     existing_impls
                         .iter()
-                        .map(|sig| format!("Found impl: {}", sig))
+                        .map(|sig| format!("Found impl: {:?}", sig))
                         .collect::<Vec<_>>()
                         .join("\n")
                 )

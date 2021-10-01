@@ -25,7 +25,7 @@ impl SourceFile {
         mod_path.set_extension("");
 
         Ok(SourceFile {
-            file_path: PathBuf::from(in_name.clone()),
+            file_path: PathBuf::from(in_name),
             mod_path,
             content: file,
         })

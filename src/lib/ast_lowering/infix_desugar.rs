@@ -42,7 +42,7 @@ impl InfixDesugar {
                     let left = stack.pop().unwrap();
 
                     stack.push(UnaryExpr::create_2_args_func_call(
-                        Operand::from_identifier(&id),
+                        Operand::from_identifier(id),
                         left.clone(),
                         right.clone(),
                     ));

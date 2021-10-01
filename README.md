@@ -1,6 +1,6 @@
-# Rock v0.1.6-develop
+# Rock v0.1.6-typesignature-parse
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=typesignature_parse)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -33,14 +33,18 @@ This is a personal project, so please bear with me
 
 ## Install
 
+Warning: This project has only been tested on Linux x86_64.
+
 How to install and run the compiler:
 
-### Using released binary
+### Using released binary 
 
-[Rock v0.1.6-develop](https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock) (Tested on arch linux)
+Linux x86_64 only
+
+[Rock v0.1.6-typesignature-parse](https://github.com/Champii/Rock/releases/download/v0.1.6-typesignature-parse/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.6-typesignature-parse/rock
 chmod +x rock
 ./rock -V
 ```
@@ -79,15 +83,12 @@ mod lib
 
 use lib::prelude::*
 
-# Polymophic function
-id a = a
-
 fact a =
     if a <= 1
     then 1
     else a * fact (a - 1)
 
-main = print fact id 4
+main = print fact 4
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -103,6 +104,34 @@ Should output
 ```
 
 ## Showcases
+
+### Polymophic function
+
+
+``` haskell
+mod lib
+
+use lib::prelude::*
+
+id a = a
+
+main =
+  print id 1
+  print id 2.2
+  print id "Test"
+```
+
+``` sh
+rock run
+```
+
+Prints 
+
+``` sh
+1
+2.2
+Test
+```
 
 ### Custom infix operator
 
@@ -123,7 +152,7 @@ main = print (4 |> f)
 rock run
 ```
 
-Prints `6\n`
+Prints `6`
 
 ### Trait definition
 
@@ -149,6 +178,17 @@ main =
 
 ```
 
+``` sh
+rock run
+```
+
+Prints 
+
+```
+33
+42.42
+```
+
 ### Struct instance and Show implementation
 
 ``` haskell
@@ -164,9 +204,10 @@ impl Show Player
   show p = show p.name
 
 main =
-  let player = Player
-    level: 42
-    name: "MyName"
+  let player = 
+    Player
+      level: 42
+      name: "MyName"
 
   print player
 ```
@@ -175,4 +216,4 @@ main =
 rock run
 ```
 
-Prints `MyName\n`
+Prints `MyName`

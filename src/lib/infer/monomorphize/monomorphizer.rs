@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{resolve::ResolutionMap, Type, TypeSignature},
+    ast::{resolve::ResolutionMap, FuncType, Type},
     hir::visit_mut::*,
     hir::*,
     Env,
@@ -14,13 +14,13 @@ pub struct Monomorphizer<'a> {
     pub new_resolutions: ResolutionMap<HirId>,
     pub old_ordered_resolutions: HashMap<HirId, Vec<HirId>>, // fn_call => [fn_decl]
     pub body_arguments: BTreeMap<FnBodyId, Vec<ArgumentDecl>>,
-    pub generated_fn_hir_id: HashMap<(HirId, TypeSignature), HirId>, // (Old_fn_id, target_sig) => generated fn hir_id
+    pub generated_fn_hir_id: HashMap<(HirId, FuncType), HirId>, // (Old_fn_id, target_sig) => generated fn hir_id
     pub tmp_resolutions: BTreeMap<HirId, ResolutionMap<HirId>>,
     pub structs: HashMap<String, StructDecl>,
 }
 
 impl<'a> Monomorphizer<'a> {
-    pub fn get_fn_envs_pairs(&self) -> Vec<(HirId, HashMap<TypeSignature, Env>)> {
+    pub fn get_fn_envs_pairs(&self) -> Vec<(HirId, HashMap<FuncType, Env>)> {
         self.root
             .type_envs
             .get_inner()
@@ -35,7 +35,7 @@ impl<'a> Monomorphizer<'a> {
             .top_levels
             .iter()
             .filter(|top| match &top.kind {
-                TopLevelKind::Prototype(_) => true,
+                TopLevelKind::Prototype(p) => p.signature.is_solved(),
                 _ => false,
             })
             .cloned()
@@ -43,15 +43,19 @@ impl<'a> Monomorphizer<'a> {
 
         for top in &prototypes {
             if let TopLevelKind::Prototype(p) = &top.kind {
+                let f_type = p.signature.clone();
+
                 self.root
                     .node_types
-                    .insert(p.hir_id.clone(), p.signature.to_func_type());
+                    .insert(p.hir_id.clone(), Type::FuncType(f_type.clone()));
                 self.root
                     .node_types
-                    .insert(p.name.hir_id.clone(), p.signature.to_func_type());
+                    .insert(p.name.hir_id.clone(), Type::FuncType(f_type.clone()));
             }
         }
 
+        // The collect here is needed as we NEED the generated_fn_hir_id.insert() side effect
+        #[allow(clippy::needless_collect)]
         let fresh_top_levels_flat = self
             .get_fn_envs_pairs()
             .into_iter()
@@ -70,19 +74,22 @@ impl<'a> Monomorphizer<'a> {
                                     .type_envs
                                     .set_current_fn((proto_id.clone(), sig.clone()));
 
+                                new_f.signature = sig.clone();
+
                                 self.visit_function_decl(&mut new_f);
 
                                 self.generated_fn_hir_id
                                     .insert((proto_id.clone(), sig.clone()), new_f.hir_id.clone());
 
                                 self.trans_resolutions
-                                    .insert(old_f.hir_id.clone(), new_f.hir_id.clone());
+                                    .insert(old_f.hir_id, new_f.hir_id.clone());
 
                                 Some((proto_id.clone(), new_f, sig))
                             }
                             HirNode::Prototype(p) => {
                                 self.generated_fn_hir_id
-                                    .insert((proto_id.clone(), sig.clone()), p.hir_id.clone());
+                                    .insert((proto_id.clone(), sig), p.hir_id.clone());
+
                                 None
                             }
                             _ => {
@@ -95,38 +102,35 @@ impl<'a> Monomorphizer<'a> {
             .flatten()
             .collect::<Vec<_>>();
 
-        let fresh_top_levels = fresh_top_levels_flat
-            .into_iter()
-            .map(|(proto_id, mut new_f, sig)| {
-                self.root
-                    .type_envs
-                    .set_current_fn((proto_id.clone(), sig.clone()));
+        let fresh_top_levels =
+            fresh_top_levels_flat
+                .into_iter()
+                .map(|(proto_id, mut new_f, sig)| {
+                    self.root.type_envs.set_current_fn((proto_id, sig));
 
-                let fn_body = self.root.bodies.get(&new_f.body_id).unwrap();
+                    let fn_body = self.root.bodies.get(&new_f.body_id).unwrap();
 
-                let mut new_fn_body = fn_body.clone();
+                    let mut new_fn_body = fn_body.clone();
 
-                new_f.body_id = self.root.hir_map.next_body_id();
-                new_fn_body.id = new_f.body_id.clone();
+                    new_f.body_id = self.root.hir_map.next_body_id();
+                    new_fn_body.id = new_f.body_id.clone();
 
-                self.body_arguments
-                    .insert(new_f.body_id.clone(), new_f.arguments.clone());
+                    self.body_arguments
+                        .insert(new_f.body_id.clone(), new_f.arguments.clone());
 
-                self.visit_fn_body(&mut new_fn_body);
+                    self.visit_fn_body(&mut new_fn_body);
 
-                new_fn_body.name = new_f.name.clone();
-                new_fn_body.fn_id = new_f.hir_id.clone();
+                    new_fn_body.name = new_f.name.clone();
+                    new_fn_body.fn_id = new_f.hir_id.clone();
 
-                new_f.arguments = self.body_arguments.get(&new_f.body_id).unwrap().clone();
+                    new_f.arguments = self.body_arguments.get(&new_f.body_id).unwrap().clone();
 
-                (new_f, new_fn_body)
-            })
-            .collect::<Vec<_>>();
+                    (new_f, new_fn_body)
+                });
 
         let mut new_root = Root::default();
 
         let (tops, bodies) = fresh_top_levels
-            .into_iter()
             .map(|(f, body)| {
                 let top = TopLevel {
                     kind: TopLevelKind::Function(f),
@@ -152,13 +156,10 @@ impl<'a> Monomorphizer<'a> {
     }
 
     pub fn duplicate_hir_id(&mut self, old_hir_id: &HirId) -> HirId {
-        let new_hir_id = self
-            .root
+        self.root
             .hir_map
             .duplicate_hir_mapping(old_hir_id.clone())
-            .unwrap();
-
-        new_hir_id
+            .unwrap()
     }
 
     pub fn resolve(&self, id: &HirId) -> Option<HirId> {
@@ -191,6 +192,8 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             self.visit_array(arr);
         }
     }
+
+    fn visit_prototype(&mut self, _p: &'a mut Prototype) {}
 
     fn visit_function_decl(&mut self, f: &'a mut FunctionDecl) {
         let old_f_hir_id = f.hir_id.clone();
@@ -230,20 +233,13 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     .iter()
                     .filter(|(pointer, _pointee)| *pointer == old_pointer_id)
                     .for_each(|(existing_pointer, existing_pointee)| {
-                        self.trans_resolutions
-                            .get(existing_pointer)
-                            .map(|new_pointer_id| {
-                                self.trans_resolutions.get(existing_pointee).map(
-                                    |new_pointee_id| {
-                                        // println!(
-                                        //     "NEW RESO FRON TRANS {:?} {:?}",
-                                        //     new_pointer_id, new_pointee_id
-                                        // );
-                                        self.new_resolutions
-                                            .insert(new_pointer_id.clone(), new_pointee_id.clone());
-                                    },
-                                );
-                            });
+                        if let Some(new_pointer_id) = self.trans_resolutions.get(existing_pointer) {
+                            if let Some(new_pointee_id) =
+                                self.trans_resolutions.get(existing_pointee)
+                            {
+                                self.new_resolutions.insert(new_pointer_id, new_pointee_id);
+                            }
+                        }
                     });
             });
 
@@ -253,7 +249,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
     fn visit_if(&mut self, r#if: &'a mut If) {
         let old_if_id = r#if.hir_id.clone();
 
-        r#if.hir_id = self.duplicate_hir_id(&mut r#if.hir_id);
+        r#if.hir_id = self.duplicate_hir_id(&r#if.hir_id);
 
         if let Some(t) = self.root.type_envs.get_type(&old_if_id) {
             self.root.node_types.insert(r#if.hir_id.clone(), t.clone());
@@ -302,16 +298,17 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             .unwrap()
         {
             HirNode::FunctionDecl(_) => {
-                self.new_resolutions.insert(
-                    fc.op.get_hir_id(),
-                    self.generated_fn_hir_id
-                        .get(&(
-                            self.resolve_rec(&old_fc_op).unwrap(),
-                            fc.to_type_signature(&self.root.node_types),
-                        ))
-                        .unwrap()
-                        .clone(),
-                );
+                // println!("ENV {:#?}", self.root.type_envs);
+                if let Some(generated_fn) = self.generated_fn_hir_id.get(&(
+                    self.resolve_rec(&old_fc_op).unwrap(),
+                    fc.to_func_type(&self.root.node_types),
+                )) {
+                    self.new_resolutions
+                        .insert(fc.op.get_hir_id(), generated_fn.clone());
+                } else {
+                    // self.
+                    panic!("BUG: Cannot find function from signature");
+                }
 
                 self.trans_resolutions.remove(&old_fc_op);
             }
@@ -320,10 +317,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
                 if let Type::FuncType(f_type) = f_type {
                     // Traits
-                    if let Some(f) = self
-                        .root
-                        .get_trait_method((*p.name).clone(), &f_type.to_type_signature())
-                    {
+                    if let Some(f) = self.root.get_trait_method((*p.name).clone(), f_type) {
                         if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {
                             self.new_resolutions.insert(fc.op.get_hir_id(), trans_res);
                         } else {
@@ -345,7 +339,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     }
                 }
 
-                // self.trans_resolutions.remove(&old_fc_op);
+                self.trans_resolutions.remove(&old_fc_op);
             }
             _ => {
                 // FIXME: This may be bad
@@ -356,11 +350,11 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
         for (i, arg) in fc.args.iter().enumerate() {
             if let Type::FuncType(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
-                if let Some(reso) = self.resolve(&old_fc_args.get(i).unwrap()) {
+                if let Some(reso) = self.resolve(old_fc_args.get(i).unwrap()) {
                     self.new_resolutions.insert(
                         arg.get_hir_id(),
                         self.generated_fn_hir_id
-                            .get(&(reso, f.to_type_signature()))
+                            .get(&(reso, f.clone()))
                             .unwrap()
                             .clone(),
                     );
@@ -368,7 +362,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     println!("NO RESO FOR {:#?}", arg.get_hir_id())
                 }
 
-                // self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
+                self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
             }
         }
     }
@@ -427,7 +421,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 .unwrap()
                 .clone();
             self.root.node_types.insert(p.get_hir_id(), t.clone());
-            self.root.node_types.insert(p.name.get_hir_id(), t.clone());
+            self.root.node_types.insert(p.name.get_hir_id(), t);
         });
 
         self.structs.insert(s.name.get_name(), s.clone());

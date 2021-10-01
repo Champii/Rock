@@ -78,7 +78,7 @@ pub fn parse_mod(name: String, ctx: &mut ParsingCtx) -> Result<crate::ast::Mod, 
 
     // Debug ast
     if ctx.config.show_ast {
-        AstPrintContext::new(tokens.clone(), ctx.get_current_file()).visit_mod(&ast);
+        AstPrintContext::new(tokens, ctx.get_current_file()).visit_mod(&ast);
     }
 
     Ok(ast)
