@@ -117,28 +117,29 @@ impl FuncType {
     }
 
     fn collect_forall_types(&self, arguments: Vec<Type>, ret: Type) -> (Vec<Type>, Vec<Type>) {
-        let mut orig = vec![];
-        let mut dest = vec![];
+        let (mut orig, mut dest): (Vec<_>, Vec<_>) = self
+            .arguments
+            .iter()
+            .enumerate()
+            .filter_map(|(i, arg_t)| -> Option<(Type, Type)> {
+                if !arg_t.is_forall() {
+                    warn!("Trying to apply type to a not forall");
 
-        self.arguments.iter().enumerate().for_each(|(i, arg_t)| {
-            if !arg_t.is_forall() {
-                warn!("Trying to apply type to a not forall");
+                    return None;
+                }
 
-                return;
-            }
-
-            if let Some(t) = arguments.get(i) {
-                orig.push((**arg_t).clone());
-                dest.push((*t).clone());
-            }
-        });
+                arguments
+                    .get(i)
+                    .and_then(|t| Some((*arg_t.clone(), t.clone())))
+            })
+            .unzip();
 
         if !ret.is_forall() {
             warn!("Trying to apply type to a not forall");
         }
 
         // FIXME: must remplace all occurences of ret
-        orig.push((*self.ret).clone());
+        orig.push(*self.ret.clone());
         dest.push(ret);
 
         (orig, dest)
@@ -149,25 +150,26 @@ impl FuncType {
         arguments: &[Option<Type>],
         ret: Option<Type>,
     ) -> (Vec<Type>, Vec<Type>) {
-        let mut orig = vec![];
-        let mut dest = vec![];
+        let (mut orig, mut dest): (Vec<_>, Vec<_>) = self
+            .arguments
+            .iter()
+            .enumerate()
+            .filter_map(|(i, arg_t)| -> Option<(Type, Type)> {
+                if !arg_t.is_forall() {
+                    warn!("Trying to apply type to a not forall");
 
-        self.arguments.iter().enumerate().for_each(|(i, arg_t)| {
-            if !arg_t.is_forall() {
-                warn!("Trying to apply type to a not forall");
+                    return None;
+                }
 
-                return;
-            }
-
-            if let Some(t) = arguments.get(i).unwrap() {
-                orig.push(*arg_t.clone());
-                dest.push(t.clone());
-            }
-        });
+                arguments
+                    .get(i)?
+                    .as_ref()
+                    .and_then(|t| Some((*arg_t.clone(), t.clone())))
+            })
+            .unzip();
 
         if let Some(t) = ret {
             if !t.is_forall() {
-                // panic!("Trying to apply type to a not forall")
                 warn!("Trying to apply type to a not forall");
             }
 
