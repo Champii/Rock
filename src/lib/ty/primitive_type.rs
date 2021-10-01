@@ -1,4 +1,4 @@
-use crate::ast::Type;
+use super::Type;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PrimitiveType {

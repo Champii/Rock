@@ -4,6 +4,7 @@ use crate::ast::visit::*;
 use crate::ast::*;
 use crate::helpers::*;
 use crate::parser::*;
+use crate::ty::*;
 
 pub struct AstPrintContext {
     indent: usize,

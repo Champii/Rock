@@ -11,11 +11,11 @@ use inkwell::{
 };
 
 use crate::{
-    ast::{PrimitiveType, Type},
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
     hir::*,
     parser::ParsingCtx,
+    ty::{PrimitiveType, Type},
 };
 
 pub struct CodegenContext<'a> {

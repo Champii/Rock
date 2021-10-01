@@ -277,3 +277,50 @@ impl FuncType {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_type_signature() {
+        let sig = FuncType::from_args_nb(2);
+
+        assert_eq!(*sig.arguments[0], Type::forall("a"));
+        assert_eq!(*sig.arguments[1], Type::forall("b"));
+        assert_eq!(*sig.ret, Type::forall("c"));
+    }
+
+    #[test]
+    fn apply_forall_types() {
+        let sig = FuncType::from_args_nb(2);
+
+        let res = sig.apply_forall_types(&vec![Type::forall("b")], &vec![Type::int64()]);
+
+        assert_eq!(*res.arguments[0], Type::forall("a"));
+        assert_eq!(*res.arguments[1], Type::int64());
+        assert_eq!(*res.ret, Type::forall("c"));
+    }
+
+    #[test]
+    fn apply_types() {
+        let sig = FuncType::from_args_nb(2);
+
+        let res = sig.apply_types(vec![Type::int64()], Type::int64());
+
+        assert_eq!(*res.arguments[0], Type::int64());
+        assert_eq!(*res.arguments[1], Type::forall("b"));
+        assert_eq!(*res.ret, Type::int64());
+    }
+
+    #[test]
+    fn apply_partial_types() {
+        let sig = FuncType::from_args_nb(2);
+
+        let res = sig.apply_partial_types(&vec![None, Some(Type::int64())], Some(Type::int64()));
+
+        assert_eq!(*res.arguments[0], Type::forall("a"));
+        assert_eq!(*res.arguments[1], Type::int64());
+        assert_eq!(*res.ret, Type::int64());
+    }
+}

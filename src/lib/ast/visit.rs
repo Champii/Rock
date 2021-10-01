@@ -1,5 +1,6 @@
 use concat_idents::concat_idents;
 
+use crate::ty::*;
 use crate::walk_list;
 use crate::{ast::*, walk_map};
 

@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{FuncType, Type},
     diagnostics::{Diagnostic, Diagnostics},
     hir::*,
     parser::Span,
+    ty::*,
 };
 
 pub type NodeId = u64;

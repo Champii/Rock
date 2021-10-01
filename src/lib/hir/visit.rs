@@ -1,7 +1,8 @@
 use concat_idents::concat_idents;
 
-use crate::{ast::FuncType, walk_list};
-use crate::{ast::Type, hir::*};
+use crate::hir::*;
+use crate::ty::*;
+use crate::walk_list;
 
 macro_rules! generate_visitor_trait {
     ($(

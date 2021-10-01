@@ -31,6 +31,7 @@ pub mod diagnostics;
 mod hir;
 mod parser;
 mod tests;
+mod ty;
 
 pub use crate::helpers::config::Config;
 

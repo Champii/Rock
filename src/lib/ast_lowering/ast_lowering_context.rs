@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     ast::*,
     hir::{self, Arena, FnBodyId, HirId},
+    ty::*,
     Envs,
 };
 

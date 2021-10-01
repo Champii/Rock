@@ -30,13 +30,13 @@ impl fmt::Debug for StructType {
 }
 
 impl From<&ast::StructDecl> for StructType {
-    fn from(s: &super::StructDecl) -> Self {
+    fn from(s: &ast::StructDecl) -> Self {
         s.into()
     }
 }
 
-impl From<super::StructDecl> for StructType {
-    fn from(s: super::StructDecl) -> Self {
+impl From<ast::StructDecl> for StructType {
+    fn from(s: ast::StructDecl) -> Self {
         StructType {
             name: s.name.get_name(),
             defs: s

@@ -7,7 +7,7 @@ use crate::ast::resolve::ResolutionMap;
 use crate::generate_has_name;
 use crate::helpers::*;
 
-use super::{FuncType, Type};
+use crate::ty::{FuncType, Type};
 
 #[derive(Debug, Clone)]
 pub struct Root {

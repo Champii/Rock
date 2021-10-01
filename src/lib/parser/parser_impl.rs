@@ -2,6 +2,7 @@ use std::{collections::HashMap, convert::TryInto};
 
 use crate::ast::*;
 use crate::parser::*;
+use crate::ty::*;
 use crate::{ast::resolve::ResolutionMap, diagnostics::Diagnostic};
 
 type Error = Diagnostic;

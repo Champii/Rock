@@ -2,9 +2,9 @@ use std::fmt;
 
 use colored::*;
 
-use crate::{ast::PrimitiveType, hir};
+use crate::{ast, hir};
 
-use super::{FuncType, StructType};
+use super::{FuncType, PrimitiveType, StructType};
 
 #[derive(Clone, Eq, Serialize, Deserialize)]
 pub enum Type {
@@ -194,14 +194,14 @@ impl From<StructType> for Type {
     }
 }
 
-impl From<super::StructDecl> for Type {
-    fn from(t: super::StructDecl) -> Self {
+impl From<ast::StructDecl> for Type {
+    fn from(t: ast::StructDecl) -> Self {
         StructType::from(t).into()
     }
 }
 
-impl From<&super::StructDecl> for Type {
-    fn from(t: &super::StructDecl) -> Self {
+impl From<&ast::StructDecl> for Type {
+    fn from(t: &ast::StructDecl) -> Self {
         StructType::from(t.clone()).into()
     }
 }
@@ -225,52 +225,5 @@ impl From<String> for Type {
         } else {
             Type::Trait(t)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn basic_type_signature() {
-        let sig = FuncType::from_args_nb(2);
-
-        assert_eq!(*sig.arguments[0], Type::forall("a"));
-        assert_eq!(*sig.arguments[1], Type::forall("b"));
-        assert_eq!(*sig.ret, Type::forall("c"));
-    }
-
-    #[test]
-    fn apply_forall_types() {
-        let sig = FuncType::from_args_nb(2);
-
-        let res = sig.apply_forall_types(&vec![Type::forall("b")], &vec![Type::int64()]);
-
-        assert_eq!(*res.arguments[0], Type::forall("a"));
-        assert_eq!(*res.arguments[1], Type::int64());
-        assert_eq!(*res.ret, Type::forall("c"));
-    }
-
-    #[test]
-    fn apply_types() {
-        let sig = FuncType::from_args_nb(2);
-
-        let res = sig.apply_types(vec![Type::int64()], Type::int64());
-
-        assert_eq!(*res.arguments[0], Type::int64());
-        assert_eq!(*res.arguments[1], Type::forall("b"));
-        assert_eq!(*res.ret, Type::int64());
-    }
-
-    #[test]
-    fn apply_partial_types() {
-        let sig = FuncType::from_args_nb(2);
-
-        let res = sig.apply_partial_types(&vec![None, Some(Type::int64())], Some(Type::int64()));
-
-        assert_eq!(*res.arguments[0], Type::forall("a"));
-        assert_eq!(*res.arguments[1], Type::int64());
-        assert_eq!(*res.ret, Type::int64());
     }
 }
