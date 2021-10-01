@@ -48,7 +48,7 @@ impl Type {
     pub fn get_name(&self) -> String {
         match self {
             Self::Primitive(p) => p.get_name(),
-            Self::FuncType(_f) => String::from("(fn)"),
+            Self::FuncType(f) => format!("{:?}", f),
             Self::Struct(s) => s.name.clone(),
             Self::Trait(t) => t.clone(),
             Self::ForAll(n) => String::from(n),

@@ -99,6 +99,7 @@ impl<'a> ConstraintContext<'a> {
                 panic!("NO ARENA ITEM FOR HIR={:?}", top_id);
             }
         } else {
+            println!("HIR {:#?}", self.hir);
             panic!("No reso hir_id: {:#?}", call_hir_id);
         }
     }
@@ -380,8 +381,39 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         walk_map!(self, visit_expression, &s.defs);
 
         s.defs.iter().for_each(|(k, expr)| {
-            self.envs
-                .set_type(&expr.get_hir_id(), struct_t.defs.get(&k.name).unwrap());
+            let declared_type = struct_t.defs.get(&k.name).unwrap();
+
+            if let Type::FuncType(_ft) = &**declared_type {
+                self.envs.get_type(&expr.get_hir_id()).cloned().or_else(|| {
+                    if let HirNode::FunctionDecl(f2) =
+                        self.hir.arena.get(&self.resolve(&expr.get_hir_id())?)?
+                    {
+                        // Adds a link like `expr` => `out fn` where the expr is defined
+                        // self.tmp_resolutions
+                        //     .entry(self.envs.get_current_fn().0)
+                        //     .or_insert_with(ResolutionMap::default)
+                        //     .insert(expr.get_hir_id(), f2.hir_id.clone());
+                        self.tmp_resolutions
+                            .entry(self.envs.get_current_fn().0)
+                            .or_insert_with(ResolutionMap::default)
+                            // .insert(k.get_hir_id(), expr.get_hir_id());
+                            .insert(k.get_hir_id(), f2.hir_id.clone());
+
+                        // self.envs.set_type(&expr.get_hir_id(), &ft.to_type());
+                    } else {
+                    }
+                    None
+                });
+            };
+
+            self.envs.set_type(&expr.get_hir_id(), declared_type);
+
+            println!(
+                "STRUCT CTOR ARG : {:?} == {:?} || {:#?}",
+                &expr.get_hir_id(),
+                declared_type,
+                self.envs.get_type(&expr.get_hir_id()),
+            );
         });
     }
 
@@ -531,6 +563,15 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                         self.envs
                             .set_type(&d.get_hir_id(), struct_t.defs.get(&d.value.name).unwrap());
+
+                        if let Type::FuncType(ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
+                            let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
+
+                            self.tmp_resolutions
+                                .entry(self.envs.get_current_fn().0)
+                                .or_insert_with(ResolutionMap::default)
+                                .insert(d.get_hir_id(), resolved);
+                        }
                     }
                     other => {
                         let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();

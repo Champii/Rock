@@ -151,7 +151,19 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .push_error(Diagnostic::new_unknown_identifier(s.identity.span.clone())),
         };
 
-        walk_struct_ctor(self, s);
+        self.visit_type(&s.name);
+
+        // walk_map!(visitor, visit_expression, &s.defs);
+        // walk_struct_ctor(self, s);
+
+        s.defs.iter().for_each(|(k, expr)| {
+            // let pointed = self.get(k.name.clone()).unwrap();
+            // self.add_to_current_scope(k.name.clone(), expr);
+
+            self.visit_expression(&expr);
+        })
+        // TODO: override scope with struct attr
+        // self.add_to_current_scope((*p.name).clone(), p.identity.clone());
     }
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {

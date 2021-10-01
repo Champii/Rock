@@ -4,7 +4,7 @@ use crate::{
     ast::{resolve::ResolutionMap, FuncType, Type},
     hir::visit_mut::*,
     hir::*,
-    Env,
+    walk_map, Env,
 };
 
 #[derive(Debug)]
@@ -30,6 +30,7 @@ impl<'a> Monomorphizer<'a> {
     }
 
     pub fn run(&mut self) -> Root {
+        println!("ENVS {:#?}", self.root.type_envs);
         let prototypes = self
             .root
             .top_levels
@@ -344,7 +345,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             _ => {
                 // FIXME: This may be bad
                 // self.new_resolutions
-                //     .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
+                // .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
             }
         }
 
@@ -362,7 +363,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     println!("NO RESO FOR {:#?}", arg.get_hir_id())
                 }
 
-                self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
+                self.trans_resolutions.remove(old_fc_args.get(i).unwrap());
             }
         }
     }
@@ -443,7 +444,62 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
         self.trans_resolutions.insert(old_hir_id, s.hir_id.clone());
 
-        walk_struct_ctor(self, s);
+        self.visit_type(&mut s.name);
+
+        s.defs = s
+            .defs
+            .iter_mut()
+            .map(|(old_k, def)| {
+                let mut k = old_k.clone();
+                self.visit_identifier(&mut k);
+                let old_def_id = def.get_hir_id();
+                self.visit_expression(def);
+
+                if let Type::FuncType(ft) = self.root.node_types.get(&def.get_hir_id()).unwrap() {
+                    if let Some(reso) = self.resolve(&old_def_id) {
+                        if let HirNode::FunctionDecl(f2) = self.root.arena.get(&reso).unwrap() {
+                            println!("LOL {:#?}", self.root);
+                            println!("CTOR ATTR FN {:#?}", f2);
+                            println!(
+                                "GENERRATED FNS {:#?} {:#?} {:#?} {:#?} {:#?}",
+                                self.generated_fn_hir_id,
+                                old_def_id,
+                                reso,
+                                ft,
+                                self.resolve(&old_k.get_hir_id())
+                            );
+
+                            self.new_resolutions.insert(
+                                def.get_hir_id(),
+                                self.generated_fn_hir_id
+                                    .get(&(reso, ft.clone()))
+                                    .unwrap()
+                                    .clone(),
+                            );
+
+                            self.trans_resolutions.remove(&old_def_id);
+                            // self.trans_resolutions.insert(old_def_id, s.hir_id.clone());
+
+                            // Adds a link like `expr` => `out fn` where the expr is defined
+                            // self.tmp_resolutions
+                            //     .entry(self.root.type_envs.get_current_fn().0)
+                            //     .or_insert_with(ResolutionMap::default)
+                            //     .insert(.get_hir_id(), f2.hir_id.clone());
+                            // self.tmp_resolutions
+                            //     .entry(self.root.type_envs.get_current_fn().0)
+                            //     .or_insert_with(ResolutionMap::default)
+                            //     .insert(k.get_hir_id(), .get_hir_id());
+                            // .insert(k.get_hir_id(), f2.hir_id.clone());
+
+                            // self.envs.set_type(&expr.get_hir_id(), &ft.to_type());
+                        } else {
+                        }
+                    }
+                }
+                println!("DEF {:#?}", def);
+                (k, def.clone())
+            })
+            .collect();
     }
 
     fn visit_identifier(&mut self, id: &'a mut Identifier) {

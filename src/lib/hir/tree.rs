@@ -531,7 +531,8 @@ impl FunctionCall {
 
                 identifier.name = format!("{}_{}", identifier.name, &prefixes.join("_"));
             }
-            _ => unimplemented!("Need to recurse on expr"), // FIXME: recurse on '(expr)' parenthesis expression
+            _ => (),
+            // _ => unimplemented!("Need to recurse on expr {:#?}", self), // FIXME: recurse on '(expr)' parenthesis expression
         }
     }
 

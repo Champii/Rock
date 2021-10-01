@@ -624,6 +624,8 @@ impl<'a> CodegenContext<'a> {
         id: &Identifier,
         _builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
+        println!("CODEGEN RESOS {:#?}", self.hir.resolutions);
+        println!("CODEGEN IDENT {:#?}", id);
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
         // println!("SCOPES {:#?}", self.scopes);
