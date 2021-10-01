@@ -4,7 +4,7 @@ use crate::{
     ast::{resolve::ResolutionMap, FuncType, Type},
     hir::visit_mut::*,
     hir::*,
-    walk_map, Env,
+    Env,
 };
 
 #[derive(Debug)]

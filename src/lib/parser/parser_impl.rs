@@ -1206,7 +1206,7 @@ impl Parse for Type {
                 Ok(Type::Primitive(prim))
             } else {
                 if let Some(s) = ctx.struct_types.get(&token.txt) {
-                    return Ok(s.to_type());
+                    return Ok(s.into());
                 }
                 Ok(Type::Trait(token.txt))
             }

@@ -24,6 +24,13 @@ impl<'a> ConstraintContext<'a> {
         }
     }
 
+    pub fn add_tmp_resolution_to_current_fn(&mut self, source: &HirId, dest: &HirId) {
+        self.tmp_resolutions
+            .entry(self.envs.get_current_fn().0.clone())
+            .or_insert_with(ResolutionMap::default)
+            .insert(source.clone(), dest.clone());
+    }
+
     pub fn constraint(&mut self, root: &'a Root) {
         let entry_point = root.get_function_by_name("main").unwrap();
 
@@ -34,10 +41,6 @@ impl<'a> ConstraintContext<'a> {
             return;
         }
 
-        self.tmp_resolutions
-            .entry(entry_point.hir_id.clone())
-            .or_insert_with(ResolutionMap::default);
-
         self.visit_function_decl(&entry_point);
     }
 
@@ -47,10 +50,9 @@ impl<'a> ConstraintContext<'a> {
 
     pub fn resolve(&self, id: &HirId) -> Option<HirId> {
         self.hir.resolutions.get(id).or_else(|| {
-            match self.tmp_resolutions.get(&self.envs.get_current_fn().0) {
-                Some(env) => env.get(id),
-                None => None,
-            }
+            self.tmp_resolutions
+                .get(&self.envs.get_current_fn().0)
+                .and_then(|env| env.get(id))
         })
     }
 
@@ -61,54 +63,65 @@ impl<'a> ConstraintContext<'a> {
 
     // FIXME: This is ugly
     pub fn setup_call(&mut self, fc: &FunctionCall, call_hir_id: &HirId) {
-        if let Some(top_id) = self.resolve(call_hir_id) {
-            if let Some(reso) = self.hir.arena.get(&top_id) {
-                match reso {
-                    HirNode::Prototype(p) => {
-                        if let Some(existing_impls) = self.hir.trait_methods.get(&p.name.name) {
-                            if let Some(f) = self.hir.get_trait_method(
-                                (*p.name).clone(),
-                                &fc.to_func_type(self.envs.get_current_env().unwrap())
-                                    .merge_with(&p.signature),
-                            ) {
-                                self.setup_trait_call(fc, &f);
-                            } else {
+        self.resolve(call_hir_id)
+            .or_else(|| panic!("NO RESO FOR {:?}", call_hir_id))
+            .and_then(|top_id| {
+                self.hir
+                    .arena
+                    .get(&top_id)
+                    .or_else(|| panic!("NO ARENA ITEM FOR {:?}", call_hir_id))
+            })
+            .and_then(|reso| match reso {
+                HirNode::Prototype(p) => self
+                    .hir
+                    .trait_methods
+                    .get(&p.name.name)
+                    .or_else(|| {
+                        self.setup_prototype_call(fc, p);
+
+                        None
+                    })
+                    .and_then(|existing_impls| {
+                        let new_sig = fc
+                            .to_func_type(self.envs.get_current_env().unwrap())
+                            .merge_with(&p.signature);
+
+                        self.hir
+                            .get_trait_method(p.name.name.clone(), &new_sig)
+                            .or_else(|| {
                                 self.envs.diagnostics.push_error(
                                     Diagnostic::new_unresolved_trait_call(
                                         self.envs.spans.get(&call_hir_id.clone()).unwrap().clone(),
                                         call_hir_id.clone(),
-                                        fc.to_func_type(self.envs.get_current_env().unwrap())
-                                            .merge_with(&p.signature),
+                                        new_sig,
                                         existing_impls.keys().cloned().collect(),
                                     ),
                                 );
-                            }
-                        } else {
-                            self.setup_prototype_call(fc, p);
-                        }
-                    }
-                    HirNode::FunctionDecl(f) => {
-                        self.setup_function_call(fc, f);
-                    }
-                    HirNode::Identifier(id) => {
-                        self.setup_identifier_call(fc, id);
-                    }
-                    _ => unimplemented!("Cannot call {:#?}", reso),
+
+                                None
+                            })
+                    })
+                    .and_then(|f| {
+                        self.setup_trait_call(fc, &f);
+
+                        Some(())
+                    }),
+                HirNode::FunctionDecl(f) => {
+                    self.setup_function_call(fc, f);
+
+                    Some(())
                 }
-            } else {
-                panic!("NO ARENA ITEM FOR HIR={:?}", top_id);
-            }
-        } else {
-            println!("HIR {:#?}", self.hir);
-            panic!("No reso hir_id: {:#?}", call_hir_id);
-        }
+                HirNode::Identifier(id) => {
+                    self.setup_identifier_call(fc, id);
+
+                    Some(())
+                }
+                _ => unimplemented!("Cannot call {:#?}", reso),
+            });
     }
 
     pub fn setup_trait_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
-        self.tmp_resolutions
-            .get_mut(&self.envs.get_current_fn().0)
-            .unwrap()
-            .insert(fc.op.get_hir_id(), f.hir_id.clone());
+        self.add_tmp_resolution_to_current_fn(&fc.op.get_hir_id(), &f.hir_id);
 
         self.setup_function_call(fc, f);
     }
@@ -139,18 +152,17 @@ impl<'a> ConstraintContext<'a> {
             .set_type(&fc.op.get_hir_id(), &Type::FuncType(p.signature.clone()));
     }
 
+    // FIXME: This is ugly as well
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
         if f.signature.arguments.len() != fc.args.len() {
             self.envs
                 .diagnostics
                 .push_error(Diagnostic::new_type_conflict(
                     self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
-                    fc.to_func_type(self.envs.get_current_env().unwrap())
-                        .to_type(),
-                    f.signature.to_type(),
-                    fc.to_func_type(self.envs.get_current_env().unwrap())
-                        .to_type(),
-                    f.signature.to_type(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
+                    f.signature.clone().into(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
+                    f.signature.clone().into(),
                 ));
 
             return;
@@ -178,9 +190,9 @@ impl<'a> ConstraintContext<'a> {
                                 .or_insert_with(ResolutionMap::default)
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
 
-                            self.envs.set_type(arg_id, &f.signature.to_type());
+                            self.envs.set_type(arg_id, &f.signature.clone().into());
 
-                            Some(f.signature.to_type())
+                            Some(f.signature.clone().into())
                         } else {
                             None
                         }
@@ -199,19 +211,13 @@ impl<'a> ConstraintContext<'a> {
                 .diagnostics
                 .push_error(Diagnostic::new_type_conflict(
                     self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
-                    fc.to_func_type(self.envs.get_current_env().unwrap())
-                        .to_type(),
-                    sig.to_type(),
-                    fc.to_func_type(self.envs.get_current_env().unwrap())
-                        .to_type(),
-                    sig.to_type(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
+                    sig.clone().into(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
+                    sig.clone().into(),
                 ));
+
             return;
-            // panic!(
-            //     "BAD CALL {:#?} {:#?}",
-            //     fc.to_func_type(self.envs.get_current_env().unwrap()),
-            //     sig
-            // );
         }
 
         // Carring about recursion
@@ -224,7 +230,7 @@ impl<'a> ConstraintContext<'a> {
                 &self.hir.bodies.get(&f.body_id).unwrap().get_hir_id(),
             );
 
-            self.envs.set_type(&fc.op.get_hir_id(), &sig.to_type());
+            self.envs.set_type(&fc.op.get_hir_id(), &sig.into());
 
             return;
         }
@@ -312,7 +318,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
         self.envs.apply_args_type(f);
 
-        // walk_function_decl(self, f);
         walk_list!(self, visit_argument_decl, &f.arguments);
 
         self.visit_fn_body(self.hir.get_body(&f.body_id).unwrap());
@@ -335,27 +340,21 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
 
-        self.tmp_resolutions
-            .get_mut(&self.envs.get_current_fn().0)
-            .unwrap()
-            .insert(f.name.hir_id.clone(), f.hir_id.clone());
+        self.add_tmp_resolution_to_current_fn(&f.name.hir_id, &f.hir_id);
     }
 
     fn visit_prototype(&mut self, p: &Prototype) {
         if p.signature.is_solved() {
-            self.envs.set_type(&p.hir_id, &p.signature.to_type());
+            self.envs.set_type(&p.hir_id, &p.signature.clone().into());
         }
 
-        self.tmp_resolutions
-            .get_mut(&self.envs.get_current_fn().0)
-            .unwrap()
-            .insert(p.name.hir_id.clone(), p.hir_id.clone());
+        self.add_tmp_resolution_to_current_fn(&p.name.hir_id, &p.hir_id);
 
         walk_prototype(self, p);
     }
 
     fn visit_struct_decl(&mut self, s: &StructDecl) {
-        let t = s.to_type();
+        let t = s.into();
 
         self.envs.set_type(&s.hir_id, &t);
 
@@ -372,7 +371,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         self.visit_struct_decl(s_decl);
 
-        let t = s_decl.to_type();
+        let t = s_decl.into();
 
         self.envs.set_type(&s.hir_id, &t);
 
@@ -383,37 +382,19 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         s.defs.iter().for_each(|(k, expr)| {
             let declared_type = struct_t.defs.get(&k.name).unwrap();
 
-            if let Type::FuncType(_ft) = &**declared_type {
+            declared_type.is_func().then(|| {
                 self.envs.get_type(&expr.get_hir_id()).cloned().or_else(|| {
                     if let HirNode::FunctionDecl(f2) =
                         self.hir.arena.get(&self.resolve(&expr.get_hir_id())?)?
                     {
-                        // Adds a link like `expr` => `out fn` where the expr is defined
-                        // self.tmp_resolutions
-                        //     .entry(self.envs.get_current_fn().0)
-                        //     .or_insert_with(ResolutionMap::default)
-                        //     .insert(expr.get_hir_id(), f2.hir_id.clone());
-                        self.tmp_resolutions
-                            .entry(self.envs.get_current_fn().0)
-                            .or_insert_with(ResolutionMap::default)
-                            // .insert(k.get_hir_id(), expr.get_hir_id());
-                            .insert(k.get_hir_id(), f2.hir_id.clone());
-
-                        // self.envs.set_type(&expr.get_hir_id(), &ft.to_type());
-                    } else {
+                        self.add_tmp_resolution_to_current_fn(&k.get_hir_id(), &f2.hir_id);
                     }
+
                     None
                 });
-            };
+            });
 
             self.envs.set_type(&expr.get_hir_id(), declared_type);
-
-            println!(
-                "STRUCT CTOR ARG : {:?} == {:?} || {:#?}",
-                &expr.get_hir_id(),
-                declared_type,
-                self.envs.get_type(&expr.get_hir_id()),
-            );
         });
     }
 
@@ -564,13 +545,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         self.envs
                             .set_type(&d.get_hir_id(), struct_t.defs.get(&d.value.name).unwrap());
 
-                        if let Type::FuncType(ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
+                        if let Type::FuncType(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
                             let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
 
-                            self.tmp_resolutions
-                                .entry(self.envs.get_current_fn().0)
-                                .or_insert_with(ResolutionMap::default)
-                                .insert(d.get_hir_id(), resolved);
+                            self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
                         }
                     }
                     other => {
@@ -665,7 +643,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             | NativeOperatorKind::FMul => PrimitiveType::Float64,
         };
 
-        self.envs.set_type(&op.hir_id, &Type::Primitive(t));
+        self.envs.set_type(&op.hir_id, &t.into());
     }
 }
 
