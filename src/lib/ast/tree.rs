@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{identity::Identity, resolve::ResolutionMap, NodeId},
-    generate_has_name,
     helpers::*,
     parser::{Span, Token},
     ty::{FuncType, Type},
@@ -24,85 +23,7 @@ pub struct Mod {
     pub identity: Identity,
 }
 
-impl Mod {
-    pub fn filter_unused_top_levels(&mut self, unused: Vec<NodeId>) {
-        let mut unused_trait_method_names = vec![];
-
-        self.top_levels = self
-            .top_levels
-            .iter_mut()
-            .filter_map(|top_level| {
-                match &mut top_level.kind {
-                    TopLevelKind::Function(f) => {
-                        if unused.contains(&f.identity.node_id) {
-                            warn!("Unused function {:?}", f.name);
-
-                            return None;
-                        }
-                    }
-                    TopLevelKind::Trait(t) => {
-                        let mut defs = vec![];
-
-                        for f in &t.defs {
-                            if unused.contains(&f.identity.node_id) {
-                                unused_trait_method_names.push(f.name.clone());
-
-                                warn!("Unused trait method {:?}", f.name);
-                            } else {
-                                defs.push(f.clone());
-                            }
-                        }
-
-                        if defs.is_empty() {
-                            return None;
-                        }
-
-                        let mut t2 = t.clone();
-                        t2.defs = defs.clone();
-
-                        return Some(TopLevel {
-                            kind: TopLevelKind::Trait(t2),
-                            ..top_level.clone()
-                        });
-                    }
-                    TopLevelKind::Impl(i) => {
-                        let mut defs = vec![];
-
-                        for f in &i.defs {
-                            if unused_trait_method_names.contains(&f.name) {
-                                warn!("Unused impl method {:?}", f.name);
-                            } else {
-                                defs.push(f.clone());
-                            }
-                        }
-
-                        if defs.is_empty() {
-                            return None;
-                        }
-
-                        let mut i2 = i.clone();
-                        i2.defs = defs.clone();
-
-                        return Some(TopLevel {
-                            kind: TopLevelKind::Impl(i2),
-                            ..top_level.clone()
-                        });
-                    }
-                    TopLevelKind::Mod(id, m) => {
-                        m.filter_unused_top_levels(unused.clone());
-
-                        return Some(TopLevel {
-                            kind: TopLevelKind::Mod(id.clone(), m.clone()),
-                            ..top_level.clone()
-                        });
-                    }
-                    _ => (),
-                };
-                Some(top_level.clone())
-            })
-            .collect();
-    }
-}
+impl Mod {}
 
 #[derive(Debug, Clone)]
 pub struct TopLevel {

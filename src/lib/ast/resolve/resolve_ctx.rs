@@ -6,7 +6,6 @@ use crate::{
     diagnostics::Diagnostic,
     helpers::scopes::*,
     parser::ParsingCtx,
-    walk_list,
 };
 
 #[derive(Debug)]

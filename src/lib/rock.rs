@@ -12,11 +12,12 @@ extern crate log;
 extern crate concat_idents;
 
 #[macro_use]
-pub mod ast;
+mod helpers;
+
 #[macro_use]
-pub mod infer;
+mod ast;
 #[macro_use]
-pub mod helpers;
+mod infer;
 
 use std::path::PathBuf;
 
@@ -71,7 +72,7 @@ pub fn parse_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic> 
     Ok(())
 }
 
-pub mod test {
+mod test {
     use super::*;
     use crate::{parser::SourceFile, Config};
     use std::{

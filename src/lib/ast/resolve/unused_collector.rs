@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use crate::{
     ast::*,
     ast::{resolve::ResolutionMap, visit::*},
-    walk_list,
 };
 
 #[derive(Debug, Default)]

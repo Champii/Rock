@@ -7,7 +7,6 @@ use crate::{
     hir::*,
     infer::Envs,
     ty::{FuncType, PrimitiveType, Type},
-    walk_list, walk_map,
 };
 
 #[derive(Debug)]
