@@ -1,6 +1,6 @@
-# Rock v0.1.6-develop
+# Rock v0.1.6-function-in-struct-field
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=function_in_struct_field)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -8,13 +8,13 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 
 # VTable
 - [Features]( #features )
-- [Development notes]( #development-notes )
 - [Install]( #install )
     - [Using released binary]( #using-released-binary )
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
 - [Showcases]( #showcases )
+- [Development notes]( #development-notes )
 
 ## Features
 
@@ -24,12 +24,6 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Typeclass (Traits)
 - Parametric Polymorphism by default
 - Compile to LLVM IR
-
-## Development notes
-
-This project, its syntax and its APIs are subject to change at any moment.  
-This is a personal project, so please bear with me  
-(Differently put: this is a big red hot pile of experimental garbage right now)
 
 ## Install
 
@@ -41,10 +35,10 @@ How to install and run the compiler:
 
 Linux x86_64 only
 
-[Rock v0.1.6-develop](https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock) (Tested on arch, btw)
+[Rock v0.1.6-function-in-struct-field](https://github.com/Champii/Rock/releases/download/v0.1.6-function-in-struct-field/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.6-function-in-struct-field/rock
 chmod +x rock
 ./rock -V
 ```
@@ -217,3 +211,9 @@ rock run
 ```
 
 Prints `MyName`
+
+## Development notes
+
+This project, its syntax and its APIs are subject to change at any moment.  
+This is a personal project, so please bear with me  
+(Differently put: this is a big red hot pile of experimental garbage right now)
