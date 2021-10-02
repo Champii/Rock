@@ -5,9 +5,12 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
+    passes::{PassManager, PassManagerBuilder},
+    targets::{InitializationConfig, Target},
     types::{BasicType, BasicTypeEnum},
     values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
+    OptimizationLevel::Aggressive,
 };
 
 use crate::{
@@ -39,6 +42,58 @@ impl<'a> CodegenContext<'a> {
             cur_func: None,
             parsing_ctx,
         }
+    }
+
+    pub fn optimize(&mut self) {
+        let config = InitializationConfig::default();
+
+        Target::initialize_native(&config).unwrap();
+
+        let pass_manager_builder = PassManagerBuilder::create();
+
+        pass_manager_builder.set_optimization_level(Aggressive);
+
+        let pass_manager = PassManager::create(());
+
+        pass_manager.add_demote_memory_to_register_pass();
+        pass_manager.add_promote_memory_to_register_pass();
+        pass_manager.add_argument_promotion_pass();
+        pass_manager.add_always_inliner_pass();
+        pass_manager.add_gvn_pass();
+        pass_manager.add_new_gvn_pass();
+        pass_manager.add_function_attrs_pass();
+        pass_manager.add_prune_eh_pass();
+        pass_manager.add_loop_vectorize_pass();
+        pass_manager.add_cfg_simplification_pass();
+        pass_manager.add_constant_merge_pass();
+        pass_manager.add_scalarizer_pass();
+        pass_manager.add_merged_load_store_motion_pass();
+        pass_manager.add_ind_var_simplify_pass();
+        pass_manager.add_instruction_combining_pass();
+        pass_manager.add_licm_pass();
+        pass_manager.add_loop_deletion_pass();
+        pass_manager.add_loop_unswitch_pass();
+        pass_manager.add_memcpy_optimize_pass();
+        pass_manager.add_partially_inline_lib_calls_pass();
+        pass_manager.add_lower_switch_pass();
+        pass_manager.add_reassociate_pass();
+        pass_manager.add_simplify_lib_calls_pass();
+        pass_manager.add_tail_call_elimination_pass();
+        pass_manager.add_aggressive_inst_combiner_pass();
+        pass_manager.add_instruction_simplify_pass();
+        pass_manager.add_function_inlining_pass();
+        pass_manager.add_global_optimizer_pass();
+        pass_manager.add_dead_arg_elimination_pass();
+        pass_manager.add_strip_symbol_pass();
+        pass_manager.add_strip_dead_prototypes_pass();
+        pass_manager.add_internalize_pass(true);
+        pass_manager.add_aggressive_dce_pass();
+        pass_manager.add_sccp_pass();
+        pass_manager.add_verifier_pass();
+
+        pass_manager.run_on(&self.module);
+
+        pass_manager_builder.populate_module_pass_manager(&pass_manager);
     }
 
     pub fn lower_type(&mut self, t: &Type, builder: &'a Builder) -> Result<BasicTypeEnum<'a>, ()> {

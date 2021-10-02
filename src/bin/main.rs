@@ -110,6 +110,12 @@ fn main() {
                 .help("Show hir"),
         )
         .arg(
+            Arg::with_name("no-optimize")
+                .short("N")
+                .takes_value(false)
+                .help("Disable LLVM optimization passes"),
+        )
+        .arg(
             Arg::with_name("ir")
                 .short("i")
                 .takes_value(false)
@@ -139,6 +145,7 @@ fn main() {
         show_hir: matches.is_present("hir"),
         show_ir: matches.is_present("ir"),
         show_state: matches.is_present("state"),
+        no_optimize: matches.is_present("no-optimize"),
         build_folder: PathBuf::from(matches.value_of("output-folder").unwrap()),
         ..Default::default()
     };

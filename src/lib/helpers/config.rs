@@ -12,22 +12,6 @@ impl Default for PackageType {
     }
 }
 
-// TBD
-// #[derive(Debug, Default, Serialize, Deserialize)]
-// pub struct PackageMetaData<'a> {
-//     pub hir: hir::Root<'a>,
-// }
-
-// impl<'a> PackageMetaData<'a> {
-//     pub fn load(path: &Path) -> bincode::Result<Self> {
-//         bincode::deserialize_from(BufReader::new(File::open(path).unwrap()))
-//     }
-
-//     pub fn store(&self, path: &Path) -> bincode::Result<()> {
-//         bincode::serialize_into(BufWriter::new(File::create(path).unwrap()), self)
-//     }
-// }
-
 #[derive(Debug, Clone, Default)]
 pub struct ProjectConfig {
     pub name: String,
@@ -47,4 +31,5 @@ pub struct Config {
     pub show_state: bool,
     pub verbose: bool,
     pub build_folder: PathBuf,
+    pub no_optimize: bool,
 }
