@@ -1,6 +1,6 @@
-# Rock v0.1.6-function-in-struct-field
+# Rock v0.1.6-develop
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=function_in_struct_field)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -35,10 +35,10 @@ How to install and run the compiler:
 
 Linux x86_64 only
 
-[Rock v0.1.6-function-in-struct-field](https://github.com/Champii/Rock/releases/download/v0.1.6-function-in-struct-field/rock) (Tested on arch, btw)
+[Rock v0.1.6-develop](https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.6-function-in-struct-field/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock
 chmod +x rock
 ./rock -V
 ```
