@@ -1,8 +1,9 @@
-use colored::*;
 use std::{
     collections::HashMap,
     path::{Component, PathBuf},
 };
+
+use colored::*;
 
 use crate::{
     ast::{ast_print::AstPrintContext, Identifier, Root},
@@ -29,10 +30,10 @@ impl ParsingCtx {
         }
     }
 
-    pub fn add_file(&mut self, file: SourceFile) {
+    pub fn add_file(&mut self, file: &SourceFile) {
         self.current_file = Some(file.file_path.clone());
 
-        self.files.insert(file.file_path.clone(), file);
+        self.files.insert(file.file_path.clone(), file.clone());
     }
 
     pub fn get_current_file(&self) -> SourceFile {
@@ -57,10 +58,8 @@ impl ParsingCtx {
                 self.diagnostics.list.len().to_string().yellow(),
                 "warnings".yellow(),
             );
-        } else {
-            if self.config.verbose {
-                println!("[{}] Compilation successful", "Success".green(),);
-            }
+        } else if self.config.verbose {
+            println!("[{}] Compilation successful", "Success".green(),);
         }
     }
 
@@ -74,11 +73,10 @@ impl ParsingCtx {
                 .iter()
                 .enumerate()
                 .partition(|(i, _diag)| {
-                    if let DiagnosticType::Error = *self.diagnostics.list_types.get(*i).unwrap() {
-                        true
-                    } else {
-                        false
-                    }
+                    matches!(
+                        *self.diagnostics.list_types.get(*i).unwrap(),
+                        DiagnosticType::Error
+                    )
                 });
 
             println!(
@@ -129,7 +127,7 @@ impl ParsingCtx {
             );
         }
 
-        self.add_file(new_file.clone());
+        self.add_file(&new_file);
 
         Ok(new_file)
     }
@@ -150,9 +148,10 @@ impl ParsingCtx {
         self.operators_list.contains_key(&name.name)
     }
 
+    #[allow(dead_code)]
     pub fn print_ast(&self, ast: &Root) {
         use crate::ast::visit::Visitor;
 
-        AstPrintContext::new(ast.r#mod.tokens.clone(), self.get_current_file()).visit_root(ast);
+        AstPrintContext::new().visit_root(ast);
     }
 }

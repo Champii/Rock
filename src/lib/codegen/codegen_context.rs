@@ -1,22 +1,21 @@
-use std::convert::TryFrom;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
-    values::{AnyValue, AnyValueEnum, BasicValueEnum, CallableValue, FunctionValue},
-    FloatPredicate, IntPredicate,
+    context::Context,
+    module::Module,
+    types::{BasicType, BasicTypeEnum},
+    values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue},
+    AddressSpace, FloatPredicate, IntPredicate,
 };
-use inkwell::{context::Context, types::BasicTypeEnum};
-use inkwell::{module::Module, values::BasicValue};
-use inkwell::{types::BasicType, AddressSpace};
 
 use crate::{
-    ast::{PrimitiveType, Type},
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
     hir::*,
     parser::ParsingCtx,
+    ty::{PrimitiveType, Type},
 };
 
 pub struct CodegenContext<'a> {
@@ -53,30 +52,38 @@ impl<'a> CodegenContext<'a> {
                 .i8_type()
                 .ptr_type(AddressSpace::Generic)
                 .into(),
-            Type::Primitive(PrimitiveType::Array(arr, size)) => {
+            Type::Primitive(PrimitiveType::Array(inner, size)) => {
                 // assuming all types are equals
-                self.lower_type(arr, builder)?
+                self.lower_type(inner, builder)?
                     .array_type(*size as u32)
                     .ptr_type(AddressSpace::Generic)
                     .into()
             }
-            Type::FuncType(f) => {
-                // FIXME: Don't rely on names for resolution
-                let f2 = match self.module.get_function(&f.get_mangled_name()) {
-                    Some(f2) => f2,
-                    None => {
-                        let f = self
-                            .hir
-                            .get_function_by_mangled_name(&f.get_mangled_name())
-                            .unwrap();
+            Type::Func(f) => {
+                let ret_t = f.ret.clone();
 
-                        self.lower_function_decl(&f, builder)?;
+                let args = f
+                    .arguments
+                    .iter()
+                    .map(|arg| self.lower_type(arg, builder))
+                    .collect::<Vec<_>>();
 
-                        self.module.get_function(&f.get_name()).unwrap()
-                    }
+                let mut args_ret = vec![];
+
+                for arg in args {
+                    args_ret.push(arg?);
+                }
+
+                let args = args_ret;
+
+                let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
+                    self.context.void_type().fn_type(args.as_slice(), false)
+                } else {
+                    self.lower_type(&ret_t, builder)?
+                        .fn_type(args.as_slice(), false)
                 };
 
-                f2.get_type().ptr_type(AddressSpace::Generic).into()
+                fn_type.ptr_type(AddressSpace::Generic).into()
             }
             Type::Struct(s) => self
                 .context
@@ -97,13 +104,13 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_hir(&mut self, root: &'a Root, builder: &'a Builder) -> Result<(), ()> {
         for item in &root.top_levels {
             match &item.kind {
-                TopLevelKind::Prototype(p) => self.lower_prototype(&p, builder)?,
-                TopLevelKind::Function(f) => self.lower_function_decl(&f, builder)?,
+                TopLevelKind::Prototype(p) => self.lower_prototype(p, builder)?,
+                TopLevelKind::Function(f) => self.lower_function_decl(f, builder)?,
             }
         }
 
         for body in root.bodies.values() {
-            self.lower_fn_body(&body, builder)?;
+            self.lower_fn_body(body, builder)?;
         }
 
         Ok(())
@@ -112,13 +119,13 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_prototype(&mut self, p: &'a Prototype, builder: &'a Builder) -> Result<(), ()> {
         let t = self.hir.node_types.get(&p.hir_id).unwrap();
 
-        if let Type::FuncType(f_type) = t {
+        if let Type::Func(f_type) = t {
             let ret_t = f_type.ret.clone();
 
             let mut args = vec![];
 
-            for arg in &p.signature.args {
-                args.push(self.lower_type(&arg, builder)?);
+            for arg in &p.signature.arguments {
+                args.push(self.lower_type(arg, builder)?);
             }
 
             let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
@@ -163,7 +170,7 @@ impl<'a> CodegenContext<'a> {
 
         let t = self.hir.node_types.get(&f.hir_id).unwrap();
 
-        if let Type::FuncType(f_type) = t {
+        if let Type::Func(f_type) = t {
             let ret_t = f_type.ret.clone();
 
             let args = f
@@ -216,7 +223,7 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicTypeEnum<'a>, ()> {
         let t = self.hir.node_types.get(&arg.name.hir_id).unwrap();
 
-        self.lower_type(&t, builder)
+        self.lower_type(t, builder)
     }
 
     pub fn lower_fn_body(&mut self, fn_body: &'a FnBody, builder: &'a Builder) -> Result<(), ()> {
@@ -251,14 +258,14 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<(AnyValueEnum<'a>, BasicBlock<'a>), ()> {
         let basic_block = self
             .context
-            .append_basic_block(self.cur_func.clone().unwrap(), name);
+            .append_basic_block(self.cur_func.unwrap(), name);
 
         builder.position_at_end(basic_block);
 
         let stmt = body
             .stmts
             .iter()
-            .map(|stmt| self.lower_stmt(&stmt, builder))
+            .map(|stmt| self.lower_stmt(stmt, builder))
             .last()
             .unwrap()?;
 
@@ -271,9 +278,9 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<AnyValueEnum<'a>, ()> {
         Ok(match &*stmt.kind {
-            StatementKind::Expression(e) => self.lower_expression(&e, builder)?.as_any_value_enum(),
-            StatementKind::If(e) => self.lower_if(&e, builder)?.0,
-            StatementKind::Assign(a) => self.lower_assign(&a, builder)?,
+            StatementKind::Expression(e) => self.lower_expression(e, builder)?.as_any_value_enum(),
+            StatementKind::If(e) => self.lower_if(e, builder)?.0,
+            StatementKind::Assign(a) => self.lower_assign(a, builder)?,
         })
     }
 
@@ -324,9 +331,8 @@ impl<'a> CodegenContext<'a> {
         } else {
             //new empty block
             let f = self.module.get_last_function().unwrap();
-            let else_block = self.context.append_basic_block(f, "else");
 
-            else_block
+            self.context.append_basic_block(f, "else")
         };
 
         // FIXME: Need a last block if the 'if' is not the last statement in the fn body
@@ -359,7 +365,7 @@ impl<'a> CodegenContext<'a> {
             Else::If(i) => {
                 let block = self
                     .context
-                    .append_basic_block(self.cur_func.clone().unwrap(), "if");
+                    .append_basic_block(self.cur_func.unwrap(), "if");
 
                 builder.position_at_end(block);
 
@@ -375,8 +381,8 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &*expr.kind {
-            ExpressionKind::Lit(l) => self.lower_literal(&l, builder)?,
-            ExpressionKind::Identifier(id) => self.lower_identifier_path(&id, builder)?,
+            ExpressionKind::Lit(l) => self.lower_literal(l, builder)?,
+            ExpressionKind::Identifier(id) => self.lower_identifier_path(id, builder)?,
             ExpressionKind::FunctionCall(fc) => self.lower_function_call(fc, builder)?,
             ExpressionKind::StructCtor(s) => self.lower_struct_ctor(s, builder)?,
             ExpressionKind::Indice(i) => self.lower_indice(i, builder)?,
@@ -400,9 +406,9 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         let t = self.hir.node_types.get(&s.get_hir_id()).unwrap();
-        let struct_t = t.into_struct_type();
+        let struct_t = t.as_struct_type();
 
-        let llvm_struct_t_ptr = self.lower_type(&t, builder).unwrap().into_pointer_type();
+        let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
         let llvm_struct_t = llvm_struct_t_ptr.get_element_type().into_struct_type();
 
         // FIXME: types should be ordered already
@@ -428,7 +434,7 @@ impl<'a> CodegenContext<'a> {
                 .build_struct_gep(ptr, i as u32, "struct_inner")
                 .unwrap();
 
-            builder.build_store(inner_ptr, def.clone());
+            builder.build_store(inner_ptr, *def);
         }
 
         Ok(ptr.into())
@@ -443,7 +449,7 @@ impl<'a> CodegenContext<'a> {
 
         let f_id = self.hir.resolutions.get(&terminal_hir_id).unwrap();
 
-        let callable_value = match self.hir.get_top_level(f_id.clone()) {
+        let callable_value = match self.hir.get_top_level(f_id) {
             Some(top) => CallableValue::try_from(match &top.kind {
                 TopLevelKind::Prototype(p) => {
                     self.module.get_function(&p.name.to_string()).unwrap()
@@ -462,7 +468,7 @@ impl<'a> CodegenContext<'a> {
         let mut arguments = vec![];
 
         for arg in &fc.args {
-            arguments.push(self.lower_expression(&arg, builder)?);
+            arguments.push(self.lower_expression(arg, builder)?);
         }
 
         Ok(builder
@@ -519,7 +525,7 @@ impl<'a> CodegenContext<'a> {
 
         let t = self.hir.node_types.get(&dot.op.get_hir_id()).unwrap();
 
-        let struct_t = t.into_struct_type();
+        let struct_t = t.as_struct_type();
 
         let indice = struct_t
             .defs
@@ -563,7 +569,7 @@ impl<'a> CodegenContext<'a> {
             LiteralKind::Float(n) => {
                 let f64_type = self.context.f64_type();
 
-                f64_type.const_float((*n).try_into().unwrap()).into()
+                f64_type.const_float(*n).into()
             }
             LiteralKind::Bool(b) => {
                 let bool_type = self.context.bool_type();
@@ -590,7 +596,7 @@ impl<'a> CodegenContext<'a> {
 
                     let i64_type = self.context.i64_type();
 
-                    let const_i = i64_type.const_int(i as u64, false).into();
+                    let const_i = i64_type.const_int(i as u64, false);
                     let const_0 = i64_type.const_zero();
 
                     let inner_ptr = unsafe {
@@ -610,7 +616,7 @@ impl<'a> CodegenContext<'a> {
         id: &IdentifierPath,
         _builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
-        Ok(self.lower_identifier(id.path.iter().last().unwrap(), _builder)?)
+        self.lower_identifier(id.path.iter().last().unwrap(), _builder)
     }
 
     pub fn lower_identifier(
@@ -620,8 +626,7 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
-        // println!("SCOPES {:#?}", self.scopes);
-        let val = match self.scopes.get(reso.clone()) {
+        let val = match self.scopes.get(reso) {
             None => {
                 let span = self
                     .hir
@@ -728,7 +733,7 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::EQ, left, right, "ieq")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::IGT => {
+            NativeOperatorKind::Igt => {
                 let left = self.lower_identifier(left, builder)?.into_int_value();
                 let right = self.lower_identifier(right, builder)?.into_int_value();
 
@@ -736,7 +741,7 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::SGT, left, right, "isgt")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::IGE => {
+            NativeOperatorKind::Ige => {
                 let left = self.lower_identifier(left, builder)?.into_int_value();
                 let right = self.lower_identifier(right, builder)?.into_int_value();
 
@@ -744,7 +749,7 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::SGE, left, right, "isge")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::ILT => {
+            NativeOperatorKind::Ilt => {
                 let left = self.lower_identifier(left, builder)?.into_int_value();
                 let right = self.lower_identifier(right, builder)?.into_int_value();
 
@@ -752,7 +757,7 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::SLT, left, right, "islt")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::ILE => {
+            NativeOperatorKind::Ile => {
                 let left = self.lower_identifier(left, builder)?.into_int_value();
                 let right = self.lower_identifier(right, builder)?.into_int_value();
 
@@ -768,7 +773,7 @@ impl<'a> CodegenContext<'a> {
                     .build_float_compare(FloatPredicate::OEQ, left, right, "feq")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::FGT => {
+            NativeOperatorKind::Fgt => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
                 let right = self.lower_identifier(right, builder)?.into_float_value();
 
@@ -776,7 +781,7 @@ impl<'a> CodegenContext<'a> {
                     .build_float_compare(FloatPredicate::OGT, left, right, "fsgt")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::FGE => {
+            NativeOperatorKind::Fge => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
                 let right = self.lower_identifier(right, builder)?.into_float_value();
 
@@ -784,7 +789,7 @@ impl<'a> CodegenContext<'a> {
                     .build_float_compare(FloatPredicate::OGE, left, right, "fsge")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::FLT => {
+            NativeOperatorKind::Flt => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
                 let right = self.lower_identifier(right, builder)?.into_float_value();
 
@@ -792,7 +797,7 @@ impl<'a> CodegenContext<'a> {
                     .build_float_compare(FloatPredicate::OLT, left, right, "fslt")
                     .as_basic_value_enum()
             }
-            NativeOperatorKind::FLE => {
+            NativeOperatorKind::Fle => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
                 let right = self.lower_identifier(right, builder)?.into_float_value();
 

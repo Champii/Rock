@@ -16,7 +16,7 @@ pub enum TokenType {
     Then,
     Else,
     For,
-    In,
+    // In,
     Struct,
     Infix,
     Trait,
@@ -30,8 +30,8 @@ pub enum TokenType {
     DoubleSemiColon,
     Equal,
     ArrayType,
-    EqualEqual, // ==
-    DashEqual,  // !=
+    // EqualEqual, // ==
+    // DashEqual,  // !=
     OpenParens,
     CloseParens,
     OpenArray,
@@ -55,13 +55,13 @@ pub enum TokenType {
     Indent(u8),
 
     // whitespaces
-    EOL,
-    EOF,
+    Eol,
+    Eof,
 }
 
 impl Default for TokenType {
     fn default() -> TokenType {
-        TokenType::EOF
+        TokenType::Eof
     }
 }
 

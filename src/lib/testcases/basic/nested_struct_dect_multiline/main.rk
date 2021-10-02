@@ -1,0 +1,17 @@
+struct Bar
+  mdr :: Int64
+
+struct Foo
+  toto :: Bar
+  titi :: Float64
+
+main =
+  let lol =
+    Foo
+      toto:
+        Bar
+          mdr: 42
+      titi:
+        10.2
+
+  lol.toto.mdr

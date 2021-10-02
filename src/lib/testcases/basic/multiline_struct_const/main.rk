@@ -1,0 +1,11 @@
+struct Foo
+  toto :: Int64
+  titi :: Float64
+
+main =
+  let lol =
+    Foo
+      toto: 42
+      titi: 10.2
+
+  lol.toto

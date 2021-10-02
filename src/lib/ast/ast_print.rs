@@ -3,21 +3,16 @@ use std::fmt::Debug;
 use crate::ast::visit::*;
 use crate::ast::*;
 use crate::helpers::*;
-use crate::parser::*;
+use crate::ty::*;
+use paste::paste;
 
 pub struct AstPrintContext {
     indent: usize,
-    tokens: Vec<Token>,
-    _input: SourceFile,
 }
 
 impl AstPrintContext {
-    pub fn new(tokens: Vec<Token>, input: SourceFile) -> Self {
-        Self {
-            indent: 0,
-            _input: input,
-            tokens,
-        }
+    pub fn new() -> Self {
+        Self { indent: 0 }
     }
 
     pub fn increment(&mut self) {
@@ -26,10 +21,6 @@ impl AstPrintContext {
 
     pub fn decrement(&mut self) {
         self.indent -= 1;
-    }
-
-    pub fn get_token(&self, token_id: TokenId) -> Option<Token> {
-        self.tokens.get(token_id).cloned()
     }
 
     pub fn indent(&self) -> usize {
@@ -54,10 +45,10 @@ impl AstPrintContext {
 
 macro_rules! impl_visitor_trait {
     ($(
-        $name:ident, $method:ident
-    )*) => {
+        $name:ty
+    )+) => {
         impl<'ast> Visitor<'ast> for AstPrintContext {
-            fn visit_name(&mut self, name: String) {
+            fn visit_name(&mut self, name: &str) {
                 self.print_primitive(name);
             }
 
@@ -72,51 +63,50 @@ macro_rules! impl_visitor_trait {
                 self.print_primitive(val);
             }
 
-            $(
-                concat_idents!(fn_name = visit_, $method {
-                    fn fn_name(&mut self, $method: &'ast $name) {
-                        self.print($method);
+            paste! {
+                $(
+                    fn [<visit_ $name:snake>](&mut self, node: &'ast $name) {
+
+                        self.print(node);
 
                         self.increment();
 
-                        concat_idents!(walk_fn_name = walk_, $method {
-                            walk_fn_name(self, $method);
-                        });
+                        [<walk_ $name:snake>](self, node);
 
                         self.decrement();
                     }
-                });
-            )*
+                )+
+            }
         }
     };
 }
 
 impl_visitor_trait!(
-    Root, root
-    Mod, r#mod
-    TopLevel, top_level
-    StructDecl, struct_decl
-    Use, r#use
-    Trait, r#trait
-    Assign, assign
-    Impl, r#impl
-    FunctionDecl, function_decl
-    Identifier, identifier
-    ArgumentDecl, argument_decl
-    Body, body
-    Statement, statement
-    Expression, expression
-    If, r#if
-    Else, r#else
-    UnaryExpr, unary
-    StructCtor, struct_ctor
-    Operator, operator
-    PrimaryExpr, primary_expr
-    SecondaryExpr, secondary_expr
-    Operand, operand
-    Argument, argument
-    Literal, literal
-    Array, array
-    NativeOperator, native_operator
-    TypeSignature, type_signature
+    Root
+    Mod
+    TopLevel
+    StructDecl
+    Use
+    Trait
+    Assign
+    Impl
+    FunctionDecl
+    Identifier
+    ArgumentDecl
+    Body
+    Statement
+    Expression
+    If
+    Else
+    UnaryExpr
+    StructCtor
+    Operator
+    PrimaryExpr
+    SecondaryExpr
+    Operand
+    Argument
+    Literal
+    Array
+    NativeOperator
+    FuncType
 );

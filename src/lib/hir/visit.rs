@@ -1,73 +1,70 @@
-use concat_idents::concat_idents;
+use paste::paste;
 
-use crate::{ast::Type, hir::*};
-use crate::{ast::TypeSignature, walk_list};
+use crate::{hir::*, ty::*};
 
 macro_rules! generate_visitor_trait {
     ($(
-        $name:ident, $method:ident
-    )*) => {
-        pub trait Visitor<'ast>: Sized {
-            fn visit_name(&mut self, _name: String) {}
+        $name:ident
+    )+) => {
+        pub trait Visitor<'hir>: Sized {
+            fn visit_name(&mut self, _name: &str) {}
 
             fn visit_primitive<T: std::fmt::Debug + std::fmt::Display>(&mut self, _val: T)
             {}
 
-            $(
-                concat_idents!(fn_name = visit_, $method {
-                    fn fn_name(&mut self, $method: &'ast $name) {
-                        concat_idents!(fn2_name = walk_, $method {
-                            fn2_name(self, $method);
-                        });
+            paste! {
+                $(
+                    fn [<visit_ $name:snake>](&mut self, node: &'hir $name) {
+                        [<walk_ $name:snake>](self, node);
                     }
-                });
-            )*
+                )+
+            }
         }
     };
 }
 
 generate_visitor_trait!(
-    Root, root
-    TopLevel, top_level
-    Trait, r#trait
-    Impl, r#impl
-    Assign, assign
-    AssignLeftSide, assign_left_side
-    Prototype, prototype
-    FunctionDecl, function_decl
-    StructDecl, struct_decl
-    ArgumentDecl, argument_decl
-    IdentifierPath, identifier_path
-    Identifier, identifier
-    FnBody, fn_body
-    Body, body
-    Statement, statement
-    Expression, expression
-    If, r#if
-    Else, r#else
-    FunctionCall, function_call
-    StructCtor, struct_ctor
-    Indice, indice
-    Dot, dot
-    Literal, literal
-    Array, array
-    NativeOperator, native_operator
-    Type, r#type
-    TypeSignature, type_signature
+    Root
+    TopLevel
+    Trait
+    Impl
+    Assign
+    AssignLeftSide
+    Prototype
+    FunctionDecl
+    StructDecl
+    ArgumentDecl
+    IdentifierPath
+    Identifier
+    FnBody
+    Body
+    Statement
+    Expression
+    If
+    Else
+    FunctionCall
+    StructCtor
+    Indice
+    Dot
+    Literal
+    Array
+    NativeOperator
+    Type
+    FuncType
 );
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
     walk_list!(visitor, visit_top_level, &root.top_levels);
 
-    for (_, r#struct) in &root.structs {
+    for r#struct in root.structs.values() {
         visitor.visit_struct_decl(r#struct);
     }
 
-    for (_, r#trait) in &root.traits {
+    for r#trait in root.traits.values() {
         visitor.visit_trait(r#trait);
     }
 
-    for (_, impls) in &root.trait_methods {
+    for impls in root.trait_methods.values() {
         walk_map!(visitor, visit_function_decl, impls);
     }
 
@@ -76,8 +73,8 @@ pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {
-        TopLevelKind::Prototype(p) => visitor.visit_prototype(&p),
-        TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
+        TopLevelKind::Prototype(p) => visitor.visit_prototype(p),
+        TopLevelKind::Function(f) => visitor.visit_function_decl(f),
     };
 }
 
@@ -107,7 +104,7 @@ pub fn walk_impl<'a, V: Visitor<'a>>(visitor: &mut V, i: &'a Impl) {
 pub fn walk_prototype<'a, V: Visitor<'a>>(visitor: &mut V, prototype: &'a Prototype) {
     visitor.visit_identifier(&prototype.name);
 
-    visitor.visit_type_signature(&prototype.signature);
+    visitor.visit_func_type(&prototype.signature);
 }
 
 pub fn walk_function_decl<'a, V: Visitor<'a>>(visitor: &mut V, function_decl: &'a FunctionDecl) {
@@ -121,7 +118,7 @@ pub fn walk_identifier_path<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a
 }
 
 pub fn walk_identifier<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a Identifier) {
-    visitor.visit_name(identifier.name.clone());
+    visitor.visit_name(&identifier.name);
 }
 
 pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a ArgumentDecl) {
@@ -151,24 +148,24 @@ pub fn walk_assign<'a, V: Visitor<'a>>(visitor: &mut V, assign: &'a Assign) {
 
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
-        StatementKind::Expression(expr) => visitor.visit_expression(&expr),
-        StatementKind::Assign(assign) => visitor.visit_assign(&assign),
-        StatementKind::If(expr) => visitor.visit_if(&expr),
+        StatementKind::Expression(expr) => visitor.visit_expression(expr),
+        StatementKind::Assign(assign) => visitor.visit_assign(assign),
+        StatementKind::If(expr) => visitor.visit_if(expr),
     }
 }
 
 pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression) {
     match &*expr.kind {
-        ExpressionKind::Lit(lit) => visitor.visit_literal(&lit),
-        ExpressionKind::Identifier(id) => visitor.visit_identifier_path(&id),
-        ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(&fc),
-        ExpressionKind::StructCtor(s) => visitor.visit_struct_ctor(&s),
+        ExpressionKind::Lit(lit) => visitor.visit_literal(lit),
+        ExpressionKind::Identifier(id) => visitor.visit_identifier_path(id),
+        ExpressionKind::FunctionCall(fc) => visitor.visit_function_call(fc),
+        ExpressionKind::StructCtor(s) => visitor.visit_struct_ctor(s),
         ExpressionKind::Indice(indice) => visitor.visit_indice(indice),
         ExpressionKind::Dot(dot) => visitor.visit_dot(dot),
         ExpressionKind::NativeOperation(op, left, right) => {
-            visitor.visit_native_operator(&op);
-            visitor.visit_identifier(&left);
-            visitor.visit_identifier(&right);
+            visitor.visit_native_operator(op);
+            visitor.visit_identifier(left);
+            visitor.visit_identifier(right);
         }
         ExpressionKind::Return(expr) => visitor.visit_expression(expr),
     }
@@ -219,14 +216,14 @@ pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {
     visitor.visit_body(&r#if.body);
 
     if let Some(r#else) = &r#if.else_ {
-        visitor.visit_else(&r#else);
+        visitor.visit_else(r#else);
     }
 }
 
 pub fn walk_else<'a, V: Visitor<'a>>(visitor: &mut V, r#else: &'a Else) {
     match r#else {
-        Else::If(expr) => visitor.visit_if(&expr),
-        Else::Body(expr) => visitor.visit_body(&expr),
+        Else::If(expr) => visitor.visit_if(expr),
+        Else::Body(expr) => visitor.visit_body(expr),
     }
 }
 
@@ -234,8 +231,8 @@ pub fn walk_type<'a, V: Visitor<'a>>(_visitor: &mut V, _t: &'a Type) {
     // Nothing to do
 }
 
-pub fn walk_type_signature<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a TypeSignature) {
-    walk_list!(visitor, visit_type, &signature.args);
+pub fn walk_func_type<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a FuncType) {
+    walk_list!(visitor, visit_type, &signature.arguments);
 
     visitor.visit_type(&signature.ret);
 }

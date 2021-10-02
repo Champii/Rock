@@ -8,13 +8,13 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 
 # VTable
 - [Features]( #features )
-- [Development notes]( #development-notes )
 - [Install]( #install )
     - [Using released binary]( #using-released-binary )
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
 - [Showcases]( #showcases )
+- [Development notes]( #development-notes )
 
 ## Features
 
@@ -25,19 +25,17 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Parametric Polymorphism by default
 - Compile to LLVM IR
 
-## Development notes
-
-This project, its syntax and its APIs are subject to change at any moment.  
-This is a personal project, so please bear with me  
-(Differently put: this is a big red hot pile of experimental garbage right now)
-
 ## Install
+
+Warning: This project has only been tested on Linux x86_64.
 
 How to install and run the compiler:
 
-### Using released binary
+### Using released binary 
 
-[Rock {version}](https://github.com/Champii/Rock/releases/download/{version}/rock) (Tested on arch linux)
+Linux x86_64 only
+
+[Rock {version}](https://github.com/Champii/Rock/releases/download/{version}/rock) (Tested on arch, btw)
 
 ``` sh
 wget https://github.com/Champii/Rock/releases/download/{version}/rock
@@ -79,15 +77,12 @@ mod lib
 
 use lib::prelude::*
 
-# Polymophic function
-id a = a
-
 fact a =
     if a <= 1
     then 1
     else a * fact (a - 1)
 
-main = print fact id 4
+main = print fact 4
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -103,6 +98,34 @@ Should output
 ```
 
 ## Showcases
+
+### Polymophic function
+
+
+``` haskell
+mod lib
+
+use lib::prelude::*
+
+id a = a
+
+main =
+  print id 1
+  print id 2.2
+  print id "Test"
+```
+
+``` sh
+rock run
+```
+
+Prints 
+
+``` sh
+1
+2.2
+Test
+```
 
 ### Custom infix operator
 
@@ -123,7 +146,7 @@ main = print (4 |> f)
 rock run
 ```
 
-Prints `6\n`
+Prints `6`
 
 ### Trait definition
 
@@ -149,6 +172,17 @@ main =
 
 ```
 
+``` sh
+rock run
+```
+
+Prints 
+
+```
+33
+42.42
+```
+
 ### Struct instance and Show implementation
 
 ``` haskell
@@ -164,9 +198,10 @@ impl Show Player
   show p = show p.name
 
 main =
-  let player = Player
-    level: 42
-    name: "MyName"
+  let player = 
+    Player
+      level: 42
+      name: "MyName"
 
   print player
 ```
@@ -175,4 +210,10 @@ main =
 rock run
 ```
 
-Prints `MyName\n`
+Prints `MyName`
+
+## Development notes
+
+This project, its syntax and its APIs are subject to change at any moment.  
+This is a personal project, so please bear with me  
+(Differently put: this is a big red hot pile of experimental garbage right now)

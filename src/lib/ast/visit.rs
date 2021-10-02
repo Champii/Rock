@@ -1,65 +1,63 @@
-use concat_idents::concat_idents;
+use paste::paste;
 
-use crate::walk_list;
-use crate::{ast::*, walk_map};
+use crate::ast::*;
+use crate::ty::*;
 
 macro_rules! generate_visitor_trait {
     ($(
-        $name:ident, $method:ident
-    )*) => {
+        $name:ty
+    )+) => {
         pub trait Visitor<'ast>: Sized {
-            fn visit_name(&mut self, _name: String) {}
+            fn visit_name(&mut self, _name: &str) {}
 
             fn visit_primitive<T>(&mut self, _val: T)
             where
                 T: std::fmt::Debug,
             {}
 
-            $(
-                concat_idents!(fn_name = visit_, $method {
-                    fn fn_name(&mut self, $method: &'ast $name) {
-                        concat_idents!(fn2_name = walk_, $method {
-                            fn2_name(self, $method);
-                        });
+            paste! {
+                $(
+                    fn [<visit_ $name:snake>](&mut self, node: &'ast $name) {
+                        [<walk_ $name:snake>](self, node);
                     }
-                });
-            )*
+                )+
+            }
         }
     };
 }
 
 generate_visitor_trait!(
-    Root, root
-    Mod, r#mod
-    TopLevel, top_level
-    Assign, assign
-    AssignLeftSide, assign_left_side
-    Prototype, prototype
-    Use, r#use
-    Trait, r#trait
-    Impl, r#impl
-    FunctionDecl, function_decl
-    StructDecl, struct_decl
-    Identifier, identifier
-    IdentifierPath, identifier_path
-    ArgumentDecl, argument_decl
-    Body, body
-    Statement, statement
-    Expression, expression
-    If, r#if
-    Else, r#else
-    UnaryExpr, unary
-    Operator, operator
-    PrimaryExpr, primary_expr
-    SecondaryExpr, secondary_expr
-    Operand, operand
-    Argument, argument
-    Literal, literal
-    StructCtor, struct_ctor
-    Array, array
-    NativeOperator, native_operator
-    TypeSignature, type_signature
-    Type, r#type
+    Root
+    Mod
+    TopLevel
+    Assign
+    AssignLeftSide
+    Prototype
+    Use
+    Trait
+    Impl
+    FunctionDecl
+    StructDecl
+    Identifier
+    IdentifierPath
+    ArgumentDecl
+    Body
+    Statement
+    Expression
+    If
+    Else
+    UnaryExpr
+    Operator
+    PrimaryExpr
+    SecondaryExpr
+    Operand
+    Argument
+    Literal
+    StructCtor
+    Array
+    NativeOperator
+    FuncType
+    Type
 );
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
@@ -72,17 +70,17 @@ pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {
-        TopLevelKind::Prototype(p) => visitor.visit_prototype(&p),
-        TopLevelKind::Use(u) => visitor.visit_use(&u),
-        TopLevelKind::Trait(t) => visitor.visit_trait(&t),
-        TopLevelKind::Impl(i) => visitor.visit_impl(&i),
-        TopLevelKind::Struct(i) => visitor.visit_struct_decl(&i),
+        TopLevelKind::Prototype(p) => visitor.visit_prototype(p),
+        TopLevelKind::Use(u) => visitor.visit_use(u),
+        TopLevelKind::Trait(t) => visitor.visit_trait(t),
+        TopLevelKind::Impl(i) => visitor.visit_impl(i),
+        TopLevelKind::Struct(i) => visitor.visit_struct_decl(i),
         TopLevelKind::Mod(name, m) => {
-            visitor.visit_identifier(&name);
-            visitor.visit_mod(&m);
+            visitor.visit_identifier(name);
+            visitor.visit_mod(m);
         }
-        TopLevelKind::Function(f) => visitor.visit_function_decl(&f),
-        TopLevelKind::Infix(ident, _) => visitor.visit_identifier(&ident),
+        TopLevelKind::Function(f) => visitor.visit_function_decl(f),
+        TopLevelKind::Infix(ident, _) => visitor.visit_identifier(ident),
     };
 }
 
@@ -111,7 +109,7 @@ pub fn walk_impl<'a, V: Visitor<'a>>(visitor: &mut V, i: &'a Impl) {
 pub fn walk_prototype<'a, V: Visitor<'a>>(visitor: &mut V, prototype: &'a Prototype) {
     visitor.visit_identifier(&prototype.name);
 
-    visitor.visit_type_signature(&prototype.signature);
+    visitor.visit_func_type(&prototype.signature);
 }
 
 pub fn walk_use<'a, V: Visitor<'a>>(visitor: &mut V, r#use: &'a Use) {
@@ -134,11 +132,11 @@ pub fn walk_identifier_path<'a, V: Visitor<'a>>(
 }
 
 pub fn walk_identifier<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a Identifier) {
-    visitor.visit_name(identifier.name.clone());
+    visitor.visit_name(&identifier.name);
 }
 
 pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a ArgumentDecl) {
-    visitor.visit_name(argument.name.clone());
+    visitor.visit_name(&argument.name);
 }
 
 pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
@@ -147,9 +145,9 @@ pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
 
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
     match statement.kind.as_ref() {
-        StatementKind::Expression(expr) => visitor.visit_expression(&expr),
-        StatementKind::Assign(assign) => visitor.visit_assign(&assign),
-        StatementKind::If(expr) => visitor.visit_if(&expr),
+        StatementKind::Expression(expr) => visitor.visit_expression(expr),
+        StatementKind::Assign(assign) => visitor.visit_assign(assign),
+        StatementKind::If(expr) => visitor.visit_if(expr),
     }
 }
 
@@ -170,33 +168,33 @@ pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {
     visitor.visit_expression(&r#if.predicat);
     visitor.visit_body(&r#if.body);
     if let Some(r#else) = &r#if.else_ {
-        visitor.visit_else(&r#else);
+        visitor.visit_else(r#else);
     }
 }
 
 pub fn walk_else<'a, V: Visitor<'a>>(visitor: &mut V, r#else: &'a Else) {
     match r#else {
-        Else::If(expr) => visitor.visit_if(&expr),
-        Else::Body(expr) => visitor.visit_body(&expr),
+        Else::If(expr) => visitor.visit_if(expr),
+        Else::Body(expr) => visitor.visit_body(expr),
     }
 }
 
 pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression) {
     match &expr.kind {
         ExpressionKind::BinopExpr(unary, operator, expr) => {
-            visitor.visit_unary(&unary);
-            visitor.visit_operator(&operator);
+            visitor.visit_unary_expr(unary);
+            visitor.visit_operator(operator);
             visitor.visit_expression(&*expr);
         }
-        ExpressionKind::UnaryExpr(unary) => visitor.visit_unary(&unary),
-        ExpressionKind::StructCtor(ctor) => visitor.visit_struct_ctor(&ctor),
+        ExpressionKind::UnaryExpr(unary) => visitor.visit_unary_expr(unary),
+        ExpressionKind::StructCtor(ctor) => visitor.visit_struct_ctor(ctor),
         ExpressionKind::NativeOperation(op, left, right) => {
-            visitor.visit_identifier(&left);
-            visitor.visit_identifier(&right);
-            visitor.visit_native_operator(&op);
+            visitor.visit_identifier(left);
+            visitor.visit_identifier(right);
+            visitor.visit_native_operator(op);
         }
         ExpressionKind::Return(expr) => {
-            visitor.visit_expression(&expr);
+            visitor.visit_expression(expr);
         }
     }
 }
@@ -207,12 +205,12 @@ pub fn walk_struct_ctor<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructCtor) 
     walk_map!(visitor, visit_expression, &s.defs);
 }
 
-pub fn walk_unary<'a, V: Visitor<'a>>(visitor: &mut V, unary: &'a UnaryExpr) {
+pub fn walk_unary_expr<'a, V: Visitor<'a>>(visitor: &mut V, unary: &'a UnaryExpr) {
     match unary {
         UnaryExpr::PrimaryExpr(primary) => visitor.visit_primary_expr(primary),
         UnaryExpr::UnaryExpr(op, unary) => {
             visitor.visit_operator(op);
-            visitor.visit_unary(&*unary);
+            visitor.visit_unary_expr(&*unary);
         }
     }
 }
@@ -245,14 +243,14 @@ pub fn walk_operator<'a, V: Visitor<'a>>(visitor: &mut V, operator: &'a Operator
 
 pub fn walk_operand<'a, V: Visitor<'a>>(visitor: &mut V, operand: &'a Operand) {
     match &operand.kind {
-        OperandKind::Literal(l) => visitor.visit_literal(&l),
-        OperandKind::Identifier(i) => visitor.visit_identifier_path(&i),
+        OperandKind::Literal(l) => visitor.visit_literal(l),
+        OperandKind::Identifier(i) => visitor.visit_identifier_path(i),
         OperandKind::Expression(e) => visitor.visit_expression(&*e),
     }
 }
 
 pub fn walk_argument<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a Argument) {
-    visitor.visit_unary(&argument.arg);
+    visitor.visit_unary_expr(&argument.arg);
 }
 
 pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {
@@ -273,8 +271,8 @@ pub fn walk_native_operator<'a, V: Visitor<'a>>(_visitor: &mut V, _operator: &'a
     // Nothing to do
 }
 
-pub fn walk_type_signature<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a TypeSignature) {
-    walk_list!(visitor, visit_type, &signature.args);
+pub fn walk_func_type<'a, V: Visitor<'a>>(visitor: &mut V, signature: &'a FuncType) {
+    walk_list!(visitor, visit_type, &signature.arguments);
 
     visitor.visit_type(&signature.ret);
 }

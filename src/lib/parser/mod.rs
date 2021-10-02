@@ -53,11 +53,11 @@ pub fn parse_root(ctx: &mut ParsingCtx) -> Result<crate::ast::Root, Diagnostic> 
 
     let (mut ast, tokens) = parse_generic(ctx, |p| p.run_root())?;
 
-    ast.r#mod.tokens = tokens.clone();
+    ast.r#mod.tokens = tokens;
 
     // Debug ast
     if ctx.config.show_ast {
-        AstPrintContext::new(tokens, ctx.get_current_file()).visit_root(&ast);
+        AstPrintContext::new().visit_root(&ast);
     }
 
     Ok(ast)
@@ -74,11 +74,11 @@ pub fn parse_mod(name: String, ctx: &mut ParsingCtx) -> Result<crate::ast::Mod, 
 
     ctx.current_file = Some(current_file.file_path);
 
-    ast.tokens = tokens.clone();
+    ast.tokens = tokens;
 
     // Debug ast
     if ctx.config.show_ast {
-        AstPrintContext::new(tokens.clone(), ctx.get_current_file()).visit_mod(&ast);
+        AstPrintContext::new().visit_mod(&ast);
     }
 
     Ok(ast)

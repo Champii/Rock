@@ -13,17 +13,17 @@ trait Eq a
 
 impl Eq Int64
     ==  e f = ~IEq e f
-    <=  e f = ~ILE e f
-    >=  e f = ~IGE e f
-    < e f = ~ILT e f
-    > e f = ~IGT e f
+    <=  e f = ~Ile e f
+    >=  e f = ~Ige e f
+    < e f = ~Ilt e f
+    > e f = ~Igt e f
 
 impl Eq Float64
     == g h = ~FEq g h
-    <= g h = ~FLE g h
-    >= g h = ~FGE g h
-    < g h = ~FLT g h
-    > g h = ~FGT g h
+    <= g h = ~Fle g h
+    >= g h = ~Fge g h
+    < g h = ~Flt g h
+    > g h = ~Fgt g h
 
 impl Eq Bool
     == i j = ~BEq i j

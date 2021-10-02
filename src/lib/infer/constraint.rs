@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    ast::{resolve::ResolutionMap, FuncType, PrimitiveType, Type, TypeSignature},
     diagnostics::{Diagnostic, Diagnostics},
     hir::visit::*,
     hir::*,
-    walk_list, Envs,
+    infer::Envs,
+    resolver::ResolutionMap,
+    ty::{FuncType, PrimitiveType, Type},
 };
 
 #[derive(Debug)]
@@ -24,19 +25,22 @@ impl<'a> ConstraintContext<'a> {
         }
     }
 
+    pub fn add_tmp_resolution_to_current_fn(&mut self, source: &HirId, dest: &HirId) {
+        self.tmp_resolutions
+            .entry(self.envs.get_current_fn().0)
+            .or_insert_with(ResolutionMap::default)
+            .insert(source.clone(), dest.clone());
+    }
+
     pub fn constraint(&mut self, root: &'a Root) {
         let entry_point = root.get_function_by_name("main").unwrap();
 
         if !self.envs.set_current_fn((
             entry_point.hir_id.clone(),
-            TypeSignature::default().with_ret(Type::int64()),
+            FuncType::default().with_ret(Type::int64()),
         )) {
             return;
         }
-
-        self.tmp_resolutions
-            .entry(entry_point.hir_id.clone())
-            .or_insert_with(|| ResolutionMap::default());
 
         self.visit_function_decl(&entry_point);
     }
@@ -47,10 +51,9 @@ impl<'a> ConstraintContext<'a> {
 
     pub fn resolve(&self, id: &HirId) -> Option<HirId> {
         self.hir.resolutions.get(id).or_else(|| {
-            match self.tmp_resolutions.get(&self.envs.get_current_fn().0) {
-                Some(env) => env.get(id),
-                None => None,
-            }
+            self.tmp_resolutions
+                .get(&self.envs.get_current_fn().0)
+                .and_then(|env| env.get(id))
         })
     }
 
@@ -59,58 +62,72 @@ impl<'a> ConstraintContext<'a> {
             .and_then(|reso| self.resolve_rec(&reso).or(Some(reso)))
     }
 
+    pub fn resolve_and_get(&self, hir: &HirId) -> Option<&HirNode> {
+        self.hir
+            .arena
+            .get(
+                &self
+                    .resolve(hir)
+                    .or_else(|| panic!("NO RESO FOR {:?}", hir))?,
+            )
+            .or_else(|| panic!("NO ARENA ITEM FOR {:?}", hir))
+    }
+
     // FIXME: This is ugly
     pub fn setup_call(&mut self, fc: &FunctionCall, call_hir_id: &HirId) {
-        if let Some(top_id) = self.resolve(call_hir_id) {
-            if let Some(reso) = self.hir.arena.get(&top_id) {
-                match reso {
-                    HirNode::Prototype(p) => {
-                        if let Some(existing_impls) = self.hir.trait_methods.get(&p.name.name) {
-                            if let Some(f) = self.hir.get_trait_method(
-                                (*p.name).clone(),
-                                &fc.to_type_signature(self.envs.get_current_env().unwrap())
-                                    .merge_with(&p.signature),
-                            ) {
-                                self.setup_trait_call(fc, &f);
-                            } else {
+        self.resolve_and_get(call_hir_id)
+            .cloned()
+            .and_then(|reso| match reso {
+                HirNode::Prototype(p) => self
+                    .hir
+                    .trait_methods
+                    .get(&p.name.name)
+                    .or_else(|| {
+                        self.setup_prototype_call(fc, &p);
+
+                        None
+                    })
+                    .and_then(|existing_impls| {
+                        let new_sig = fc
+                            .to_func_type(self.envs.get_current_env().unwrap())
+                            .merge_with(&p.signature);
+
+                        self.hir
+                            .get_trait_method(p.name.name.clone(), &new_sig)
+                            .or_else(|| {
                                 self.envs.diagnostics.push_error(
                                     Diagnostic::new_unresolved_trait_call(
                                         self.envs.spans.get(&call_hir_id.clone()).unwrap().clone(),
                                         call_hir_id.clone(),
-                                        fc.to_type_signature(self.envs.get_current_env().unwrap())
-                                            .merge_with(&p.signature),
+                                        new_sig,
                                         existing_impls.keys().cloned().collect(),
                                     ),
                                 );
-                                return;
-                            }
-                        } else {
-                            self.setup_prototype_call(fc, p);
-                        }
-                    }
-                    HirNode::FunctionDecl(f) => {
-                        self.setup_function_call(fc, f);
-                    }
-                    HirNode::Identifier(id) => {
-                        self.setup_identifier_call(fc, id);
-                    }
-                    _ => unimplemented!("Cannot call {:#?}", reso),
+
+                                None
+                            })
+                    })
+                    .map(|f| {
+                        self.setup_trait_call(fc, &f);
+                    }),
+                HirNode::FunctionDecl(f) => {
+                    self.setup_function_call(fc, &f);
+
+                    Some(())
                 }
-            } else {
-                panic!("NO ARENA ITEM FOR HIR={:?}", top_id);
-            }
-        } else {
-            panic!("No reso hir_id: {:#?}", call_hir_id);
-        }
+                HirNode::Identifier(id) => {
+                    self.setup_identifier_call(fc, &id);
+
+                    Some(())
+                }
+                _ => unimplemented!("Cannot call {:#?}", reso),
+            });
     }
 
     pub fn setup_trait_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
-        self.tmp_resolutions
-            .get_mut(&self.envs.get_current_fn().0)
-            .unwrap()
-            .insert(fc.op.get_hir_id(), f.hir_id.clone());
+        self.add_tmp_resolution_to_current_fn(&fc.op.get_hir_id(), &f.hir_id);
 
-        self.setup_function_call(fc, &f);
+        self.setup_function_call(fc, f);
     }
 
     pub fn setup_identifier_call(&mut self, fc: &FunctionCall, id: &Identifier) {
@@ -136,10 +153,25 @@ impl<'a> ConstraintContext<'a> {
         self.envs.set_type(&fc.get_hir_id(), &p.signature.ret);
 
         self.envs
-            .set_type(&fc.op.get_hir_id(), &p.signature.to_func_type());
+            .set_type(&fc.op.get_hir_id(), &Type::Func(p.signature.clone()));
     }
 
+    // FIXME: This is ugly as well
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
+        if f.signature.arguments.len() != fc.args.len() {
+            self.envs
+                .diagnostics
+                .push_error(Diagnostic::new_type_conflict(
+                    self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
+                    f.signature.clone().into(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
+                    f.signature.clone().into(),
+                ));
+
+            return;
+        }
+
         // Creating a fresh signature by merging arguments types with function signature
         let sig = f.signature.apply_partial_types(
             &f.arguments
@@ -153,26 +185,44 @@ impl<'a> ConstraintContext<'a> {
 
                     self.envs.get_type(arg_id).cloned().or_else(|| {
                         if let HirNode::FunctionDecl(f2) =
-                            self.hir.arena.get(&self.resolve(&arg_id)?)?
+                            self.hir.arena.get(&self.resolve(arg_id)?)?
                         {
                             // Solving the func arg in the scope of the arg
                             // Adds a link like `arg` => `out fn` where the arg is defined
                             self.tmp_resolutions
                                 .entry(f.hir_id.clone())
-                                .or_insert_with(|| ResolutionMap::default())
+                                .or_insert_with(ResolutionMap::default)
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
 
-                            self.envs.set_type(&arg_id, &f.signature.to_func_type());
+                            self.envs.set_type(arg_id, &f.signature.clone().into());
 
-                            Some(f.signature.to_func_type())
+                            Some(f.signature.clone().into())
                         } else {
                             None
                         }
                     })
                 })
-                .collect(),
+                .collect::<Vec<_>>(),
             None,
         );
+
+        if sig.arguments
+            != fc
+                .to_func_type(self.envs.get_current_env().unwrap())
+                .arguments
+        {
+            self.envs
+                .diagnostics
+                .push_error(Diagnostic::new_type_conflict(
+                    self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
+                    sig.clone().into(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
+                    sig.clone().into(),
+                ));
+
+            return;
+        }
 
         // Carring about recursion
         if self.envs.get_current_fn().0 == f.hir_id {
@@ -184,7 +234,7 @@ impl<'a> ConstraintContext<'a> {
                 &self.hir.bodies.get(&f.body_id).unwrap().get_hir_id(),
             );
 
-            self.envs.set_type(&fc.op.get_hir_id(), &sig.to_func_type());
+            self.envs.set_type(&fc.op.get_hir_id(), &sig.into());
 
             return;
         }
@@ -201,7 +251,7 @@ impl<'a> ConstraintContext<'a> {
         // TODO: might be unnecessary
         self.tmp_resolutions
             .entry(f.hir_id.clone())
-            .or_insert_with(|| ResolutionMap::default());
+            .or_insert_with(ResolutionMap::default);
 
         // We go down the rabbit hole
         //
@@ -218,18 +268,14 @@ impl<'a> ConstraintContext<'a> {
         // Get the func return type either
         // if it has been defined by the callee
         // or we take the sig's one
-        let new_f_ret = if let Type::FuncType(new_f_type_inner) = &new_f_type.clone() {
-            new_f_arg_types = new_f_type_inner
-                .arguments
-                .iter()
-                .map(|arg| *arg.clone())
-                .collect();
+        let new_f_ret = if let Type::Func(new_f_type_inner) = &new_f_type.clone() {
+            new_f_arg_types = new_f_type_inner.arguments.to_vec();
 
-            new_f_sig = new_f_type_inner.to_type_signature();
+            new_f_sig = new_f_type_inner.clone();
             *new_f_type_inner.ret.clone()
         } else {
             new_f_sig = sig.clone();
-            sig.ret.clone()
+            *sig.ret
         };
 
         // Fix the current sig if some types were still unknown
@@ -256,7 +302,7 @@ impl<'a> ConstraintContext<'a> {
         fc.args.iter().enumerate().for_each(|(i, arg)| {
             if let Some(_reso_id) = self.resolve_rec(&arg.get_hir_id()) {
                 self.envs
-                    .set_type(&arg.get_hir_id().clone(), new_f_arg_types.get(i).unwrap());
+                    .set_type(&arg.get_hir_id(), new_f_arg_types.get(i).unwrap());
             }
         });
     }
@@ -272,15 +318,13 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
         self.envs.apply_args_type(f);
 
-        // walk_function_decl(self, f);
         walk_list!(self, visit_argument_decl, &f.arguments);
 
-        self.visit_fn_body(&self.hir.get_body(&f.body_id).unwrap());
+        self.visit_fn_body(self.hir.get_body(&f.body_id).unwrap());
 
         self.envs.set_type(
             &f.hir_id,
-            &Type::FuncType(FuncType::new(
-                f.name.name.clone(),
+            &Type::Func(FuncType::new(
                 f.arguments
                     .iter()
                     .map(|arg| self.envs.get_type(&arg.get_hir_id()).unwrap())
@@ -288,65 +332,76 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     .collect(),
                 self.envs
                     .get_type(&self.hir.get_body(&f.body_id).unwrap().get_hir_id())
-                    .or(Some(&Type::forall("z")))
-                    .unwrap()
-                    .clone(),
+                    .cloned()
+                    .or_else(|| Some(Type::forall("z")))
+                    .unwrap(),
             )),
         );
 
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
 
-        self.tmp_resolutions
-            .get_mut(&self.envs.get_current_fn().0)
-            .unwrap()
-            .insert(f.name.hir_id.clone(), f.hir_id.clone());
+        self.add_tmp_resolution_to_current_fn(&f.name.hir_id, &f.hir_id);
     }
 
     fn visit_prototype(&mut self, p: &Prototype) {
-        self.envs.set_type(&p.hir_id, &p.signature.to_func_type());
+        if p.signature.is_solved() {
+            self.envs.set_type(&p.hir_id, &p.signature.clone().into());
+        }
 
-        self.tmp_resolutions
-            .get_mut(&self.envs.get_current_fn().0)
-            .unwrap()
-            .insert(p.name.hir_id.clone(), p.hir_id.clone());
+        self.add_tmp_resolution_to_current_fn(&p.name.hir_id, &p.hir_id);
 
         walk_prototype(self, p);
     }
 
     fn visit_struct_decl(&mut self, s: &StructDecl) {
-        let t = s.to_type();
+        let t = s.into();
 
         self.envs.set_type(&s.hir_id, &t);
 
-        let struct_t = t.into_struct_type();
+        let struct_t = t.as_struct_type();
 
         s.defs.iter().for_each(|p| {
             self.envs
-                .set_type(&p.hir_id, &struct_t.defs.get(&p.name.name).unwrap());
+                .set_type(&p.hir_id, struct_t.defs.get(&p.name.name).unwrap());
         });
     }
 
     fn visit_struct_ctor(&mut self, s: &StructCtor) {
         let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
 
-        self.visit_struct_decl(&s_decl);
+        self.visit_struct_decl(s_decl);
 
-        let t = s_decl.to_type();
+        let t = s_decl.into();
 
         self.envs.set_type(&s.hir_id, &t);
 
-        let struct_t = t.into_struct_type();
+        let struct_t = t.as_struct_type();
 
-        s.defs.iter().for_each(|(k, p)| {
-            self.envs
-                .set_type(&p.get_hir_id(), &struct_t.defs.get(&k.name).unwrap());
+        walk_map!(self, visit_expression, &s.defs);
+
+        s.defs.iter().for_each(|(k, expr)| {
+            let declared_type = struct_t.defs.get(&k.name).unwrap();
+
+            declared_type.is_func().then(|| {
+                self.envs.get_type(&expr.get_hir_id()).cloned().or_else(|| {
+                    if let HirNode::FunctionDecl(f2) =
+                        self.hir.arena.get(&self.resolve(&expr.get_hir_id())?)?
+                    {
+                        self.add_tmp_resolution_to_current_fn(&k.get_hir_id(), &f2.hir_id);
+                    }
+
+                    None
+                });
+            });
+
+            self.envs.set_type(&expr.get_hir_id(), declared_type);
         });
     }
 
     fn visit_body(&mut self, body: &'a Body) {
         body.stmts
             .iter()
-            .for_each(|stmt| self.visit_statement(&stmt));
+            .for_each(|stmt| self.visit_statement(stmt));
     }
 
     fn visit_assign(&mut self, assign: &'a Assign) {
@@ -380,30 +435,30 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
     fn visit_expression(&mut self, expr: &'a Expression) {
         match &*expr.kind {
-            ExpressionKind::Lit(lit) => self.visit_literal(&lit),
-            ExpressionKind::Return(expr) => self.visit_expression(&expr),
-            ExpressionKind::Identifier(id) => self.visit_identifier_path(&id),
-            ExpressionKind::StructCtor(s) => self.visit_struct_ctor(&s),
+            ExpressionKind::Lit(lit) => self.visit_literal(lit),
+            ExpressionKind::Return(expr) => self.visit_expression(expr),
+            ExpressionKind::Identifier(id) => self.visit_identifier_path(id),
+            ExpressionKind::StructCtor(s) => self.visit_struct_ctor(s),
             ExpressionKind::NativeOperation(op, left, right) => {
-                self.visit_identifier(&left);
-                self.visit_identifier(&right);
+                self.visit_identifier(left);
+                self.visit_identifier(right);
 
                 //FIXME: Put this in another func
                 let arg_t = match op.kind {
                     NativeOperatorKind::IEq
-                    | NativeOperatorKind::IGT
-                    | NativeOperatorKind::IGE
-                    | NativeOperatorKind::ILT
-                    | NativeOperatorKind::ILE
+                    | NativeOperatorKind::Igt
+                    | NativeOperatorKind::Ige
+                    | NativeOperatorKind::Ilt
+                    | NativeOperatorKind::Ile
                     | NativeOperatorKind::IAdd
                     | NativeOperatorKind::ISub
                     | NativeOperatorKind::IDiv
                     | NativeOperatorKind::IMul => PrimitiveType::Int64,
                     NativeOperatorKind::FEq
-                    | NativeOperatorKind::FGT
-                    | NativeOperatorKind::FGE
-                    | NativeOperatorKind::FLT
-                    | NativeOperatorKind::FLE
+                    | NativeOperatorKind::Fgt
+                    | NativeOperatorKind::Fge
+                    | NativeOperatorKind::Flt
+                    | NativeOperatorKind::Fle
                     | NativeOperatorKind::FAdd
                     | NativeOperatorKind::FSub
                     | NativeOperatorKind::FDiv
@@ -412,18 +467,17 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 };
 
                 self.envs
-                    .set_type(&left.hir_id.clone(), &Type::Primitive(arg_t.clone()));
-                self.envs
-                    .set_type(&right.hir_id.clone(), &Type::Primitive(arg_t));
+                    .set_type(&left.hir_id.clone(), &arg_t.clone().into());
+                self.envs.set_type(&right.hir_id.clone(), &arg_t.into());
 
-                self.visit_native_operator(&op);
+                self.visit_native_operator(op);
             }
             ExpressionKind::FunctionCall(fc) => {
                 self.visit_expression(&fc.op);
 
                 walk_list!(self, visit_expression, &fc.args);
 
-                self.setup_call(&fc, &fc.op.get_hir_id());
+                self.setup_call(fc, &fc.op.get_hir_id());
             }
             ExpressionKind::Indice(i) => {
                 self.visit_expression(&i.op);
@@ -439,17 +493,18 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                             Type::Primitive(PrimitiveType::Int64) => {
                                 if let ExpressionKind::Lit(literal) = &*i.value.kind {
                                     if literal.as_number() >= size as i64 {
-                                        self.envs.diagnostics.push_error(
-                                            Diagnostic::new_out_of_bounds(
-                                                self.envs
-                                                    .spans
-                                                    .get(&i.value.get_hir_id())
-                                                    .unwrap()
-                                                    .clone(),
-                                                i.value.as_literal().as_number() as u64,
-                                                size as u64,
-                                            ),
-                                        )
+                                        // Deactivated for now
+                                        // self.envs.diagnostics.push_error(
+                                        //     Diagnostic::new_out_of_bounds(
+                                        //         self.envs
+                                        //             .spans
+                                        //             .get(&i.value.get_hir_id())
+                                        //             .unwrap()
+                                        //             .clone(),
+                                        //         i.value.as_literal().as_number() as u64,
+                                        //         size as u64,
+                                        //     ),
+                                        // )
                                     }
                                 }
                             }
@@ -484,10 +539,16 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                 match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
                     t @ Type::Struct(struct_t) => {
-                        self.envs.set_type(&d.op.get_hir_id(), &t);
+                        self.envs.set_type(&d.op.get_hir_id(), t);
 
                         self.envs
-                            .set_type(&d.get_hir_id(), &struct_t.defs.get(&d.value.name).unwrap());
+                            .set_type(&d.get_hir_id(), struct_t.defs.get(&d.value.name).unwrap());
+
+                        if let Type::Func(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
+                            let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
+
+                            self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+                        }
                     }
                     other => {
                         let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();
@@ -544,7 +605,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
-        self.visit_identifier(&id.path.iter().last().unwrap());
+        self.visit_identifier(id.path.iter().last().unwrap());
     }
 
     fn visit_identifier(&mut self, id: &Identifier) {
@@ -561,15 +622,15 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_native_operator(&mut self, op: &NativeOperator) {
         let t = match op.kind {
             NativeOperatorKind::IEq
-            | NativeOperatorKind::IGT
-            | NativeOperatorKind::IGE
-            | NativeOperatorKind::ILT
-            | NativeOperatorKind::ILE
+            | NativeOperatorKind::Igt
+            | NativeOperatorKind::Ige
+            | NativeOperatorKind::Ilt
+            | NativeOperatorKind::Ile
             | NativeOperatorKind::FEq
-            | NativeOperatorKind::FGT
-            | NativeOperatorKind::FGE
-            | NativeOperatorKind::FLT
-            | NativeOperatorKind::FLE
+            | NativeOperatorKind::Fgt
+            | NativeOperatorKind::Fge
+            | NativeOperatorKind::Flt
+            | NativeOperatorKind::Fle
             | NativeOperatorKind::BEq => PrimitiveType::Bool,
             NativeOperatorKind::IAdd
             | NativeOperatorKind::ISub
@@ -581,18 +642,18 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             | NativeOperatorKind::FMul => PrimitiveType::Float64,
         };
 
-        self.envs.set_type(&op.hir_id, &Type::Primitive(t));
+        self.envs.set_type(&op.hir_id, &t.into());
     }
 }
 
-pub fn solve<'a>(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnostics) {
+pub fn solve(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnostics) {
     let diagnostics = Diagnostics::default();
 
     let infer_state = Envs::new(diagnostics, root.get_hir_spans());
 
-    let mut constraint_ctx = ConstraintContext::new(infer_state, &root);
+    let mut constraint_ctx = ConstraintContext::new(infer_state, root);
 
-    constraint_ctx.constraint(&root);
+    constraint_ctx.constraint(root);
 
     let tmp_resolutions = constraint_ctx.tmp_resolutions.clone();
 

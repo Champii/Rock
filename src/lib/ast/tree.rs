@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{ast::identity::Identity, parser::Token};
-use crate::{parser::Span, NodeId};
-
-use crate::ast::resolve::ResolutionMap;
-use crate::generate_has_name;
-use crate::helpers::*;
-
-use super::{StructType, Type, TypeSignature};
+use crate::{
+    ast::{identity::Identity, NodeId},
+    helpers::*,
+    parser::{Span, Token},
+    resolver::ResolutionMap,
+    ty::{FuncType, Type},
+};
 
 #[derive(Debug, Clone)]
 pub struct Root {
@@ -25,85 +24,7 @@ pub struct Mod {
     pub identity: Identity,
 }
 
-impl Mod {
-    pub fn filter_unused_top_levels(&mut self, unused: Vec<NodeId>) {
-        let mut unused_trait_method_names = vec![];
-
-        self.top_levels = self
-            .top_levels
-            .iter_mut()
-            .filter_map(|top_level| {
-                match &mut top_level.kind {
-                    TopLevelKind::Function(f) => {
-                        if unused.contains(&f.identity.node_id) {
-                            warn!("Unused function {:?}", f.name);
-
-                            return None;
-                        }
-                    }
-                    TopLevelKind::Trait(t) => {
-                        let mut defs = vec![];
-
-                        for f in &t.defs {
-                            if unused.contains(&f.identity.node_id) {
-                                unused_trait_method_names.push(f.name.clone());
-
-                                warn!("Unused trait method {:?}", f.name);
-                            } else {
-                                defs.push(f.clone());
-                            }
-                        }
-
-                        if defs.is_empty() {
-                            return None;
-                        }
-
-                        let mut t2 = t.clone();
-                        t2.defs = defs.clone();
-
-                        return Some(TopLevel {
-                            kind: TopLevelKind::Trait(t2),
-                            ..top_level.clone()
-                        });
-                    }
-                    TopLevelKind::Impl(i) => {
-                        let mut defs = vec![];
-
-                        for f in &i.defs {
-                            if unused_trait_method_names.contains(&f.name) {
-                                warn!("Unused impl method {:?}", f.name);
-                            } else {
-                                defs.push(f.clone());
-                            }
-                        }
-
-                        if defs.is_empty() {
-                            return None;
-                        }
-
-                        let mut i2 = i.clone();
-                        i2.defs = defs.clone();
-
-                        return Some(TopLevel {
-                            kind: TopLevelKind::Impl(i2),
-                            ..top_level.clone()
-                        });
-                    }
-                    TopLevelKind::Mod(id, m) => {
-                        m.filter_unused_top_levels(unused.clone());
-
-                        return Some(TopLevel {
-                            kind: TopLevelKind::Mod(id.clone(), m.clone()),
-                            ..top_level.clone()
-                        });
-                    }
-                    _ => (),
-                };
-                Some(top_level.clone())
-            })
-            .collect();
-    }
-}
+impl Mod {}
 
 #[derive(Debug, Clone)]
 pub struct TopLevel {
@@ -130,31 +51,6 @@ pub struct StructDecl {
     pub defs: Vec<Prototype>,
 }
 
-impl StructDecl {
-    pub fn to_type(&self) -> Type {
-        Type::Struct(StructType {
-            name: self.name.get_name(),
-            defs: self
-                .defs
-                .iter()
-                .map(|proto| {
-                    if proto.signature.args.is_empty() {
-                        (
-                            proto.name.name.clone(),
-                            Box::new(proto.signature.ret.clone()),
-                        )
-                    } else {
-                        (
-                            proto.name.name.clone(),
-                            Box::new(proto.signature.to_func_type()),
-                        )
-                    }
-                })
-                .collect(),
-        })
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct StructCtor {
     pub identity: Identity,
@@ -179,7 +75,7 @@ pub struct Impl {
 #[derive(Debug, Clone)]
 pub struct Prototype {
     pub name: Identifier,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
     pub identity: Identity,
 }
 
@@ -202,7 +98,7 @@ pub struct FunctionDecl {
     pub arguments: Vec<ArgumentDecl>,
     pub body: Body,
     pub identity: Identity,
-    pub signature: TypeSignature,
+    pub signature: FuncType,
 }
 
 impl FunctionDecl {
@@ -246,16 +142,12 @@ impl IdentifierPath {
         child
     }
 
-    pub fn last_segment(&self) -> Identifier {
-        self.path.iter().last().unwrap().clone()
-    }
-
     pub fn last_segment_ref(&self) -> &Identifier {
         self.path.iter().last().unwrap()
     }
 
     pub fn prepend_mod(&self, path: IdentifierPath) -> Self {
-        let mut path = path.clone();
+        let mut path = path;
 
         path.path.extend::<_>(self.path.clone());
 
@@ -267,13 +159,15 @@ impl IdentifierPath {
             .path
             .iter()
             .enumerate()
-            .filter_map(|(i, name)| {
-                if name.name == "super".to_string() {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
+            .filter_map(
+                |(i, name)| {
+                    if name.name == *"super" {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                },
+            )
             .collect::<Vec<_>>();
 
         let mut to_remove_total = vec![];
@@ -344,9 +238,9 @@ pub struct Statement {
 
 #[derive(Debug, Clone)]
 pub enum StatementKind {
-    Expression(Expression),
-    Assign(Assign),
-    If(If),
+    Expression(Box<Expression>),
+    Assign(Box<Assign>),
+    If(Box<If>),
 }
 
 #[derive(Debug, Clone)]
@@ -393,6 +287,7 @@ pub struct Expression {
 }
 
 impl Expression {
+    #[allow(dead_code)]
     pub fn is_literal(&self) -> bool {
         match &self.kind {
             ExpressionKind::UnaryExpr(unary) => unary.is_literal(),
@@ -400,6 +295,7 @@ impl Expression {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_identifier(&self) -> bool {
         match &self.kind {
             ExpressionKind::UnaryExpr(unary) => unary.is_identifier(),
@@ -407,13 +303,12 @@ impl Expression {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_binop(&self) -> bool {
-        match &self.kind {
-            ExpressionKind::BinopExpr(_, _, _) => true,
-            _ => false,
-        }
+        matches!(&self.kind, ExpressionKind::BinopExpr(_, _, _))
     }
 
+    #[allow(dead_code)]
     pub fn is_indice(&self) -> bool {
         match &self.kind {
             ExpressionKind::UnaryExpr(unary) => unary.is_indice(),
@@ -421,12 +316,14 @@ impl Expression {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_unary(unary: &UnaryExpr) -> Expression {
         Expression {
             kind: ExpressionKind::UnaryExpr(unary.clone()),
         }
     }
 
+    #[allow(dead_code)]
     pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> Expression {
         Expression {
             kind: ExpressionKind::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
@@ -501,6 +398,7 @@ pub struct PrimaryExpr {
 }
 
 impl PrimaryExpr {
+    #[allow(dead_code)]
     pub fn has_secondaries(&self) -> bool {
         self.secondaries.is_some()
     }
@@ -528,10 +426,12 @@ impl Operand {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_literal(&self) -> bool {
         matches!(&self.kind, OperandKind::Literal(_))
     }
 
+    #[allow(dead_code)]
     pub fn is_identifier(&self) -> bool {
         matches!(&self.kind, OperandKind::Identifier(_))
     }
@@ -545,6 +445,7 @@ pub enum OperandKind {
 }
 
 impl OperandKind {
+    #[allow(dead_code)]
     pub fn to_identifier_path(&self) -> IdentifierPath {
         if let OperandKind::Identifier(id) = self {
             id.clone()
@@ -557,15 +458,12 @@ impl OperandKind {
 #[derive(Debug, Clone)]
 pub enum SecondaryExpr {
     Arguments(Vec<Argument>),
-    Indice(Expression),
+    Indice(Box<Expression>), // Boxing here to keep the enum size low
     Dot(Identifier),
 }
 impl SecondaryExpr {
     pub fn is_indice(&self) -> bool {
-        match self {
-            SecondaryExpr::Indice(_) => true,
-            _ => false,
-        }
+        matches!(self, SecondaryExpr::Indice(_))
     }
 }
 
@@ -613,14 +511,14 @@ pub enum NativeOperatorKind {
     FMul,
     FDiv,
     IEq,
-    IGT,
-    IGE,
-    ILT,
-    ILE,
+    Igt,
+    Ige,
+    Ilt,
+    Ile,
     FEq,
-    FGT,
-    FGE,
-    FLT,
-    FLE,
+    Fgt,
+    Fge,
+    Flt,
+    Fle,
     BEq,
 }

@@ -1,65 +1,62 @@
-use concat_idents::concat_idents;
+use paste::paste;
 
-use crate::{ast::Type, hir::*};
-use crate::{ast::TypeSignature, walk_list};
+use crate::{hir::*, ty::*};
 
 macro_rules! generate_visitor_mut_trait {
     ($(
-        $name:ident, $method:ident
-    )*) => {
-        pub trait VisitorMut<'ast>: Sized {
+        $name:ident
+    )+) => {
+        pub trait VisitorMut<'hir>: Sized {
             fn visit_name(&mut self, _name: &mut String) {}
 
             fn visit_primitive<T>(&mut self, _val: T)
             {}
 
-            $(
-                concat_idents!(fn_name = visit_, $method {
-                    fn fn_name(&mut self, $method: &'ast mut $name) {
-                        concat_idents!(fn2_name = walk_, $method {
-                            fn2_name(self, $method);
-                        });
+            paste! {
+                $(
+                    fn [<visit_ $name:snake>](&mut self, node: &'hir mut $name) {
+                        [<walk_ $name:snake>](self, node);
                     }
-                });
-            )*
+                )+
+            }
         }
     };
 }
 
 generate_visitor_mut_trait!(
-    Root, root
-    TopLevel, top_level
-    Trait, r#trait
-    Impl, r#impl
-    Prototype, prototype
-    FunctionDecl, function_decl
-    StructDecl, struct_decl
-    Assign, assign
-    AssignLeftSide, assign_left_side
-    ArgumentDecl, argument_decl
-    IdentifierPath, identifier_path
-    Identifier, identifier
-    FnBody, fn_body
-    Body, body
-    Statement, statement
-    Expression, expression
-    If, r#if
-    Else, r#else
-    FunctionCall, function_call
-    StructCtor, struct_ctor
-    Indice, indice
-    Dot, dot
-    Literal, literal
-    Array, array
-    NativeOperator, native_operator
-    Type, r#type
-    TypeSignature, type_signature
+    Root
+    TopLevel
+    Trait
+    Impl
+    Prototype
+    FunctionDecl
+    StructDecl
+    Assign
+    AssignLeftSide
+    ArgumentDecl
+    IdentifierPath
+    Identifier
+    FnBody
+    Body
+    Statement
+    Expression
+    If
+    Else
+    FunctionCall
+    StructCtor
+    Indice
+    Dot
+    Literal
+    Array
+    NativeOperator
+    Type
+    FuncType
 );
 
 pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
     walk_list!(visitor, visit_top_level, &mut root.top_levels);
 
-    for (_, r#struct) in &mut root.structs {
+    for r#struct in &mut root.structs.values_mut() {
         visitor.visit_struct_decl(r#struct);
     }
 
@@ -114,7 +111,7 @@ pub fn walk_impl<'a, V: VisitorMut<'a>>(visitor: &mut V, i: &'a mut Impl) {
 pub fn walk_prototype<'a, V: VisitorMut<'a>>(visitor: &mut V, prototype: &'a mut Prototype) {
     visitor.visit_identifier(&mut prototype.name);
 
-    visitor.visit_type_signature(&mut prototype.signature);
+    visitor.visit_func_type(&mut prototype.signature);
 }
 
 pub fn walk_function_decl<'a, V: VisitorMut<'a>>(
@@ -247,11 +244,8 @@ pub fn walk_type<'a, V: VisitorMut<'a>>(_visitor: &mut V, _t: &'a mut Type) {
     // Nothing to do
 }
 
-pub fn walk_type_signature<'a, V: VisitorMut<'a>>(
-    visitor: &mut V,
-    signature: &'a mut TypeSignature,
-) {
-    walk_list!(visitor, visit_type, &mut signature.args);
+pub fn walk_func_type<'a, V: VisitorMut<'a>>(visitor: &mut V, signature: &'a mut FuncType) {
+    walk_list!(visitor, visit_type, &mut signature.arguments);
 
     visitor.visit_type(&mut signature.ret);
 }

@@ -5,6 +5,14 @@ use paste::paste;
 use crate::hir::visit::*;
 use crate::hir::*;
 
+//   This is not really an Arena, but more a HirNode Collector
+// The name is confusing on its properties and usage,
+// as one would expect the arena to own every hir nodes from their creation,
+// and give (mut) references when needed.
+//   Instead, this "Arena" is constructed from a clone of every nodes in the HIR,
+// (as you can see bellow in the HirNodeCollector) and serves only as a global
+// accessor to the graph's structure and immutable properties.
+// Every effective mutable work is done on the hir::Root instead.
 #[derive(Debug, Default)]
 pub struct Arena(BTreeMap<HirId, HirNode>);
 
@@ -12,18 +20,17 @@ impl Arena {
     pub fn new() -> Self {
         Self(BTreeMap::new())
     }
-    // pub fn get_all_of_type(&self, t: HirNode) -> Vec<&HirNode> {
-    //     for (hir_id, hir_node) = self.0 {
-    //         if let
-    //     }
-    // }
 }
+
+// FIXME: Code smell
 impl std::ops::Deref for Arena {
     type Target = BTreeMap<HirId, HirNode>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
+
+// FIXME: Code smell
 impl std::ops::DerefMut for Arena {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -73,8 +80,6 @@ macro_rules! generate_hirnode_collector {
 }
 
 generate_hirnode_collector!(
-    // Mod,
-    // Root,
     TopLevel,
     Assign,
     Prototype,
@@ -96,7 +101,7 @@ generate_hirnode_collector!(
 pub fn collect_arena(root: &Root) -> Arena {
     let mut hir_node_collector = HirNodeCollector::new();
 
-    hir_node_collector.visit_root(&root);
+    hir_node_collector.visit_root(root);
 
     hir_node_collector.take_arena()
 }

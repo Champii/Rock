@@ -13,11 +13,9 @@ bitflags! {
 macro_rules! closure_vec {
     ($($m:path),*,) => {
         {
-            let mut res = vec![];
-
-            $(res.push(Box::new($m as for<'r> fn(&'r mut Lexer<'a>) -> Option<Token>));)*
-
-            res
+            vec![
+                $(Box::new($m as for<'r> fn(&'r mut Lexer<'a>) -> Option<Token>),)*
+            ]
         }
     };
 }
@@ -53,7 +51,7 @@ impl<'a> Lexer<'a> {
 
     pub fn next(&mut self) -> Token {
         if self.end {
-            return self.new_token(TokenType::EOF, self.cur_idx, "".to_string());
+            return self.new_token(TokenType::Eof, self.cur_idx, "".to_string());
         }
 
         if let Some(t) = self.try_indent() {
@@ -108,7 +106,7 @@ impl<'a> Lexer<'a> {
         }
 
         if self.cur_idx >= self.input.len() - 1 {
-            return self.new_token(TokenType::EOF, self.cur_idx, "".to_string());
+            return self.new_token(TokenType::Eof, self.cur_idx, "".to_string());
         }
 
         self.ctx
@@ -119,7 +117,7 @@ impl<'a> Lexer<'a> {
 
         self.end = true;
 
-        self.new_token(TokenType::EOF, self.cur_idx, "".to_string())
+        self.new_token(TokenType::Eof, self.cur_idx, "".to_string())
     }
 
     fn has_separator(&self, token_len: usize, sep: Sep) -> bool {
@@ -422,14 +420,12 @@ impl<'a> Lexer<'a> {
         if self
             .accepted_operator_chars
             .iter()
-            .find(|c| **c == self.last_char)
-            .is_some()
+            .any(|c| *c == self.last_char)
         {
             while self
                 .accepted_operator_chars
                 .iter()
-                .find(|c| **c == self.last_char)
-                .is_some()
+                .any(|c| *c == self.last_char)
             {
                 identifier.push(self.last_char);
 
@@ -453,7 +449,7 @@ impl<'a> Lexer<'a> {
             let mut res = None;
             let ops = vec![
                 "~IAdd", "~ISub", "~IMul", "~IDiv", "~FAdd", "~FSub", "~FMul", "~FDiv", "~IEq",
-                "~IGT", "~IGE", "~ILT", "~ILE", "~FEq", "~FGT", "~FGE", "~FLT", "~FLE", "~BEq",
+                "~Igt", "~Ige", "~Ilt", "~Ile", "~FEq", "~Fgt", "~Fge", "~Flt", "~Fle", "~BEq",
             ];
 
             for op in ops {
@@ -473,7 +469,7 @@ impl<'a> Lexer<'a> {
     fn try_end_of(&mut self) -> Option<Token> {
         if self.last_char == '\n' {
             let res = Some(Token {
-                t: TokenType::EOL,
+                t: TokenType::Eol,
                 span: self.ctx.new_span(self.cur_idx, self.cur_idx),
                 txt: "\n".to_string(),
             });
@@ -582,7 +578,7 @@ impl<'a> Lexer<'a> {
 
             res.push(next.clone());
 
-            if next.t == TokenType::EOF {
+            if next.t == TokenType::Eof {
                 break;
             }
         }

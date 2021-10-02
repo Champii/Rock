@@ -1,6 +1,6 @@
 mod constraint;
 mod mangle;
-mod monomorphizer;
+mod monomorphize;
 mod state;
 
 pub use self::state::*;
@@ -13,13 +13,12 @@ pub fn infer(
     config: &Config,
 ) -> Result<crate::hir::Root, Diagnostic> {
     let (tmp_resolutions, diags) = constraint::solve(root);
-    // super::hir::hir_printer::print(&*root);
 
     parsing_ctx.diagnostics.append(diags);
 
     parsing_ctx.return_if_error()?;
 
-    let mut new_root = monomorphizer::monomophize(root, tmp_resolutions);
+    let mut new_root = monomorphize::monomophize(root, tmp_resolutions);
 
     mangle::mangle(&mut new_root);
 

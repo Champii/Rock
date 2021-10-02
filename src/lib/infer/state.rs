@@ -1,22 +1,18 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{Type, TypeSignature},
     diagnostics::{Diagnostic, Diagnostics},
     hir::*,
     parser::Span,
+    ty::*,
 };
-
-pub type NodeId = u64;
-
-pub type TypeId = u64;
 
 pub type Env = BTreeMap<HirId, Type>;
 
 #[derive(Debug, Default, Clone)]
 pub struct Envs {
-    fns: BTreeMap<HirId, HashMap<TypeSignature, Env>>,
-    current_fn: (HirId, TypeSignature),
+    fns: BTreeMap<HirId, HashMap<FuncType, Env>>,
+    current_fn: (HirId, FuncType),
     pub spans: HashMap<HirId, Span>,
     pub diagnostics: Diagnostics,
 }
@@ -41,7 +37,7 @@ impl Envs {
             .and_then(|map| map.get(&self.current_fn.1))
     }
 
-    pub fn set_current_fn(&mut self, f: (HirId, TypeSignature)) -> bool {
+    pub fn set_current_fn(&mut self, f: (HirId, FuncType)) -> bool {
         // if !f.1.are_args_solved() {
         //     self.diagnostics.push_error(Diagnostic::new_unresolved_type(
         //         self.spans.get(&f.0).unwrap().clone(),
@@ -53,16 +49,16 @@ impl Envs {
 
         self.fns
             .entry(f.0.clone())
-            .or_insert_with(|| HashMap::new())
+            .or_insert_with(HashMap::new)
             .entry(f.1.clone())
-            .or_insert_with(|| Env::default());
+            .or_insert_with(Env::default);
 
         self.current_fn = f;
 
-        return true;
+        true
     }
 
-    pub fn get_current_fn(&self) -> (HirId, TypeSignature) {
+    pub fn get_current_fn(&self) -> (HirId, FuncType) {
         self.current_fn.clone()
     }
 
@@ -79,25 +75,27 @@ impl Envs {
             .insert(dest.clone(), src.clone());
 
         match (src, previous.clone()) {
-            (Type::FuncType(src_f), Some(Type::FuncType(prev_f))) if *src_f != prev_f => {
-                if prev_f.to_type_signature().is_solved() && src_f.to_type_signature().is_solved() {
+            (Type::Func(src_f), Some(Type::Func(prev_f))) if !src_f.eq(&prev_f) => {
+                if prev_f.is_solved() && src_f.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
                         self.spans.get(dest).unwrap().clone(),
                         src.clone(),
                         previous.clone().unwrap(),
                         src.clone(),
-                        previous.clone().unwrap(),
+                        previous.unwrap(),
                     ));
                 }
             }
-            (src, Some(previous)) if *src != previous => {
-                self.diagnostics.push_error(Diagnostic::new_type_conflict(
-                    self.spans.get(dest).unwrap().clone(),
-                    src.clone(),
-                    previous.clone(),
-                    src.clone(),
-                    previous,
-                ));
+            (src, Some(previous)) if !src.eq(&previous) => {
+                if previous.is_solved() && src.is_solved() {
+                    self.diagnostics.push_error(Diagnostic::new_type_conflict(
+                        self.spans.get(dest).unwrap().clone(),
+                        src.clone(),
+                        previous.clone(),
+                        src.clone(),
+                        previous,
+                    ));
+                }
             }
             _ => (),
         }
@@ -112,38 +110,33 @@ impl Envs {
     }
 
     pub fn apply_args_type(&mut self, f: &FunctionDecl) {
-        let eq_types = f
-            .arguments
-            .iter()
+        f.arguments
+            .clone()
+            .into_iter()
             .enumerate()
-            .map(|(i, arg)| {
-                (
-                    arg.get_hir_id(),
-                    self.current_fn.1.args.get(i).unwrap().clone(),
+            .for_each(|(i, arg)| {
+                self.set_type(
+                    &arg.get_hir_id(),
+                    &self.current_fn.1.arguments.get(i).unwrap().clone(),
                 )
-            })
-            .collect::<Vec<_>>();
-
-        eq_types.into_iter().for_each(|(id, t)| {
-            self.set_type(&id, &t);
-        });
+            });
     }
 
-    pub fn get_fn_types(&self, f: &HirId) -> Option<&HashMap<TypeSignature, Env>> {
+    #[allow(dead_code)]
+    pub fn get_fn_types(&self, f: &HirId) -> Option<&HashMap<FuncType, Env>> {
         self.fns.get(f)
     }
 
-    pub fn get_inner(&self) -> &BTreeMap<HirId, HashMap<TypeSignature, Env>> {
+    pub fn get_inner(&self) -> &BTreeMap<HirId, HashMap<FuncType, Env>> {
         &self.fns
     }
 
+    #[allow(dead_code)]
     pub fn add_empty(&mut self, hir_id: &HirId) {
-        self.fns
-            .entry(hir_id.clone())
-            .or_insert_with(|| HashMap::new());
+        self.fns.entry(hir_id.clone()).or_insert_with(HashMap::new);
     }
 
-    pub fn amend_current_sig(&mut self, new_sig: &TypeSignature) {
+    pub fn amend_current_sig(&mut self, new_sig: &FuncType) {
         if self.current_fn.1 == *new_sig {
             return;
         }

@@ -2,13 +2,17 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 #[derive(Clone, Debug)]
-pub struct Scopes<K: Hash + Eq + Clone, T: Clone> {
+pub struct Scopes<K, T>
+where
+    K: Default + Hash + Eq + Clone,
+    T: Clone,
+{
     pub scopes: Vec<Scope<K, T>>,
 }
 
 impl<K, T> Default for Scopes<K, T>
 where
-    K: Hash + Eq + Clone,
+    K: Default + Hash + Eq + Clone,
     T: Clone,
 {
     fn default() -> Self {
@@ -18,7 +22,7 @@ where
 
 impl<K, T> Scopes<K, T>
 where
-    K: Hash + Eq + Clone,
+    K: Default + Hash + Eq + Clone,
     T: Clone,
 {
     pub fn new() -> Scopes<K, T> {
@@ -58,21 +62,35 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct Scope<K: Hash + Eq + Clone, T: Clone> {
+pub struct Scope<K, T>
+where
+    K: Default + Hash + Eq + Clone,
+    T: Clone,
+{
     pub ordering: Vec<K>,
     pub items: HashMap<K, T>,
 }
 
+impl<K, T> Default for Scope<K, T>
+where
+    K: Default + Hash + Eq + Clone,
+    T: Clone,
+{
+    fn default() -> Self {
+        Self {
+            ordering: Default::default(),
+            items: Default::default(),
+        }
+    }
+}
+
 impl<K, T> Scope<K, T>
 where
-    K: Hash + Eq + Clone,
+    K: Default + Hash + Eq + Clone,
     T: Clone,
 {
     pub fn new() -> Scope<K, T> {
-        Scope {
-            ordering: vec![],
-            items: HashMap::new(),
-        }
+        Default::default()
     }
 
     pub fn insert(&mut self, s: K, v: T) {

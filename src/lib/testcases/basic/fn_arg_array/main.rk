@@ -1,0 +1,7 @@
+x a = a[0]
+
+exec f a = f a
+
+main =
+  exec x, [2.2, 3.3]
+  exec x, [42, 2]

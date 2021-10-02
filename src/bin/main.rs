@@ -5,8 +5,7 @@ extern crate rock;
 extern crate log;
 
 use clap::{App, Arg, SubCommand};
-use std::process::Command;
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, process::Command};
 
 pub mod logger;
 
@@ -20,9 +19,7 @@ fn build(config: &Config) -> bool {
 
     fs::create_dir_all(config.build_folder.clone()).unwrap();
 
-    if let Err(diagnostic) =
-        rock::parse_file(entry_file.to_string(), "".to_string(), config.clone())
-    {
+    if let Err(diagnostic) = rock::parse_file(entry_file.to_string(), config) {
         if let DiagnosticKind::NoError = diagnostic.get_kind() {
         } else {
             println!("Error: {}", diagnostic.get_kind());
@@ -173,12 +170,8 @@ fn main() {
 
     if let Some(_matches) = matches.subcommand_matches("build") {
         build(&config);
-
-        return;
     } else if let Some(_matches) = matches.subcommand_matches("run") {
         run(config);
-
-        return;
     } else {
         println!("{}", matches.usage());
     }
