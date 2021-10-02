@@ -11,6 +11,8 @@ regex = "1"
 env_logger = "0.5.12"
 log = "0.4"
 bitflags = "1.2.1"
+concat-idents = "1.1.2"
+# inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm11-0"] }
 inkwell =  { version = "0.1.0-beta.3", features = ["llvm12-0"] }
 either = "1.5"
 serde = "*"
