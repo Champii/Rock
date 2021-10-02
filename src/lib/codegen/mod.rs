@@ -68,7 +68,7 @@ pub fn interpret(hir: Root, config: &Config) -> Result<(), Diagnostic> {
         }
     }
 
-    interpreter::interpret(&codegen_ctx, config);
+    interpreter::interpret(&mut codegen_ctx, &builder, config);
 
     // if config.show_ir {
     //     codegen_ctx.module.print_to_stderr();

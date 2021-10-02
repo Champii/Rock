@@ -31,15 +31,20 @@ impl SourceFile {
         })
     }
 
-    pub fn from_expr(expr: String) -> Result<Self, Diagnostic> {
+    pub fn from_expr(top_levels: String, expr: String) -> Result<Self, Diagnostic> {
         let top_levels = r##"mod lib
 use lib::prelude::*
+"##
+        .to_owned()
+            + &top_levels
+            + &r##"
+
 main =
   print custom()
   0
 custom =
 "##
-        .to_owned()
+            .to_owned()
             + &expr;
 
         Ok(SourceFile {

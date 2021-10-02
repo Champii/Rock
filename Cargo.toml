@@ -20,6 +20,7 @@ serde_derive = '*'
 bincode = "*"
 colored = "2.0.0"
 paste = "1.0.5"
+rustyline = "9.0.0"
 
 [lib]
 name = "rock"

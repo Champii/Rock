@@ -241,7 +241,7 @@ impl Display for DiagnosticKind {
                     given_sig,
                     existing_impls
                         .iter()
-                        .map(|sig| format!("Found impl: {:?}", sig))
+                        .map(|sig| format!("        Found impl: {:?}", sig))
                         .collect::<Vec<_>>()
                         .join("\n")
                 )
