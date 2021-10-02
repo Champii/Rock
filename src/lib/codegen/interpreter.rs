@@ -8,16 +8,13 @@ use inkwell::{
 };
 
 use crate::{
-    ast::{self, Statement},
-    hir,
-    parser::{Parse, ParsingCtx, SourceFile},
-    ty::Type,
+    parser::{ParsingCtx, SourceFile},
     Config,
 };
 
 use super::codegen_context::CodegenContext;
 
-pub fn interpret(codegen_ctx: &CodegenContext, rock_config: &Config) {
+pub fn interpret(_codegen_ctx: &CodegenContext, rock_config: &Config) {
     println!(
         "{}{} {}{}",
         "Rock".green(),
@@ -59,7 +56,7 @@ pub fn interpret(codegen_ctx: &CodegenContext, rock_config: &Config) {
 
         parsing_ctx.add_file(&src);
 
-        let hir = match crate::parse_str(parsing_ctx, rock_config) {
+        let hir = match crate::parse_str(&mut parsing_ctx, rock_config) {
             Ok(hir) => hir,
             Err(_) => {
                 commands.pop();

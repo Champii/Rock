@@ -163,7 +163,7 @@ impl Diagnostic {
         let line_colored = format!(
             "{}{}{}",
             &line_colored[..line_start],
-            color(
+            color_bright(
                 line_colored[line_start..=(line_start + (self.span.end - self.span.start) + 1)]
                     .to_string()
             ),
@@ -173,7 +173,7 @@ impl Diagnostic {
         println!(
             "{}\n{}\n{:>4} {}\n{:>4} {} {}\n{:>4} {} {}",
             diag_type_str,
-            line_ind.bright_blue(),
+            line_ind.bright_black(),
             "",
             "|".bright_black(),
             color_bright(line.to_string()),
@@ -181,7 +181,7 @@ impl Diagnostic {
             line_colored,
             "",
             "|".bright_black(),
-            color_bright(arrow),
+            color(arrow),
         );
     }
 

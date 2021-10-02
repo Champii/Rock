@@ -4,7 +4,7 @@ mod interpreter;
 use codegen_context::*;
 use inkwell::context::Context;
 
-use crate::{diagnostics::Diagnostic, hir::Root, parser::ParsingCtx, Config};
+use crate::{diagnostics::Diagnostic, hir::Root, Config};
 
 pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
     let context = Context::create();

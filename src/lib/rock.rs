@@ -46,23 +46,27 @@ pub fn compile_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic
 
     parsing_ctx.add_file(input);
 
-    let hir = parse_str(parsing_ctx, config)?;
+    let hir = parse_str(&mut parsing_ctx, config)?;
 
     if config.repl {
         interpret(hir, config)
     } else {
-        generate_ir(hir, config)
+        generate_ir(hir, config)?;
+
+        parsing_ctx.print_success_diagnostics();
+
+        Ok(())
     }
 }
 
-pub fn parse_str(mut parsing_ctx: ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {
+pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {
     // Text to Ast
     debug!("    -> Parsing");
-    let mut ast = parser::parse_root(&mut parsing_ctx)?;
+    let mut ast = parser::parse_root(parsing_ctx)?;
 
     // Name resolving
     debug!("    -> Resolving");
-    resolver::resolve(&mut ast, &mut parsing_ctx)?;
+    resolver::resolve(&mut ast, parsing_ctx)?;
 
     // Lowering to HIR
     debug!("    -> Lowering to HIR");
@@ -70,7 +74,7 @@ pub fn parse_str(mut parsing_ctx: ParsingCtx, config: &Config) -> Result<hir::Ro
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    let new_hir = infer::infer(&mut hir, &mut parsing_ctx, config)?;
+    let new_hir = infer::infer(&mut hir, parsing_ctx, config)?;
 
     // // Generate code
     // debug!("    -> Lower to LLVM IR");

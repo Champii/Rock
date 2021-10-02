@@ -14,10 +14,8 @@ use inkwell::{
 };
 
 use crate::{
-    diagnostics::Diagnostic,
     helpers::scopes::Scopes,
     hir::*,
-    parser::ParsingCtx,
     ty::{PrimitiveType, Type},
 };
 
@@ -681,12 +679,12 @@ impl<'a> CodegenContext<'a> {
 
         let val = match self.scopes.get(reso) {
             None => {
-                let span = self
-                    .hir
-                    .hir_map
-                    .get_node_id(&id.hir_id)
-                    .map(|node_id| self.hir.spans.get(&node_id).unwrap().clone())
-                    .unwrap();
+                // let span = self
+                //     .hir
+                //     .hir_map
+                //     .get_node_id(&id.hir_id)
+                //     .map(|node_id| self.hir.spans.get(&node_id).unwrap().clone())
+                //     .unwrap();
 
                 // self.parsing_ctx
                 //     .diagnostics
