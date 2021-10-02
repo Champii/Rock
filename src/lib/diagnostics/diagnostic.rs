@@ -46,8 +46,8 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::UnusedFunction)
     }
 
-    pub fn new_module_not_found(span: Span) -> Self {
-        Self::new(span, DiagnosticKind::ModuleNotFound)
+    pub fn new_module_not_found(span: Span, path: String) -> Self {
+        Self::new(span, DiagnosticKind::ModuleNotFound(path))
     }
 
     pub fn new_unresolved_type(span: Span, t: Type) -> Self {
@@ -85,6 +85,7 @@ impl Diagnostic {
     pub fn new_no_main() -> Self {
         Self::new(Span::new_placeholder(), DiagnosticKind::NoMain)
     }
+
     pub fn new_type_conflict(span: Span, t1: Type, t2: Type, in1: Type, in2: Type) -> Self {
         Self::new(span, DiagnosticKind::TypeConflict(t1, t2, in1, in2))
     }
@@ -170,7 +171,7 @@ pub enum DiagnosticKind {
     UnexpectedToken,
     SyntaxError(String),
     UnknownIdentifier,
-    ModuleNotFound,
+    ModuleNotFound(String),
     NotAFunction,
     UnusedParameter,
     UnresolvedTraitCall {
@@ -194,7 +195,7 @@ impl Display for DiagnosticKind {
             Self::UnexpectedToken => "UnexpectedToken".to_string(),
             Self::SyntaxError(msg) => format!("SyntaxError: {}", msg),
             Self::UnknownIdentifier => "UnknownIdentifier".to_string(),
-            Self::ModuleNotFound => "ModuleNotFound".to_string(),
+            Self::ModuleNotFound(path) => format!("Module not found: {}", path),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
             Self::TypeConflict(t1, t2, _in1, _in2) => {
                 format!("Type conflict: Expected {:?} but got {:?} ", t1, t2)

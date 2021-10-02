@@ -32,4 +32,5 @@ pub struct Config {
     pub verbose: bool,
     pub build_folder: PathBuf,
     pub no_optimize: bool,
+    pub repl: bool,
 }

@@ -19,7 +19,7 @@ fn build(config: &Config) -> bool {
 
     fs::create_dir_all(config.build_folder.clone()).unwrap();
 
-    if let Err(diagnostic) = rock::parse_file(entry_file.to_string(), config) {
+    if let Err(diagnostic) = rock::compile_file(entry_file.to_string(), config) {
         if let DiagnosticKind::NoError = diagnostic.get_kind() {
         } else {
             println!("Error: {}", diagnostic.get_kind());
@@ -116,6 +116,12 @@ fn main() {
                 .help("Disable LLVM optimization passes"),
         )
         .arg(
+            Arg::with_name("repl")
+                .short("r")
+                .takes_value(false)
+                .help("Run a REPL interpreter (ALPHA)"),
+        )
+        .arg(
             Arg::with_name("ir")
                 .short("i")
                 .takes_value(false)
@@ -145,6 +151,7 @@ fn main() {
         show_hir: matches.is_present("hir"),
         show_ir: matches.is_present("ir"),
         show_state: matches.is_present("state"),
+        repl: matches.is_present("repl"),
         no_optimize: matches.is_present("no-optimize"),
         build_folder: PathBuf::from(matches.value_of("output-folder").unwrap()),
         ..Default::default()

@@ -31,7 +31,25 @@ impl SourceFile {
         })
     }
 
-    pub fn resolve_new(&self, name: String) -> Result<Self, ()> {
+    pub fn from_expr(expr: String) -> Result<Self, Diagnostic> {
+        let top_levels = r##"mod lib
+use lib::prelude::*
+main =
+  print custom()
+  0
+custom =
+"##
+        .to_owned()
+            + &expr;
+
+        Ok(SourceFile {
+            file_path: PathBuf::from("./src/main.rk"),
+            mod_path: PathBuf::from("root"),
+            content: top_levels,
+        })
+    }
+
+    pub fn resolve_new(&self, name: String) -> Result<Self, String> {
         let mut file_path = self.file_path.parent().unwrap().join(Path::new(&name));
 
         file_path.set_extension("rk");
@@ -40,7 +58,7 @@ impl SourceFile {
 
         let content = match fs::read_to_string(file_path.to_str().unwrap().to_string()) {
             Ok(content) => content,
-            Err(_) => return Err(()),
+            Err(_) => return Err(mod_path.as_path().to_str().unwrap().to_string()),
         };
 
         Ok(Self {
