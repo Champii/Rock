@@ -1,8 +1,9 @@
-use colored::*;
 use std::{
     collections::HashMap,
     path::{Component, PathBuf},
 };
+
+use colored::*;
 
 use crate::{
     ast::{ast_print::AstPrintContext, Identifier, Root},
@@ -147,9 +148,10 @@ impl ParsingCtx {
         self.operators_list.contains_key(&name.name)
     }
 
+    #[allow(dead_code)]
     pub fn print_ast(&self, ast: &Root) {
         use crate::ast::visit::Visitor;
 
-        AstPrintContext::new(ast.r#mod.tokens.clone(), self.get_current_file()).visit_root(ast);
+        AstPrintContext::new().visit_root(ast);
     }
 }

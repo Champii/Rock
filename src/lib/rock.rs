@@ -8,8 +8,6 @@ extern crate bitflags;
 
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate concat_idents;
 
 use std::path::PathBuf;
 

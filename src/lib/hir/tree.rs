@@ -34,6 +34,7 @@ impl Root {
             .find(|top| top.get_terminal_hir_id() == hir_id)
     }
 
+    #[allow(dead_code)]
     pub fn get_trait_by_method(&self, ident: String) -> Option<Trait> {
         self.traits
             .iter()
@@ -55,6 +56,7 @@ impl Root {
             })
     }
 
+    #[allow(dead_code)]
     pub fn match_trait_method(&self, ident: String, applied_type: &Type) -> Option<FunctionDecl> {
         let map = self.trait_methods.get(&ident)?;
 
@@ -76,6 +78,7 @@ impl Root {
             })
     }
 
+    #[allow(dead_code)]
     pub fn get_function_by_mangled_name(&self, name: &str) -> Option<FunctionDecl> {
         self.top_levels
             .iter()
@@ -112,6 +115,7 @@ impl Root {
             })
     }
 
+    #[allow(dead_code)]
     pub fn get_type(&self, hir_id: HirId) -> Option<Type> {
         self.type_envs.get_type(&hir_id).cloned()
     }
@@ -133,7 +137,6 @@ pub struct Mod {
 pub struct Trait {
     pub name: Type,
     pub types: Vec<Type>,
-    // pub impls: HashMap<Identifier, HashMap<Type, FunctionDecl>>,
     pub defs: Vec<Prototype>,
 }
 
@@ -183,7 +186,6 @@ pub struct StructCtor {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopLevel {
     pub kind: TopLevelKind,
-    // pub hir_id: HirId,
 }
 
 impl TopLevel {
@@ -254,30 +256,8 @@ pub struct IdentifierPath {
 }
 
 impl IdentifierPath {
-    pub fn parent(&self) -> Self {
-        let mut parent = self.clone();
-
-        if parent.path.len() > 1 {
-            parent.path.pop();
-        }
-
-        parent
-    }
-
-    pub fn child(&self, name: Identifier) -> Self {
-        let mut child = self.clone();
-
-        child.path.push(name);
-
-        child
-    }
-
     pub fn last_segment(&self) -> Identifier {
         self.path.iter().last().unwrap().clone()
-    }
-
-    pub fn last_segment_ref(&self) -> &Identifier {
-        self.path.iter().last().unwrap()
     }
 
     pub fn get_terminal_hir_id(&self) -> HirId {
@@ -317,13 +297,6 @@ impl FnBody {
             name: format!("{}_{}", self.name.name, prefixes.join("_")),
             hir_id: self.name.hir_id.clone(),
         });
-    }
-
-    pub fn get_name(&self) -> Identifier {
-        match &self.mangled_name {
-            Some(name) => name.clone(),
-            None => self.name.clone(),
-        }
     }
 }
 
@@ -396,12 +369,6 @@ pub struct If {
     pub predicat: Expression,
     pub body: Body,
     pub else_: Option<Box<Else>>,
-}
-
-impl If {
-    pub fn get_terminal_hir_id(&self) -> HirId {
-        self.hir_id.clone()
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -481,6 +448,8 @@ impl Expression {
             panic!("Not an identifier");
         }
     }
+
+    #[allow(dead_code)]
     pub fn as_literal(&self) -> Literal {
         if let ExpressionKind::Lit(l) = &*self.kind {
             l.clone()

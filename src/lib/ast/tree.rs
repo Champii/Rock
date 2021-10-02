@@ -142,10 +142,6 @@ impl IdentifierPath {
         child
     }
 
-    pub fn last_segment(&self) -> Identifier {
-        self.path.iter().last().unwrap().clone()
-    }
-
     pub fn last_segment_ref(&self) -> &Identifier {
         self.path.iter().last().unwrap()
     }
@@ -291,6 +287,7 @@ pub struct Expression {
 }
 
 impl Expression {
+    #[allow(dead_code)]
     pub fn is_literal(&self) -> bool {
         match &self.kind {
             ExpressionKind::UnaryExpr(unary) => unary.is_literal(),
@@ -298,6 +295,7 @@ impl Expression {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_identifier(&self) -> bool {
         match &self.kind {
             ExpressionKind::UnaryExpr(unary) => unary.is_identifier(),
@@ -305,10 +303,12 @@ impl Expression {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_binop(&self) -> bool {
         matches!(&self.kind, ExpressionKind::BinopExpr(_, _, _))
     }
 
+    #[allow(dead_code)]
     pub fn is_indice(&self) -> bool {
         match &self.kind {
             ExpressionKind::UnaryExpr(unary) => unary.is_indice(),
@@ -316,12 +316,14 @@ impl Expression {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_unary(unary: &UnaryExpr) -> Expression {
         Expression {
             kind: ExpressionKind::UnaryExpr(unary.clone()),
         }
     }
 
+    #[allow(dead_code)]
     pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> Expression {
         Expression {
             kind: ExpressionKind::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
@@ -396,6 +398,7 @@ pub struct PrimaryExpr {
 }
 
 impl PrimaryExpr {
+    #[allow(dead_code)]
     pub fn has_secondaries(&self) -> bool {
         self.secondaries.is_some()
     }
@@ -423,10 +426,12 @@ impl Operand {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_literal(&self) -> bool {
         matches!(&self.kind, OperandKind::Literal(_))
     }
 
+    #[allow(dead_code)]
     pub fn is_identifier(&self) -> bool {
         matches!(&self.kind, OperandKind::Identifier(_))
     }
@@ -440,6 +445,7 @@ pub enum OperandKind {
 }
 
 impl OperandKind {
+    #[allow(dead_code)]
     pub fn to_identifier_path(&self) -> IdentifierPath {
         if let OperandKind::Identifier(id) = self {
             id.clone()

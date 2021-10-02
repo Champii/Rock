@@ -27,7 +27,7 @@ impl SpanCollector {
 }
 
 macro_rules! generate_span_collector {
-    ($($expr:ty,)+) => {
+    ($($expr:ty)+) => {
         impl<'a> Visitor<'a> for SpanCollector {
             paste! {
                 $(
@@ -43,17 +43,17 @@ macro_rules! generate_span_collector {
 }
 
 generate_span_collector!(
-    Mod,
-    TopLevel,
-    Prototype,
-    Use,
-    FunctionDecl,
-    Identifier,
-    ArgumentDecl,
-    If,
-    PrimaryExpr,
-    Literal,
-    NativeOperator,
+    Mod
+    TopLevel
+    Prototype
+    Use
+    FunctionDecl
+    Identifier
+    ArgumentDecl
+    If
+    PrimaryExpr
+    Literal
+    NativeOperator
 );
 
 pub fn collect_spans(root: &Root) -> HashMap<NodeId, Span> {

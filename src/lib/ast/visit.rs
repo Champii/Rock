@@ -1,12 +1,12 @@
-use concat_idents::concat_idents;
+use paste::paste;
 
 use crate::ast::*;
 use crate::ty::*;
 
 macro_rules! generate_visitor_trait {
     ($(
-        $name:ident, $method:ident
-    )*) => {
+        $name:ty
+    )+) => {
         pub trait Visitor<'ast>: Sized {
             fn visit_name(&mut self, _name: &str) {}
 
@@ -15,51 +15,49 @@ macro_rules! generate_visitor_trait {
                 T: std::fmt::Debug,
             {}
 
-            $(
-                concat_idents!(fn_name = visit_, $method {
-                    fn fn_name(&mut self, $method: &'ast $name) {
-                        concat_idents!(fn2_name = walk_, $method {
-                            fn2_name(self, $method);
-                        });
+            paste! {
+                $(
+                    fn [<visit_ $name:snake>](&mut self, node: &'ast $name) {
+                        [<walk_ $name:snake>](self, node);
                     }
-                });
-            )*
+                )+
+            }
         }
     };
 }
 
 generate_visitor_trait!(
-    Root, root
-    Mod, r#mod
-    TopLevel, top_level
-    Assign, assign
-    AssignLeftSide, assign_left_side
-    Prototype, prototype
-    Use, r#use
-    Trait, r#trait
-    Impl, r#impl
-    FunctionDecl, function_decl
-    StructDecl, struct_decl
-    Identifier, identifier
-    IdentifierPath, identifier_path
-    ArgumentDecl, argument_decl
-    Body, body
-    Statement, statement
-    Expression, expression
-    If, r#if
-    Else, r#else
-    UnaryExpr, unary
-    Operator, operator
-    PrimaryExpr, primary_expr
-    SecondaryExpr, secondary_expr
-    Operand, operand
-    Argument, argument
-    Literal, literal
-    StructCtor, struct_ctor
-    Array, array
-    NativeOperator, native_operator
-    FuncType, func_type
-    Type, r#type
+    Root
+    Mod
+    TopLevel
+    Assign
+    AssignLeftSide
+    Prototype
+    Use
+    Trait
+    Impl
+    FunctionDecl
+    StructDecl
+    Identifier
+    IdentifierPath
+    ArgumentDecl
+    Body
+    Statement
+    Expression
+    If
+    Else
+    UnaryExpr
+    Operator
+    PrimaryExpr
+    SecondaryExpr
+    Operand
+    Argument
+    Literal
+    StructCtor
+    Array
+    NativeOperator
+    FuncType
+    Type
 );
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
@@ -184,11 +182,11 @@ pub fn walk_else<'a, V: Visitor<'a>>(visitor: &mut V, r#else: &'a Else) {
 pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression) {
     match &expr.kind {
         ExpressionKind::BinopExpr(unary, operator, expr) => {
-            visitor.visit_unary(unary);
+            visitor.visit_unary_expr(unary);
             visitor.visit_operator(operator);
             visitor.visit_expression(&*expr);
         }
-        ExpressionKind::UnaryExpr(unary) => visitor.visit_unary(unary),
+        ExpressionKind::UnaryExpr(unary) => visitor.visit_unary_expr(unary),
         ExpressionKind::StructCtor(ctor) => visitor.visit_struct_ctor(ctor),
         ExpressionKind::NativeOperation(op, left, right) => {
             visitor.visit_identifier(left);
@@ -207,12 +205,12 @@ pub fn walk_struct_ctor<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructCtor) 
     walk_map!(visitor, visit_expression, &s.defs);
 }
 
-pub fn walk_unary<'a, V: Visitor<'a>>(visitor: &mut V, unary: &'a UnaryExpr) {
+pub fn walk_unary_expr<'a, V: Visitor<'a>>(visitor: &mut V, unary: &'a UnaryExpr) {
     match unary {
         UnaryExpr::PrimaryExpr(primary) => visitor.visit_primary_expr(primary),
         UnaryExpr::UnaryExpr(op, unary) => {
             visitor.visit_operator(op);
-            visitor.visit_unary(&*unary);
+            visitor.visit_unary_expr(&*unary);
         }
     }
 }
@@ -252,7 +250,7 @@ pub fn walk_operand<'a, V: Visitor<'a>>(visitor: &mut V, operand: &'a Operand) {
 }
 
 pub fn walk_argument<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a Argument) {
-    visitor.visit_unary(&argument.arg);
+    visitor.visit_unary_expr(&argument.arg);
 }
 
 pub fn walk_literal<'a, V: Visitor<'a>>(visitor: &mut V, literal: &'a Literal) {

@@ -34,6 +34,7 @@ impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
         self.0.clone()
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.0.clear()
     }

@@ -7,8 +7,6 @@ use crate::{
     ty::*,
 };
 
-// pub type TypeId = u64;
-
 pub type Env = BTreeMap<HirId, Type>;
 
 #[derive(Debug, Default, Clone)]
@@ -124,6 +122,7 @@ impl Envs {
             });
     }
 
+    #[allow(dead_code)]
     pub fn get_fn_types(&self, f: &HirId) -> Option<&HashMap<FuncType, Env>> {
         self.fns.get(f)
     }
@@ -132,6 +131,7 @@ impl Envs {
         &self.fns
     }
 
+    #[allow(dead_code)]
     pub fn add_empty(&mut self, hir_id: &HirId) {
         self.fns.entry(hir_id.clone()).or_insert_with(HashMap::new);
     }

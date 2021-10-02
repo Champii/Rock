@@ -1,58 +1,56 @@
-use concat_idents::concat_idents;
+use paste::paste;
 
 use crate::{hir::*, ty::*};
 
 macro_rules! generate_visitor_mut_trait {
     ($(
-        $name:ident, $method:ident
-    )*) => {
-        pub trait VisitorMut<'ast>: Sized {
+        $name:ident
+    )+) => {
+        pub trait VisitorMut<'hir>: Sized {
             fn visit_name(&mut self, _name: &mut String) {}
 
             fn visit_primitive<T>(&mut self, _val: T)
             {}
 
-            $(
-                concat_idents!(fn_name = visit_, $method {
-                    fn fn_name(&mut self, $method: &'ast mut $name) {
-                        concat_idents!(fn2_name = walk_, $method {
-                            fn2_name(self, $method);
-                        });
+            paste! {
+                $(
+                    fn [<visit_ $name:snake>](&mut self, node: &'hir mut $name) {
+                        [<walk_ $name:snake>](self, node);
                     }
-                });
-            )*
+                )+
+            }
         }
     };
 }
 
 generate_visitor_mut_trait!(
-    Root, root
-    TopLevel, top_level
-    Trait, r#trait
-    Impl, r#impl
-    Prototype, prototype
-    FunctionDecl, function_decl
-    StructDecl, struct_decl
-    Assign, assign
-    AssignLeftSide, assign_left_side
-    ArgumentDecl, argument_decl
-    IdentifierPath, identifier_path
-    Identifier, identifier
-    FnBody, fn_body
-    Body, body
-    Statement, statement
-    Expression, expression
-    If, r#if
-    Else, r#else
-    FunctionCall, function_call
-    StructCtor, struct_ctor
-    Indice, indice
-    Dot, dot
-    Literal, literal
-    Array, array
-    NativeOperator, native_operator
-    Type, r#type
-    FuncType, func_type
+    Root
+    TopLevel
+    Trait
+    Impl
+    Prototype
+    FunctionDecl
+    StructDecl
+    Assign
+    AssignLeftSide
+    ArgumentDecl
+    IdentifierPath
+    Identifier
+    FnBody
+    Body
+    Statement
+    Expression
+    If
+    Else
+    FunctionCall
+    StructCtor
+    Indice
+    Dot
+    Literal
+    Array
+    NativeOperator
+    Type
+    FuncType
 );
 
 pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
