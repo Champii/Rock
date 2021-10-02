@@ -1,6 +1,6 @@
-# Rock v0.1.7-develop
+# Rock v0.1.7-clang-instead-of-llc
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=clang_instead_of_llc)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -33,19 +33,21 @@ How to install and run the compiler:
 
 ### Using released binary 
 
+You will need `clang` somewhere in your $PATH
+
 Linux x86_64 only
 
-[Rock v0.1.7-develop](https://github.com/Champii/Rock/releases/download/v0.1.7-develop/rock) (Tested on arch, btw)
+[Rock v0.1.7-clang-instead-of-llc](https://github.com/Champii/Rock/releases/download/v0.1.7-clang-instead-of-llc/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.7-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.7-clang-instead-of-llc/rock
 chmod +x rock
 ./rock -V
 ```
 
 ### From source
 
-You will need LLVM12.0.1 and Clang12.0.1 somewhere in your $PATH
+You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
 
 #### With cargo from git
 
@@ -54,7 +56,7 @@ cargo install --git https://github.com/Champii/Rock
 rock -V
 ```
 
-#### Manual checkout and build from git
+#### Manual clone and build from git
 
 ``` sh
 git clone https://github.com/Champii/Rock.git

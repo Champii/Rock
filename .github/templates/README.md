@@ -33,6 +33,8 @@ How to install and run the compiler:
 
 ### Using released binary 
 
+You will need `clang` somewhere in your $PATH
+
 Linux x86_64 only
 
 [Rock {version}](https://github.com/Champii/Rock/releases/download/{version}/rock) (Tested on arch, btw)
@@ -45,7 +47,7 @@ chmod +x rock
 
 ### From source
 
-You will need LLVM12.0.1 and Clang12.0.1 somewhere in your $PATH
+You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
 
 #### With cargo from git
 
@@ -54,7 +56,7 @@ cargo install --git https://github.com/Champii/Rock
 rock -V
 ```
 
-#### Manual checkout and build from git
+#### Manual clone and build from git
 
 ``` sh
 git clone https://github.com/Champii/Rock.git

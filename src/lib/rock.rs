@@ -90,45 +90,20 @@ mod test {
             return false;
         }
 
-        let llc_cmd = Command::new("llc")
-            .args(&[
-                "--relocation-model=pic",
-                config.build_folder.join("out.ir").to_str().unwrap(),
-            ])
-            .output()
-            .expect("failed to execute IR -> ASM");
-
-        match llc_cmd.status.code() {
-            Some(code) => {
-                if code != 0 {
-                    println!(
-                        "BUG: Cannot compile to ir: \n{}",
-                        String::from_utf8(llc_cmd.stderr).unwrap()
-                    );
-
-                    return false;
-                }
-            }
-            None => println!(
-                "\nError running: \n{}",
-                String::from_utf8(llc_cmd.stderr).unwrap()
-            ),
-        }
-
         let clang_cmd = Command::new("clang")
             .args(&[
+                config.build_folder.join("out.bc").to_str().unwrap(),
                 "-o",
                 config.build_folder.join("a.out").to_str().unwrap(),
-                config.build_folder.join("out.ir.s").to_str().unwrap(),
             ])
             .output()
-            .expect("failed to execute ASM -> BINARY");
+            .expect("failed to compile to ir");
 
         match clang_cmd.status.code() {
             Some(code) => {
                 if code != 0 {
                     println!(
-                        "BUG: Cannot compile to binary: {}",
+                        "BUG: Cannot compile: \n{}",
                         String::from_utf8(clang_cmd.stderr).unwrap()
                     );
 
@@ -140,6 +115,7 @@ mod test {
                 String::from_utf8(clang_cmd.stderr).unwrap()
             ),
         }
+
         true
     }
 
