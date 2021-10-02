@@ -326,10 +326,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                                 fc.op.get_hir_id(),
                                 f.hir_id,
                             );
-                            // self.new_resolutions.insert(
-                            //     fc.op.get_hir_id(),
-                            //     self.resolve(&f.hir_id.clone()).unwrap(),
-                            // );
                         }
                     // Extern Prototypes
                     } else {
@@ -456,17 +452,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                 if let Type::Func(ft) = self.root.node_types.get(&def.get_hir_id()).unwrap() {
                     if let Some(reso) = self.resolve(&old_def_id) {
                         if let HirNode::FunctionDecl(_f2) = self.root.arena.get(&reso).unwrap() {
-                            // println!("LOL {:#?}", self.root);
-                            // println!("CTOR ATTR FN {:#?}", f2);
-                            // println!(
-                            //     "GENERRATED FNS {:#?} {:#?} {:#?} {:#?} {:#?}",
-                            //     self.generated_fn_hir_id,
-                            //     old_def_id,
-                            //     reso,
-                            //     ft,
-                            //     self.resolve(&old_k.get_hir_id())
-                            // );
-
                             self.new_resolutions.insert(
                                 def.get_hir_id(),
                                 self.generated_fn_hir_id
@@ -476,20 +461,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                             );
 
                             self.trans_resolutions.remove(&old_def_id);
-                            // self.trans_resolutions.insert(old_def_id, s.hir_id.clone());
-
-                            // Adds a link like `expr` => `out fn` where the expr is defined
-                            // self.tmp_resolutions
-                            //     .entry(self.root.type_envs.get_current_fn().0)
-                            //     .or_insert_with(ResolutionMap::default)
-                            //     .insert(.get_hir_id(), f2.hir_id.clone());
-                            // self.tmp_resolutions
-                            //     .entry(self.root.type_envs.get_current_fn().0)
-                            //     .or_insert_with(ResolutionMap::default)
-                            //     .insert(k.get_hir_id(), .get_hir_id());
-                            // .insert(k.get_hir_id(), f2.hir_id.clone());
-
-                            // self.envs.set_type(&expr.get_hir_id(), &ft.to_type());
                         } else {
                         }
                     }
