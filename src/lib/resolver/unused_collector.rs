@@ -98,3 +98,11 @@ impl<'a> Visitor<'a> for UnusedCollector {
         }
     }
 }
+
+pub fn collect_unused(root: &Root) -> (Vec<NodeId>, Vec<NodeId>) {
+    let mut unused_collector = UnusedCollector::new(root.resolutions.clone());
+
+    unused_collector.visit_root(root);
+
+    unused_collector.take_unused()
+}

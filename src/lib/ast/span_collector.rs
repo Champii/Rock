@@ -55,3 +55,11 @@ generate_span_collector!(
     Literal,
     NativeOperator,
 );
+
+pub fn collect_spans(root: &Root) -> HashMap<NodeId, Span> {
+    let mut span_collector = SpanCollector::new();
+
+    span_collector.visit_root(root);
+
+    span_collector.take_list()
+}
