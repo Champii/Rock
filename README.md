@@ -13,6 +13,8 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
+  - [Basic setup]( #basic-setup )
+  - [REPL]( #repl )
 - [Showcases]( #showcases )
 - [Development notes]( #development-notes )
 
@@ -24,6 +26,7 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Typeclass (Traits)
 - Parametric Polymorphism by default
 - Compile to LLVM IR
+- REPL (ALPHA)
 
 ## Install
 
@@ -66,6 +69,8 @@ cargo run -- -V
 
 ## Quickstart
 
+### Basic setup
+
 Lets create a new project folder to compute some factorials
 
 ``` sh
@@ -102,6 +107,31 @@ Should output
 ``` sh
 24
 ```
+
+Take a look at `rock --help` for a quick tour of its flags and arguments
+
+### REPL
+
+You can start a REPL session with 
+
+``` sh
+rock -r
+# OR
+rock --repl
+```
+
+``` sh
+Rock: v0.1.7-develop
+> let a = 2
+2
+> let b = a + 5
+7
+> show "foo"
+foo
+> _
+```
+
+Only supports basic expressions for now.
 
 ## Showcases
 
