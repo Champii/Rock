@@ -144,19 +144,44 @@ impl Diagnostic {
             DiagnosticType::Warning => x.yellow(),
         };
 
-        println!(
-            "[{}]: {}\n{}\n{:>4} {}\n{:>4} {} {}\n{:>4} {} {}",
+        let color_bright = |x: String| match diag_type {
+            DiagnosticType::Error => x.bright_red(),
+            DiagnosticType::Warning => x.bright_yellow(),
+        };
+
+        let diag_type_str = format!(
+            "{}{}{} {}{}",
+            "[".bright_black(),
             diag_type_str,
+            "]".bright_black(),
             color(self.kind.to_string()).bold(),
+            ":".bright_black(),
+        );
+
+        let line_colored = lines[line - 1].iter().cloned().collect::<String>();
+
+        let line_colored = format!(
+            "{}{}{}",
+            &line_colored[..line_start],
+            color(
+                line_colored[line_start..=(line_start + (self.span.end - self.span.start) + 1)]
+                    .to_string()
+            ),
+            &line_colored[(line_start + (self.span.end - self.span.start) + 2)..],
+        );
+
+        println!(
+            "{}\n{}\n{:>4} {}\n{:>4} {} {}\n{:>4} {} {}",
+            diag_type_str,
             line_ind.bright_blue(),
             "",
-            "|".cyan(),
-            color(line.to_string()),
-            "|".cyan(),
-            lines[line - 1].iter().cloned().collect::<String>(),
+            "|".bright_black(),
+            color_bright(line.to_string()),
+            "|".bright_black(),
+            line_colored,
             "",
-            "|".cyan(),
-            color(arrow),
+            "|".bright_black(),
+            color_bright(arrow),
         );
     }
 

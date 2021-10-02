@@ -73,3 +73,13 @@ pub struct Token {
 }
 
 pub type TokenId = usize;
+
+impl Token {
+    pub fn eof() -> Self {
+        Token {
+            t: TokenType::Eof,
+            span: Span::new_placeholder(),
+            txt: "".to_string(),
+        }
+    }
+}

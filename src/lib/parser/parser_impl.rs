@@ -131,7 +131,7 @@ impl<'a> Parser<'a> {
     pub fn cur_tok(&self) -> Token {
         match self.tokens.get(self.cur_tok_id as usize) {
             Some(a) => a.clone(),
-            _ => unreachable!(),
+            _ => Token::eof(),
         }
     }
 
@@ -164,11 +164,7 @@ impl<'a> Parser<'a> {
     pub fn seek(&self, distance: usize) -> Token {
         match self.tokens.get(self.cur_tok_id as usize + distance) {
             Some(a) => a.clone(),
-            _ => Token {
-                t: TokenType::Eof,
-                span: Span::new_placeholder(),
-                txt: "".to_string(),
-            },
+            _ => Token::eof(),
         }
     }
 

@@ -51,15 +51,32 @@ impl ParsingCtx {
         self.print_diagnostics();
 
         if !self.diagnostics.list.is_empty() {
+            let diag_type_str = format!(
+                "{}{}{}",
+                "[".bright_black(),
+                "Success".yellow(),
+                "]".bright_black(),
+            );
             println!(
-                "[{}] Compilation {} with {} {}",
-                "Warning".yellow(),
-                "successful".green(),
+                "{} {} {} with {} {}",
+                diag_type_str,
+                "Compilation".bright_black(),
+                "successful".bright_green(),
                 self.diagnostics.list.len().to_string().yellow(),
-                "warnings".yellow(),
+                "warnings".bright_yellow(),
             );
         } else if self.config.verbose {
-            println!("[{}] Compilation successful", "Success".green(),);
+            let diag_type_str = format!(
+                "{}{}{}",
+                "[".bright_black(),
+                "Success".green(),
+                "]".bright_black(),
+            );
+            println!(
+                "{} {}",
+                diag_type_str,
+                "Compilation successful".bright_black(),
+            );
         }
     }
 
@@ -79,14 +96,24 @@ impl ParsingCtx {
                     )
                 });
 
-            println!(
-                "[{}] Compilation {} with {} {} and {} {}",
+            let diag_type_str = format!(
+                "{}{}{}",
+                "[".bright_black(),
                 "Error".red(),
-                "stopped".red(),
+                "]".bright_black(),
+            );
+
+            println!(
+                "{} {} {} {} {} {} {} {} {}",
+                diag_type_str,
+                "Compilation".bright_black(),
+                "stopped".bright_red(),
+                "with".bright_black(),
                 errors.len().to_string().red(),
-                "errors".red(),
+                "errors".bright_red(),
+                "and".bright_black(),
                 warnings.len().to_string().yellow(),
-                "warnings".yellow(),
+                "warnings".bright_yellow(),
             );
 
             return Err(Diagnostic::new_empty());

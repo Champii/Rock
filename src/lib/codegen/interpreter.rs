@@ -1,3 +1,4 @@
+use colored::*;
 use std::io::{self, BufRead, Write};
 
 use inkwell::{
@@ -16,7 +17,15 @@ use crate::{
 
 use super::codegen_context::CodegenContext;
 
-pub fn interpret(codegen_ctx: &CodegenContext) {
+pub fn interpret(codegen_ctx: &CodegenContext, rock_config: &Config) {
+    println!(
+        "{}{} {}{}",
+        "Rock".green(),
+        ":".bright_black(),
+        "v".bright_black(),
+        env!("CARGO_PKG_VERSION").cyan(),
+    );
+
     let config = InitializationConfig::default();
 
     Target::initialize_native(&config).unwrap();
@@ -24,7 +33,6 @@ pub fn interpret(codegen_ctx: &CodegenContext) {
     let stdin = io::stdin();
 
     let mut commands = vec![];
-    let rock_config = Config::default();
 
     prompt();
 
@@ -35,8 +43,12 @@ pub fn interpret(codegen_ctx: &CodegenContext) {
             break;
         }
 
+        if line.is_empty() {
+            continue;
+        }
+
         if line.starts_with("print ") {
-            line = line.iter().drop(6).collect();
+            line.replace_range(0..6, "");
         }
 
         commands.push("  ".to_owned() + &line);
@@ -47,7 +59,7 @@ pub fn interpret(codegen_ctx: &CodegenContext) {
 
         parsing_ctx.add_file(&src);
 
-        let hir = match crate::parse_str(parsing_ctx, &Config::default()) {
+        let hir = match crate::parse_str(parsing_ctx, rock_config) {
             Ok(hir) => hir,
             Err(_) => {
                 commands.pop();
@@ -93,7 +105,7 @@ pub fn interpret(codegen_ctx: &CodegenContext) {
 }
 
 fn prompt() {
-    print!("> ");
+    print!("{} ", ">".bright_black());
 
     std::io::stdout().lock().flush().unwrap();
 }
