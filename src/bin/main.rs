@@ -28,44 +28,20 @@ fn build(config: &Config) -> bool {
         return false;
     }
 
-    let llc_cmd = Command::new("llc")
+    let clang_cmd = Command::new("clang")
         .args(&[
-            "--relocation-model=pic",
-            config.build_folder.join("out.ir").to_str().unwrap(),
+            config.build_folder.join("out.bc").to_str().unwrap(),
+            "-o",
+            config.build_folder.join("a.out").to_str().unwrap(),
         ])
         .output()
         .expect("failed to compile to ir");
-
-    match llc_cmd.status.code() {
-        Some(code) => {
-            if code != 0 {
-                println!(
-                    "BUG: Cannot compile to ir: \n{}",
-                    String::from_utf8(llc_cmd.stderr).unwrap()
-                );
-
-                return false;
-            }
-        }
-        None => println!(
-            "\nError running: \n{}",
-            String::from_utf8(llc_cmd.stderr).unwrap()
-        ),
-    }
-    let clang_cmd = Command::new("clang")
-        .args(&[
-            "-o",
-            config.build_folder.join("a.out").to_str().unwrap(),
-            config.build_folder.join("out.ir.s").to_str().unwrap(),
-        ])
-        .output()
-        .expect("failed to compile to binary");
 
     match clang_cmd.status.code() {
         Some(code) => {
             if code != 0 {
                 println!(
-                    "BUG: Cannot compile to binary: {}",
+                    "BUG: Cannot compile: \n{}",
                     String::from_utf8(clang_cmd.stderr).unwrap()
                 );
 
@@ -77,6 +53,7 @@ fn build(config: &Config) -> bool {
             String::from_utf8(clang_cmd.stderr).unwrap()
         ),
     }
+
     true
 }
 
