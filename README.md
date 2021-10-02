@@ -121,7 +121,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.1.7-develop
+Rock: v0.1.7-interpreter
 > let a = 2
 2
 > let b = a + 5
