@@ -16,7 +16,7 @@ pub enum TokenType {
     Then,
     Else,
     For,
-    In,
+    // In,
     Struct,
     Infix,
     Trait,
@@ -30,8 +30,8 @@ pub enum TokenType {
     DoubleSemiColon,
     Equal,
     ArrayType,
-    EqualEqual, // ==
-    DashEqual,  // !=
+    // EqualEqual, // ==
+    // DashEqual,  // !=
     OpenParens,
     CloseParens,
     OpenArray,

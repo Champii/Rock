@@ -1,103 +1,11 @@
 use colored::*;
-use std::{collections::BTreeMap, fmt};
+use std::fmt;
 
-use crate::ast::PrimitiveType;
-
-#[derive(Clone, Eq, Serialize, Deserialize)]
-pub enum Type {
-    Primitive(PrimitiveType),
-    FuncType(FuncType),
-    Struct(StructType),
-    Trait(String),
-    ForAll(String),
-    Undefined(u64), // FIXME: To remove
-}
-
-impl std::hash::Hash for Type {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
-    }
-}
-
-impl PartialEq for Type {
-    fn eq(&self, other: &Type) -> bool {
-        self.get_name() == other.get_name()
-    }
-}
-
-impl Type {
-    pub fn int64() -> Self {
-        Self::Primitive(PrimitiveType::Int64)
-    }
-
-    pub fn forall(t: &str) -> Self {
-        Self::ForAll(String::from(t))
-    }
-
-    pub fn is_solved(&self) -> bool {
-        match self {
-            Type::Primitive(p) => p.is_solved(),
-            Type::FuncType(ft) => ft.is_solved(),
-            Type::Struct(_) => true,
-            Type::Trait(_) => true,
-            Type::ForAll(_) => false,
-            Type::Undefined(_) => false,
-        }
-    }
-
-    pub fn get_name(&self) -> String {
-        match self {
-            Self::Primitive(p) => p.get_name(),
-            Self::FuncType(_f) => String::from("(fn)"),
-            Self::Struct(s) => s.name.clone(),
-            Self::Trait(t) => t.clone(),
-            Self::ForAll(n) => String::from(n),
-            Self::Undefined(s) => s.to_string(),
-        }
-    }
-
-    pub fn is_forall(&self) -> bool {
-        matches!(self, Self::ForAll(_x))
-    }
-
-    pub fn into_struct_type(&self) -> StructType {
-        if let Type::Struct(t) = self {
-            t.clone()
-        } else {
-            panic!("Not a struct type");
-        }
-    }
-
-    pub fn into_func_type(&self) -> FuncType {
-        if let Type::FuncType(f) = self {
-            f.clone()
-        } else {
-            panic!("Not a func type");
-        }
-    }
-}
-
-impl fmt::Debug for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            Self::FuncType(f) => format!("{:?}", f),
-            Self::Struct(s) => format!("{:?}", s),
-            _ => self.get_name().cyan().to_string(),
-        };
-
-        write!(f, "{}", s)
-    }
-}
-
-impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.get_name())
-    }
-}
+use super::Type;
 
 #[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct FuncType {
-    pub arguments: Vec<Box<Type>>,
+    pub arguments: Vec<Type>,
     pub ret: Box<Type>,
 }
 
@@ -140,7 +48,7 @@ impl fmt::Debug for FuncType {
 impl FuncType {
     pub fn new(arguments: Vec<Type>, ret: Type) -> Self {
         Self {
-            arguments: arguments.into_iter().map(Box::new).collect(),
+            arguments: arguments.into_iter().collect(),
             ret: Box::new(ret),
         }
     }
@@ -185,9 +93,9 @@ impl FuncType {
                 match orig
                     .iter()
                     .enumerate()
-                    .find(|(_, orig_t)| **orig_t == **arg_t)
+                    .find(|(_, orig_t)| **orig_t == *arg_t)
                 {
-                    Some((i, _orig_t)) => Box::new(dest[i].clone()),
+                    Some((i, _orig_t)) => dest[i].clone(),
                     None => arg_t.clone(),
                 }
             })
@@ -209,28 +117,27 @@ impl FuncType {
     }
 
     fn collect_forall_types(&self, arguments: Vec<Type>, ret: Type) -> (Vec<Type>, Vec<Type>) {
-        let mut orig = vec![];
-        let mut dest = vec![];
+        let (mut orig, mut dest): (Vec<_>, Vec<_>) = self
+            .arguments
+            .iter()
+            .enumerate()
+            .filter_map(|(i, arg_t)| -> Option<(Type, Type)> {
+                if !arg_t.is_forall() {
+                    warn!("Trying to apply type to a not forall");
 
-        self.arguments.iter().enumerate().for_each(|(i, arg_t)| {
-            if !arg_t.is_forall() {
-                warn!("Trying to apply type to a not forall");
+                    return None;
+                }
 
-                return;
-            }
-
-            if let Some(t) = arguments.get(i) {
-                orig.push((**arg_t).clone());
-                dest.push((*t).clone());
-            }
-        });
+                arguments.get(i).map(|t| (arg_t.clone(), t.clone()))
+            })
+            .unzip();
 
         if !ret.is_forall() {
             warn!("Trying to apply type to a not forall");
         }
 
         // FIXME: must remplace all occurences of ret
-        orig.push((*self.ret).clone());
+        orig.push(*self.ret.clone());
         dest.push(ret);
 
         (orig, dest)
@@ -241,25 +148,26 @@ impl FuncType {
         arguments: &[Option<Type>],
         ret: Option<Type>,
     ) -> (Vec<Type>, Vec<Type>) {
-        let mut orig = vec![];
-        let mut dest = vec![];
+        let (mut orig, mut dest): (Vec<_>, Vec<_>) = self
+            .arguments
+            .iter()
+            .enumerate()
+            .filter_map(|(i, arg_t)| -> Option<(Type, Type)> {
+                if !arg_t.is_forall() {
+                    warn!("Trying to apply type to a not forall");
 
-        self.arguments.iter().enumerate().for_each(|(i, arg_t)| {
-            if !arg_t.is_forall() {
-                warn!("Trying to apply type to a not forall");
+                    return None;
+                }
 
-                return;
-            }
-
-            if let Some(t) = arguments.get(i).unwrap() {
-                orig.push(*arg_t.clone());
-                dest.push(t.clone());
-            }
-        });
+                arguments
+                    .get(i)?
+                    .as_ref()
+                    .map(|t| (arg_t.clone(), t.clone()))
+            })
+            .unzip();
 
         if let Some(t) = ret {
             if !t.is_forall() {
-                // panic!("Trying to apply type to a not forall")
                 warn!("Trying to apply type to a not forall");
             }
 
@@ -279,19 +187,17 @@ impl FuncType {
             .iter()
             .enumerate()
             .map(|(i, arg)| {
-                if let Type::FuncType(f_t) = &**arg {
-                    Box::new(
-                        f_t.merge_with(&arguments.get(i).unwrap().into_func_type())
-                            .to_type(),
-                    )
+                if let Type::Func(f_t) = arg {
+                    f_t.merge_with(&arguments.get(i).unwrap().as_func_type())
+                        .into()
                 } else {
-                    (*arg).clone()
+                    arg.clone()
                 }
             })
             .collect::<Vec<_>>();
 
-        resolved.ret = if let Type::FuncType(f_t) = &*self.ret {
-            Box::new(f_t.merge_with(&ret.into_func_type()).to_type())
+        resolved.ret = if let Type::Func(f_t) = &*self.ret {
+            Box::new(f_t.merge_with(&ret.as_func_type()).into())
         } else {
             self.ret.clone()
         };
@@ -309,21 +215,18 @@ impl FuncType {
             .iter()
             .enumerate()
             .map(|(i, arg)| {
-                if let Type::FuncType(f_t) = &**arg {
-                    let inner = arguments.get(i).unwrap().as_ref().unwrap().into_func_type();
+                if let Type::Func(f_t) = arg {
+                    let inner = arguments.get(i).unwrap().as_ref().unwrap().as_func_type();
 
-                    Box::new(f_t.merge_with(&inner).to_type())
+                    f_t.merge_with(&inner).into()
                 } else {
-                    (*arg).clone()
+                    arg.clone()
                 }
             })
             .collect::<Vec<_>>();
 
-        resolved.ret = if let Type::FuncType(f_t) = &*self.ret {
-            Box::new(
-                f_t.merge_with(&ret.as_ref().unwrap().into_func_type())
-                    .to_type(),
-            )
+        resolved.ret = if let Type::Func(f_t) = &*self.ret {
+            Box::new(f_t.merge_with(&ret.as_ref().unwrap().as_func_type()).into())
         } else {
             self.ret.clone()
         };
@@ -340,7 +243,7 @@ impl FuncType {
         new.arguments = forall_generator
             .clone()
             .take(nb)
-            .map(|n| Box::new(Type::ForAll(n.to_string())))
+            .map(|n| Type::ForAll(n.to_string()))
             .collect();
 
         new.ret = Box::new(Type::ForAll(forall_generator.nth(nb).unwrap().to_string()));
@@ -364,41 +267,10 @@ impl FuncType {
 
     pub fn merge_with(&self, other: &Self) -> Self {
         self.apply_types(
-            other.arguments.iter().map(|b| (**b).clone()).collect(),
+            other.arguments.iter().map(|b| (*b).clone()).collect(),
             *other.ret.clone(),
         )
     }
-
-    pub fn to_type(&self) -> Type {
-        Type::FuncType(self.clone())
-    }
-}
-
-#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StructType {
-    pub name: String,
-    pub defs: BTreeMap<String, Box<Type>>,
-}
-
-impl fmt::Debug for StructType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} {} {} {}",
-            self.name.yellow(),
-            "{".green(),
-            self.defs
-                .iter()
-                .map(|(n, b)| format!("{}: {:?}", n, b))
-                .collect::<Vec<_>>()
-                .join(", "),
-            "}".green(),
-        )
-    }
-}
-
-impl StructType {
-    // pub fn
 }
 
 #[cfg(test)]
@@ -409,8 +281,8 @@ mod tests {
     fn basic_type_signature() {
         let sig = FuncType::from_args_nb(2);
 
-        assert_eq!(*sig.arguments[0], Type::forall("a"));
-        assert_eq!(*sig.arguments[1], Type::forall("b"));
+        assert_eq!(sig.arguments[0], Type::forall("a"));
+        assert_eq!(sig.arguments[1], Type::forall("b"));
         assert_eq!(*sig.ret, Type::forall("c"));
     }
 
@@ -420,8 +292,8 @@ mod tests {
 
         let res = sig.apply_forall_types(&vec![Type::forall("b")], &vec![Type::int64()]);
 
-        assert_eq!(*res.arguments[0], Type::forall("a"));
-        assert_eq!(*res.arguments[1], Type::int64());
+        assert_eq!(res.arguments[0], Type::forall("a"));
+        assert_eq!(res.arguments[1], Type::int64());
         assert_eq!(*res.ret, Type::forall("c"));
     }
 
@@ -431,8 +303,8 @@ mod tests {
 
         let res = sig.apply_types(vec![Type::int64()], Type::int64());
 
-        assert_eq!(*res.arguments[0], Type::int64());
-        assert_eq!(*res.arguments[1], Type::forall("b"));
+        assert_eq!(res.arguments[0], Type::int64());
+        assert_eq!(res.arguments[1], Type::forall("b"));
         assert_eq!(*res.ret, Type::int64());
     }
 
@@ -442,8 +314,8 @@ mod tests {
 
         let res = sig.apply_partial_types(&vec![None, Some(Type::int64())], Some(Type::int64()));
 
-        assert_eq!(*res.arguments[0], Type::forall("a"));
-        assert_eq!(*res.arguments[1], Type::int64());
+        assert_eq!(res.arguments[0], Type::forall("a"));
+        assert_eq!(res.arguments[1], Type::int64());
         assert_eq!(*res.ret, Type::int64());
     }
 }

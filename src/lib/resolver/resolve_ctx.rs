@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
-use crate::walk_list;
 use crate::{
-    ast::resolve::ResolutionMap, ast::visit::*, ast::*, diagnostics::Diagnostic,
-    helpers::scopes::*, parser::ParsingCtx, NodeId,
+    ast::{visit::*, *},
+    diagnostics::Diagnostic,
+    helpers::scopes::*,
+    parser::ParsingCtx,
+    resolver::ResolutionMap,
 };
 
 #[derive(Debug)]
@@ -134,9 +136,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_struct_decl(&mut self, s: &'a StructDecl) {
         self.push_scope();
-        // walk_list!(visitor, visit_prototype, &s.defs);
 
-        // s.defs.iter().for_each(|proto| {});
         walk_struct_decl(self, s);
 
         self.pop_scope()
@@ -150,6 +150,8 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .diagnostics
                 .push_error(Diagnostic::new_unknown_identifier(s.identity.span.clone())),
         };
+
+        self.visit_type(&s.name);
 
         walk_struct_ctor(self, s);
     }

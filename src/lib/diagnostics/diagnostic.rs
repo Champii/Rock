@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
+use crate::{diagnostics::DiagnosticType, parser::Span};
 use crate::{
-    ast::{FuncType, Type},
     hir::HirId,
     parser::SourceFile,
+    ty::{FuncType, Type},
 };
-use crate::{diagnostics::DiagnosticType, parser::Span};
 use colored::*;
 
 #[derive(Clone, Debug)]

@@ -2,11 +2,11 @@ use colored::*;
 use paste::paste;
 use std::fmt::Debug;
 
-use crate::ast::Type;
 use crate::helpers::*;
 use crate::hir::visit::*;
 use crate::hir::HasHirId;
 use crate::hir::*;
+use crate::ty::Type;
 
 pub struct HirPrinter<'a> {
     hir: &'a Root,

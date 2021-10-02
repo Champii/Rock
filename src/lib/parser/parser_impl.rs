@@ -1,8 +1,6 @@
 use std::{collections::HashMap, convert::TryInto};
 
-use crate::ast::*;
-use crate::parser::*;
-use crate::{ast::resolve::ResolutionMap, diagnostics::Diagnostic};
+use crate::{ast::*, diagnostics::Diagnostic, parser::*, resolver::ResolutionMap, ty::*};
 
 type Error = Diagnostic;
 
@@ -1206,7 +1204,7 @@ impl Parse for Type {
                 Ok(Type::Primitive(prim))
             } else {
                 if let Some(s) = ctx.struct_types.get(&token.txt) {
-                    return Ok(s.to_type());
+                    return Ok(s.into());
                 }
                 Ok(Type::Trait(token.txt))
             }
@@ -1228,7 +1226,7 @@ impl Parse for Type {
         } else if TokenType::OpenParens == token.t {
             ctx.consume();
 
-            let t = Type::FuncType(FuncType::parse(ctx)?);
+            let t = Type::Func(FuncType::parse(ctx)?);
 
             expect!(TokenType::CloseParens, ctx);
 
@@ -1246,7 +1244,7 @@ impl Parse for FuncType {
         loop {
             let t = Type::parse(ctx)?;
 
-            arguments.push(Box::new(t));
+            arguments.push(t);
 
             if ctx.cur_tok().t != TokenType::Arrow {
                 break;
@@ -1255,7 +1253,7 @@ impl Parse for FuncType {
             ctx.consume();
         }
 
-        let ret = arguments.pop().unwrap();
+        let ret = Box::new(arguments.pop().unwrap());
 
         Ok(FuncType { arguments, ret })
     }

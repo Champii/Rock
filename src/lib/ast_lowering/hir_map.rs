@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{ast::*, hir::FnBodyId, hir::HirId, NodeId};
+use crate::{
+    ast::*,
+    hir::{FnBodyId, HirId},
+};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct HirMap {

@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::resolve::ResolutionMap,
     hir::{HirId, Root},
+    resolver::ResolutionMap,
 };
 
 use self::monomorphizer::Monomorphizer;

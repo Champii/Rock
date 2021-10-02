@@ -1,4 +1,4 @@
-use crate::ast::Type;
+use super::Type;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PrimitiveType {
@@ -32,7 +32,7 @@ impl PrimitiveType {
             Self::Int64 => "Int64".to_string(),
             Self::Float64 => "Float64".to_string(),
             Self::String => "String".to_string(),
-            Self::Array(t, size) => format!("[{}; {}]", t.get_name(), size),
+            Self::Array(t, _size) => format!("[{}]", t.get_name()),
         }
     }
 
@@ -48,5 +48,37 @@ impl PrimitiveType {
             "String" => Some(Self::String),
             _ => None,
         }
+    }
+
+    pub fn is_bool(&self) -> bool {
+        matches!(self, PrimitiveType::Bool)
+    }
+
+    pub fn is_int8(&self) -> bool {
+        matches!(self, PrimitiveType::Int8)
+    }
+
+    pub fn is_int16(&self) -> bool {
+        matches!(self, PrimitiveType::Int16)
+    }
+
+    pub fn is_int32(&self) -> bool {
+        matches!(self, PrimitiveType::Int32)
+    }
+
+    pub fn is_int64(&self) -> bool {
+        matches!(self, PrimitiveType::Int64)
+    }
+
+    pub fn is_float64(&self) -> bool {
+        matches!(self, PrimitiveType::Float64)
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, PrimitiveType::String)
+    }
+
+    pub fn is_array(&self) -> bool {
+        matches!(self, PrimitiveType::Array(_, _))
     }
 }

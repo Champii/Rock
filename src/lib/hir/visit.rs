@@ -1,59 +1,56 @@
-use concat_idents::concat_idents;
+use paste::paste;
 
-use crate::{ast::FuncType, walk_list};
-use crate::{ast::Type, hir::*};
+use crate::{hir::*, ty::*};
 
 macro_rules! generate_visitor_trait {
     ($(
-        $name:ident, $method:ident
-    )*) => {
-        pub trait Visitor<'ast>: Sized {
+        $name:ident
+    )+) => {
+        pub trait Visitor<'hir>: Sized {
             fn visit_name(&mut self, _name: &str) {}
 
             fn visit_primitive<T: std::fmt::Debug + std::fmt::Display>(&mut self, _val: T)
             {}
 
-            $(
-                concat_idents!(fn_name = visit_, $method {
-                    fn fn_name(&mut self, $method: &'ast $name) {
-                        concat_idents!(fn2_name = walk_, $method {
-                            fn2_name(self, $method);
-                        });
+            paste! {
+                $(
+                    fn [<visit_ $name:snake>](&mut self, node: &'hir $name) {
+                        [<walk_ $name:snake>](self, node);
                     }
-                });
-            )*
+                )+
+            }
         }
     };
 }
 
 generate_visitor_trait!(
-    Root, root
-    TopLevel, top_level
-    Trait, r#trait
-    Impl, r#impl
-    Assign, assign
-    AssignLeftSide, assign_left_side
-    Prototype, prototype
-    FunctionDecl, function_decl
-    StructDecl, struct_decl
-    ArgumentDecl, argument_decl
-    IdentifierPath, identifier_path
-    Identifier, identifier
-    FnBody, fn_body
-    Body, body
-    Statement, statement
-    Expression, expression
-    If, r#if
-    Else, r#else
-    FunctionCall, function_call
-    StructCtor, struct_ctor
-    Indice, indice
-    Dot, dot
-    Literal, literal
-    Array, array
-    NativeOperator, native_operator
-    Type, r#type
-    FuncType, func_type
+    Root
+    TopLevel
+    Trait
+    Impl
+    Assign
+    AssignLeftSide
+    Prototype
+    FunctionDecl
+    StructDecl
+    ArgumentDecl
+    IdentifierPath
+    Identifier
+    FnBody
+    Body
+    Statement
+    Expression
+    If
+    Else
+    FunctionCall
+    StructCtor
+    Indice
+    Dot
+    Literal
+    Array
+    NativeOperator
+    Type
+    FuncType
 );
 
 pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {

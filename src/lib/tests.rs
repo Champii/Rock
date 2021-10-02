@@ -131,15 +131,7 @@ fn testcases_basic_bool_false_main() {
 }
 #[test]
 fn testcases_basic_struct_array_field_main() {
-    run("testcases/basic/struct_array_field/main.rk", include_str!("testcases/basic/struct_array_field/main.rk"), include_str!("testcases/basic/struct_array_field/main.rk.out"));
-}
-#[test]
-fn testcases_basic_struct_array_field_main() {
-    run("testcases/basic/struct_array_field/main.rk", include_str!("testcases/basic/struct_array_field/main.rk"), include_str!("testcases/basic/struct_array_field/main.rk.out"));
-}
-#[test]
-fn testcases_basic_struct_array_field_main() {
-    run("testcases/basic/struct_array_field/main.rk", include_str!("testcases/basic/struct_array_field/main.rk"), include_str!("testcases/basic/struct_array_field/main.rk.out"));
+    run("testcases/basic/struct_array_field/main.rk", include_str!("testcases/basic/struct_array_field/main.rk"), include_str!("testcases/basic/struct_array_field/main.rk.out"), include_str!("testcases/basic/struct_array_field/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_main_main() {
