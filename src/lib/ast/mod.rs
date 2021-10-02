@@ -11,3 +11,6 @@ pub use identity::*;
 pub use resolve::resolve;
 pub use tree::*;
 pub use visit::*;
+
+// TODO: Make it the same way as HirId and FnBodyId ?
+pub type NodeId = u64;

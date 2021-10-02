@@ -5,8 +5,9 @@ use crate::{
     diagnostics::{Diagnostic, Diagnostics},
     hir::visit::*,
     hir::*,
+    infer::Envs,
     ty::{FuncType, PrimitiveType, Type},
-    walk_list, walk_map, Envs,
+    walk_list, walk_map,
 };
 
 #[derive(Debug)]

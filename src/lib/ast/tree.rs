@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{ast::identity::Identity, parser::Token};
-use crate::{parser::Span, NodeId};
-
-use crate::ast::resolve::ResolutionMap;
-use crate::generate_has_name;
-use crate::helpers::*;
-
-use crate::ty::{FuncType, Type};
+use crate::{
+    ast::{identity::Identity, resolve::ResolutionMap, NodeId},
+    generate_has_name,
+    helpers::*,
+    parser::{Span, Token},
+    ty::{FuncType, Type},
+};
 
 #[derive(Debug, Clone)]
 pub struct Root {

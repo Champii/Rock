@@ -4,8 +4,8 @@ use crate::{
     ast::resolve::ResolutionMap,
     hir::visit_mut::*,
     hir::*,
+    infer::Env,
     ty::{FuncType, Type},
-    Env,
 };
 
 #[derive(Debug)]

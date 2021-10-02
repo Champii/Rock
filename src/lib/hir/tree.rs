@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::resolve::ResolutionMap,
+    ast::{resolve::ResolutionMap, NodeId},
     ast_lowering::HirMap,
     hir::hir_id::*,
+    infer::Envs,
     parser::Span,
     ty::{FuncType, StructType, Type},
-    Envs, NodeId, TypeId,
 };
 
 use super::{arena::Arena, HasHirId};
@@ -16,9 +16,7 @@ pub struct Root {
     pub arena: Arena,
     pub hir_map: HirMap,
     pub resolutions: ResolutionMap<HirId>,
-    pub node_type_ids: BTreeMap<HirId, TypeId>,
     pub type_envs: Envs,
-    pub types: BTreeMap<TypeId, Type>,
     pub node_types: BTreeMap<HirId, Type>,
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
     pub trait_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,

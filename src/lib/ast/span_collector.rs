@@ -1,9 +1,9 @@
 use paste::paste;
 use std::collections::HashMap;
 
-use crate::{ast::visit::*};
+use crate::ast::visit::*;
+use crate::parser::Span;
 use crate::{ast::visit::Visitor, ast::*};
-use crate::{parser::Span, NodeId};
 
 #[derive(Debug, Default)]
 pub struct SpanCollector {

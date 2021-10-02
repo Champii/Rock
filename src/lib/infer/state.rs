@@ -7,9 +7,7 @@ use crate::{
     ty::*,
 };
 
-pub type NodeId = u64;
-
-pub type TypeId = u64;
+// pub type TypeId = u64;
 
 pub type Env = BTreeMap<HirId, Type>;
 

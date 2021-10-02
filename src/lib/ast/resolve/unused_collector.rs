@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
-use crate::NodeId;
-use crate::{ast::resolve::ResolutionMap, ast::visit::*};
-use crate::{ast::*, walk_list};
+use crate::{
+    ast::*,
+    ast::{resolve::ResolutionMap, visit::*},
+    walk_list,
+};
 
 #[derive(Debug, Default)]
 pub struct UnusedCollector {

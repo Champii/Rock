@@ -23,8 +23,6 @@ use std::path::PathBuf;
 use diagnostics::Diagnostic;
 use parser::{ParsingCtx, SourceFile};
 
-// use crate::helpers::config::PackageMetaData;
-pub use crate::infer::*;
 mod ast_lowering;
 mod codegen;
 pub mod diagnostics;
@@ -35,19 +33,15 @@ mod ty;
 
 pub use crate::helpers::config::Config;
 
-pub fn parse_file(in_name: String, out_name: String, config: &Config) -> Result<(), Diagnostic> {
+pub fn parse_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;
 
     source_file.mod_path = PathBuf::from("root");
 
-    parse_str(&source_file, out_name, config)
+    parse_str(&source_file, config)
 }
 
-pub fn parse_str(
-    input: &SourceFile,
-    _output_name: String,
-    config: &Config,
-) -> Result<(), Diagnostic> {
+pub fn parse_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic> {
     let mut parsing_ctx = ParsingCtx::new(config);
 
     parsing_ctx.add_file(input);
@@ -72,11 +66,6 @@ pub fn parse_str(
     debug!("    -> Lower to LLVM IR");
     let parsing_ctx = codegen::generate(config, parsing_ctx, new_hir)?;
 
-    // debug!("    -> Save MetaData");
-    // PackageMetaData { hir }
-    //     .store(&PathBuf::from("/tmp/test.serde"))
-    //     .unwrap();
-
     parsing_ctx.print_success_diagnostics();
 
     Ok(())
@@ -98,7 +87,7 @@ pub mod test {
             content: input,
         };
 
-        if let Err(_e) = parse_str(&file, "main".to_string(), &config) {
+        if let Err(_e) = parse_str(&file, &config) {
             return false;
         }
 

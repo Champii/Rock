@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
-use crate::walk_list;
 use crate::{
-    ast::resolve::ResolutionMap, ast::visit::*, ast::*, diagnostics::Diagnostic,
-    helpers::scopes::*, parser::ParsingCtx, NodeId,
+    ast::*,
+    ast::{resolve::ResolutionMap, visit::*},
+    diagnostics::Diagnostic,
+    helpers::scopes::*,
+    parser::ParsingCtx,
+    walk_list,
 };
 
 #[derive(Debug)]
