@@ -1,6 +1,6 @@
-# Rock v0.1.6-develop
+# Rock v0.1.6
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -35,10 +35,10 @@ How to install and run the compiler:
 
 Linux x86_64 only
 
-[Rock v0.1.6-develop](https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock) (Tested on arch, btw)
+[Rock v0.1.6](https://github.com/Champii/Rock/releases/download/v0.1.6/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.6/rock
 chmod +x rock
 ./rock -V
 ```
