@@ -1,4 +1,4 @@
-# Rock v0.1.6-develop
+# Rock v0.1.7-develop
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -35,10 +35,10 @@ How to install and run the compiler:
 
 Linux x86_64 only
 
-[Rock v0.1.6-develop](https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock) (Tested on arch, btw)
+[Rock v0.1.7-develop](https://github.com/Champii/Rock/releases/download/v0.1.7-develop/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.6-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.7-develop/rock
 chmod +x rock
 ./rock -V
 ```
