@@ -18,10 +18,6 @@ pub fn generate(
         codegen_ctx.parsing_ctx.return_if_error()?;
     }
 
-    if config.show_ir {
-        codegen_ctx.module.print_to_stderr();
-    }
-
     match codegen_ctx.module.verify() {
         Ok(_) => (),
         Err(e) => {
@@ -29,6 +25,14 @@ pub fn generate(
 
             return Err(Diagnostic::new_empty());
         }
+    }
+
+    if !config.no_optimize {
+        codegen_ctx.optimize();
+    }
+
+    if config.show_ir {
+        codegen_ctx.module.print_to_stderr();
     }
 
     if !codegen_ctx
