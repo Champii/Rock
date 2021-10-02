@@ -43,14 +43,18 @@ chmod +x rock
 ./rock -V
 ```
 
-### With cargo from git
+### From source
+
+You will need LLVM12.0.1 and Clang12.0.1 somewhere in your $PATH
+
+#### With cargo from git
 
 ``` sh
 cargo install --git https://github.com/Champii/Rock
 rock -V
 ```
 
-### From sources
+#### Manual checkout and build from git
 
 ``` sh
 git clone https://github.com/Champii/Rock.git
