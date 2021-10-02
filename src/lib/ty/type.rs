@@ -28,6 +28,24 @@ impl PartialEq for Type {
     }
 }
 
+macro_rules! generate_primitive_is_check {
+    ($e:tt) => {
+        pub fn $e(&self) -> bool {
+            self.try_as_primitive_type()
+                .map(|p| p.$e())
+                .unwrap_or(false)
+        }
+    };
+}
+
+macro_rules! generate_primitive_checks {
+    ($($e:tt),+) => {
+        $(
+            generate_primitive_is_check!($e);
+        )+
+    };
+}
+
 impl Type {
     pub fn int64() -> Self {
         Self::Primitive(PrimitiveType::Int64)
@@ -52,53 +70,9 @@ impl Type {
         matches!(self, Self::Primitive(_x))
     }
 
-    pub fn is_bool(&self) -> bool {
-        self.is_primitive()
-            .then(|| self.as_primitive().is_bool())
-            .unwrap_or(false)
-    }
-
-    pub fn is_int8(&self) -> bool {
-        self.is_primitive()
-            .then(|| self.as_primitive().is_int8())
-            .unwrap_or(false)
-    }
-
-    pub fn is_int16(&self) -> bool {
-        self.is_primitive()
-            .then(|| self.as_primitive().is_int16())
-            .unwrap_or(false)
-    }
-
-    pub fn is_int32(&self) -> bool {
-        self.is_primitive()
-            .then(|| self.as_primitive().is_int32())
-            .unwrap_or(false)
-    }
-
-    pub fn is_int64(&self) -> bool {
-        self.is_primitive()
-            .then(|| self.as_primitive().is_int64())
-            .unwrap_or(false)
-    }
-
-    pub fn is_float64(&self) -> bool {
-        self.is_primitive()
-            .then(|| self.as_primitive().is_float64())
-            .unwrap_or(false)
-    }
-
-    pub fn is_string(&self) -> bool {
-        self.is_primitive()
-            .then(|| self.as_primitive().is_string())
-            .unwrap_or(false)
-    }
-
-    pub fn is_array(&self) -> bool {
-        self.is_primitive()
-            .then(|| self.as_primitive().is_array())
-            .unwrap_or(false)
-    }
+    generate_primitive_checks!(
+        is_bool, is_int8, is_int16, is_int32, is_float64, is_string, is_array
+    );
 
     pub fn is_struct(&self) -> bool {
         matches!(self, Self::Struct(_x))
@@ -143,11 +117,32 @@ impl Type {
         }
     }
 
-    pub fn as_primitive(&self) -> PrimitiveType {
+    pub fn as_primitive_type(&self) -> PrimitiveType {
         if let Type::Primitive(p) = self {
             p.clone()
         } else {
             panic!("Not a primitive");
+        }
+    }
+
+    pub fn try_as_struct_type(&self) -> Option<StructType> {
+        match self {
+            Type::Struct(t) => Some(t.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_func_type(&self) -> Option<FuncType> {
+        match self {
+            Type::Func(f) => Some(f.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_primitive_type(&self) -> Option<PrimitiveType> {
+        match self {
+            Type::Primitive(p) => Some(p.clone()),
+            _ => None,
         }
     }
 }
