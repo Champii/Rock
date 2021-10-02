@@ -29,10 +29,14 @@ pub fn interpret(codegen_ctx: &CodegenContext) {
     prompt();
 
     for line in stdin.lock().lines() {
-        let line = line.as_ref().unwrap().clone();
+        let mut line = line.as_ref().unwrap().clone();
 
         if line == "exit" || line == "quit" {
             break;
+        }
+
+        if line.starts_with("print ") {
+            line = line.iter().drop(6).collect();
         }
 
         commands.push("  ".to_owned() + &line);
