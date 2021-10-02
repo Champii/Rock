@@ -1,9 +1,6 @@
 use std::{collections::HashMap, convert::TryInto};
 
-use crate::ast::*;
-use crate::parser::*;
-use crate::ty::*;
-use crate::{ast::resolve::ResolutionMap, diagnostics::Diagnostic};
+use crate::{ast::*, diagnostics::Diagnostic, parser::*, resolver::ResolutionMap, ty::*};
 
 type Error = Diagnostic;
 

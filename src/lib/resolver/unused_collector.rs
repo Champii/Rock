@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    ast::*,
-    ast::{resolve::ResolutionMap, visit::*},
-};
+use crate::{ast::*, resolver::ResolutionMap};
 
 #[derive(Debug, Default)]
 pub struct UnusedCollector {

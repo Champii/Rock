@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{identity::Identity, resolve::ResolutionMap, NodeId},
+    ast::{identity::Identity, NodeId},
     helpers::*,
     parser::{Span, Token},
+    resolver::ResolutionMap,
     ty::{FuncType, Type},
 };
 

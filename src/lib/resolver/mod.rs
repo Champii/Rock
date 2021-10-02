@@ -1,3 +1,11 @@
+use crate::{
+    ast::{span_collector::SpanCollector, visit::*, IdentifierPath, Root},
+    diagnostics::Diagnostic,
+    helpers::scopes::Scopes,
+    parser::ParsingCtx,
+    resolver::unused_collector::UnusedCollector,
+};
+
 mod resolution_map;
 mod resolve_ctx;
 mod unused_collector;
@@ -6,15 +14,6 @@ use std::collections::HashMap;
 
 pub use resolution_map::*;
 pub use resolve_ctx::*;
-
-use crate::{
-    ast::{resolve::unused_collector::UnusedCollector, visit::*},
-    diagnostics::Diagnostic,
-    helpers::scopes::Scopes,
-    parser::ParsingCtx,
-};
-
-use super::{span_collector::SpanCollector, IdentifierPath, Root};
 
 pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diagnostic> {
     let mut scopes = HashMap::new();
@@ -39,8 +38,6 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
 
     let (mut unused_fns, unused_methods) = unused_ctx.take_unused();
 
-    // println!("unused {:?}", unused);
-
     let mut span_collector = SpanCollector::new();
 
     span_collector.visit_root(root);
@@ -56,8 +53,6 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
     }
 
     unused_fns.extend(unused_methods);
-
-    // root.r#mod.filter_unused_top_levels(unused_fns);
 
     parsing_ctx.return_if_error()
 }

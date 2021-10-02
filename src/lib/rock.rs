@@ -11,6 +11,8 @@ extern crate log;
 #[macro_use]
 extern crate concat_idents;
 
+use std::path::PathBuf;
+
 #[macro_use]
 mod helpers;
 
@@ -19,20 +21,18 @@ mod ast;
 #[macro_use]
 mod infer;
 
-use std::path::PathBuf;
-
-use diagnostics::Diagnostic;
-use parser::{ParsingCtx, SourceFile};
-
 mod ast_lowering;
 mod codegen;
 pub mod diagnostics;
 mod hir;
 mod parser;
+mod resolver;
 mod tests;
 mod ty;
 
-pub use crate::helpers::config::Config;
+use diagnostics::Diagnostic;
+pub use helpers::config::Config;
+use parser::{ParsingCtx, SourceFile};
 
 pub fn parse_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;
@@ -53,7 +53,7 @@ pub fn parse_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic> 
 
     // Name resolving
     debug!("    -> Resolving");
-    ast::resolve(&mut ast, &mut parsing_ctx)?;
+    resolver::resolve(&mut ast, &mut parsing_ctx)?;
 
     // Lowering to HIR
     debug!("    -> Lowering to HIR");

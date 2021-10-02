@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::*,
-    ast::{resolve::ResolutionMap, visit::*},
+    ast::{visit::*, *},
     diagnostics::Diagnostic,
     helpers::scopes::*,
     parser::ParsingCtx,
+    resolver::ResolutionMap,
 };
 
 #[derive(Debug)]

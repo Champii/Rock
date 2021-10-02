@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::resolve::ResolutionMap,
     hir::visit_mut::*,
     hir::*,
     infer::Env,
+    resolver::ResolutionMap,
     ty::{FuncType, Type},
 };
 

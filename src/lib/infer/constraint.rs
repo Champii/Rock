@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    ast::resolve::ResolutionMap,
     diagnostics::{Diagnostic, Diagnostics},
     hir::visit::*,
     hir::*,
     infer::Envs,
+    resolver::ResolutionMap,
     ty::{FuncType, PrimitiveType, Type},
 };
 

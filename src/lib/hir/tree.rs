@@ -1,11 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{resolve::ResolutionMap, NodeId},
+    ast::NodeId,
     ast_lowering::HirMap,
     hir::hir_id::*,
     infer::Envs,
     parser::Span,
+    resolver::ResolutionMap,
     ty::{FuncType, StructType, Type},
 };
 
