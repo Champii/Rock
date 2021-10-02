@@ -54,14 +54,16 @@ impl ParsingCtx {
             let diag_type_str = format!(
                 "{}{}{}",
                 "[".bright_black(),
-                "Success".yellow(),
+                "Success".green(),
                 "]".bright_black(),
             );
+
             println!(
-                "{} {} {} with {} {}",
+                "{} {} {} {} {} {}",
                 diag_type_str,
                 "Compilation".bright_black(),
                 "successful".bright_green(),
+                "with".bright_black(),
                 self.diagnostics.list.len().to_string().yellow(),
                 "warnings".bright_yellow(),
             );
@@ -72,6 +74,7 @@ impl ParsingCtx {
                 "Success".green(),
                 "]".bright_black(),
             );
+
             println!(
                 "{} {}",
                 diag_type_str,

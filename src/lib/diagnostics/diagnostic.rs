@@ -163,7 +163,7 @@ impl Diagnostic {
         let line_colored = format!(
             "{}{}{}",
             &line_colored[..line_start],
-            color_bright(
+            color(
                 line_colored[line_start..=(line_start + (self.span.end - self.span.start) + 1)]
                     .to_string()
             ),
@@ -181,7 +181,7 @@ impl Diagnostic {
             line_colored,
             "",
             "|".bright_black(),
-            color(arrow),
+            color_bright(arrow),
         );
     }
 

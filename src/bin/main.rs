@@ -89,53 +89,62 @@ fn main() {
             Arg::with_name("verbose")
                 .takes_value(false)
                 .short("v")
+                .long("verbose")
                 .help("Verbose level"),
         )
         .arg(
             Arg::with_name("tokens")
                 .short("t")
+                .long("tokens")
                 .takes_value(false)
                 .help("Show tokens"),
         )
         .arg(
             Arg::with_name("ast")
                 .short("a")
+                .long("ast")
                 .takes_value(false)
                 .help("Show ast"),
         )
         .arg(
             Arg::with_name("hir")
                 .short("h")
+                .long("hir")
                 .takes_value(false)
                 .help("Show hir"),
         )
         .arg(
             Arg::with_name("no-optimize")
                 .short("N")
+                .long("no-optimize")
                 .takes_value(false)
                 .help("Disable LLVM optimization passes"),
         )
         .arg(
             Arg::with_name("repl")
                 .short("r")
+                .long("repl")
                 .takes_value(false)
                 .help("Run a REPL interpreter (ALPHA)"),
         )
         .arg(
             Arg::with_name("ir")
                 .short("i")
+                .long("ir")
                 .takes_value(false)
                 .help("Show the generated IR"),
         )
         .arg(
             Arg::with_name("state")
                 .short("s")
+                .long("state")
                 .takes_value(false)
-                .help("Show the InferContext state before solve"),
+                .help("Show the InferContext state before solve (DEPRECATED)"),
         )
         .arg(
             Arg::with_name("output-folder")
                 .short("o")
+                .long("output-folder")
                 .takes_value(true)
                 .default_value("./build")
                 .help("Choose a different output folder"),
@@ -163,6 +172,8 @@ fn main() {
         build(&config);
     } else if let Some(_matches) = matches.subcommand_matches("run") {
         run(config);
+    } else if config.repl {
+        run(config)
     } else {
         println!("{}", matches.usage());
     }
