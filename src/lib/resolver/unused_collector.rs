@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crate::NodeId;
-use crate::{ast::resolve::ResolutionMap, ast::visit::*};
-use crate::{ast::*, walk_list};
+use crate::{ast::*, resolver::ResolutionMap};
 
 #[derive(Debug, Default)]
 pub struct UnusedCollector {
@@ -99,4 +97,12 @@ impl<'a> Visitor<'a> for UnusedCollector {
             }
         }
     }
+}
+
+pub fn collect_unused(root: &Root) -> (Vec<NodeId>, Vec<NodeId>) {
+    let mut unused_collector = UnusedCollector::new(root.resolutions.clone());
+
+    unused_collector.visit_root(root);
+
+    unused_collector.take_unused()
 }

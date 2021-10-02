@@ -11,11 +11,11 @@ use inkwell::{
 };
 
 use crate::{
-    ast::{PrimitiveType, Type},
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
     hir::*,
     parser::ParsingCtx,
+    ty::{PrimitiveType, Type},
 };
 
 pub struct CodegenContext<'a> {
@@ -59,7 +59,7 @@ impl<'a> CodegenContext<'a> {
                     .ptr_type(AddressSpace::Generic)
                     .into()
             }
-            Type::FuncType(f) => {
+            Type::Func(f) => {
                 let ret_t = f.ret.clone();
 
                 let args = f
@@ -119,7 +119,7 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_prototype(&mut self, p: &'a Prototype, builder: &'a Builder) -> Result<(), ()> {
         let t = self.hir.node_types.get(&p.hir_id).unwrap();
 
-        if let Type::FuncType(f_type) = t {
+        if let Type::Func(f_type) = t {
             let ret_t = f_type.ret.clone();
 
             let mut args = vec![];
@@ -170,7 +170,7 @@ impl<'a> CodegenContext<'a> {
 
         let t = self.hir.node_types.get(&f.hir_id).unwrap();
 
-        if let Type::FuncType(f_type) = t {
+        if let Type::Func(f_type) = t {
             let ret_t = f_type.ret.clone();
 
             let args = f
@@ -406,7 +406,7 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         let t = self.hir.node_types.get(&s.get_hir_id()).unwrap();
-        let struct_t = t.into_struct_type();
+        let struct_t = t.as_struct_type();
 
         let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
         let llvm_struct_t = llvm_struct_t_ptr.get_element_type().into_struct_type();
@@ -525,7 +525,7 @@ impl<'a> CodegenContext<'a> {
 
         let t = self.hir.node_types.get(&dot.op.get_hir_id()).unwrap();
 
-        let struct_t = t.into_struct_type();
+        let struct_t = t.as_struct_type();
 
         let indice = struct_t
             .defs
@@ -626,7 +626,6 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
-        // println!("SCOPES {:#?}", self.scopes);
         let val = match self.scopes.get(reso) {
             None => {
                 let span = self

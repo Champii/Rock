@@ -1,4 +1,3 @@
-#[macro_export]
 macro_rules! walk_list {
     ($visitor: expr, $method: ident, $list: expr) => {
         for elem in $list {
@@ -13,7 +12,6 @@ macro_rules! walk_list {
     }
 }
 
-#[macro_export]
 macro_rules! walk_map {
     ($visitor: expr, $method: ident, $list: expr) => {
         for (_, elem) in $list {

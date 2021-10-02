@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     ast::*,
     hir::{self, Arena, FnBodyId, HirId},
-    Envs,
+    infer::Envs,
+    ty::*,
 };
 
 use super::{hir_map::HirMap, return_placement::ReturnInserter, InfixDesugar};
@@ -38,10 +39,8 @@ impl AstLoweringContext {
             arena: Arena::new(),
             hir_map: self.hir_map.clone(),
             resolutions: root.resolutions.lower_resolution_map(&self.hir_map),
-            node_type_ids: BTreeMap::new(),
             type_envs: Envs::default(),
             node_types: BTreeMap::new(),
-            types: BTreeMap::new(),
             top_levels: self.top_levels.clone(),
             bodies: self.bodies.clone(),
             traits: self.traits.clone(),

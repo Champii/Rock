@@ -8,13 +8,13 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 
 # VTable
 - [Features]( #features )
-- [Development notes]( #development-notes )
 - [Install]( #install )
     - [Using released binary]( #using-released-binary )
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
 - [Showcases]( #showcases )
+- [Development notes]( #development-notes )
 
 ## Features
 
@@ -24,12 +24,6 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Typeclass (Traits)
 - Parametric Polymorphism by default
 - Compile to LLVM IR
-
-## Development notes
-
-This project, its syntax and its APIs are subject to change at any moment.  
-This is a personal project, so please bear with me  
-(Differently put: this is a big red hot pile of experimental garbage right now)
 
 ## Install
 
@@ -217,3 +211,9 @@ rock run
 ```
 
 Prints `MyName`
+
+## Development notes
+
+This project, its syntax and its APIs are subject to change at any moment.  
+This is a personal project, so please bear with me  
+(Differently put: this is a big red hot pile of experimental garbage right now)

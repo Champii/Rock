@@ -2,7 +2,6 @@ pub trait HasName {
     fn get_name(&self) -> String;
 }
 
-#[macro_export]
 macro_rules! generate_has_name {
     ($class:tt) => {
         impl HasName for $class {

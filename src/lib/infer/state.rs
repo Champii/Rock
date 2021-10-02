@@ -1,15 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{FuncType, Type},
     diagnostics::{Diagnostic, Diagnostics},
     hir::*,
     parser::Span,
+    ty::*,
 };
-
-pub type NodeId = u64;
-
-pub type TypeId = u64;
 
 pub type Env = BTreeMap<HirId, Type>;
 
@@ -79,7 +75,7 @@ impl Envs {
             .insert(dest.clone(), src.clone());
 
         match (src, previous.clone()) {
-            (Type::FuncType(src_f), Some(Type::FuncType(prev_f))) if !src_f.eq(&prev_f) => {
+            (Type::Func(src_f), Some(Type::Func(prev_f))) if !src_f.eq(&prev_f) => {
                 if prev_f.is_solved() && src_f.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
                         self.spans.get(dest).unwrap().clone(),
@@ -126,6 +122,7 @@ impl Envs {
             });
     }
 
+    #[allow(dead_code)]
     pub fn get_fn_types(&self, f: &HirId) -> Option<&HashMap<FuncType, Env>> {
         self.fns.get(f)
     }
@@ -134,6 +131,7 @@ impl Envs {
         &self.fns
     }
 
+    #[allow(dead_code)]
     pub fn add_empty(&mut self, hir_id: &HirId) {
         self.fns.entry(hir_id.clone()).or_insert_with(HashMap::new);
     }

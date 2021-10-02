@@ -1,10 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{resolve::ResolutionMap, FuncType, Type},
     hir::visit_mut::*,
     hir::*,
-    Env,
+    infer::Env,
+    resolver::ResolutionMap,
+    ty::{FuncType, Type},
 };
 
 #[derive(Debug)]
@@ -43,14 +44,12 @@ impl<'a> Monomorphizer<'a> {
 
         for top in &prototypes {
             if let TopLevelKind::Prototype(p) = &top.kind {
-                let f_type = p.signature.clone();
+                let f_type: Type = p.signature.clone().into();
 
                 self.root
                     .node_types
-                    .insert(p.hir_id.clone(), Type::FuncType(f_type.clone()));
-                self.root
-                    .node_types
-                    .insert(p.name.hir_id.clone(), Type::FuncType(f_type.clone()));
+                    .insert(p.hir_id.clone(), f_type.clone());
+                self.root.node_types.insert(p.name.hir_id.clone(), f_type);
             }
         }
 
@@ -315,7 +314,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             HirNode::Prototype(p) => {
                 let f_type = self.root.type_envs.get_type(&old_fc_op).unwrap();
 
-                if let Type::FuncType(f_type) = f_type {
+                if let Type::Func(f_type) = f_type {
                     // Traits
                     if let Some(f) = self.root.get_trait_method((*p.name).clone(), f_type) {
                         if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {
@@ -327,10 +326,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                                 fc.op.get_hir_id(),
                                 f.hir_id,
                             );
-                            // self.new_resolutions.insert(
-                            //     fc.op.get_hir_id(),
-                            //     self.resolve(&f.hir_id.clone()).unwrap(),
-                            // );
                         }
                     // Extern Prototypes
                     } else {
@@ -344,12 +339,12 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             _ => {
                 // FIXME: This may be bad
                 // self.new_resolutions
-                //     .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
+                // .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
             }
         }
 
         for (i, arg) in fc.args.iter().enumerate() {
-            if let Type::FuncType(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
+            if let Type::Func(f) = self.root.node_types.get(&arg.get_hir_id()).unwrap() {
                 if let Some(reso) = self.resolve(old_fc_args.get(i).unwrap()) {
                     self.new_resolutions.insert(
                         arg.get_hir_id(),
@@ -362,7 +357,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     println!("NO RESO FOR {:#?}", arg.get_hir_id())
                 }
 
-                self.trans_resolutions.remove(&old_fc_args.get(i).unwrap());
+                self.trans_resolutions.remove(old_fc_args.get(i).unwrap());
             }
         }
     }
@@ -415,7 +410,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         s.defs.iter().for_each(|p| {
             let t = *s
                 .to_type()
-                .into_struct_type()
+                .as_struct_type()
                 .defs
                 .get(&p.name.name)
                 .unwrap()
@@ -443,7 +438,36 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
         self.trans_resolutions.insert(old_hir_id, s.hir_id.clone());
 
-        walk_struct_ctor(self, s);
+        self.visit_type(&mut s.name);
+
+        s.defs = s
+            .defs
+            .iter_mut()
+            .map(|(old_k, def)| {
+                let mut k = old_k.clone();
+                self.visit_identifier(&mut k);
+                let old_def_id = def.get_hir_id();
+                self.visit_expression(def);
+
+                if let Type::Func(ft) = self.root.node_types.get(&def.get_hir_id()).unwrap() {
+                    if let Some(reso) = self.resolve(&old_def_id) {
+                        if let HirNode::FunctionDecl(_f2) = self.root.arena.get(&reso).unwrap() {
+                            self.new_resolutions.insert(
+                                def.get_hir_id(),
+                                self.generated_fn_hir_id
+                                    .get(&(reso, ft.clone()))
+                                    .unwrap()
+                                    .clone(),
+                            );
+
+                            self.trans_resolutions.remove(&old_def_id);
+                        } else {
+                        }
+                    }
+                }
+                (k, def.clone())
+            })
+            .collect();
     }
 
     fn visit_identifier(&mut self, id: &'a mut Identifier) {

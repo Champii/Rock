@@ -1,11 +1,13 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{resolve::ResolutionMap, FuncType, StructType, Type},
+    ast::NodeId,
     ast_lowering::HirMap,
     hir::hir_id::*,
+    infer::Envs,
     parser::Span,
-    Envs, NodeId, TypeId,
+    resolver::ResolutionMap,
+    ty::{FuncType, StructType, Type},
 };
 
 use super::{arena::Arena, HasHirId};
@@ -15,9 +17,7 @@ pub struct Root {
     pub arena: Arena,
     pub hir_map: HirMap,
     pub resolutions: ResolutionMap<HirId>,
-    pub node_type_ids: BTreeMap<HirId, TypeId>,
     pub type_envs: Envs,
-    pub types: BTreeMap<TypeId, Type>,
     pub node_types: BTreeMap<HirId, Type>,
     pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
     pub trait_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,
@@ -34,6 +34,7 @@ impl Root {
             .find(|top| top.get_terminal_hir_id() == hir_id)
     }
 
+    #[allow(dead_code)]
     pub fn get_trait_by_method(&self, ident: String) -> Option<Trait> {
         self.traits
             .iter()
@@ -55,11 +56,12 @@ impl Root {
             })
     }
 
+    #[allow(dead_code)]
     pub fn match_trait_method(&self, ident: String, applied_type: &Type) -> Option<FunctionDecl> {
         let map = self.trait_methods.get(&ident)?;
 
         map.iter()
-            .find(|(sig, _)| *sig.arguments[0] == *applied_type)
+            .find(|(sig, _)| sig.arguments[0] == *applied_type)
             .map(|(_, fn_decl)| fn_decl.clone())
     }
 
@@ -76,6 +78,7 @@ impl Root {
             })
     }
 
+    #[allow(dead_code)]
     pub fn get_function_by_mangled_name(&self, name: &str) -> Option<FunctionDecl> {
         self.top_levels
             .iter()
@@ -112,6 +115,7 @@ impl Root {
             })
     }
 
+    #[allow(dead_code)]
     pub fn get_type(&self, hir_id: HirId) -> Option<Type> {
         self.type_envs.get_type(&hir_id).cloned()
     }
@@ -133,7 +137,6 @@ pub struct Mod {
 pub struct Trait {
     pub name: Type,
     pub types: Vec<Type>,
-    // pub impls: HashMap<Identifier, HashMap<Type, FunctionDecl>>,
     pub defs: Vec<Prototype>,
 }
 
@@ -164,7 +167,7 @@ impl StructDecl {
                     } else {
                         (
                             proto.name.name.clone(),
-                            Box::new(Type::FuncType(proto.signature.clone())),
+                            Box::new(Type::Func(proto.signature.clone())),
                         )
                     }
                 })
@@ -183,7 +186,6 @@ pub struct StructCtor {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TopLevel {
     pub kind: TopLevelKind,
-    // pub hir_id: HirId,
 }
 
 impl TopLevel {
@@ -254,30 +256,8 @@ pub struct IdentifierPath {
 }
 
 impl IdentifierPath {
-    pub fn parent(&self) -> Self {
-        let mut parent = self.clone();
-
-        if parent.path.len() > 1 {
-            parent.path.pop();
-        }
-
-        parent
-    }
-
-    pub fn child(&self, name: Identifier) -> Self {
-        let mut child = self.clone();
-
-        child.path.push(name);
-
-        child
-    }
-
     pub fn last_segment(&self) -> Identifier {
         self.path.iter().last().unwrap().clone()
-    }
-
-    pub fn last_segment_ref(&self) -> &Identifier {
-        self.path.iter().last().unwrap()
     }
 
     pub fn get_terminal_hir_id(&self) -> HirId {
@@ -317,13 +297,6 @@ impl FnBody {
             name: format!("{}_{}", self.name.name, prefixes.join("_")),
             hir_id: self.name.hir_id.clone(),
         });
-    }
-
-    pub fn get_name(&self) -> Identifier {
-        match &self.mangled_name {
-            Some(name) => name.clone(),
-            None => self.name.clone(),
-        }
     }
 }
 
@@ -396,12 +369,6 @@ pub struct If {
     pub predicat: Expression,
     pub body: Body,
     pub else_: Option<Box<Else>>,
-}
-
-impl If {
-    pub fn get_terminal_hir_id(&self) -> HirId {
-        self.hir_id.clone()
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -481,6 +448,8 @@ impl Expression {
             panic!("Not an identifier");
         }
     }
+
+    #[allow(dead_code)]
     pub fn as_literal(&self) -> Literal {
         if let ExpressionKind::Lit(l) = &*self.kind {
             l.clone()
@@ -525,13 +494,11 @@ pub struct FunctionCall {
 
 impl FunctionCall {
     pub fn mangle(&mut self, prefixes: Vec<String>) {
-        match &mut *self.op.kind {
-            ExpressionKind::Identifier(id) => {
-                let identifier = id.path.iter_mut().last().unwrap();
+        if let ExpressionKind::Identifier(id) = &mut *self.op.kind {
+            let identifier = id.path.iter_mut().last().unwrap();
 
-                identifier.name = format!("{}_{}", identifier.name, &prefixes.join("_"));
-            }
-            _ => unimplemented!("Need to recurse on expr"), // FIXME: recurse on '(expr)' parenthesis expression
+            identifier.name = format!("{}_{}", identifier.name, &prefixes.join("_"));
+            // _ => unimplemented!("Need to recurse on expr {:#?}", self), // FIXME: recurse on '(expr)' parenthesis expression
         }
     }
 
