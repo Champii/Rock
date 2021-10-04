@@ -2,6 +2,7 @@ mod num
 mod eq
 mod show
 mod print
+mod fs
 # mod helpers
 
 mod prelude

@@ -58,6 +58,10 @@ fn testcases_mods_func_arg_resolution_main() {
     run("testcases/mods/func_arg_resolution/main.rk", include_str!("testcases/mods/func_arg_resolution/main.rk"), include_str!("testcases/mods/func_arg_resolution/main.rk.out"), include_str!("testcases/mods/func_arg_resolution/main.rk.stdout"));
 }
 #[test]
+fn testcases_mods_struct_new_main() {
+    run("testcases/mods/struct_new/main.rk", include_str!("testcases/mods/struct_new/main.rk"), include_str!("testcases/mods/struct_new/main.rk.out"), include_str!("testcases/mods/struct_new/main.rk.stdout"));
+}
+#[test]
 fn testcases_mods_basic_mod_main() {
     run("testcases/mods/basic_mod/main.rk", include_str!("testcases/mods/basic_mod/main.rk"), include_str!("testcases/mods/basic_mod/main.rk.out"), include_str!("testcases/mods/basic_mod/main.rk.stdout"));
 }

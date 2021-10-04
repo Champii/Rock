@@ -2,6 +2,7 @@
 pub mod ast_print;
 
 mod identity;
+pub mod return_placement;
 pub mod span_collector;
 mod tree;
 pub mod visit;

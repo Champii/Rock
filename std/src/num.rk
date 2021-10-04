@@ -20,3 +20,15 @@ impl Num Float64
     - c d = ~FSub c d
     * c d = ~FMul c d
     / c d = ~FDiv c d
+
+extern malloc :: Int64 -> String
+extern strlen :: String -> Int64
+extern strcat :: String -> String -> String
+extern strcpy :: String -> String -> String
+
+impl Num String
+    + a b =
+        let s = malloc (strlen a + strlen b)
+        strcpy s, a
+        strcat s, b
+        s

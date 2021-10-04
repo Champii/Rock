@@ -610,7 +610,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
     fn visit_identifier(&mut self, id: &Identifier) {
         // We set the type to resolution if any
-        if let Some(reso) = self.resolve_rec(&id.hir_id) {
+        if let Some(reso) = self.resolve(&id.hir_id) {
             if self.envs.get_type(&reso).is_some() {
                 self.envs.set_type_eq(&id.get_hir_id(), &reso);
             }

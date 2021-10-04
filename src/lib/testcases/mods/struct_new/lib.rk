@@ -1,0 +1,8 @@
+struct Foo
+  i :: Int64
+  s :: String
+
+new_foo str =
+  Foo
+    i: 42
+    s: str

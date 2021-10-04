@@ -14,12 +14,28 @@ impl<'a> ReturnInserter<'a> {
     }
 
     fn visit_body(&mut self, body: &mut Body) {
+        // let mut is_assign = None;
+
         if let Some(stmt) = body.stmts.iter_mut().last() {
-            self.visit_statement(stmt)
+            // if let StatementKind::Assign(ref mut a) = *stmt.kind.clone() {
+            //     is_assign = Some(a.clone());
+            // }
+
+            self.visit_statement(stmt);
         }
+
+        // if let Some(a) = is_assign {
+        //     body.stmts.push(Statement {
+        //         kind: Box::new(StatementKind::Expression(Box::new(Expression {
+        //             kind: ExpressionKind::Return(Box::new(a.name.as_expression())),
+        //         }))),
+        //     });
+        // }
     }
 
     fn visit_statement(&mut self, stmt: &mut Statement) {
+        let mut is_assign = None;
+
         match *stmt.kind {
             StatementKind::Expression(ref mut e) => {
                 e.kind = ExpressionKind::Return(e.clone());
@@ -28,8 +44,16 @@ impl<'a> ReturnInserter<'a> {
                 self.visit_if(i);
             }
             StatementKind::Assign(ref mut a) => {
-                a.value.kind = ExpressionKind::Return(Box::new(a.value.clone()));
+                is_assign = Some(a.value.clone());
             }
+        }
+
+        // FIXME: do this only if a.name is Identifier
+        // or else return the ident
+        if let Some(value) = is_assign {
+            stmt.kind = Box::new(StatementKind::Expression(Box::new(Expression {
+                kind: ExpressionKind::Return(Box::new(value.clone())),
+            })));
         }
     }
 

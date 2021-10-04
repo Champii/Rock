@@ -249,6 +249,22 @@ pub enum AssignLeftSide {
     Indice(Expression),
     Dot(Expression),
 }
+
+impl AssignLeftSide {
+    pub fn as_expression(&self) -> Expression {
+        match self {
+            AssignLeftSide::Identifier(i) => Expression {
+                kind: ExpressionKind::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+                    op: Operand::from_identifier(i),
+                    identity: i.identity.clone(),
+                    secondaries: None,
+                })),
+            },
+            AssignLeftSide::Indice(i) => i.clone(),
+            AssignLeftSide::Dot(d) => d.clone(),
+        }
+    }
+}
 // impl AssignLeftSide {
 //     pub fn get_node_id(&self) -> NodeId {
 //         use AssignLeftSide::*;

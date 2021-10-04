@@ -1,0 +1,35 @@
+extern open :: String -> Int64 -> Int64 -> Int64
+extern close :: Int64 -> Int64
+extern strtol :: String -> Int64 -> Int64 -> Int64
+extern read :: Int64 -> String -> Int64 -> Int64
+extern malloc :: Int64 -> String
+
+use super::print::print
+use super::show::show
+use super::num::*
+use super::eq::*
+
+struct File
+  fd :: Int64
+  path :: String
+
+impl Show File
+  show f =
+    "File { fd: " + show f.fd + ", path: " + f.path + " }"
+
+oct_to_dec oct = strtol oct, 0, 8
+
+new_file p =
+  let f = open p, 0, oct_to_dec "0777"
+  File
+    fd: f
+    path: p
+
+read_file f =
+  let s = malloc 100
+  let len = read f.fd, s, 100
+  s
+
+
+close_file f =
+  close f.fd
