@@ -1,6 +1,6 @@
 # Rock v0.1.7
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
