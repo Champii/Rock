@@ -31,7 +31,17 @@ impl SourceFile {
         })
     }
 
-    pub fn from_expr(top_levels: String, expr: String) -> Result<Self, Diagnostic> {
+    pub fn from_expr(
+        top_levels: String,
+        mut expr: String,
+        do_print: bool,
+    ) -> Result<Self, Diagnostic> {
+        let print_str = if do_print { "print " } else { "" };
+
+        if expr.is_empty() {
+            expr = "  0".to_string();
+        }
+
         let top_levels = r##"mod lib
 use lib::prelude::*
 "##
@@ -40,7 +50,8 @@ use lib::prelude::*
             + &r##"
 
 main =
-  print custom()
+  "## + &print_str.to_string()
+            + &r##"custom()
   0
 custom =
 "##

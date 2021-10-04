@@ -158,17 +158,23 @@ impl Diagnostic {
             ":".bright_black(),
         );
 
-        let line_colored = lines[line - 1].iter().cloned().collect::<String>();
+        let line_span_start = line_start;
+        let mut line_span_stop = line_start + (self.span.end - self.span.start) + 1;
 
-        let line_colored = format!(
-            "{}{}{}",
-            &line_colored[..line_start],
-            color(
-                line_colored[line_start..=(line_start + (self.span.end - self.span.start) + 1)]
-                    .to_string()
-            ),
-            &line_colored[(line_start + (self.span.end - self.span.start) + 2)..],
-        );
+        let line_colored = lines[line - 1].iter().cloned().collect::<String>();
+        if line_span_stop > line_colored.len() {
+            line_span_stop = line_colored.len() - 1;
+        }
+
+        let first_part = &line_colored[..line_span_start];
+        let colored_part = color(line_colored[line_span_start..=line_span_stop].to_string());
+        let last_part = if line_span_stop + 1 >= line_colored.len() {
+            String::new()
+        } else {
+            line_colored[line_span_stop + 1..].to_owned()
+        };
+
+        let line_colored = format!("{}{}{}", first_part, colored_part, last_part,);
 
         println!(
             "{}\n{}\n{:>4} {}\n{:>4} {} {}\n{:>4} {} {}",

@@ -1,11 +1,12 @@
 use colored::*;
+use rustyline::{error::ReadlineError, Editor};
+
 use inkwell::{
     builder::Builder,
     context::Context,
     targets::{InitializationConfig, Target},
     OptimizationLevel,
 };
-use rustyline::{error::ReadlineError, Editor};
 
 use crate::{
     parser::{ParsingCtx, SourceFile},
@@ -82,7 +83,19 @@ fn process_line(
         line.replace_range(0..6, "");
     }
 
-    if line.starts_with("use ") || line.starts_with("mod ") {
+    let mut is_top_level = false;
+
+    // FIXME: dirty hack to know if this is a function
+    let line_parts = line.split("=").collect::<Vec<_>>();
+    if line_parts.len() > 1 && line_parts[0].split(" ").count() > 1 {
+        is_top_level = true;
+    } else {
+        if line.starts_with("use ") || line.starts_with("mod ") {
+            is_top_level = true;
+        }
+    }
+
+    if is_top_level {
         top_levels.push(line.clone());
     } else {
         commands.push("  ".to_owned() + &line);
@@ -90,14 +103,19 @@ fn process_line(
 
     let mut parsing_ctx = ParsingCtx::new(&config);
 
-    let src = SourceFile::from_expr(commands.join("\n"), top_levels.join("\n")).unwrap();
+    let src =
+        SourceFile::from_expr(top_levels.join("\n"), commands.join("\n"), !is_top_level).unwrap();
 
     parsing_ctx.add_file(&src);
 
     let hir = match crate::parse_str(&mut parsing_ctx, config) {
         Ok(hir) => hir,
         Err(_) => {
-            commands.pop();
+            if is_top_level {
+                top_levels.pop();
+            } else {
+                commands.pop();
+            }
 
             return;
         }
