@@ -28,30 +28,45 @@ mod resolver;
 mod tests;
 mod ty;
 
+use codegen::interpret;
 use diagnostics::Diagnostic;
 pub use helpers::config::Config;
 use parser::{ParsingCtx, SourceFile};
 
-pub fn parse_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
+pub fn compile_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;
 
     source_file.mod_path = PathBuf::from("root");
 
-    parse_str(&source_file, config)
+    compile_str(&source_file, config)
 }
 
-pub fn parse_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic> {
+pub fn compile_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic> {
     let mut parsing_ctx = ParsingCtx::new(config);
 
     parsing_ctx.add_file(input);
 
+    let hir = parse_str(&mut parsing_ctx, config)?;
+
+    if config.repl {
+        interpret(hir, config)
+    } else {
+        generate_ir(hir, config)?;
+
+        parsing_ctx.print_success_diagnostics();
+
+        Ok(())
+    }
+}
+
+pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {
     // Text to Ast
     debug!("    -> Parsing");
-    let mut ast = parser::parse_root(&mut parsing_ctx)?;
+    let mut ast = parser::parse_root(parsing_ctx)?;
 
     // Name resolving
     debug!("    -> Resolving");
-    resolver::resolve(&mut ast, &mut parsing_ctx)?;
+    resolver::resolve(&mut ast, parsing_ctx)?;
 
     // Lowering to HIR
     debug!("    -> Lowering to HIR");
@@ -59,17 +74,18 @@ pub fn parse_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic> 
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    let new_hir = infer::infer(&mut hir, &mut parsing_ctx, config)?;
+    let new_hir = infer::infer(&mut hir, parsing_ctx, config)?;
 
+    Ok(new_hir)
+}
+
+pub fn generate_ir(hir: hir::Root, config: &Config) -> Result<(), Diagnostic> {
     // Generate code
     debug!("    -> Lower to LLVM IR");
-    let parsing_ctx = codegen::generate(config, parsing_ctx, new_hir)?;
-
-    parsing_ctx.print_success_diagnostics();
+    codegen::generate(config, hir)?;
 
     Ok(())
 }
-
 mod test {
     use super::*;
     use crate::{parser::SourceFile, Config};
@@ -86,7 +102,7 @@ mod test {
             content: input,
         };
 
-        if let Err(_e) = parse_str(&file, &config) {
+        if let Err(_e) = compile_str(&file, &config) {
             return false;
         }
 

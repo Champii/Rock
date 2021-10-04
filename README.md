@@ -1,6 +1,6 @@
-# Rock v0.1.7-develop
+# Rock v0.1.7-interpreter
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=interpreter)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -13,6 +13,8 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
+  - [Basic setup]( #basic-setup )
+  - [REPL]( #repl )
 - [Showcases]( #showcases )
 - [Development notes]( #development-notes )
 
@@ -24,6 +26,7 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Typeclass (Traits)
 - Parametric Polymorphism by default
 - Compile to LLVM IR
+- REPL (ALPHA)
 
 ## Install
 
@@ -37,10 +40,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.1.7-develop](https://github.com/Champii/Rock/releases/download/v0.1.7-develop/rock) (Tested on arch, btw)
+[Rock v0.1.7-interpreter](https://github.com/Champii/Rock/releases/download/v0.1.7-interpreter/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.7-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.7-interpreter/rock
 chmod +x rock
 ./rock -V
 ```
@@ -65,6 +68,8 @@ cargo run -- -V
 ```
 
 ## Quickstart
+
+### Basic setup
 
 Lets create a new project folder to compute some factorials
 
@@ -102,6 +107,38 @@ Should output
 ``` sh
 24
 ```
+
+Take a look at `rock --help` for a quick tour of its flags and arguments
+
+### REPL
+
+You can start a REPL session with 
+
+``` sh
+rock -r
+# OR
+rock --repl
+```
+
+``` sh
+Rock: v0.1.7-interpreter
+----
+
+Type ':?' for help
+
+> add a b = a + b
+> let x = 30
+30
+> let y = 12
+12
+> add x, y
+42
+> :t add
+add: (Int64 -> Int64 -> Int64)
+> _
+```
+
+Only supports basic expressions for now.
 
 ## Showcases
 

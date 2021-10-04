@@ -14,10 +14,8 @@ use inkwell::{
 };
 
 use crate::{
-    diagnostics::Diagnostic,
     helpers::scopes::Scopes,
     hir::*,
-    parser::ParsingCtx,
     ty::{PrimitiveType, Type},
 };
 
@@ -27,11 +25,10 @@ pub struct CodegenContext<'a> {
     pub module: Module<'a>,
     pub scopes: Scopes<HirId, BasicValueEnum<'a>>,
     pub cur_func: Option<FunctionValue<'a>>,
-    pub parsing_ctx: ParsingCtx,
 }
 
 impl<'a> CodegenContext<'a> {
-    pub fn new(context: &'a Context, parsing_ctx: ParsingCtx, hir: &'a Root) -> Self {
+    pub fn new(context: &'a Context, hir: &'a Root) -> Self {
         let module = context.create_module("mod");
 
         Self {
@@ -40,7 +37,6 @@ impl<'a> CodegenContext<'a> {
             hir,
             scopes: Scopes::new(),
             cur_func: None,
-            parsing_ctx,
         }
     }
 
@@ -683,21 +679,6 @@ impl<'a> CodegenContext<'a> {
 
         let val = match self.scopes.get(reso) {
             None => {
-                let span = self
-                    .hir
-                    .hir_map
-                    .get_node_id(&id.hir_id)
-                    .map(|node_id| self.hir.spans.get(&node_id).unwrap().clone())
-                    .unwrap();
-
-                self.parsing_ctx
-                    .diagnostics
-                    .push_error(Diagnostic::new_codegen_error(
-                        span,
-                        id.hir_id.clone(),
-                        "Cannot resolve identifier",
-                    ));
-
                 return Err(());
             }
             Some(val) => val,

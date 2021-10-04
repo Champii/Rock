@@ -10,7 +10,7 @@ use crate::{
     ty::{FuncType, StructType, Type},
 };
 
-use super::{arena::Arena, HasHirId};
+use super::{arena::Arena, hir_printer, HasHirId};
 
 #[derive(Debug, Default)]
 pub struct Root {
@@ -125,6 +125,10 @@ impl Root {
             .iter()
             .filter_map(|(node_id, span)| Some((self.hir_map.get_hir_id(*node_id)?, span.clone())))
             .collect()
+    }
+
+    pub fn print(&self) {
+        hir_printer::print(self);
     }
 }
 
@@ -427,6 +431,11 @@ impl Expression {
             kind: Box::new(ExpressionKind::Dot(dot)),
         }
     }
+    pub fn new_return(ret: Expression) -> Self {
+        Self {
+            kind: Box::new(ExpressionKind::Return(ret)),
+        }
+    }
 
     pub fn get_terminal_hir_id(&self) -> HirId {
         match &*self.kind {
@@ -526,6 +535,12 @@ impl Literal {
             *n
         } else {
             panic!("Not a number");
+        }
+    }
+    pub fn new_int64(i: i64) -> Self {
+        Self {
+            hir_id: HirId(0),
+            kind: LiteralKind::Number(i),
         }
     }
 }

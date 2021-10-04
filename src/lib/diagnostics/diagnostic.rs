@@ -46,8 +46,8 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::UnusedFunction)
     }
 
-    pub fn new_module_not_found(span: Span) -> Self {
-        Self::new(span, DiagnosticKind::ModuleNotFound)
+    pub fn new_module_not_found(span: Span, path: String) -> Self {
+        Self::new(span, DiagnosticKind::ModuleNotFound(path))
     }
 
     pub fn new_unresolved_type(span: Span, t: Type) -> Self {
@@ -85,6 +85,7 @@ impl Diagnostic {
     pub fn new_no_main() -> Self {
         Self::new(Span::new_placeholder(), DiagnosticKind::NoMain)
     }
+
     pub fn new_type_conflict(span: Span, t1: Type, t2: Type, in1: Type, in2: Type) -> Self {
         Self::new(span, DiagnosticKind::TypeConflict(t1, t2, in1, in2))
     }
@@ -143,19 +144,50 @@ impl Diagnostic {
             DiagnosticType::Warning => x.yellow(),
         };
 
-        println!(
-            "[{}]: {}\n{}\n{:>4} {}\n{:>4} {} {}\n{:>4} {} {}",
+        let color_bright = |x: String| match diag_type {
+            DiagnosticType::Error => x.bright_red(),
+            DiagnosticType::Warning => x.bright_yellow(),
+        };
+
+        let diag_type_str = format!(
+            "{}{}{} {}{}",
+            "[".bright_black(),
             diag_type_str,
+            "]".bright_black(),
             color(self.kind.to_string()).bold(),
-            line_ind.bright_blue(),
+            ":".bright_black(),
+        );
+
+        let line_span_start = line_start;
+        let mut line_span_stop = line_start + (self.span.end - self.span.start) + 1;
+
+        let line_colored = lines[line - 1].iter().cloned().collect::<String>();
+        if line_span_stop > line_colored.len() {
+            line_span_stop = line_colored.len() - 1;
+        }
+
+        let first_part = &line_colored[..line_span_start];
+        let colored_part = color(line_colored[line_span_start..=line_span_stop].to_string());
+        let last_part = if line_span_stop + 1 >= line_colored.len() {
+            String::new()
+        } else {
+            line_colored[line_span_stop + 1..].to_owned()
+        };
+
+        let line_colored = format!("{}{}{}", first_part, colored_part, last_part,);
+
+        println!(
+            "{}\n{}\n{:>4} {}\n{:>4} {} {}\n{:>4} {} {}",
+            diag_type_str,
+            line_ind.bright_black(),
             "",
-            "|".cyan(),
-            color(line.to_string()),
-            "|".cyan(),
-            lines[line - 1].iter().cloned().collect::<String>(),
+            "|".bright_black(),
+            color_bright(line.to_string()),
+            "|".bright_black(),
+            line_colored,
             "",
-            "|".cyan(),
-            color(arrow),
+            "|".bright_black(),
+            color_bright(arrow),
         );
     }
 
@@ -170,7 +202,7 @@ pub enum DiagnosticKind {
     UnexpectedToken,
     SyntaxError(String),
     UnknownIdentifier,
-    ModuleNotFound,
+    ModuleNotFound(String),
     NotAFunction,
     UnusedParameter,
     UnresolvedTraitCall {
@@ -194,7 +226,7 @@ impl Display for DiagnosticKind {
             Self::UnexpectedToken => "UnexpectedToken".to_string(),
             Self::SyntaxError(msg) => format!("SyntaxError: {}", msg),
             Self::UnknownIdentifier => "UnknownIdentifier".to_string(),
-            Self::ModuleNotFound => "ModuleNotFound".to_string(),
+            Self::ModuleNotFound(path) => format!("Module not found: {}", path),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
             Self::TypeConflict(t1, t2, _in1, _in2) => {
                 format!("Type conflict: Expected {:?} but got {:?} ", t1, t2)
@@ -215,7 +247,7 @@ impl Display for DiagnosticKind {
                     given_sig,
                     existing_impls
                         .iter()
-                        .map(|sig| format!("Found impl: {:?}", sig))
+                        .map(|sig| format!("        Found impl: {:?}", sig))
                         .collect::<Vec<_>>()
                         .join("\n")
                 )

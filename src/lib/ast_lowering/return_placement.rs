@@ -27,8 +27,8 @@ impl<'a> ReturnInserter<'a> {
             StatementKind::If(ref mut i) => {
                 self.visit_if(i);
             }
-            StatementKind::Assign(ref mut _a) => {
-                unimplemented!("Assign as return value");
+            StatementKind::Assign(ref mut a) => {
+                a.value.kind = ExpressionKind::Return(Box::new(a.value.clone()));
             }
         }
     }

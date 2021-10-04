@@ -19,7 +19,7 @@ fn build(config: &Config) -> bool {
 
     fs::create_dir_all(config.build_folder.clone()).unwrap();
 
-    if let Err(diagnostic) = rock::parse_file(entry_file.to_string(), config) {
+    if let Err(diagnostic) = rock::compile_file(entry_file.to_string(), config) {
         if let DiagnosticKind::NoError = diagnostic.get_kind() {
         } else {
             println!("Error: {}", diagnostic.get_kind());
@@ -89,47 +89,62 @@ fn main() {
             Arg::with_name("verbose")
                 .takes_value(false)
                 .short("v")
+                .long("verbose")
                 .help("Verbose level"),
         )
         .arg(
             Arg::with_name("tokens")
                 .short("t")
+                .long("tokens")
                 .takes_value(false)
                 .help("Show tokens"),
         )
         .arg(
             Arg::with_name("ast")
                 .short("a")
+                .long("ast")
                 .takes_value(false)
                 .help("Show ast"),
         )
         .arg(
             Arg::with_name("hir")
                 .short("h")
+                .long("hir")
                 .takes_value(false)
                 .help("Show hir"),
         )
         .arg(
             Arg::with_name("no-optimize")
                 .short("N")
+                .long("no-optimize")
                 .takes_value(false)
                 .help("Disable LLVM optimization passes"),
         )
         .arg(
+            Arg::with_name("repl")
+                .short("r")
+                .long("repl")
+                .takes_value(false)
+                .help("Run a REPL interpreter (ALPHA)"),
+        )
+        .arg(
             Arg::with_name("ir")
                 .short("i")
+                .long("ir")
                 .takes_value(false)
                 .help("Show the generated IR"),
         )
         .arg(
             Arg::with_name("state")
                 .short("s")
+                .long("state")
                 .takes_value(false)
-                .help("Show the InferContext state before solve"),
+                .help("Show the InferContext state before solve (DEPRECATED)"),
         )
         .arg(
             Arg::with_name("output-folder")
                 .short("o")
+                .long("output-folder")
                 .takes_value(true)
                 .default_value("./build")
                 .help("Choose a different output folder"),
@@ -145,6 +160,7 @@ fn main() {
         show_hir: matches.is_present("hir"),
         show_ir: matches.is_present("ir"),
         show_state: matches.is_present("state"),
+        repl: matches.is_present("repl"),
         no_optimize: matches.is_present("no-optimize"),
         build_folder: PathBuf::from(matches.value_of("output-folder").unwrap()),
         ..Default::default()
@@ -156,6 +172,8 @@ fn main() {
         build(&config);
     } else if let Some(_matches) = matches.subcommand_matches("run") {
         run(config);
+    } else if config.repl {
+        run(config)
     } else {
         println!("{}", matches.usage());
     }
