@@ -122,12 +122,19 @@ rock --repl
 
 ``` sh
 Rock: v0.1.7-interpreter
-> let a = 2
-2
-> let b = a + 5
-7
-> show "foo"
-foo
+----
+
+Type ':?' for help
+
+> add a b = a + b
+> let x = 30
+30
+> let y = 12
+12
+> add x, y
+42
+> :t add
+add: (Int64 -> Int64 -> Int64)
 > _
 ```
 
