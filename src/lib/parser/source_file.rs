@@ -31,7 +31,41 @@ impl SourceFile {
         })
     }
 
-    pub fn resolve_new(&self, name: String) -> Result<Self, ()> {
+    pub fn from_expr(
+        top_levels: String,
+        mut expr: String,
+        do_print: bool,
+    ) -> Result<Self, Diagnostic> {
+        let print_str = if do_print { "print " } else { "" };
+
+        if expr.is_empty() {
+            expr = "  0".to_string();
+        }
+
+        let top_levels = r##"mod lib
+use lib::prelude::*
+"##
+        .to_owned()
+            + &top_levels
+            + &r##"
+
+main =
+  "## + &print_str.to_string()
+            + &r##"custom()
+  0
+custom =
+"##
+            .to_owned()
+            + &expr;
+
+        Ok(SourceFile {
+            file_path: PathBuf::from("./src/main.rk"),
+            mod_path: PathBuf::from("root"),
+            content: top_levels,
+        })
+    }
+
+    pub fn resolve_new(&self, name: String) -> Result<Self, String> {
         let mut file_path = self.file_path.parent().unwrap().join(Path::new(&name));
 
         file_path.set_extension("rk");
@@ -40,7 +74,7 @@ impl SourceFile {
 
         let content = match fs::read_to_string(file_path.to_str().unwrap().to_string()) {
             Ok(content) => content,
-            Err(_) => return Err(()),
+            Err(_) => return Err(mod_path.as_path().to_str().unwrap().to_string()),
         };
 
         Ok(Self {

@@ -82,6 +82,10 @@ fn testcases_basic_monomorph_in_trait_main() {
     run("testcases/basic/monomorph_in_trait/main.rk", include_str!("testcases/basic/monomorph_in_trait/main.rk"), include_str!("testcases/basic/monomorph_in_trait/main.rk.out"), include_str!("testcases/basic/monomorph_in_trait/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_reassign_self_main() {
+    run("testcases/basic/reassign_self/main.rk", include_str!("testcases/basic/reassign_self/main.rk"), include_str!("testcases/basic/reassign_self/main.rk.out"), include_str!("testcases/basic/reassign_self/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_trait_use_before_decl_main() {
     run("testcases/basic/trait_use_before_decl/main.rk", include_str!("testcases/basic/trait_use_before_decl/main.rk"), include_str!("testcases/basic/trait_use_before_decl/main.rk.out"), include_str!("testcases/basic/trait_use_before_decl/main.rk.stdout"));
 }

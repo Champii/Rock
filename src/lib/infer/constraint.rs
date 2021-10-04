@@ -405,8 +405,8 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_assign(&mut self, assign: &'a Assign) {
-        self.visit_assign_left_side(&assign.name);
         self.visit_expression(&assign.value);
+        self.visit_assign_left_side(&assign.name);
 
         self.envs
             .set_type_eq(&assign.name.get_hir_id(), &assign.value.get_hir_id());

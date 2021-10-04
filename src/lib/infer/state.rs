@@ -62,27 +62,30 @@ impl Envs {
         self.current_fn.clone()
     }
 
-    pub fn set_type(&mut self, dest: &HirId, src: &Type) {
+    fn set_type_alone(&mut self, dest: &HirId, src: &Type) -> Option<Type> {
         if let Type::ForAll(_) = src {
             warn!("set_type requires `src: &Type` to be solved");
 
-            return;
+            return None;
         }
 
-        let previous = self
-            .get_current_env_mut()
+        self.get_current_env_mut()
             .unwrap()
-            .insert(dest.clone(), src.clone());
+            .insert(dest.clone(), src.clone())
+    }
+
+    pub fn set_type(&mut self, dest: &HirId, src: &Type) {
+        let previous = self.set_type_alone(dest, src);
 
         match (src, previous.clone()) {
             (Type::Func(src_f), Some(Type::Func(prev_f))) if !src_f.eq(&prev_f) => {
                 if prev_f.is_solved() && src_f.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
                         self.spans.get(dest).unwrap().clone(),
-                        src.clone(),
                         previous.clone().unwrap(),
                         src.clone(),
                         previous.unwrap(),
+                        src.clone(),
                     ));
                 }
             }
@@ -90,10 +93,10 @@ impl Envs {
                 if previous.is_solved() && src.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
                         self.spans.get(dest).unwrap().clone(),
-                        src.clone(),
                         previous.clone(),
                         src.clone(),
                         previous,
+                        src.clone(),
                     ));
                 }
             }
@@ -102,7 +105,34 @@ impl Envs {
     }
 
     pub fn set_type_eq(&mut self, dest: &HirId, src: &HirId) {
-        self.set_type(dest, &self.get_type(src).unwrap().clone())
+        let src_t = self.get_type(src).unwrap().clone();
+        let previous = self.set_type_alone(dest, &src_t);
+
+        match (src_t.clone(), previous.clone()) {
+            (Type::Func(src_f), Some(Type::Func(prev_f))) if !src_f.eq(&prev_f) => {
+                if prev_f.is_solved() && src_f.is_solved() {
+                    self.diagnostics.push_error(Diagnostic::new_type_conflict(
+                        self.spans.get(src).unwrap().clone(),
+                        previous.clone().unwrap(),
+                        src_t.clone(),
+                        previous.unwrap(),
+                        src_t.clone(),
+                    ));
+                }
+            }
+            (src_t, Some(previous)) if !src_t.eq(&previous) => {
+                if previous.is_solved() && src_t.is_solved() {
+                    self.diagnostics.push_error(Diagnostic::new_type_conflict(
+                        self.spans.get(src).unwrap().clone(),
+                        previous.clone(),
+                        src_t.clone(),
+                        previous,
+                        src_t.clone(),
+                    ));
+                }
+            }
+            _ => (),
+        }
     }
 
     pub fn get_type(&self, hir_id: &HirId) -> Option<&Type> {

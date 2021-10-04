@@ -13,6 +13,8 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
+  - [Basic setup]( #basic-setup )
+  - [REPL]( #repl )
 - [Showcases]( #showcases )
 - [Development notes]( #development-notes )
 
@@ -24,6 +26,7 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Typeclass (Traits)
 - Parametric Polymorphism by default
 - Compile to LLVM IR
+- REPL (ALPHA)
 
 ## Install
 
@@ -32,6 +35,8 @@ Warning: This project has only been tested on Linux x86_64.
 How to install and run the compiler:
 
 ### Using released binary 
+
+You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
@@ -43,14 +48,18 @@ chmod +x rock
 ./rock -V
 ```
 
-### With cargo from git
+### From source
+
+You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
+
+#### With cargo from git
 
 ``` sh
 cargo install --git https://github.com/Champii/Rock
 rock -V
 ```
 
-### From sources
+#### Manual clone and build from git
 
 ``` sh
 git clone https://github.com/Champii/Rock.git
@@ -59,6 +68,8 @@ cargo run -- -V
 ```
 
 ## Quickstart
+
+### Basic setup
 
 Lets create a new project folder to compute some factorials
 
@@ -96,6 +107,38 @@ Should output
 ``` sh
 24
 ```
+
+Take a look at `rock --help` for a quick tour of its flags and arguments
+
+### REPL
+
+You can start a REPL session with 
+
+``` sh
+rock -r
+# OR
+rock --repl
+```
+
+``` sh
+Rock: {version}
+----
+
+Type ':?' for help
+
+> add a b = a + b
+> let x = 30
+30
+> let y = 12
+12
+> add x, y
+42
+> :t add
+add: (Int64 -> Int64 -> Int64)
+> _
+```
+
+Only supports basic expressions for now.
 
 ## Showcases
 

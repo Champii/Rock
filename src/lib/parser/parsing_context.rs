@@ -51,15 +51,35 @@ impl ParsingCtx {
         self.print_diagnostics();
 
         if !self.diagnostics.list.is_empty() {
+            let diag_type_str = format!(
+                "{}{}{}",
+                "[".bright_black(),
+                "Success".green(),
+                "]".bright_black(),
+            );
+
             println!(
-                "[{}] Compilation {} with {} {}",
-                "Warning".yellow(),
-                "successful".green(),
+                "{} {} {} {} {} {}",
+                diag_type_str,
+                "Compilation".bright_black(),
+                "successful".bright_green(),
+                "with".bright_black(),
                 self.diagnostics.list.len().to_string().yellow(),
-                "warnings".yellow(),
+                "warnings".bright_yellow(),
             );
         } else if self.config.verbose {
-            println!("[{}] Compilation successful", "Success".green(),);
+            let diag_type_str = format!(
+                "{}{}{}",
+                "[".bright_black(),
+                "Success".green(),
+                "]".bright_black(),
+            );
+
+            println!(
+                "{} {}",
+                diag_type_str,
+                "Compilation successful".bright_black(),
+            );
         }
     }
 
@@ -79,14 +99,24 @@ impl ParsingCtx {
                     )
                 });
 
-            println!(
-                "[{}] Compilation {} with {} {} and {} {}",
+            let diag_type_str = format!(
+                "{}{}{}",
+                "[".bright_black(),
                 "Error".red(),
-                "stopped".red(),
+                "]".bright_black(),
+            );
+
+            println!(
+                "{} {} {} {} {} {} {} {} {}",
+                diag_type_str,
+                "Compilation".bright_black(),
+                "stopped".bright_red(),
+                "with".bright_black(),
                 errors.len().to_string().red(),
-                "errors".red(),
+                "errors".bright_red(),
+                "and".bright_black(),
                 warnings.len().to_string().yellow(),
-                "warnings".yellow(),
+                "warnings".bright_yellow(),
             );
 
             return Err(Diagnostic::new_empty());
@@ -102,9 +132,9 @@ impl ParsingCtx {
     pub fn resolve_and_add_file(&mut self, name: String) -> Result<SourceFile, Diagnostic> {
         let current_file = self.get_current_file();
 
-        let new_file = current_file.resolve_new(name).map_err(|_| {
+        let new_file = current_file.resolve_new(name.clone()).map_err(|m| {
             // Placeholder span, to be overriden by calling mod (TopLevel::parse())
-            Diagnostic::new_module_not_found(Span::new(current_file.file_path.clone(), 0, 0))
+            Diagnostic::new_module_not_found(Span::new(current_file.file_path.clone(), 0, 0), m)
         })?;
 
         if self.config.verbose {

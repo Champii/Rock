@@ -91,13 +91,15 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     }
 
     fn visit_assign(&mut self, assign: &'a Assign) {
+        self.visit_expression(&assign.value);
+
         match &assign.name {
             AssignLeftSide::Identifier(id) => {
                 if !assign.is_let {
-                    let previous_assign_node_id = self.get(id.name.clone()).unwrap();
-
-                    self.resolutions
-                        .insert(id.identity.node_id, previous_assign_node_id.node_id);
+                    if let Some(previous_assign_node_id) = self.get(id.name.clone()) {
+                        self.resolutions
+                            .insert(id.identity.node_id, previous_assign_node_id.node_id);
+                    }
 
                     self.visit_identifier(id)
                 }
@@ -107,8 +109,6 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             AssignLeftSide::Indice(expr) => self.visit_expression(expr),
             AssignLeftSide::Dot(expr) => self.visit_expression(expr),
         }
-
-        self.visit_expression(&assign.value);
     }
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
@@ -200,6 +200,12 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .diagnostics
                 .push_error(Diagnostic::new_module_not_found(
                     ident.identity.span.clone(),
+                    mod_path
+                        .path
+                        .iter()
+                        .map(|p| p.name.clone())
+                        .collect::<Vec<_>>()
+                        .join("/"),
                 )),
         };
     }
@@ -241,6 +247,12 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .diagnostics
                 .push_error(Diagnostic::new_module_not_found(
                     ident.identity.span.clone(),
+                    mod_path
+                        .path
+                        .iter()
+                        .map(|p| p.name.clone())
+                        .collect::<Vec<_>>()
+                        .join("/"),
                 )),
         };
     }
