@@ -1,10 +1,13 @@
-# Rock v0.1.8-develop
+# Rock v0.1.8-fixes
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=fixes)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
-Little toy language made with Rust and LLVM.  
+Little language made with Rust and LLVM.
+
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
 It's highly inspired from Livescript, and will borrow (pun intended) some features and syntaxes from Crystal, from functional languages like Haskell, or even from Rust itself.
+
+No to be taken seriously (yet)
 
 # VTable
 - [Features]( #features )
@@ -40,10 +43,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.1.8-develop](https://github.com/Champii/Rock/releases/download/v0.1.8-develop/rock) (Tested on arch, btw)
+[Rock v0.1.8-fixes](https://github.com/Champii/Rock/releases/download/v0.1.8-fixes/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.8-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.8-fixes/rock
 chmod +x rock
 ./rock -V
 ```
@@ -121,7 +124,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.1.8-develop
+Rock: v0.1.8-fixes
 ----
 
 Type ':?' for help
@@ -139,6 +142,9 @@ add: (Int64 -> Int64 -> Int64)
 ```
 
 Only supports basic expressions for now.
+
+Be warned that for a given session, the whole code is re-executed at each entry.  
+This includes I/O of all sorts (Looking at you, open/read/write in loops)
 
 ## Showcases
 
@@ -258,5 +264,6 @@ Prints `MyName`
 ## Development notes
 
 This project, its syntax and its APIs are subject to change at any moment.  
-This is a personal project, so please bear with me  
-(Differently put: this is a big red hot pile of experimental garbage right now)
+This is a personal project, so please bear with me
+
+Differently put: this is a big red hot pile of experimental garbage right now

@@ -51,7 +51,6 @@ impl<'a> CodegenContext<'a> {
 
         let pass_manager = PassManager::create(());
 
-        pass_manager.add_demote_memory_to_register_pass();
         pass_manager.add_promote_memory_to_register_pass();
         pass_manager.add_argument_promotion_pass();
         pass_manager.add_always_inliner_pass();
@@ -83,9 +82,11 @@ impl<'a> CodegenContext<'a> {
         pass_manager.add_strip_symbol_pass();
         pass_manager.add_strip_dead_prototypes_pass();
         pass_manager.add_internalize_pass(true);
-        pass_manager.add_aggressive_dce_pass();
         pass_manager.add_sccp_pass();
-        pass_manager.add_dead_store_elimination_pass();
+        // FIXME: Struct init fail with this pass
+        // pass_manager.add_dead_store_elimination_pass();
+        pass_manager.add_aggressive_dce_pass();
+        pass_manager.add_global_dce_pass();
         pass_manager.add_verifier_pass();
 
         pass_manager.run_on(&self.module);
@@ -341,26 +342,35 @@ impl<'a> CodegenContext<'a> {
         assign: &'a Assign,
         builder: &'a Builder,
     ) -> Result<AnyValueEnum<'a>, ()> {
-        let value = self.lower_expression(&assign.value, builder)?;
-
-        match &assign.name {
+        Ok(match &assign.name {
             AssignLeftSide::Identifier(id) => {
+                let value = self.lower_expression(&assign.value, builder)?;
+
                 self.scopes
                     .add(id.get_hir_id(), value.as_basic_value_enum());
+
+                value
             }
             AssignLeftSide::Indice(indice) => {
                 let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
 
+                let value = self.lower_expression(&assign.value, builder)?;
+
                 builder.build_store(ptr, value);
+
+                value
             }
             AssignLeftSide::Dot(dot) => {
                 let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
 
+                let value = self.lower_expression(&assign.value, builder)?;
+
                 builder.build_store(ptr, value);
+
+                value
             }
         }
-
-        Ok(value.as_any_value_enum())
+        .as_any_value_enum())
     }
 
     pub fn lower_if(

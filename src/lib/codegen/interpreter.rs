@@ -82,11 +82,21 @@ fn process_line(
     }
 
     let mut get_type = false;
+    let mut print_ir = false;
+    let mut print_hir = false;
 
     if line.starts_with(":?") {
         print_help();
 
         return;
+    }
+
+    if line.starts_with(":i") {
+        print_ir = true;
+    }
+
+    if line.starts_with(":h") {
+        print_hir = true;
     }
 
     if line.starts_with(":t ") {
@@ -105,7 +115,7 @@ fn process_line(
     let line_parts = line.split("=").collect::<Vec<_>>();
     if line_parts.len() > 1
         && !line_parts[0].starts_with("let ")
-        && line_parts[0].split(" ").count() > 1
+        && line_parts[0].split(" ").filter(|x| !x.is_empty()).count() > 1
     {
         is_top_level = true;
     } else {
@@ -117,7 +127,7 @@ fn process_line(
     if is_top_level {
         top_levels.push(line.clone());
     } else {
-        if !get_type {
+        if !get_type && !print_ir && !print_hir {
             commands.push("  ".to_owned() + &line);
         }
     }
@@ -132,10 +142,10 @@ fn process_line(
     let hir = match crate::parse_str(&mut parsing_ctx, config) {
         Ok(hir) => hir,
         Err(_e) => {
-            if is_top_level {
+            if is_top_level || print_ir || print_hir {
                 top_levels.pop();
             } else {
-                if !get_type {
+                if !get_type && !print_ir && !print_hir {
                     commands.pop();
                 }
             }
@@ -144,8 +154,14 @@ fn process_line(
         }
     };
 
+    if print_hir {
+        hir.print();
+
+        return;
+    }
+
     if get_type {
-        if is_top_level {
+        if is_top_level || print_ir {
             top_levels.pop();
         } else {
             // commands.pop();
@@ -186,8 +202,12 @@ fn process_line(
         codegen_ctx.optimize();
     }
 
-    if config.show_ir {
+    if config.show_ir || print_ir {
         codegen_ctx.module.print_to_stderr();
+    }
+
+    if print_ir {
+        return;
     }
 
     let engine = codegen_ctx
@@ -202,11 +222,15 @@ fn process_line(
 
 pub fn print_help() {
     println!(
-        "\n{}\n\n  {} : {}\n  {} : {}\n",
+        "\n{}\n\n  {} : {}\n  {} : {}\n  {} : {}\n  {} : {}\n",
         "Help:".bright_green(),
+        ":h".bright_yellow(),
+        "Print the HIR".bright_black(),
+        ":i".bright_yellow(),
+        "Print the IR".bright_black(),
         ":t".bright_yellow(),
         "Print the type of an expression".bright_black(),
         ":?".bright_yellow(),
-        "Print This help".bright_black(),
+        "Print this help".bright_black(),
     );
 }

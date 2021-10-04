@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::*,
+    ast::{return_placement::ReturnInserter, *},
     hir::{self, Arena, FnBodyId, HirId},
     infer::Envs,
     ty::*,
 };
 
-use super::{hir_map::HirMap, return_placement::ReturnInserter, InfixDesugar};
+use super::{hir_map::HirMap, InfixDesugar};
 
 pub struct AstLoweringContext {
     hir_map: HirMap,

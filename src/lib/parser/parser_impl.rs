@@ -1,7 +1,6 @@
 use std::{collections::HashMap, convert::TryInto};
 
 use crate::{ast::*, diagnostics::Diagnostic, parser::*, resolver::ResolutionMap, ty::*};
-
 type Error = Diagnostic;
 
 macro_rules! expect {
