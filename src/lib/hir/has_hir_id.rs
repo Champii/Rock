@@ -51,14 +51,20 @@ macro_rules! impl_indirect_get_hir_id_trait {
 
 impl_indirect_get_hir_id_trait!(
     TopLevel
+    Statement
     Assign
     AssignLeftSide
     ArgumentDecl
     IdentifierPath
     FnBody
     Body
-    Statement
     Expression
     Array
     Else
 );
+
+impl<T: HasHirId> HasHirId for Vec<T> {
+    fn get_hir_id(&self) -> HirId {
+        self.last().unwrap().get_hir_id()
+    }
+}
