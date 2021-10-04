@@ -85,6 +85,7 @@ impl<'a> CodegenContext<'a> {
         pass_manager.add_internalize_pass(true);
         pass_manager.add_aggressive_dce_pass();
         pass_manager.add_sccp_pass();
+        pass_manager.add_dead_store_elimination_pass();
         pass_manager.add_verifier_pass();
 
         pass_manager.run_on(&self.module);
