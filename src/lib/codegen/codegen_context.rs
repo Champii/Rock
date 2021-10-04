@@ -679,21 +679,6 @@ impl<'a> CodegenContext<'a> {
 
         let val = match self.scopes.get(reso) {
             None => {
-                // let span = self
-                //     .hir
-                //     .hir_map
-                //     .get_node_id(&id.hir_id)
-                //     .map(|node_id| self.hir.spans.get(&node_id).unwrap().clone())
-                //     .unwrap();
-
-                // self.parsing_ctx
-                //     .diagnostics
-                //     .push_error(Diagnostic::new_codegen_error(
-                //         span,
-                //         id.hir_id.clone(),
-                //         "Cannot resolve identifier",
-                //     ));
-
                 return Err(());
             }
             Some(val) => val,

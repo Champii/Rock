@@ -76,12 +76,6 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
     debug!("    -> Infer HIR");
     let new_hir = infer::infer(&mut hir, parsing_ctx, config)?;
 
-    // // Generate code
-    // debug!("    -> Lower to LLVM IR");
-    // codegen::generate(config, new_hir)?;
-
-    // parsing_ctx.print_success_diagnostics();
-
     Ok(new_hir)
 }
 
@@ -89,8 +83,6 @@ pub fn generate_ir(hir: hir::Root, config: &Config) -> Result<(), Diagnostic> {
     // Generate code
     debug!("    -> Lower to LLVM IR");
     codegen::generate(config, hir)?;
-
-    // parsing_ctx.print_success_diagnostics();
 
     Ok(())
 }

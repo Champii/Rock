@@ -131,9 +131,7 @@ fn process_line(
 
     let hir = match crate::parse_str(&mut parsing_ctx, config) {
         Ok(hir) => hir,
-        Err(e) => {
-            println!("ERROR {:?}", e);
-
+        Err(_e) => {
             if is_top_level {
                 top_levels.pop();
             } else {
@@ -159,12 +157,6 @@ fn process_line(
             .get_function_by_name(line.split(" ").nth(0).unwrap())
             .map(|f| format!("{:?}", Type::from(f.signature.clone())))
             .or_else(|| Some("UNKNOWN".red().to_string()))
-            // .or_else(|| {
-            //     let custom_fn = hir.get_function_by_name("custom").unwrap();
-            //     let custom_body = hir.get_body(&custom_fn.body_id).unwrap();
-            //     let hir_id = custom_body.body.get_hir_id();
-            //     Some(hir.node_types.get(&hir_id).unwrap().clone())
-            // })
             .unwrap();
 
         println!("{}: {}", line, t);
@@ -177,10 +169,7 @@ fn process_line(
 
     let mut codegen_ctx = CodegenContext::new(&context, &hir);
 
-    if codegen_ctx.lower_hir(&hir, &builder).is_err() {
-        // FIXME: have a movable `Diagnostics`
-        // codegen_ctx.parsing_ctx.return_if_error()?;
-    }
+    if codegen_ctx.lower_hir(&hir, &builder).is_err() {}
 
     match codegen_ctx.module.verify() {
         Ok(_) => (),
