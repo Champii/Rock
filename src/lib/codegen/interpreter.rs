@@ -41,7 +41,7 @@ pub fn interpret<'a, 'ctx>(
     if rl.load_history("history.txt").is_err() {}
 
     loop {
-        let readline = rl.readline(&"> ".bright_black());
+        let readline = rl.readline(&"> ".yellow().to_string());
 
         match readline {
             Ok(line) => {
