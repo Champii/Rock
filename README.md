@@ -1,6 +1,6 @@
-# Rock v0.1.7-develop
+# Rock v0.1.7
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little toy language made with Rust and LLVM.  
 Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
@@ -40,10 +40,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.1.7-develop](https://github.com/Champii/Rock/releases/download/v0.1.7-develop/rock) (Tested on arch, btw)
+[Rock v0.1.7](https://github.com/Champii/Rock/releases/download/v0.1.7/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.7-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.7/rock
 chmod +x rock
 ./rock -V
 ```
@@ -121,7 +121,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.1.7-develop
+Rock: v0.1.7
 ----
 
 Type ':?' for help
