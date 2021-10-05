@@ -98,3 +98,32 @@ where
         self.ordering.push(s);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_scope() {
+        let mut scopes = Scopes::default();
+
+        scopes.add("a", 1);
+        scopes.add("b", 2);
+
+        assert_eq!(scopes.get("a").unwrap(), 1);
+        assert_eq!(scopes.get("b").unwrap(), 2);
+
+        scopes.push();
+
+        scopes.add("a", 3);
+        scopes.add("b", 4);
+
+        assert_eq!(scopes.get("a").unwrap(), 3);
+        assert_eq!(scopes.get("b").unwrap(), 4);
+
+        scopes.pop();
+
+        assert_eq!(scopes.get("a").unwrap(), 1);
+        assert_eq!(scopes.get("b").unwrap(), 2);
+    }
+}

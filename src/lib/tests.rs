@@ -98,6 +98,10 @@ fn testcases_basic_nested_struct_dect_multiline_main() {
     run("testcases/basic/nested_struct_dect_multiline/main.rk", include_str!("testcases/basic/nested_struct_dect_multiline/main.rk"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.out"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_reassign_return_main() {
+    run("testcases/basic/reassign_return/main.rk", include_str!("testcases/basic/reassign_return/main.rk"), include_str!("testcases/basic/reassign_return/main.rk.out"), include_str!("testcases/basic/reassign_return/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_array_main() {
     run("testcases/basic/array/main.rk", include_str!("testcases/basic/array/main.rk"), include_str!("testcases/basic/array/main.rk.out"), include_str!("testcases/basic/array/main.rk.stdout"));
 }

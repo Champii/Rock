@@ -309,6 +309,8 @@ impl<'a> CodegenContext<'a> {
         name: &str,
         builder: &'a Builder,
     ) -> Result<(AnyValueEnum<'a>, BasicBlock<'a>), ()> {
+        // self.scopes.push();
+
         let basic_block = self
             .context
             .append_basic_block(self.cur_func.unwrap(), name);
@@ -321,6 +323,8 @@ impl<'a> CodegenContext<'a> {
             .map(|stmt| self.lower_stmt(stmt, builder))
             .last()
             .unwrap()?;
+
+        // self.scopes.pop();
 
         Ok((stmt, basic_block))
     }
@@ -364,9 +368,9 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<AnyValueEnum<'a>, ()> {
         let block = builder.get_insert_block().unwrap();
 
-        let predicat = self.lower_expression(&while_loop.predicat, builder)?;
-
         let (value, while_body) = self.lower_body(&while_loop.body, "while_body", builder)?;
+
+        let predicat = self.lower_expression(&while_loop.predicat, builder)?;
 
         let exit_block = self
             .context
@@ -376,7 +380,7 @@ impl<'a> CodegenContext<'a> {
         builder.build_conditional_branch(predicat.into_int_value(), while_body, exit_block);
 
         builder.position_at_end(block);
-        builder.build_conditional_branch(predicat.into_int_value(), while_body, exit_block);
+        builder.build_unconditional_branch(while_body);
 
         builder.position_at_end(exit_block);
 
@@ -392,10 +396,38 @@ impl<'a> CodegenContext<'a> {
             AssignLeftSide::Identifier(id) => {
                 let value = self.lower_expression(&assign.value, builder)?;
 
-                self.scopes
-                    .add(id.get_hir_id(), value.as_basic_value_enum());
+                // FIXME: This is twisted
+                let val = self
+                    .hir
+                    .resolutions
+                    .get(&id.get_hir_id())
+                    .and_then(|reso| self.scopes.get(reso))
+                    .map(|ptr| ptr.into_pointer_value())
+                    .or_else(|| {
+                        self.hir.node_types.get(&assign.get_hir_id()).and_then(|t| {
+                            (t.is_primitive() && !t.is_array() && !t.is_string()).then(|| {
+                                let ptr =
+                                    builder.build_alloca(value.get_type(), &id.name.to_string());
 
-                value
+                                self.scopes.add(id.get_hir_id(), ptr.as_basic_value_enum());
+
+                                ptr
+                            })
+                        })
+                    })
+                    .map(|ptr| {
+                        builder.build_store(ptr, value);
+                        ptr.as_basic_value_enum()
+                    })
+                    .or_else(|| {
+                        // self.scopes.add(id.get_hir_id(), value.clone());
+                        Some(value)
+                    })
+                    .unwrap();
+
+                self.scopes.add(id.get_hir_id(), val.clone());
+
+                val.as_any_value_enum()
             }
             AssignLeftSide::Indice(indice) => {
                 let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
@@ -404,7 +436,7 @@ impl<'a> CodegenContext<'a> {
 
                 builder.build_store(ptr, value);
 
-                value
+                ptr.as_any_value_enum()
             }
             AssignLeftSide::Dot(dot) => {
                 let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
@@ -413,10 +445,9 @@ impl<'a> CodegenContext<'a> {
 
                 builder.build_store(ptr, value);
 
-                value
+                ptr.as_any_value_enum()
             }
-        }
-        .as_any_value_enum())
+        })
     }
 
     pub fn lower_if(
@@ -444,6 +475,8 @@ impl<'a> CodegenContext<'a> {
         };
 
         // FIXME: Need a last block if the 'if' is not the last statement in the fn body
+        // Investigate PHI values
+        //
         // let rest_block = self
         //     .context
         //     .append_basic_block(self.module.get_last_function().unwrap(), "rest");
@@ -499,7 +532,15 @@ impl<'a> CodegenContext<'a> {
                 self.lower_native_operation(op, left, right, builder)?
             }
             ExpressionKind::Return(expr) => {
+                // println!("RETURN {:#?}", expr);
                 let val = self.lower_expression(expr, builder)?;
+                // println!("RETURN2 {:#?}", val);
+
+                // let val = val
+                //     .is_pointer_value()
+                //     .then(|| builder.build_load(val.into_pointer_value(), "test"))
+                //     .or(Some(val))
+                //     .unwrap();
 
                 builder.build_return(Some(&val.as_basic_value_enum()));
 
@@ -730,15 +771,26 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_identifier(
         &mut self,
         id: &Identifier,
-        _builder: &'a Builder,
+        builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         let reso = self.hir.resolutions.get(&id.hir_id).unwrap();
 
-        let val = match self.scopes.get(reso) {
+        let val = match self.scopes.get(reso.clone()) {
             None => {
+                self.module.print_to_stderr();
+                println!("GEN : NO REO {:#?} {:#?}", id, reso);
                 return Err(());
             }
             Some(val) => val,
+        };
+        let t = self.hir.node_types.get(&id.get_hir_id()).unwrap();
+
+        // Dereference primitives only
+        // FIXME: get Array and String out of PrimitveType
+        let val = if val.is_pointer_value() && t.is_primitive() && !t.is_array() && !t.is_string() {
+            builder.build_load(val.into_pointer_value(), &id.name.to_string())
+        } else {
+            val
         };
 
         Ok(val)
