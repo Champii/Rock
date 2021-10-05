@@ -146,6 +146,10 @@ fn testcases_basic_main_main() {
     run("testcases/basic/main/main.rk", include_str!("testcases/basic/main/main.rk"), include_str!("testcases/basic/main/main.rk.out"), include_str!("testcases/basic/main/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_while_main() {
+    run("testcases/basic/while/main.rk", include_str!("testcases/basic/while/main.rk"), include_str!("testcases/basic/while/main.rk.out"), include_str!("testcases/basic/while/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_fn_arg_main() {
     run("testcases/basic/fn_arg/main.rk", include_str!("testcases/basic/fn_arg/main.rk"), include_str!("testcases/basic/fn_arg/main.rk.out"), include_str!("testcases/basic/fn_arg/main.rk.stdout"));
 }

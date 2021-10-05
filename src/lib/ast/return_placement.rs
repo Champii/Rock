@@ -46,6 +46,9 @@ impl<'a> ReturnInserter<'a> {
             StatementKind::Assign(ref mut a) => {
                 is_assign = Some(a.value.clone());
             }
+            StatementKind::For(ref mut fa) => {
+                unimplemented!("Cannot have loop in return position");
+            }
         }
 
         // FIXME: do this only if a.name is Identifier

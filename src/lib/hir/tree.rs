@@ -326,6 +326,7 @@ impl Statement {
             StatementKind::Expression(e) => e.get_hir_id(),
             StatementKind::Assign(a) => a.get_hir_id(),
             StatementKind::If(e) => e.get_hir_id(),
+            StatementKind::For(f) => f.get_hir_id(),
         }
     }
 }
@@ -335,6 +336,47 @@ pub enum StatementKind {
     Expression(Expression),
     Assign(Assign),
     If(If),
+    For(For),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum For {
+    In(ForIn),
+    While(While),
+}
+
+impl For {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        match self {
+            For::In(i) => i.get_hir_id(),
+            For::While(w) => w.get_hir_id(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct While {
+    pub predicat: Expression,
+    pub body: Body,
+}
+
+impl While {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.body.get_hir_id()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForIn {
+    pub value: Identifier,
+    pub expr: Expression,
+    pub body: Body,
+}
+
+impl ForIn {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.body.get_hir_id()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

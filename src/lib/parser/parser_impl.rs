@@ -592,6 +592,8 @@ impl Parse for Statement {
             }
         } else if let Ok(assign) = Assign::parse(ctx) {
             StatementKind::Assign(Box::new(assign))
+        } else if let Ok(for_loop) = For::parse(ctx) {
+            StatementKind::For(for_loop)
         } else {
             match Expression::parse(ctx) {
                 Ok(expr) => StatementKind::Expression(Box::new(expr)),
@@ -602,6 +604,60 @@ impl Parse for Statement {
         Ok(Statement {
             kind: Box::new(kind),
         })
+    }
+}
+
+impl Parse for For {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        expect!(TokenType::For, ctx);
+
+        ctx.save();
+
+        let res = if let Ok(forin) = ForIn::parse(ctx) {
+            For::In(forin)
+        } else if let Ok(while_) = While::parse(ctx) {
+            For::While(while_)
+        } else {
+            ctx.restore();
+
+            error!("Bad for".to_string(), ctx);
+        };
+
+        ctx.save_pop();
+
+        Ok(res)
+    }
+}
+
+impl Parse for ForIn {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        ctx.save();
+
+        let value = try_or_restore!(Identifier::parse(ctx), ctx);
+
+        expect_or_restore!(TokenType::In, ctx);
+
+        let expr = try_or_restore!(Expression::parse(ctx), ctx);
+
+        let body = try_or_restore!(Body::parse(ctx), ctx);
+
+        ctx.save_pop();
+
+        Ok(ForIn { value, expr, body })
+    }
+}
+
+impl Parse for While {
+    fn parse(ctx: &mut Parser) -> Result<Self, Error> {
+        ctx.save();
+
+        let predicat = try_or_restore!(Expression::parse(ctx), ctx);
+
+        let body = try_or_restore!(Body::parse(ctx), ctx);
+
+        ctx.save_pop();
+
+        Ok(While { predicat, body })
     }
 }
 

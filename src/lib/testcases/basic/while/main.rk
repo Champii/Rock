@@ -1,0 +1,12 @@
+infix + 4
++ a b = ~IAdd a b
+
+infix < 3
+< a b = ~Ilt a b
+
+main =
+  let i = 0
+  let x = 42
+  for i < x
+    i = i + 1
+  i

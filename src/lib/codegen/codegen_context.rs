@@ -334,7 +334,53 @@ impl<'a> CodegenContext<'a> {
             StatementKind::Expression(e) => self.lower_expression(e, builder)?.as_any_value_enum(),
             StatementKind::If(e) => self.lower_if(e, builder)?.0,
             StatementKind::Assign(a) => self.lower_assign(a, builder)?,
+            StatementKind::For(f) => self.lower_for(&f, builder)?,
         })
+    }
+
+    pub fn lower_for(
+        &mut self,
+        for_loop: &'a For,
+        builder: &'a Builder,
+    ) -> Result<AnyValueEnum<'a>, ()> {
+        match &for_loop {
+            For::In(i) => self.lower_for_in(&i, builder),
+            For::While(w) => self.lower_while(&w, builder),
+        }
+    }
+
+    pub fn lower_for_in(
+        &mut self,
+        for_in: &'a ForIn,
+        builder: &'a Builder,
+    ) -> Result<AnyValueEnum<'a>, ()> {
+        unimplemented!("for in construct are not yet implemented. Use while");
+    }
+
+    pub fn lower_while(
+        &mut self,
+        while_loop: &'a While,
+        builder: &'a Builder,
+    ) -> Result<AnyValueEnum<'a>, ()> {
+        let block = builder.get_insert_block().unwrap();
+
+        let predicat = self.lower_expression(&while_loop.predicat, builder)?;
+
+        let (value, while_body) = self.lower_body(&while_loop.body, "while_body", builder)?;
+
+        let exit_block = self
+            .context
+            .append_basic_block(self.module.get_last_function().unwrap(), "exit_block");
+
+        builder.position_at_end(while_body);
+        builder.build_conditional_branch(predicat.into_int_value(), while_body, exit_block);
+
+        builder.position_at_end(block);
+        builder.build_conditional_branch(predicat.into_int_value(), while_body, exit_block);
+
+        builder.position_at_end(exit_block);
+
+        Ok(value)
     }
 
     pub fn lower_assign(

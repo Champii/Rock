@@ -241,6 +241,26 @@ pub enum StatementKind {
     Expression(Box<Expression>),
     Assign(Box<Assign>),
     If(Box<If>),
+    For(For),
+}
+
+#[derive(Debug, Clone)]
+pub enum For {
+    In(ForIn),
+    While(While),
+}
+
+#[derive(Debug, Clone)]
+pub struct While {
+    pub predicat: Expression,
+    pub body: Body,
+}
+
+#[derive(Debug, Clone)]
+pub struct ForIn {
+    pub value: Identifier,
+    pub expr: Expression,
+    pub body: Body,
 }
 
 #[derive(Debug, Clone)]
