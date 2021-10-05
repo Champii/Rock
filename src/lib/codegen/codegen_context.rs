@@ -367,14 +367,13 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<AnyValueEnum<'a>, ()> {
         let block = builder.get_insert_block().unwrap();
+        let cur_f = block.get_parent().unwrap();
 
         let (value, while_body) = self.lower_body(&while_loop.body, "while_body", builder)?;
 
         let predicat = self.lower_expression(&while_loop.predicat, builder)?;
 
-        let exit_block = self
-            .context
-            .append_basic_block(self.module.get_last_function().unwrap(), "exit_block");
+        let exit_block = self.context.append_basic_block(cur_f, "exit_block");
 
         builder.position_at_end(while_body);
         builder.build_conditional_branch(predicat.into_int_value(), while_body, exit_block);
