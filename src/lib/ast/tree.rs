@@ -557,4 +557,5 @@ pub enum NativeOperatorKind {
     Flt,
     Fle,
     BEq,
+    Len,
 }

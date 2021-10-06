@@ -464,11 +464,14 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     | NativeOperatorKind::FDiv
                     | NativeOperatorKind::FMul => PrimitiveType::Float64,
                     NativeOperatorKind::BEq => PrimitiveType::Bool,
+                    NativeOperatorKind::Len => PrimitiveType::Void, // ignored
                 };
 
-                self.envs
-                    .set_type(&left.hir_id.clone(), &arg_t.clone().into());
-                self.envs.set_type(&right.hir_id.clone(), &arg_t.into());
+                if !matches!(arg_t, PrimitiveType::Void) {
+                    self.envs
+                        .set_type(&left.hir_id.clone(), &arg_t.clone().into());
+                    self.envs.set_type(&right.hir_id.clone(), &arg_t.into());
+                }
 
                 self.visit_native_operator(op);
             }
@@ -659,9 +662,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             | NativeOperatorKind::IDiv
             | NativeOperatorKind::IMul => PrimitiveType::Int64,
             NativeOperatorKind::FAdd
-            | NativeOperatorKind::FSub
             | NativeOperatorKind::FDiv
-            | NativeOperatorKind::FMul => PrimitiveType::Float64,
+            | NativeOperatorKind::FMul
+            | NativeOperatorKind::FSub => PrimitiveType::Float64,
+            NativeOperatorKind::Len => PrimitiveType::Int64,
         };
 
         self.envs.set_type(&op.hir_id, &t.into());

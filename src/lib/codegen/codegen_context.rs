@@ -981,6 +981,26 @@ impl<'a> CodegenContext<'a> {
                     .build_int_compare(IntPredicate::EQ, left, right, "beq")
                     .as_basic_value_enum()
             }
+
+            // arrays
+            NativeOperatorKind::Len => {
+                let arr_size = self
+                    .hir
+                    .node_types
+                    .get(&left.get_hir_id())
+                    .and_then(|arr_t| arr_t.try_as_primitive_type())
+                    .and_then(|prim_t| prim_t.try_as_array())
+                    .map(|(inner_t, size)| size)
+                    .unwrap();
+
+                // FIXME: ignored right argument for now
+                // let right = self.lower_identifier(right, builder)?.into_int_value();
+
+                self.context
+                    .i64_type()
+                    .const_int(arr_size as u64, false)
+                    .as_basic_value_enum()
+            }
         })
     }
 }

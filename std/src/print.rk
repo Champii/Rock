@@ -3,3 +3,7 @@ extern puts :: String -> Int64
 use super::show::show
 
 print a = puts show a
+
+_shut_up_warnings =
+  print 0
+  _shut_up_warnings()

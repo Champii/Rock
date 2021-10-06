@@ -33,3 +33,8 @@ read_file f =
 
 close_file f =
   close f.fd
+
+_shut_up_warnings =
+  read_file new_file ""
+  close_file 0
+  _shut_up_warnings()

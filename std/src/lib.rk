@@ -3,6 +3,8 @@ mod eq
 mod show
 mod print
 mod fs
+mod functor
+mod clone
 # mod helpers
 
 mod prelude

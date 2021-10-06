@@ -1,0 +1,23 @@
+extern malloc :: Int64 -> String
+extern strcpy :: String -> String -> String
+extern strlen :: String -> Int64
+
+trait Clone a
+  clone :: a -> a
+
+impl Clone Int64
+  clone a = a
+
+impl Clone Float64
+  clone a = a
+
+impl Clone String
+  clone a =
+    let s = malloc strlen a
+    strcpy s, a
+    s
+
+use super::functor::*
+
+impl Clone [Int64]
+  clone a = map clone, a

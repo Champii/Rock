@@ -489,6 +489,7 @@ impl AstLoweringContext {
             NativeOperatorKind::Flt => hir::NativeOperatorKind::Flt,
             NativeOperatorKind::Fle => hir::NativeOperatorKind::Fle,
             NativeOperatorKind::BEq => hir::NativeOperatorKind::BEq,
+            NativeOperatorKind::Len => hir::NativeOperatorKind::Len,
         };
 
         hir::NativeOperator { hir_id, kind }

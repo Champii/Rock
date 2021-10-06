@@ -2,3 +2,5 @@ use super::show::show
 use super::print::print
 use super::num::*
 use super::eq::*
+use super::functor::*
+use super::clone::*

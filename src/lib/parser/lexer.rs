@@ -455,6 +455,7 @@ impl<'a> Lexer<'a> {
             let ops = vec![
                 "~IAdd", "~ISub", "~IMul", "~IDiv", "~FAdd", "~FSub", "~FMul", "~FDiv", "~IEq",
                 "~Igt", "~Ige", "~Ilt", "~Ile", "~FEq", "~Fgt", "~Fge", "~Flt", "~Fle", "~BEq",
+                "~Len",
             ];
 
             for op in ops {

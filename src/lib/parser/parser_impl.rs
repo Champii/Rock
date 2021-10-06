@@ -1232,6 +1232,7 @@ impl Parse for NativeOperator {
             "~Flt" => NativeOperatorKind::Flt,
             "~Fle" => NativeOperatorKind::Fle,
             "~BEq" => NativeOperatorKind::BEq,
+            "~Len" => NativeOperatorKind::Len,
             _ => error!("Unknown native operator".to_string(), ctx),
         };
 

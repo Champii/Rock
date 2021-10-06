@@ -634,6 +634,7 @@ pub enum NativeOperatorKind {
     Fge,
     Flt,
     BEq,
+    Len,
 }
 
 impl std::fmt::Display for NativeOperatorKind {
