@@ -81,4 +81,12 @@ impl PrimitiveType {
     pub fn is_array(&self) -> bool {
         matches!(self, PrimitiveType::Array(_, _))
     }
+
+    pub fn try_as_array(&self) -> Option<(Type, usize)> {
+        if let PrimitiveType::Array(t, s) = self {
+            Some((*t.clone(), *s))
+        } else {
+            None
+        }
+    }
 }

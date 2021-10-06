@@ -51,29 +51,25 @@ impl<'a> CodegenContext<'a> {
 
         let pass_manager = PassManager::create(());
 
+        // FIXME: Struct init fail with this pass
+        // pass_manager.add_dead_store_elimination_pass();
         pass_manager.add_promote_memory_to_register_pass();
+        // pass_manager.add_demote_memory_to_register_pass();
         pass_manager.add_argument_promotion_pass();
         pass_manager.add_always_inliner_pass();
         pass_manager.add_gvn_pass();
         pass_manager.add_new_gvn_pass();
         pass_manager.add_function_attrs_pass();
         pass_manager.add_prune_eh_pass();
-        pass_manager.add_loop_vectorize_pass();
-        pass_manager.add_cfg_simplification_pass();
         pass_manager.add_constant_merge_pass();
         pass_manager.add_scalarizer_pass();
         pass_manager.add_merged_load_store_motion_pass();
-        pass_manager.add_ind_var_simplify_pass();
         pass_manager.add_instruction_combining_pass();
-        pass_manager.add_licm_pass();
-        pass_manager.add_loop_deletion_pass();
-        pass_manager.add_loop_unswitch_pass();
         pass_manager.add_memcpy_optimize_pass();
         pass_manager.add_partially_inline_lib_calls_pass();
         pass_manager.add_lower_switch_pass();
         pass_manager.add_reassociate_pass();
         pass_manager.add_simplify_lib_calls_pass();
-        pass_manager.add_tail_call_elimination_pass();
         pass_manager.add_aggressive_inst_combiner_pass();
         pass_manager.add_instruction_simplify_pass();
         pass_manager.add_function_inlining_pass();
@@ -83,10 +79,21 @@ impl<'a> CodegenContext<'a> {
         pass_manager.add_strip_dead_prototypes_pass();
         pass_manager.add_internalize_pass(true);
         pass_manager.add_sccp_pass();
-        // FIXME: Struct init fail with this pass
-        // pass_manager.add_dead_store_elimination_pass();
         pass_manager.add_aggressive_dce_pass();
         pass_manager.add_global_dce_pass();
+        pass_manager.add_tail_call_elimination_pass();
+        pass_manager.add_basic_alias_analysis_pass();
+        pass_manager.add_licm_pass();
+        pass_manager.add_ind_var_simplify_pass();
+        pass_manager.add_loop_vectorize_pass();
+        pass_manager.add_loop_unswitch_pass();
+        pass_manager.add_loop_idiom_pass();
+        pass_manager.add_loop_rotate_pass();
+        pass_manager.add_loop_unroll_and_jam_pass();
+        pass_manager.add_loop_unroll_pass();
+        pass_manager.add_loop_deletion_pass();
+        pass_manager.add_cfg_simplification_pass();
+
         pass_manager.add_verifier_pass();
 
         pass_manager.run_on(&self.module);
@@ -358,7 +365,24 @@ impl<'a> CodegenContext<'a> {
         for_in: &'a ForIn,
         builder: &'a Builder,
     ) -> Result<AnyValueEnum<'a>, ()> {
-        unimplemented!("for in construct are not yet implemented. Use while");
+        let block = builder.get_insert_block().unwrap();
+        let cur_f = block.get_parent().unwrap();
+
+        let (value, while_body) = self.lower_body(&for_in.body, "for_in_body", builder)?;
+
+        let predicat = self.lower_expression(&for_in.expr, builder)?;
+
+        let exit_block = self.context.append_basic_block(cur_f, "for_in_exit");
+
+        builder.position_at_end(while_body);
+        builder.build_conditional_branch(predicat.into_int_value(), while_body, exit_block);
+
+        builder.position_at_end(block);
+        builder.build_unconditional_branch(while_body);
+
+        builder.position_at_end(exit_block);
+
+        Ok(value)
     }
 
     pub fn lower_while(
@@ -373,7 +397,7 @@ impl<'a> CodegenContext<'a> {
 
         let predicat = self.lower_expression(&while_loop.predicat, builder)?;
 
-        let exit_block = self.context.append_basic_block(cur_f, "exit_block");
+        let exit_block = self.context.append_basic_block(cur_f, "while_exit");
 
         builder.position_at_end(while_body);
         builder.build_conditional_branch(predicat.into_int_value(), while_body, exit_block);

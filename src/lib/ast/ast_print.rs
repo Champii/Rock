@@ -95,6 +95,9 @@ impl_visitor_trait!(
     ArgumentDecl
     Body
     Statement
+    For
+    While
+    ForIn
     Expression
     If
     Else
