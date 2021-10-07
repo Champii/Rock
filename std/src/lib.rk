@@ -1,3 +1,6 @@
+mod externs
+use externs::*
+
 mod num
 mod eq
 mod show

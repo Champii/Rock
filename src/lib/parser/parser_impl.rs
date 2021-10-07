@@ -1270,7 +1270,7 @@ impl Parse for Type {
             let inner_t = Type::parse(ctx)?;
 
             // FIXME: FIXED ARRAY SIZE OF 1KB !
-            let t = Type::Primitive(PrimitiveType::Array(Box::new(inner_t), 1024));
+            let t = Type::Primitive(PrimitiveType::Array(Box::new(inner_t), 2));
 
             expect!(TokenType::CloseArray, ctx);
 
