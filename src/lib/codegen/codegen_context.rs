@@ -990,7 +990,7 @@ impl<'a> CodegenContext<'a> {
                     .get(&left.get_hir_id())
                     .and_then(|arr_t| arr_t.try_as_primitive_type())
                     .and_then(|prim_t| prim_t.try_as_array())
-                    .map(|(inner_t, size)| size)
+                    .map(|(_inner_t, size)| size)
                     .unwrap();
 
                 // FIXME: ignored right argument for now
