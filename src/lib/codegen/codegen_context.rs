@@ -51,8 +51,6 @@ impl<'a> CodegenContext<'a> {
 
         let pass_manager = PassManager::create(());
 
-        // FIXME: Struct init fail with this pass
-        // pass_manager.add_dead_store_elimination_pass();
         pass_manager.add_promote_memory_to_register_pass();
         // pass_manager.add_demote_memory_to_register_pass();
         pass_manager.add_argument_promotion_pass();
@@ -441,7 +439,8 @@ impl<'a> CodegenContext<'a> {
                     .map(|ptr| {
                         builder.build_store(ptr, value);
                         ptr.as_basic_value_enum()
-                    }).or({
+                    })
+                    .or({
                         // self.scopes.add(id.get_hir_id(), value.clone());
                         Some(value)
                     })

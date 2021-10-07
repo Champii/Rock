@@ -115,7 +115,7 @@ fn process_line(
     let line_parts = line.split('=').collect::<Vec<_>>();
     if line_parts.len() > 1
         && !line_parts[0].starts_with("let ")
-        && line_parts[0].split(' ').filter(|x| !x.is_empty()).count() > 1
+        && line_parts[0].split(" ").filter(|x| !x.is_empty()).count() > 1
     {
         is_top_level = true;
     } else if line.starts_with("use ") || line.starts_with("mod ") {
@@ -124,8 +124,10 @@ fn process_line(
 
     if is_top_level {
         top_levels.push(line.clone());
-    } else if !get_type && !print_ir && !print_hir {
-        commands.push("  ".to_owned() + &line);
+    } else {
+        if !get_type && !print_ir && !print_hir {
+            commands.push("  ".to_owned() + &line);
+        }
     }
 
     let mut parsing_ctx = ParsingCtx::new(config);
@@ -140,8 +142,10 @@ fn process_line(
         Err(_e) => {
             if is_top_level || print_ir || print_hir {
                 top_levels.pop();
-            } else if !get_type && !print_ir && !print_hir {
-                commands.pop();
+            } else {
+                if !get_type && !print_ir && !print_hir {
+                    commands.pop();
+                }
             }
 
             return;
