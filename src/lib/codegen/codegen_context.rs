@@ -345,7 +345,7 @@ impl<'a> CodegenContext<'a> {
             StatementKind::Expression(e) => self.lower_expression(e, builder)?.as_any_value_enum(),
             StatementKind::If(e) => self.lower_if(e, builder)?.0,
             StatementKind::Assign(a) => self.lower_assign(a, builder)?,
-            StatementKind::For(f) => self.lower_for(&f, builder)?,
+            StatementKind::For(f) => self.lower_for(f, builder)?,
         })
     }
 
@@ -355,8 +355,8 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<AnyValueEnum<'a>, ()> {
         match &for_loop {
-            For::In(i) => self.lower_for_in(&i, builder),
-            For::While(w) => self.lower_while(&w, builder),
+            For::In(i) => self.lower_for_in(i, builder),
+            For::While(w) => self.lower_while(w, builder),
         }
     }
 
@@ -441,14 +441,13 @@ impl<'a> CodegenContext<'a> {
                     .map(|ptr| {
                         builder.build_store(ptr, value);
                         ptr.as_basic_value_enum()
-                    })
-                    .or_else(|| {
+                    }).or({
                         // self.scopes.add(id.get_hir_id(), value.clone());
                         Some(value)
                     })
                     .unwrap();
 
-                self.scopes.add(id.get_hir_id(), val.clone());
+                self.scopes.add(id.get_hir_id(), val);
 
                 val.as_any_value_enum()
             }

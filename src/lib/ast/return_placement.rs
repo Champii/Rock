@@ -55,7 +55,7 @@ impl<'a> ReturnInserter<'a> {
         // or else return the ident
         if let Some(value) = is_assign {
             stmt.kind = Box::new(StatementKind::Expression(Box::new(Expression {
-                kind: ExpressionKind::Return(Box::new(value.clone())),
+                kind: ExpressionKind::Return(Box::new(value)),
             })));
         }
     }
