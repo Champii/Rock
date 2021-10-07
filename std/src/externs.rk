@@ -19,6 +19,9 @@ c_gcvt float digits unused1 unused2 = gcvt float, digits, unused1, unused2
 extern puts :: String -> Int64
 c_puts s = puts s
 
+extern memcpy :: String -> String -> Int64 -> String
+c_memcpy dest src size = memcpy dest, src, size
+
 # FS
 
 extern open :: String -> Int64 -> Int64 -> Int64
