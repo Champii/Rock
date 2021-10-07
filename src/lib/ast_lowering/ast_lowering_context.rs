@@ -244,7 +244,30 @@ impl AstLoweringContext {
                 StatementKind::Assign(a) => {
                     Box::new(hir::StatementKind::Assign(self.lower_assign(a)))
                 }
+                StatementKind::For(f) => Box::new(hir::StatementKind::For(self.lower_for(f))),
             },
+        }
+    }
+
+    pub fn lower_for(&mut self, for_loop: &For) -> hir::For {
+        match for_loop {
+            For::In(i) => hir::For::In(self.lower_for_in(i)),
+            For::While(w) => hir::For::While(self.lower_while(w)),
+        }
+    }
+
+    pub fn lower_for_in(&mut self, for_in: &ForIn) -> hir::ForIn {
+        hir::ForIn {
+            value: self.lower_identifier(&for_in.value),
+            expr: self.lower_expression(&for_in.expr),
+            body: self.lower_body(&for_in.body),
+        }
+    }
+
+    pub fn lower_while(&mut self, while_loop: &While) -> hir::While {
+        hir::While {
+            predicat: self.lower_expression(&while_loop.predicat),
+            body: self.lower_body(&while_loop.body),
         }
     }
 
@@ -466,6 +489,7 @@ impl AstLoweringContext {
             NativeOperatorKind::Flt => hir::NativeOperatorKind::Flt,
             NativeOperatorKind::Fle => hir::NativeOperatorKind::Fle,
             NativeOperatorKind::BEq => hir::NativeOperatorKind::BEq,
+            NativeOperatorKind::Len => hir::NativeOperatorKind::Len,
         };
 
         hir::NativeOperator { hir_id, kind }

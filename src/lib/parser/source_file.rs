@@ -47,7 +47,7 @@ use lib::prelude::*
 "##
         .to_owned()
             + &top_levels
-            + &r##"
+            + r##"
 
 main =
   "## + &print_str.to_string()

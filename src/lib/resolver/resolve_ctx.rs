@@ -90,6 +90,19 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         walk_list!(self, visit_top_level, &m.top_levels);
     }
 
+    // fn visit_for(&mut self, for_loop: &'a For) {
+    //     self.visit_expression(&for_loop.expr);
+    //     self.visit_body(&for_loop.body);
+    // }
+
+    fn visit_for_in(&mut self, for_in: &'a ForIn) {
+        self.visit_expression(&for_in.expr);
+
+        self.add_to_current_scope(for_in.value.name.clone(), for_in.value.identity.clone());
+
+        self.visit_body(&for_in.body);
+    }
+
     fn visit_assign(&mut self, assign: &'a Assign) {
         self.visit_expression(&assign.value);
 

@@ -1,8 +1,4 @@
-extern open :: String -> Int64 -> Int64 -> Int64
-extern close :: Int64 -> Int64
-extern strtol :: String -> Int64 -> Int64 -> Int64
-extern read :: Int64 -> String -> Int64 -> Int64
-extern malloc :: Int64 -> String
+use super::externs::*
 
 use super::print::print
 use super::show::show
@@ -17,19 +13,23 @@ impl Show File
   show f =
     "File { fd: " + show f.fd + ", path: " + f.path + " }"
 
-oct_to_dec oct = strtol oct, 0, 8
+oct_to_dec oct = c_strtol oct, 0, 8
 
 new_file p =
-  let f = open p, 0, oct_to_dec "0777"
+  let f = c_open p, 0, oct_to_dec "0777"
   File
     fd: f
     path: p
 
 read_file f =
-  let s = malloc 100
-  let len = read f.fd, s, 100
+  let s = c_malloc 100
+  let len = c_read f.fd, s, 100
   s
 
-
 close_file f =
-  close f.fd
+  c_close f.fd
+
+_shut_up_warnings =
+  read_file new_file ""
+  close_file 0
+  _shut_up_warnings()

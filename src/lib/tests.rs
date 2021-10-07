@@ -98,6 +98,10 @@ fn testcases_basic_nested_struct_dect_multiline_main() {
     run("testcases/basic/nested_struct_dect_multiline/main.rk", include_str!("testcases/basic/nested_struct_dect_multiline/main.rk"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.out"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_reassign_return_main() {
+    run("testcases/basic/reassign_return/main.rk", include_str!("testcases/basic/reassign_return/main.rk"), include_str!("testcases/basic/reassign_return/main.rk.out"), include_str!("testcases/basic/reassign_return/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_array_main() {
     run("testcases/basic/array/main.rk", include_str!("testcases/basic/array/main.rk"), include_str!("testcases/basic/array/main.rk.out"), include_str!("testcases/basic/array/main.rk.stdout"));
 }
@@ -144,6 +148,10 @@ fn testcases_basic_struct_array_field_main() {
 #[test]
 fn testcases_basic_main_main() {
     run("testcases/basic/main/main.rk", include_str!("testcases/basic/main/main.rk"), include_str!("testcases/basic/main/main.rk.out"), include_str!("testcases/basic/main/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_while_main() {
+    run("testcases/basic/while/main.rk", include_str!("testcases/basic/while/main.rk"), include_str!("testcases/basic/while/main.rk.out"), include_str!("testcases/basic/while/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_fn_arg_main() {

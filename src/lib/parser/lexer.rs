@@ -73,6 +73,7 @@ impl<'a> Lexer<'a> {
             Self::try_else_keyword,
             Self::try_then_keyword,
             Self::try_for_keyword,
+            Self::try_in_keyword,
             Self::try_struct_keyword,
             Self::try_infix_keyword,
             Self::try_use_keyword,
@@ -231,6 +232,10 @@ impl<'a> Lexer<'a> {
 
     fn try_for_keyword(&mut self) -> Option<Token> {
         self.match_consume("for", TokenType::For, Sep::WS | Sep::EOL)
+    }
+
+    fn try_in_keyword(&mut self) -> Option<Token> {
+        self.match_consume("in", TokenType::In, Sep::WS | Sep::EOL)
     }
 
     fn try_struct_keyword(&mut self) -> Option<Token> {
@@ -450,6 +455,7 @@ impl<'a> Lexer<'a> {
             let ops = vec![
                 "~IAdd", "~ISub", "~IMul", "~IDiv", "~FAdd", "~FSub", "~FMul", "~FDiv", "~IEq",
                 "~Igt", "~Ige", "~Ilt", "~Ile", "~FEq", "~Fgt", "~Fge", "~Flt", "~Fle", "~BEq",
+                "~Len",
             ];
 
             for op in ops {

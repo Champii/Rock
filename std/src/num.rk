@@ -21,6 +21,15 @@ impl Num Float64
     * c d = ~FMul c d
     / c d = ~FDiv c d
 
+<<<<<<< HEAD
+use super::externs::*
+
+impl Num String
+    + a b =
+        let s = c_malloc (c_strlen a + c_strlen b)
+        c_strcpy s, a
+        c_strcat s, b
+=======
 extern malloc :: Int64 -> String
 extern strlen :: String -> Int64
 extern strcat :: String -> String -> String
@@ -31,4 +40,5 @@ impl Num String
         let s = malloc (strlen a + strlen b)
         strcpy s, a
         strcat s, b
+>>>>>>> 941899a6e59a448cc6cb3b082aea3fa990e886c8
         s
