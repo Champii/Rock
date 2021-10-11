@@ -57,6 +57,9 @@ impl_indirect_get_hir_id_trait!(
     ArgumentDecl
     IdentifierPath
     FnBody
+    For
+    ForIn
+    While
     Body
     Expression
     Array

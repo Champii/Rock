@@ -1,0 +1,37 @@
+extern malloc :: Int64 -> String
+c_malloc i = malloc i
+
+extern strlen :: String -> Int64
+c_strlen s = strlen s
+
+extern strcat :: String -> String -> String
+c_strcat dest src = strcat dest, src
+
+extern strcpy :: String -> String -> String
+c_strcpy dest src = strcpy dest, src
+
+extern sprintf :: String -> String -> Int64 -> Int64
+c_sprintf dest format i = sprintf dest, format, i
+
+extern gcvt :: Float64 -> Int64 -> String -> String -> String
+c_gcvt float digits unused1 unused2 = gcvt float, digits, unused1, unused2
+
+extern puts :: String -> Int64
+c_puts s = puts s
+
+extern memcpy :: String -> String -> Int64 -> String
+c_memcpy dest src size = memcpy dest, src, size
+
+# FS
+
+extern open :: String -> Int64 -> Int64 -> Int64
+c_open path flags mode = open path, flags, mode
+
+extern close :: Int64 -> Int64
+c_close fd = close fd
+
+extern strtol :: String -> Int64 -> Int64 -> Int64
+c_strtol octal_str unused base = strtol octal_str, unused, base
+
+extern read :: Int64 -> String -> Int64 -> Int64
+c_read fd buf len = read fd, buf, len

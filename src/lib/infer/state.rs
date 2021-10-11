@@ -127,7 +127,7 @@ impl Envs {
                         previous.clone(),
                         src_t.clone(),
                         previous,
-                        src_t.clone(),
+                        src_t,
                     ));
                 }
             }

@@ -46,13 +46,16 @@ impl<'a> ReturnInserter<'a> {
             StatementKind::Assign(ref mut a) => {
                 is_assign = Some(a.value.clone());
             }
+            StatementKind::For(ref mut _fa) => {
+                unimplemented!("Cannot have loop in return position");
+            }
         }
 
         // FIXME: do this only if a.name is Identifier
         // or else return the ident
         if let Some(value) = is_assign {
             stmt.kind = Box::new(StatementKind::Expression(Box::new(Expression {
-                kind: ExpressionKind::Return(Box::new(value.clone())),
+                kind: ExpressionKind::Return(Box::new(value)),
             })));
         }
     }

@@ -112,16 +112,14 @@ fn process_line(
     let mut is_top_level = false;
 
     // FIXME: dirty hack to know if this is a function
-    let line_parts = line.split("=").collect::<Vec<_>>();
+    let line_parts = line.split('=').collect::<Vec<_>>();
     if line_parts.len() > 1
         && !line_parts[0].starts_with("let ")
         && line_parts[0].split(" ").filter(|x| !x.is_empty()).count() > 1
     {
         is_top_level = true;
-    } else {
-        if line.starts_with("use ") || line.starts_with("mod ") {
-            is_top_level = true;
-        }
+    } else if line.starts_with("use ") || line.starts_with("mod ") {
+        is_top_level = true;
     }
 
     if is_top_level {
@@ -132,7 +130,7 @@ fn process_line(
         }
     }
 
-    let mut parsing_ctx = ParsingCtx::new(&config);
+    let mut parsing_ctx = ParsingCtx::new(config);
 
     let src =
         SourceFile::from_expr(top_levels.join("\n"), commands.join("\n"), !is_top_level).unwrap();
@@ -170,8 +168,8 @@ fn process_line(
 
     if get_type {
         let t = hir
-            .get_function_by_name(line.split(" ").nth(0).unwrap())
-            .map(|f| format!("{:?}", Type::from(f.signature.clone())))
+            .get_function_by_name(line.split(' ').next().unwrap())
+            .map(|f| format!("{:?}", Type::from(f.signature)))
             .or_else(|| Some("UNKNOWN".red().to_string()))
             .unwrap();
 

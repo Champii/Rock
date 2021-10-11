@@ -132,7 +132,7 @@ impl ParsingCtx {
     pub fn resolve_and_add_file(&mut self, name: String) -> Result<SourceFile, Diagnostic> {
         let current_file = self.get_current_file();
 
-        let new_file = current_file.resolve_new(name.clone()).map_err(|m| {
+        let new_file = current_file.resolve_new(name).map_err(|m| {
             // Placeholder span, to be overriden by calling mod (TopLevel::parse())
             Diagnostic::new_module_not_found(Span::new(current_file.file_path.clone(), 0, 0), m)
         })?;

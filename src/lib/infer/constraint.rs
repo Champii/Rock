@@ -464,11 +464,14 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     | NativeOperatorKind::FDiv
                     | NativeOperatorKind::FMul => PrimitiveType::Float64,
                     NativeOperatorKind::BEq => PrimitiveType::Bool,
+                    NativeOperatorKind::Len => PrimitiveType::Void, // ignored
                 };
 
-                self.envs
-                    .set_type(&left.hir_id.clone(), &arg_t.clone().into());
-                self.envs.set_type(&right.hir_id.clone(), &arg_t.into());
+                if !matches!(arg_t, PrimitiveType::Void) {
+                    self.envs
+                        .set_type(&left.hir_id.clone(), &arg_t.clone().into());
+                    self.envs.set_type(&right.hir_id.clone(), &arg_t.into());
+                }
 
                 self.visit_native_operator(op);
             }
@@ -604,6 +607,28 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         }
     }
 
+    fn visit_for_in(&mut self, for_in: &'a ForIn) {
+        self.visit_expression(&for_in.expr);
+
+        self.envs
+            .get_type(&for_in.expr.get_hir_id())
+            .cloned()
+            .and_then(|expr_t| {
+                expr_t
+                    .is_array()
+                    .then(|| expr_t.try_as_primitive_type().unwrap())
+                    .and_then(|p| p.try_as_array())
+                    .map(|(inner_t, _size)| {
+                        self.envs.set_type(&for_in.value.get_hir_id(), &inner_t)
+                    })
+            });
+
+        self.visit_body(&for_in.body);
+
+        // assert expr to arr type
+        // set item to inner type;
+    }
+
     fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
         self.visit_identifier(id.path.iter().last().unwrap());
     }
@@ -637,9 +662,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             | NativeOperatorKind::IDiv
             | NativeOperatorKind::IMul => PrimitiveType::Int64,
             NativeOperatorKind::FAdd
-            | NativeOperatorKind::FSub
             | NativeOperatorKind::FDiv
-            | NativeOperatorKind::FMul => PrimitiveType::Float64,
+            | NativeOperatorKind::FMul
+            | NativeOperatorKind::FSub => PrimitiveType::Float64,
+            NativeOperatorKind::Len => PrimitiveType::Int64,
         };
 
         self.envs.set_type(&op.hir_id, &t.into());
