@@ -1,0 +1,677 @@
+use std::collections::HashMap;
+
+use crate::{
+    ast::NodeId,
+    helpers::*,
+    parser::span2::Span,
+    resolver::ResolutionMap,
+    ty::{FuncType, Type},
+};
+
+#[derive(Debug, Clone)]
+pub struct Root {
+    pub r#mod: Mod,
+    pub resolutions: ResolutionMap<NodeId>,
+    pub operators_list: HashMap<String, u8>,
+    pub unused: Vec<NodeId>,
+    pub spans: HashMap<NodeId, Span>,
+}
+
+impl Root {
+    pub fn new(r#mod: Mod) -> Self {
+        Self {
+            r#mod,
+            resolutions: ResolutionMap::default(),
+            operators_list: HashMap::new(),
+            unused: vec![],
+            spans: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Mod {
+    pub top_levels: Vec<TopLevel>,
+    // pub node_id: NodeId, // TODO: setup a ModId
+}
+
+impl Mod {
+    pub fn new(top_levels: Vec<TopLevel>) -> Self {
+        Self { top_levels }
+    }
+}
+
+// #[derive(Debug, Clone)]
+// pub struct TopLevel {
+//     pub kind: TopLevelKind,
+//     // pub node_id: NodeId,
+// }
+
+#[derive(Debug, Clone)]
+pub enum TopLevel {
+    Prototype(Prototype),
+    Function(FunctionDecl),
+    Trait(Trait),
+    Impl(Impl),
+    Struct(StructDecl),
+    Mod(Identifier, Mod),
+    Use(Use),
+    Infix(Operator, u8),
+}
+
+impl TopLevel {
+    pub fn new_function(f: FunctionDecl) -> Self {
+        Self::Function(f)
+    }
+
+    pub fn new_infix(op: Operator, pred: u8) -> Self {
+        Self::Infix(op, pred)
+    }
+
+    pub fn new_prototype(proto: Prototype) -> Self {
+        Self::Prototype(proto)
+    }
+
+    pub fn new_use(u: Use) -> Self {
+        Self::Use(u)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StructDecl {
+    pub node_id: NodeId,
+    pub name: Type,
+    pub defs: Vec<Prototype>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructCtor {
+    pub node_id: NodeId,
+    pub name: Type,
+    pub defs: HashMap<Identifier, Expression>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Trait {
+    pub name: Type,
+    pub types: Vec<Type>,
+    pub defs: Vec<Prototype>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Impl {
+    pub name: Type,
+    pub types: Vec<Type>,
+    pub defs: Vec<FunctionDecl>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Prototype {
+    pub name: Identifier,
+    pub signature: FuncType,
+    pub node_id: NodeId,
+}
+
+impl Prototype {
+    pub fn mangle(&mut self, prefix: String) {
+        self.name.name = prefix + "_" + &self.name.name;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Use {
+    pub path: IdentifierPath,
+    pub node_id: NodeId,
+}
+
+impl Use {
+    pub fn new(path: IdentifierPath) -> Self {
+        Self { path, node_id: 0 }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionDecl {
+    pub name: Identifier,
+    // pub mangled_name: Option<Identifier>,
+    pub arguments: Vec<Identifier>,
+    pub body: Body,
+    // pub node_id: NodeId,
+    pub signature: FuncType,
+}
+
+impl FunctionDecl {
+    pub fn mangle(&mut self, prefixes: &[String]) {
+        self.name.name = prefixes.join("_") + "_" + &self.name.name;
+    }
+}
+
+generate_has_name!(FunctionDecl);
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct IdentifierPath {
+    pub path: Vec<Identifier>,
+}
+
+impl IdentifierPath {
+    pub fn new(path: Vec<Identifier>) -> Self {
+        Self { path }
+    }
+
+    pub fn new_root() -> Self {
+        Self {
+            path: vec![Identifier {
+                name: "root".to_string(),
+                node_id: 0, // FIXME: should have a valid node_id ?
+            }],
+        }
+    }
+
+    pub fn parent(&self) -> Self {
+        let mut parent = self.clone();
+
+        if parent.path.len() > 1 {
+            parent.path.pop();
+        }
+
+        parent
+    }
+
+    pub fn child(&self, name: Identifier) -> Self {
+        let mut child = self.clone();
+
+        child.path.push(name);
+
+        child
+    }
+
+    pub fn last_segment_ref(&self) -> &Identifier {
+        self.path.iter().last().unwrap()
+    }
+
+    pub fn prepend_mod(&self, path: IdentifierPath) -> Self {
+        let mut path = path;
+
+        path.path.extend::<_>(self.path.clone());
+
+        path
+    }
+
+    pub fn resolve_supers(&mut self) {
+        let to_remove = self
+            .path
+            .iter()
+            .enumerate()
+            .filter_map(
+                |(i, name)| {
+                    if name.name == *"super" {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                },
+            )
+            .collect::<Vec<_>>();
+
+        let mut to_remove_total = vec![];
+
+        for id in to_remove {
+            to_remove_total.extend(vec![id - 1, id]);
+        }
+
+        self.path = self
+            .path
+            .iter()
+            .enumerate()
+            .filter_map(|(i, name)| {
+                if to_remove_total.contains(&i) {
+                    None
+                } else {
+                    Some(name.clone())
+                }
+            })
+            .collect::<Vec<_>>();
+    }
+}
+
+#[derive(Debug, Clone, Eq)]
+pub struct Identifier {
+    pub name: String,
+    pub node_id: NodeId,
+}
+
+// impl Identifier {
+//     pub fn new(name: ) {
+
+//     }
+// }
+
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl std::hash::Hash for Identifier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
+impl std::ops::Deref for Identifier {
+    type Target = String;
+    fn deref(&self) -> &Self::Target {
+        &self.name
+    }
+}
+
+generate_has_name!(Identifier);
+
+pub type ArgumentsDecl = Vec<Identifier>;
+
+// #[derive(Debug, Clone)]
+// pub struct ArgumentDecl {
+//     pub name: String,
+//     pub node_id: NodeId,
+// }
+
+#[derive(Debug, Clone)]
+pub struct Body {
+    pub stmts: Vec<Statement>,
+}
+
+impl Body {
+    pub fn new(stmts: Vec<Statement>) -> Self {
+        Self { stmts }
+    }
+}
+
+// #[derive(Debug, Clone)]
+// pub struct Statement {
+//     pub kind: Box<StatementKind>,
+// }
+
+#[derive(Debug, Clone)]
+pub enum Statement {
+    Expression(Box<Expression>),
+    Assign(Box<Assign>),
+    If(Box<If>),
+    For(For),
+}
+
+impl Statement {
+    pub fn new_expression(expr: Expression) -> Self {
+        Self::Expression(Box::new(expr))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum For {
+    In(ForIn),
+    While(While),
+}
+
+#[derive(Debug, Clone)]
+pub struct While {
+    pub predicat: Expression,
+    pub body: Body,
+}
+
+#[derive(Debug, Clone)]
+pub struct ForIn {
+    pub value: Identifier,
+    pub expr: Expression,
+    pub body: Body,
+}
+
+#[derive(Debug, Clone)]
+pub enum AssignLeftSide {
+    Identifier(Identifier),
+    Indice(Expression),
+    Dot(Expression),
+}
+
+impl AssignLeftSide {
+    pub fn as_expression(&self) -> Expression {
+        match self {
+            AssignLeftSide::Identifier(i) => {
+                Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+                    op: Operand::new_identifier(i.clone()),
+                    node_id: i.node_id.clone(),
+                    secondaries: None,
+                }))
+            }
+
+            AssignLeftSide::Indice(i) => i.clone(),
+            AssignLeftSide::Dot(d) => d.clone(),
+        }
+    }
+}
+// impl AssignLeftSide {
+//     pub fn get_node_id(&self) -> NodeId {
+//         use AssignLeftSide::*;
+
+//         match self {
+//             Identifier(id) => id.node_id.node_id,
+//             Indice(expr) => expr.,
+//         }
+//     }
+// }
+
+#[derive(Debug, Clone)]
+pub struct Assign {
+    pub name: AssignLeftSide,
+    pub value: Expression,
+    pub is_let: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct If {
+    pub node_id: NodeId,
+    pub predicat: Expression,
+    pub body: Body,
+    pub else_: Option<Box<Else>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Else {
+    If(If),
+    Body(Body),
+}
+
+// #[derive(Debug, Clone)]
+// pub struct Expression {
+//     pub kind: ExpressionKind,
+// }
+
+impl Expression {
+    #[allow(dead_code)]
+    pub fn is_literal(&self) -> bool {
+        match &self {
+            Expression::UnaryExpr(unary) => unary.is_literal(),
+            _ => false,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_identifier(&self) -> bool {
+        match &self {
+            Expression::UnaryExpr(unary) => unary.is_identifier(),
+            _ => false,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_binop(&self) -> bool {
+        matches!(&self, Expression::BinopExpr(_, _, _))
+    }
+
+    #[allow(dead_code)]
+    pub fn is_indice(&self) -> bool {
+        match &self {
+            Expression::UnaryExpr(unary) => unary.is_indice(),
+            _ => false,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn new_unary(unary: UnaryExpr) -> Expression {
+        Expression::UnaryExpr(unary)
+    }
+
+    #[allow(dead_code)]
+    pub fn new_binop(unary: UnaryExpr, operator: Operator, expr: Expression) -> Expression {
+        Expression::BinopExpr(unary, operator, Box::new(expr))
+    }
+
+    // #[allow(dead_code)]
+    // pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> Expression {
+    //     Expression {
+    //         kind: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+    //             node_id: node_id::new_placeholder(),
+    //             op,
+    //             secondaries: Some(vec![SecondaryExpr::Arguments(vec![
+    //                 Argument { arg: arg1 },
+    //                 Argument { arg: arg2 },
+    //             ])]),
+    //         })),
+    //     }
+    // }
+}
+
+#[derive(Debug, Clone)]
+pub enum Expression {
+    BinopExpr(UnaryExpr, Operator, Box<Expression>),
+    UnaryExpr(UnaryExpr),
+    NativeOperation(NativeOperator, Identifier, Identifier),
+    StructCtor(StructCtor),
+    Return(Box<Expression>),
+}
+
+#[derive(Debug, Clone)]
+pub enum UnaryExpr {
+    PrimaryExpr(PrimaryExpr),
+    UnaryExpr(Operator, Box<UnaryExpr>),
+}
+
+impl UnaryExpr {
+    pub fn is_literal(&self) -> bool {
+        match self {
+            UnaryExpr::PrimaryExpr(p) => matches!(&p.op, Operand::Literal(_)),
+            _ => false,
+        }
+    }
+
+    pub fn is_identifier(&self) -> bool {
+        match self {
+            UnaryExpr::PrimaryExpr(p) => matches!(&p.op, Operand::Identifier(_)),
+            _ => false,
+        }
+    }
+
+    pub fn is_indice(&self) -> bool {
+        match self {
+            UnaryExpr::UnaryExpr(_, unary) => unary.is_indice(),
+            UnaryExpr::PrimaryExpr(prim) => prim.is_indice(),
+        }
+    }
+
+    // pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> UnaryExpr {
+    //     UnaryExpr::PrimaryExpr(PrimaryExpr {
+    //         node_id: node_id::new_placeholder(),
+    //         op,
+    //         secondaries: Some(vec![SecondaryExpr::Arguments(vec![
+    //             Argument { arg: arg1 },
+    //             Argument { arg: arg2 },
+    //         ])]),
+    //     })
+    // }
+
+    pub fn new_primary(primary: PrimaryExpr) -> UnaryExpr {
+        UnaryExpr::PrimaryExpr(primary)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Operator(pub Identifier);
+
+#[derive(Debug, Clone)]
+pub struct PrimaryExpr {
+    pub node_id: NodeId,
+    pub op: Operand,
+    pub secondaries: Option<Vec<SecondaryExpr>>,
+}
+
+impl PrimaryExpr {
+    #[allow(dead_code)]
+    pub fn has_secondaries(&self) -> bool {
+        self.secondaries.is_some()
+    }
+
+    pub fn is_indice(&self) -> bool {
+        if let Some(secondaries) = &self.secondaries {
+            secondaries.iter().any(|secondary| secondary.is_indice())
+        } else {
+            false
+        }
+    }
+
+    pub fn new(op: Operand) -> PrimaryExpr {
+        PrimaryExpr {
+            op,
+            node_id: 0,
+            secondaries: None,
+        }
+    }
+}
+
+// #[derive(Debug, Clone)]
+// pub struct Operand {
+//     pub kind: Operand,
+// }
+
+#[derive(Debug, Clone)]
+pub enum Operand {
+    Literal(Literal),
+    Identifier(IdentifierPath),
+    Expression(Box<Expression>), // parenthesis
+}
+
+impl Operand {
+    pub fn new_identifier_path(id: IdentifierPath) -> Self {
+        Self::Identifier(id)
+    }
+
+    pub fn new_identifier(id: Identifier) -> Self {
+        Self::Identifier(IdentifierPath {
+            path: vec![id.clone()],
+        })
+    }
+
+    pub fn new_expression(expr: Expression) -> Self {
+        Self::Expression(Box::new(expr))
+    }
+
+    #[allow(dead_code)]
+    pub fn is_literal(&self) -> bool {
+        matches!(&self, Operand::Literal(_))
+    }
+
+    #[allow(dead_code)]
+    pub fn is_identifier(&self) -> bool {
+        matches!(&self, Operand::Identifier(_))
+    }
+
+    pub fn new_literal(lit: Literal) -> Operand {
+        Operand::Literal(lit)
+    }
+}
+
+impl Operand {
+    #[allow(dead_code)]
+    pub fn to_identifier_path(&self) -> IdentifierPath {
+        if let Operand::Identifier(id) = self {
+            id.clone()
+        } else {
+            panic!("Not an identifier path")
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum SecondaryExpr {
+    Arguments(Vec<Argument>),
+    Indice(Box<Expression>), // Boxing here to keep the enum size low
+    Dot(Identifier),
+}
+
+impl SecondaryExpr {
+    pub fn is_indice(&self) -> bool {
+        matches!(self, SecondaryExpr::Indice(_))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Literal {
+    pub kind: LiteralKind,
+    pub node_id: NodeId,
+}
+
+impl Literal {
+    pub fn new_bool(b: bool, node_id: NodeId) -> Self {
+        Self {
+            kind: LiteralKind::Bool(b),
+            node_id,
+        }
+    }
+
+    pub fn new_number(num: i64, node_id: NodeId) -> Self {
+        Self {
+            kind: LiteralKind::Number(num),
+            node_id,
+        }
+    }
+
+    pub fn new_float(num: f64, node_id: NodeId) -> Self {
+        Self {
+            kind: LiteralKind::Float(num),
+            node_id,
+        }
+    }
+
+    pub fn as_i64(&self) -> i64 {
+        match self.kind {
+            LiteralKind::Number(n) => n,
+            _ => panic!("Not a Number"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum LiteralKind {
+    Bool(bool),
+    Number(i64),
+    Float(f64),
+}
+
+#[derive(Debug, Clone)]
+pub struct Array {
+    pub values: Vec<Expression>,
+}
+
+pub type Arguments = Vec<Argument>;
+
+#[derive(Debug, Clone)]
+pub struct Argument {
+    pub arg: UnaryExpr,
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeOperator {
+    pub kind: NativeOperatorKind,
+    pub node_id: NodeId,
+}
+
+#[derive(Debug, Clone)]
+pub enum NativeOperatorKind {
+    IAdd,
+    ISub,
+    IMul,
+    IDiv,
+    FAdd,
+    FSub,
+    FMul,
+    FDiv,
+    IEq,
+    Igt,
+    Ige,
+    Ilt,
+    Ile,
+    FEq,
+    Fgt,
+    Fge,
+    Flt,
+    Fle,
+    BEq,
+    Len,
+}
