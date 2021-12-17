@@ -5,6 +5,7 @@ mod parser_impl;
 mod parsing_context;
 mod source_file;
 mod span;
+pub mod span2;
 mod token;
 
 pub use lexer::*;

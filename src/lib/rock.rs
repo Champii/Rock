@@ -9,6 +9,9 @@ extern crate bitflags;
 #[macro_use]
 extern crate log;
 
+#[macro_use]
+extern crate nom_locate;
+
 use std::path::PathBuf;
 
 #[macro_use]
@@ -24,6 +27,7 @@ mod codegen;
 pub mod diagnostics;
 mod hir;
 mod parser;
+mod parser2;
 mod resolver;
 mod tests;
 mod ty;
@@ -31,7 +35,11 @@ mod ty;
 use codegen::interpret;
 use diagnostics::Diagnostic;
 pub use helpers::config::Config;
+use nom::Finish;
+use nom_locate::LocatedSpan;
 use parser::{ParsingCtx, SourceFile};
+
+use crate::parser2::ParserCtx;
 
 pub fn compile_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;
@@ -60,6 +68,16 @@ pub fn compile_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic
 }
 
 pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {
+    let content = parsing_ctx.get_current_file().content.clone();
+    let parser = LocatedSpan::new_extra(
+        content.as_str(),
+        ParserCtx::new(parsing_ctx.get_current_file().file_path.clone()),
+    );
+
+    let ast_test = parser2::parse_root(parser).finish();
+
+    println!("TEST {:#?}", ast_test);
+
     // Text to Ast
     debug!("    -> Parsing");
     let mut ast = parser::parse_root(parsing_ctx)?;
