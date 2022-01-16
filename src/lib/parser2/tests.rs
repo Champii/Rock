@@ -397,3 +397,49 @@ mod parse_fn_decl {
         assert_eq!(parsed.signature, expected.signature);
     }
 }
+
+#[cfg(test)]
+mod parse_prototype {
+    use super::*;
+
+    #[test]
+    fn valid() {
+        let input = Parser::new_extra("toto :: Int64 -> Int64", ParserCtx::new(PathBuf::new()));
+
+        let (_rest, parsed) = parse_prototype(input).finish().unwrap();
+
+        let expected = Prototype {
+            name: Identifier {
+                name: String::from("toto"),
+                node_id: 0,
+            },
+            signature: FuncType {
+                ret: Box::new(Type::forall("Int64")),
+                arguments: vec![Type::forall("Int64")],
+            },
+            node_id: 0,
+        };
+    }
+}
+
+#[cfg(test)]
+mod parse_use {
+    use super::*;
+
+    #[test]
+    fn valid() {
+        let input = Parser::new_extra("use foo", ParserCtx::new(PathBuf::new()));
+
+        let (_rest, parsed) = parse_use(input).finish().unwrap();
+
+        assert_eq!(
+            parsed.path,
+            IdentifierPath {
+                path: vec![Identifier {
+                    name: String::from("foo"),
+                    node_id: 0,
+                }],
+            }
+        );
+    }
+}
