@@ -492,7 +492,7 @@ impl UnaryExpr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Operator(pub Identifier);
 
 #[derive(Debug, Clone)]

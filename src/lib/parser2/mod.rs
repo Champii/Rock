@@ -41,6 +41,14 @@ impl ParserCtx {
         }
     }
 
+    pub fn new_with_operators(file_path: PathBuf, operators: HashMap<String, u8>) -> Self {
+        Self {
+            cur_file_path: file_path,
+            identities: Vec::new(),
+            operators_list: operators,
+        }
+    }
+
     pub fn new_identity(&mut self, span: Span) -> NodeId {
         let node_id = self.identities.len() as NodeId;
 
