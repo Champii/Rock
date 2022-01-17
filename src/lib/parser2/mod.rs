@@ -207,9 +207,9 @@ pub fn parse_if(input: Parser) -> IResult<Parser, If> {
             terminated(tag("if"), space1),
             terminated(parse_expression, space0),
             parse_body,
-            opt(parse_else),
+            opt(tuple((line_ending, parse_else))),
         )),
-        |(_, cond, body, else_)| If::new(0, cond, body, else_.map(Box::new)),
+        |(_, cond, body, else_)| If::new(0, cond, body, else_.map(|(_, else_)| Box::new(else_))),
     )(input)
 }
 
@@ -217,23 +217,22 @@ pub fn parse_else(input: Parser) -> IResult<Parser, Else> {
     let (input, indent) = parse_block_indent(input)?;
 
     if indent == input.extra.block_indent {
-        println!("ELSE {:#?}", indent);
         alt((
             map(
                 tuple((
-                    line_ending,
+                    // line_ending,
                     terminated(tag("else"), space1),
                     terminated(parse_if, space0),
                 )),
-                |(_, _, if_)| Else::If(if_),
+                |(_, if_)| Else::If(if_),
             ),
             map(
                 tuple((
-                    line_ending,
+                    // line_ending,
                     terminated(tag("else"), space0),
                     terminated(parse_body, space0),
                 )),
-                |(_, _, body)| Else::Body(body),
+                |(_, body)| Else::Body(body),
             ),
         ))(input)
     } else {
