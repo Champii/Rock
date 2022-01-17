@@ -212,7 +212,7 @@ mod parse_operator {
             ParserCtx::new_with_operators(PathBuf::new(), operators),
         );
 
-        let (rest, parsed) = parse_operator(input).finish().unwrap();
+        let (_rest, parsed) = parse_operator(input).finish().unwrap();
 
         assert_eq!(
             parsed,
@@ -299,7 +299,7 @@ mod parse_operand {
 
         assert!(matches!(
             parsed,
-            Operand::Identifier(IdentifierPath { path })
+            Operand::Identifier(IdentifierPath { path: _ })
         ));
     }
 
@@ -309,7 +309,7 @@ mod parse_operand {
 
         let (_rest, parsed) = parse_operand(input).finish().unwrap();
 
-        assert!(matches!(parsed, Operand::Expression(expr)));
+        assert!(matches!(parsed, Operand::Expression(_expr)));
     }
 }
 
@@ -536,7 +536,7 @@ mod parse_if {
             ParserCtx::new(PathBuf::new()),
         );
 
-        let (rest, parsed) = parse_if(input).finish().unwrap();
+        let (rest, _parsed) = parse_if(input).finish().unwrap();
 
         assert!(rest.fragment().is_empty());
     }
@@ -547,7 +547,7 @@ mod parse_if {
             ParserCtx::new(PathBuf::new()),
         );
 
-        let (rest, parsed) = parse_if(input).finish().unwrap();
+        let (rest, _parsed) = parse_if(input).finish().unwrap();
 
         assert!(rest.fragment().is_empty());
     }
