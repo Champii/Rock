@@ -191,6 +191,7 @@ pub fn parse_statement(input: Parser) -> IResult<Parser, Statement> {
     if indent == input.extra.block_indent {
         alt((
             map(parse_if, Statement::new_if),
+            map(parse_for, Statement::new_for),
             map(parse_expression, Statement::new_expression),
         ))(input)
     } else {
@@ -209,8 +210,12 @@ pub fn parse_if(input: Parser) -> IResult<Parser, If> {
             parse_body,
             opt(tuple((line_ending, parse_else))),
         )),
-        |(_, cond, body, else_)| If::new(0, cond, body, else_.map(|(_, else_)| Box::new(else_))),
-    )(input)
+        |(if_, cond, body, else_)| {
+            let (_input, node_id) = new_identity(input.clone(), &if_);
+
+            If::new(node_id, cond, body, else_.map(|(_, else_)| Box::new(else_)))
+        },
+    )(input.clone())
 }
 
 pub fn parse_else(input: Parser) -> IResult<Parser, Else> {
@@ -220,7 +225,6 @@ pub fn parse_else(input: Parser) -> IResult<Parser, Else> {
         alt((
             map(
                 tuple((
-                    // line_ending,
                     terminated(tag("else"), space1),
                     terminated(parse_if, space0),
                 )),
@@ -228,7 +232,6 @@ pub fn parse_else(input: Parser) -> IResult<Parser, Else> {
             ),
             map(
                 tuple((
-                    // line_ending,
                     terminated(tag("else"), space0),
                     terminated(parse_body, space0),
                 )),
@@ -241,6 +244,34 @@ pub fn parse_else(input: Parser) -> IResult<Parser, Else> {
             ErrorKind::Tag,
         )))
     }
+}
+
+pub fn parse_for(input: Parser) -> IResult<Parser, For> {
+    alt((map(parse_for_in, For::In), map(parse_while, For::While)))(input)
+}
+
+pub fn parse_for_in(input: Parser) -> IResult<Parser, ForIn> {
+    map(
+        tuple((
+            terminated(tag("for"), space1),
+            terminated(parse_identifier, space0),
+            terminated(tag("in"), space0),
+            terminated(parse_expression, space0),
+            parse_body,
+        )),
+        |(_, var, _, expr, body)| ForIn::new(var, expr, body),
+    )(input)
+}
+
+pub fn parse_while(input: Parser) -> IResult<Parser, While> {
+    map(
+        tuple((
+            terminated(tag("while"), space1),
+            terminated(parse_expression, space0),
+            parse_body,
+        )),
+        |(_, cond, body)| While::new(cond, body),
+    )(input)
 }
 
 pub fn parse_expression(input: Parser) -> IResult<Parser, Expression> {

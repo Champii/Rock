@@ -307,6 +307,10 @@ impl Statement {
     pub fn new_if(if_: If) -> Self {
         Self::If(Box::new(if_))
     }
+
+    pub fn new_for(for_: For) -> Self {
+        Self::For(for_)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -321,11 +325,23 @@ pub struct While {
     pub body: Body,
 }
 
+impl While {
+    pub fn new(predicat: Expression, body: Body) -> Self {
+        Self { predicat, body }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ForIn {
     pub value: Identifier,
     pub expr: Expression,
     pub body: Body,
+}
+
+impl ForIn {
+    pub fn new(value: Identifier, expr: Expression, body: Body) -> Self {
+        Self { value, expr, body }
+    }
 }
 
 #[derive(Debug, Clone)]

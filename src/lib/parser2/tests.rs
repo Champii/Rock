@@ -552,3 +552,26 @@ mod parse_if {
         assert!(rest.fragment().is_empty());
     }
 }
+
+#[cfg(test)]
+mod parse_for {
+    use super::*;
+
+    #[test]
+    fn valid_for_in() {
+        let input = Parser::new_extra("for x in a\n  b", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_for(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_while() {
+        let input = Parser::new_extra("while a\n  b", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_for(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+}
