@@ -303,6 +303,10 @@ impl Statement {
     pub fn new_expression(expr: Expression) -> Self {
         Self::Expression(Box::new(expr))
     }
+
+    pub fn new_if(if_: If) -> Self {
+        Self::If(Box::new(if_))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -371,6 +375,22 @@ pub struct If {
     pub predicat: Expression,
     pub body: Body,
     pub else_: Option<Box<Else>>,
+}
+
+impl If {
+    pub fn new(
+        node_id: NodeId,
+        predicat: Expression,
+        body: Body,
+        else_: Option<Box<Else>>,
+    ) -> Self {
+        Self {
+            node_id,
+            predicat,
+            body,
+            else_,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -1,17 +1,17 @@
 use std::collections::HashMap;
+
 use std::path::PathBuf;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while};
 use nom::character::complete::{
-    alphanumeric0, alphanumeric1, char, line_ending, multispace0, one_of, satisfy, space0, space1,
+    alphanumeric0, alphanumeric1, char, line_ending, one_of, satisfy, space0, space1,
 };
-use nom::character::is_alphanumeric;
-use nom::combinator::{map, map_res, opt, recognize};
+use nom::combinator::{map, opt, recognize};
 use nom::error::{Error, ErrorKind};
-use nom::multi::{many0, many1, separated_list0, separated_list1};
-use nom::sequence::{delimited, preceded, separated_pair, terminated, tuple};
-use nom::{Err, IResult};
+use nom::multi::{many0, many1, separated_list1};
+use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::{error::ParseError, Err, IResult};
 
 use crate::ast::identity2::Identity;
 use crate::ast::tree2::*;
@@ -30,6 +30,7 @@ pub struct ParserCtx {
     cur_file_path: PathBuf,
     identities: Vec<Identity>,
     operators_list: HashMap<String, u8>,
+    block_indent: usize,
 }
 
 impl ParserCtx {
@@ -38,14 +39,17 @@ impl ParserCtx {
             cur_file_path: file_path,
             identities: Vec::new(),
             operators_list: HashMap::new(),
+            block_indent: 0,
         }
     }
 
+    #[cfg(test)]
     pub fn new_with_operators(file_path: PathBuf, operators: HashMap<String, u8>) -> Self {
         Self {
             cur_file_path: file_path,
             identities: Vec::new(),
             operators_list: operators,
+            block_indent: 0,
         }
     }
 
@@ -159,12 +163,85 @@ pub fn parse_fn(input: Parser) -> IResult<Parser, FunctionDecl> {
     )(input)
 }
 
-pub fn parse_body(input: Parser) -> IResult<Parser, Body> {
-    map(many1(parse_statement), Body::new)(input)
+pub fn parse_block_indent(input: Parser) -> IResult<Parser, usize> {
+    map(space0, |indents: Parser| indents.fragment().len())(input)
+}
+
+pub fn parse_body(mut input: Parser) -> IResult<Parser, Body> {
+    input.extra.block_indent += 2;
+
+    let output = map(
+        tuple((
+            line_ending,
+            separated_list1(many1(line_ending), parse_statement),
+        )),
+        |(_, stmts)| Body::new(stmts),
+    )(input);
+
+    output.map(|(mut input, body)| {
+        input.extra.block_indent -= 2;
+
+        (input, body)
+    })
 }
 
 pub fn parse_statement(input: Parser) -> IResult<Parser, Statement> {
-    map(parse_expression, Statement::new_expression)(input)
+    let (input, indent) = parse_block_indent(input)?;
+
+    if indent == input.extra.block_indent {
+        alt((
+            map(parse_if, Statement::new_if),
+            map(parse_expression, Statement::new_expression),
+        ))(input)
+    } else {
+        Err(nom::Err::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::Tag,
+        )))
+    }
+}
+
+pub fn parse_if(input: Parser) -> IResult<Parser, If> {
+    map(
+        tuple((
+            terminated(tag("if"), space1),
+            terminated(parse_expression, space0),
+            parse_body,
+            opt(parse_else),
+        )),
+        |(_, cond, body, else_)| If::new(0, cond, body, else_.map(Box::new)),
+    )(input)
+}
+
+pub fn parse_else(input: Parser) -> IResult<Parser, Else> {
+    let (input, indent) = parse_block_indent(input)?;
+
+    if indent == input.extra.block_indent {
+        println!("ELSE {:#?}", indent);
+        alt((
+            map(
+                tuple((
+                    line_ending,
+                    terminated(tag("else"), space1),
+                    terminated(parse_if, space0),
+                )),
+                |(_, _, if_)| Else::If(if_),
+            ),
+            map(
+                tuple((
+                    line_ending,
+                    terminated(tag("else"), space0),
+                    terminated(parse_body, space0),
+                )),
+                |(_, _, body)| Else::Body(body),
+            ),
+        ))(input)
+    } else {
+        Err(nom::Err::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::Tag,
+        )))
+    }
 }
 
 pub fn parse_expression(input: Parser) -> IResult<Parser, Expression> {

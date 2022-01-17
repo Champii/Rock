@@ -191,7 +191,7 @@ mod parse_infix_op {
 
         let (rest, parsed) = parse_infix(input).finish().unwrap();
 
-        matches!(parsed, TopLevel::Infix(op, 5));
+        assert!(matches!(parsed, TopLevel::Infix(op, 5)));
 
         let operators = HashMap::from([("+".to_string(), 5)]);
         assert_eq!(rest.extra.operators_list, operators);
@@ -281,13 +281,13 @@ mod parse_operand {
 
         let (_rest, parsed) = parse_operand(input).finish().unwrap();
 
-        matches!(
+        assert!(matches!(
             parsed,
             Operand::Literal(Literal {
                 kind: LiteralKind::Number(42),
                 node_id: 0,
             })
-        );
+        ));
     }
 
     #[test]
@@ -296,7 +296,10 @@ mod parse_operand {
 
         let (_rest, parsed) = parse_operand(input).finish().unwrap();
 
-        matches!(parsed, Operand::Identifier(IdentifierPath { path }));
+        assert!(matches!(
+            parsed,
+            Operand::Identifier(IdentifierPath { path })
+        ));
     }
 
     #[test]
@@ -305,7 +308,7 @@ mod parse_operand {
 
         let (_rest, parsed) = parse_operand(input).finish().unwrap();
 
-        matches!(parsed, Operand::Expression(expr));
+        assert!(matches!(parsed, Operand::Expression(expr)));
     }
 }
 
@@ -319,16 +322,21 @@ mod parse_expression {
 
         let (_rest, parsed) = parse_expression(input).finish().unwrap();
 
-        matches!(parsed, Expression::UnaryExpr(_));
+        assert!(matches!(parsed, Expression::UnaryExpr(_)));
     }
 
     #[test]
     fn valid_binary() {
-        let input = Parser::new_extra("3 + 4", ParserCtx::new(PathBuf::new()));
+        let operators = HashMap::from([("+".to_string(), 5)]);
+
+        let input = Parser::new_extra(
+            "3 + 4",
+            ParserCtx::new_with_operators(PathBuf::new(), operators),
+        );
 
         let (_rest, parsed) = parse_expression(input).finish().unwrap();
 
-        matches!(parsed, Expression::BinopExpr(_, _, _));
+        assert!(matches!(parsed, Expression::BinopExpr(_, _, _)));
     }
 }
 
@@ -337,8 +345,46 @@ mod parse_fn_decl {
     use super::*;
 
     #[test]
-    fn valid() {
-        let input = Parser::new_extra("toto a b = a + b", ParserCtx::new(PathBuf::new()));
+    fn valid_no_args() {
+        let input = Parser::new_extra("toto =\n  2\n", ParserCtx::new(PathBuf::new()));
+
+        let (_rest, parsed) = parse_fn(input).finish().unwrap();
+
+        let expected = FunctionDecl {
+            name: Identifier {
+                name: String::from("toto"),
+                node_id: 0,
+            },
+            body: Body::new(vec![Statement::Expression(Box::new(
+                Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+                    op: Operand::Literal(Literal {
+                        kind: LiteralKind::Number(2),
+                        node_id: 0,
+                    }),
+                    node_id: 0,
+                    secondaries: None,
+                })),
+            ))]),
+            arguments: vec![],
+            signature: FuncType {
+                ret: Box::new(Type::forall("a")),
+                arguments: vec![],
+            },
+        };
+
+        assert_eq!(parsed.name, expected.name);
+        assert_eq!(parsed.arguments, expected.arguments);
+        assert_eq!(parsed.signature, expected.signature);
+    }
+
+    #[test]
+    fn valid_2_args() {
+        let operators = HashMap::from([("+".to_string(), 5)]);
+
+        let input = Parser::new_extra(
+            "toto a b =\n  a + b",
+            ParserCtx::new_with_operators(PathBuf::new(), operators),
+        );
 
         let (_rest, parsed) = parse_fn(input).finish().unwrap();
 
@@ -396,6 +442,22 @@ mod parse_fn_decl {
         // assert_eq!(parsed.body, expected.body);
         assert_eq!(parsed.signature, expected.signature);
     }
+
+    #[test]
+    fn valid_multiline() {
+        let operators = HashMap::from([("+".to_string(), 5)]);
+
+        let input = Parser::new_extra(
+            "toto a b =\n  a + b\n  a + b",
+            ParserCtx::new_with_operators(PathBuf::new(), operators),
+        );
+
+        let (rest, parsed) = parse_fn(input).finish().unwrap();
+
+        println!("{:?}", rest);
+
+        assert!(rest.fragment().is_empty());
+    }
 }
 
 #[cfg(test)]
@@ -414,11 +476,13 @@ mod parse_prototype {
                 node_id: 0,
             },
             signature: FuncType {
-                ret: Box::new(Type::forall("Int64")),
-                arguments: vec![Type::forall("Int64")],
+                ret: Box::new(Type::int64()),
+                arguments: vec![Type::int64()],
             },
             node_id: 0,
         };
+
+        assert_eq!(parsed.name, expected.name);
     }
 }
 
@@ -441,5 +505,60 @@ mod parse_use {
                 }],
             }
         );
+    }
+}
+
+#[cfg(test)]
+mod parse_if {
+    use super::*;
+
+    #[test]
+    fn valid_if() {
+        let input = Parser::new_extra("if a\n  b", ParserCtx::new(PathBuf::new()));
+
+        let (rest, parsed) = parse_if(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_if_else() {
+        let input = Parser::new_extra("if a\n  b\nelse\n  c", ParserCtx::new(PathBuf::new()));
+
+        let (rest, parsed) = parse_if(input).finish().unwrap();
+
+        println!("{:#?}", rest);
+        println!("{:#?}", parsed);
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_if_else_if() {
+        let input = Parser::new_extra(
+            "if a\n  b\nelse if false\n  c",
+            ParserCtx::new(PathBuf::new()),
+        );
+
+        let (rest, parsed) = parse_if(input).finish().unwrap();
+
+        println!("{:#?}", rest);
+        println!("{:#?}", parsed);
+
+        assert!(rest.fragment().is_empty());
+    }
+    #[test]
+    fn valid_if_else_if_else() {
+        let input = Parser::new_extra(
+            "if a\n  b\nelse if true\n  c\nelse\n  d",
+            ParserCtx::new(PathBuf::new()),
+        );
+
+        let (rest, parsed) = parse_if(input).finish().unwrap();
+
+        println!("{:#?}", rest);
+        println!("{:#?}", parsed);
+
+        assert!(rest.fragment().is_empty());
     }
 }
