@@ -150,6 +150,7 @@ mod parse_signature {
         assert_eq!(parsed.ret, Box::new(Type::int64()));
     }
 
+    #[test]
     fn valid_2_arg() {
         let input = Parser::new_extra("Int64 -> Int64", ParserCtx::new(PathBuf::new()));
 
@@ -191,7 +192,7 @@ mod parse_infix_op {
 
         let (rest, parsed) = parse_infix(input).finish().unwrap();
 
-        assert!(matches!(parsed, TopLevel::Infix(op, 5)));
+        assert!(matches!(parsed, TopLevel::Infix(_op, 5)));
 
         let operators = HashMap::from([("+".to_string(), 5)]);
         assert_eq!(rest.extra.operators_list, operators);
@@ -452,9 +453,7 @@ mod parse_fn_decl {
             ParserCtx::new_with_operators(PathBuf::new(), operators),
         );
 
-        let (rest, parsed) = parse_fn(input).finish().unwrap();
-
-        println!("{:?}", rest);
+        let (rest, _parsed) = parse_fn(input).finish().unwrap();
 
         assert!(rest.fragment().is_empty());
     }
@@ -516,7 +515,7 @@ mod parse_if {
     fn valid_if() {
         let input = Parser::new_extra("if a\n  b", ParserCtx::new(PathBuf::new()));
 
-        let (rest, parsed) = parse_if(input).finish().unwrap();
+        let (rest, _parsed) = parse_if(input).finish().unwrap();
 
         assert!(rest.fragment().is_empty());
     }
@@ -525,10 +524,7 @@ mod parse_if {
     fn valid_if_else() {
         let input = Parser::new_extra("if a\n  b\nelse\n  c", ParserCtx::new(PathBuf::new()));
 
-        let (rest, parsed) = parse_if(input).finish().unwrap();
-
-        println!("{:#?}", rest);
-        println!("{:#?}", parsed);
+        let (rest, _parsed) = parse_if(input).finish().unwrap();
 
         assert!(rest.fragment().is_empty());
     }
@@ -542,9 +538,6 @@ mod parse_if {
 
         let (rest, parsed) = parse_if(input).finish().unwrap();
 
-        println!("{:#?}", rest);
-        println!("{:#?}", parsed);
-
         assert!(rest.fragment().is_empty());
     }
     #[test]
@@ -555,9 +548,6 @@ mod parse_if {
         );
 
         let (rest, parsed) = parse_if(input).finish().unwrap();
-
-        println!("{:#?}", rest);
-        println!("{:#?}", parsed);
 
         assert!(rest.fragment().is_empty());
     }
