@@ -9,7 +9,7 @@ use nom::character::complete::{
 };
 use nom::combinator::{map, opt, recognize};
 use nom::error::{Error, ErrorKind};
-use nom::multi::{many0, many1, separated_list1};
+use nom::multi::{many0, many1, separated_list0, separated_list1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{error::ParseError, Err, IResult};
 
@@ -274,6 +274,32 @@ pub fn parse_while(input: Parser) -> IResult<Parser, While> {
     )(input)
 }
 
+pub fn parse_assign(input: Parser) -> IResult<Parser, Assign> {
+    map(
+        tuple((
+            opt(terminated(tag("let"), space1)),
+            terminated(parse_assign_left_side, space0),
+            terminated(tag("="), space0),
+            terminated(parse_expression, space0),
+        )),
+        |(opt_let, var, _, expr)| Assign::new(var, expr, opt_let.is_some()),
+    )(input)
+}
+
+pub fn parse_assign_left_side(input: Parser) -> IResult<Parser, AssignLeftSide> {
+    map(parse_expression, |expr| {
+        if expr.is_dot() {
+            AssignLeftSide::Dot(expr)
+        } else if expr.is_indice() {
+            AssignLeftSide::Indice(expr)
+        } else if expr.is_identifier() {
+            AssignLeftSide::Identifier(expr)
+        } else {
+            panic!("Invalid left side of assignment: {:?}", expr);
+        }
+    })(input)
+}
+
 pub fn parse_expression(input: Parser) -> IResult<Parser, Expression> {
     alt((
         map(
@@ -293,7 +319,66 @@ pub fn parse_unary(input: Parser) -> IResult<Parser, UnaryExpr> {
 }
 
 pub fn parse_primary(input: Parser) -> IResult<Parser, PrimaryExpr> {
-    map(parse_operand, PrimaryExpr::new)(input)
+    map(
+        tuple((parse_operand, many0(parse_secondary))),
+        |(op, secs)| PrimaryExpr::new(op, secs),
+    )(input)
+}
+
+pub fn parse_secondary(input: Parser) -> IResult<Parser, SecondaryExpr> {
+    alt((
+        map(parse_indice, SecondaryExpr::Indice),
+        map(parse_dot, SecondaryExpr::Dot),
+        map(parse_arguments, SecondaryExpr::Arguments),
+    ))(input)
+}
+
+pub fn parse_arguments(input: Parser) -> IResult<Parser, Arguments> {
+    alt((
+        map(
+            tuple((
+                terminated(tag("("), space0),
+                separated_list0(tuple((space0, tag(","), space0)), parse_argument),
+                terminated(tag(")"), space0),
+            )),
+            |(_, args, _)| args,
+        ),
+        map(
+            tuple((
+                space1,
+                separated_list1(
+                    tuple((space0, terminated(tag(","), space0), space0)),
+                    parse_argument,
+                ),
+            )),
+            |(_, args)| args,
+        ),
+    ))(input)
+}
+
+pub fn parse_argument(input: Parser) -> IResult<Parser, Argument> {
+    map(parse_unary, Argument::new)(input)
+}
+
+pub fn parse_indice(input: Parser) -> IResult<Parser, Box<Expression>> {
+    map(
+        tuple((
+            terminated(tag("["), space0),
+            terminated(parse_expression, space0),
+            terminated(tag("]"), space0),
+        )),
+        |(_, index, _)| Box::new(index),
+    )(input)
+}
+
+pub fn parse_dot(input: Parser) -> IResult<Parser, Identifier> {
+    map(
+        tuple((
+            terminated(tag("."), space0),
+            terminated(parse_identifier, space0),
+        )),
+        |(_, ident)| ident,
+    )(input)
 }
 
 pub fn parse_operand(input: Parser) -> IResult<Parser, Operand> {
@@ -302,9 +387,9 @@ pub fn parse_operand(input: Parser) -> IResult<Parser, Operand> {
         map(parse_identifier_path, Operand::new_identifier_path),
         map(
             delimited(
-                delimited(space0, tag("("), space0),
+                terminated(tag("("), space0),
                 parse_expression,
-                delimited(space0, tag(")"), space0),
+                terminated(space0, tag(")")),
             ),
             Operand::new_expression,
         ),

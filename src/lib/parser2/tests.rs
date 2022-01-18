@@ -340,6 +340,152 @@ mod parse_expression {
         assert!(matches!(parsed, Expression::BinopExpr(_, _, _)));
     }
 }
+#[cfg(test)]
+mod parse_primary {
+    use super::*;
+
+    mod arguments {
+        use super::*;
+
+        mod parenthesis {
+            use super::*;
+
+            #[test]
+            fn valid_no_args() {
+                let input = Parser::new_extra("foo()", ParserCtx::new(PathBuf::new()));
+
+                let (_rest, parsed) = parse_primary(input).finish().unwrap();
+
+                let secondaries = parsed.secondaries.unwrap();
+                assert_eq!(secondaries.len(), 1);
+
+                let args = &secondaries[0];
+
+                match args {
+                    SecondaryExpr::Arguments(arr) => assert_eq!(arr.len(), 0),
+                    _ => panic!("expected Arguments"),
+                }
+            }
+
+            #[test]
+            fn valid_one_arg() {
+                let input = Parser::new_extra("foo(2)", ParserCtx::new(PathBuf::new()));
+
+                let (_rest, parsed) = parse_primary(input).finish().unwrap();
+
+                let secondaries = parsed.secondaries.unwrap();
+                assert_eq!(secondaries.len(), 1);
+
+                let args = &secondaries[0];
+
+                match args {
+                    SecondaryExpr::Arguments(arr) => assert_eq!(arr.len(), 1),
+                    _ => panic!("expected Arguments"),
+                }
+            }
+
+            #[test]
+            fn valid_two_args() {
+                let input = Parser::new_extra("foo(2, 3)", ParserCtx::new(PathBuf::new()));
+
+                let (_rest, parsed) = parse_primary(input).finish().unwrap();
+
+                let secondaries = parsed.secondaries.unwrap();
+                assert_eq!(secondaries.len(), 1);
+
+                let args = &secondaries[0];
+
+                match args {
+                    SecondaryExpr::Arguments(arr) => assert_eq!(arr.len(), 2),
+                    _ => panic!("expected Arguments"),
+                }
+            }
+        }
+
+        mod no_parenthesis {
+            use super::*;
+
+            #[test]
+            fn valid_one_arg() {
+                let input = Parser::new_extra("foo 2", ParserCtx::new(PathBuf::new()));
+
+                let (_rest, parsed) = parse_primary(input).finish().unwrap();
+
+                let secondaries = parsed.secondaries.unwrap();
+                assert_eq!(secondaries.len(), 1);
+
+                let args = &secondaries[0];
+
+                match args {
+                    SecondaryExpr::Arguments(arr) => assert_eq!(arr.len(), 1),
+                    _ => panic!("expected Arguments"),
+                }
+            }
+
+            #[test]
+            fn valid_two_args() {
+                let input = Parser::new_extra("foo 2, 3", ParserCtx::new(PathBuf::new()));
+
+                let (_rest, parsed) = parse_primary(input).finish().unwrap();
+
+                let secondaries = parsed.secondaries.unwrap();
+                assert_eq!(secondaries.len(), 1);
+
+                let args = &secondaries[0];
+
+                match args {
+                    SecondaryExpr::Arguments(arr) => assert_eq!(arr.len(), 2),
+                    _ => panic!("expected Arguments"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn valid_indice() {
+        let input = Parser::new_extra("foo[3]", ParserCtx::new(PathBuf::new()));
+
+        let (_rest, parsed) = parse_primary(input).finish().unwrap();
+
+        let secondaries = parsed.secondaries.unwrap();
+        assert_eq!(secondaries.len(), 1);
+
+        let args = &secondaries[0];
+
+        match args {
+            SecondaryExpr::Indice(expr) => {}
+            _ => panic!("expected indice"),
+        }
+    }
+
+    #[test]
+    fn valid_dot() {
+        let input = Parser::new_extra("foo.toto", ParserCtx::new(PathBuf::new()));
+
+        let (_rest, parsed) = parse_primary(input).finish().unwrap();
+
+        let secondaries = parsed.secondaries.unwrap();
+        assert_eq!(secondaries.len(), 1);
+
+        let args = &secondaries[0];
+
+        match args {
+            SecondaryExpr::Dot(expr) => {}
+            _ => panic!("expected dot"),
+        }
+    }
+
+    #[test]
+    fn valid_mixed() {
+        let input = Parser::new_extra("foo.toto()[a]", ParserCtx::new(PathBuf::new()));
+
+        let (_rest, parsed) = parse_primary(input).finish().unwrap();
+
+        let secondaries = parsed.secondaries.unwrap();
+
+        assert_eq!(secondaries.len(), 3);
+    }
+}
 
 #[cfg(test)]
 mod parse_fn_decl {
@@ -571,6 +717,47 @@ mod parse_for {
         let input = Parser::new_extra("while a\n  b", ParserCtx::new(PathBuf::new()));
 
         let (rest, _parsed) = parse_for(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod parse_assign {
+    use super::*;
+
+    #[test]
+    fn valid_assign() {
+        let input = Parser::new_extra("let a = 2", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_assign(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_reassign_ident() {
+        let input = Parser::new_extra("a = 2", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_assign(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_reassign_dot() {
+        let input = Parser::new_extra("a.b = 2", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_assign(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_reassign_indice() {
+        let input = Parser::new_extra("a[2] = 2", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_assign(input).finish().unwrap();
 
         assert!(rest.fragment().is_empty());
     }

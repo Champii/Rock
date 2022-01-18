@@ -346,7 +346,7 @@ impl ForIn {
 
 #[derive(Debug, Clone)]
 pub enum AssignLeftSide {
-    Identifier(Identifier),
+    Identifier(Expression),
     Indice(Expression),
     Dot(Expression),
 }
@@ -354,14 +354,7 @@ pub enum AssignLeftSide {
 impl AssignLeftSide {
     pub fn as_expression(&self) -> Expression {
         match self {
-            AssignLeftSide::Identifier(i) => {
-                Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
-                    op: Operand::new_identifier(i.clone()),
-                    node_id: i.node_id.clone(),
-                    secondaries: None,
-                }))
-            }
-
+            AssignLeftSide::Identifier(i) => i.clone(),
             AssignLeftSide::Indice(i) => i.clone(),
             AssignLeftSide::Dot(d) => d.clone(),
         }
@@ -383,6 +376,16 @@ pub struct Assign {
     pub name: AssignLeftSide,
     pub value: Expression,
     pub is_let: bool,
+}
+
+impl Assign {
+    pub fn new(name: AssignLeftSide, value: Expression, is_let: bool) -> Self {
+        Self {
+            name,
+            value,
+            is_let,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -451,6 +454,14 @@ impl Expression {
     }
 
     #[allow(dead_code)]
+    pub fn is_dot(&self) -> bool {
+        match &self {
+            Expression::UnaryExpr(unary) => unary.is_dot(),
+            _ => false,
+        }
+    }
+
+    #[allow(dead_code)]
     pub fn new_unary(unary: UnaryExpr) -> Expression {
         Expression::UnaryExpr(unary)
     }
@@ -512,6 +523,13 @@ impl UnaryExpr {
         }
     }
 
+    pub fn is_dot(&self) -> bool {
+        match self {
+            UnaryExpr::UnaryExpr(_, unary) => unary.is_dot(),
+            UnaryExpr::PrimaryExpr(prim) => prim.is_dot(),
+        }
+    }
+
     // pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> UnaryExpr {
     //     UnaryExpr::PrimaryExpr(PrimaryExpr {
     //         node_id: node_id::new_placeholder(),
@@ -552,11 +570,31 @@ impl PrimaryExpr {
         }
     }
 
-    pub fn new(op: Operand) -> PrimaryExpr {
+    pub fn is_dot(&self) -> bool {
+        if let Some(secondaries) = &self.secondaries {
+            secondaries.iter().any(|secondary| secondary.is_dot())
+        } else {
+            false
+        }
+    }
+
+    pub fn new_empty(op: Operand) -> PrimaryExpr {
         PrimaryExpr {
             op,
             node_id: 0,
             secondaries: None,
+        }
+    }
+
+    pub fn new(op: Operand, secondaries: Vec<SecondaryExpr>) -> PrimaryExpr {
+        PrimaryExpr {
+            op,
+            node_id: 0,
+            secondaries: if secondaries.len() == 0 {
+                None
+            } else {
+                Some(secondaries)
+            },
         }
     }
 }
@@ -625,6 +663,14 @@ impl SecondaryExpr {
     pub fn is_indice(&self) -> bool {
         matches!(self, SecondaryExpr::Indice(_))
     }
+
+    pub fn is_dot(&self) -> bool {
+        matches!(self, SecondaryExpr::Dot(_))
+    }
+
+    pub fn is_arguments(&self) -> bool {
+        matches!(self, SecondaryExpr::Arguments(_))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -680,6 +726,12 @@ pub type Arguments = Vec<Argument>;
 #[derive(Debug, Clone)]
 pub struct Argument {
     pub arg: UnaryExpr,
+}
+
+impl Argument {
+    pub fn new(arg: UnaryExpr) -> Self {
+        Self { arg }
+    }
 }
 
 #[derive(Debug, Clone)]
