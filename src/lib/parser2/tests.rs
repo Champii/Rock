@@ -811,3 +811,37 @@ mod parse_struct_ctor {
         assert!(rest.fragment().is_empty());
     }
 }
+
+#[cfg(test)]
+mod parse_trait {
+    use super::*;
+
+    #[test]
+    fn valid_trait() {
+        let input = Parser::new_extra(
+            "trait Foo\n  a :: Int64 -> Int64\n  b :: Float64 -> String",
+            ParserCtx::new(PathBuf::new()),
+        );
+
+        let (rest, _parsed) = parse_trait(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod parse_impl {
+    use super::*;
+
+    #[test]
+    fn valid_impl() {
+        let input = Parser::new_extra(
+            "impl Foo\n  a =\n    2",
+            ParserCtx::new(PathBuf::new()),
+        );
+
+        let (rest, _parsed) = parse_impl(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+}

@@ -31,6 +31,9 @@ mod tests;
 // - add support for array literals
 // - add support for module declarations
 // - add support for native operations
+// - add one-line blocks
+// - restore if then else blocks
+// - add support for traits and impl blocks
 
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
@@ -105,8 +108,57 @@ pub fn parse_top_level(input: Parser) -> IResult<Parser, TopLevel> {
         parse_infix,
         map(parse_use, TopLevel::new_use),
         map(parse_struct_decl, TopLevel::new_struct),
+        map(parse_trait, TopLevel::new_trait),
+        map(parse_impl, TopLevel::new_impl),
         map(parse_fn, TopLevel::new_function),
     ))(input)
+}
+
+pub fn parse_trait(input: Parser) -> IResult<Parser, Trait> {
+    map(
+        tuple((
+            terminated(tag("trait"), space1),
+            parse_type,
+            many0(delimited(space1, parse_type, space0)),
+            many0(line_ending),
+            indent(separated_list1(
+                line_ending,
+                preceded(parse_block_indent, parse_prototype),
+            )),
+        )),
+        |(_, name, types, _, defs)| Trait::new(name, types, defs),
+    )(input.clone())
+}
+
+pub fn parse_impl(input: Parser) -> IResult<Parser, Impl> {
+    map(
+        tuple((
+            terminated(tag("impl"), space1),
+            parse_type,
+            many0(delimited(space1, parse_type, space0)),
+            many0(line_ending),
+            indent(separated_list1(
+                line_ending,
+                preceded(parse_block_indent, parse_fn),
+            )),
+        )),
+        |(_, name, types, _, defs)| Impl::new(name, types, defs),
+    )(input.clone())
+}
+
+fn indent<'a, O, E, F>(mut parser: F) -> impl FnMut(Parser<'a>) -> IResult<Parser<'a>, O, E>
+where
+    F: nom::Parser<Parser<'a>, O, E>,
+{
+    move |mut input: Parser<'a>| {
+        input.extra.block_indent += 2;
+
+        let (mut input, output) = parser.parse(input)?;
+
+        input.extra.block_indent -= 2;
+
+        Ok((input, output))
+    }
 }
 
 pub fn parse_struct_decl(input: Parser) -> IResult<Parser, StructDecl> {
@@ -115,10 +167,10 @@ pub fn parse_struct_decl(input: Parser) -> IResult<Parser, StructDecl> {
             terminated(tag("struct"), space1),
             parse_type,
             many0(line_ending),
-            separated_list0(
-                terminated(line_ending, space1),
+            indent(separated_list0(
+                line_ending,
                 preceded(parse_block_indent, parse_prototype),
-            ),
+            )),
         )),
         |(tag, name, _, defs)| {
             let (_input, node_id) = new_identity(input.clone(), &tag);
@@ -191,43 +243,38 @@ pub fn parse_fn(input: Parser) -> IResult<Parser, FunctionDecl> {
 }
 
 pub fn parse_block_indent(input: Parser) -> IResult<Parser, usize> {
-    map(space0, |indents: Parser| indents.fragment().len())(input)
-}
+    let (input, indent) = space0(input)?;
+    let indent_len = indent.len();
 
-pub fn parse_body(mut input: Parser) -> IResult<Parser, Body> {
-    input.extra.block_indent += 2;
-
-    let output = map(
-        tuple((
-            line_ending,
-            separated_list1(many1(line_ending), parse_statement),
-        )),
-        |(_, stmts)| Body::new(stmts),
-    )(input);
-
-    output.map(|(mut input, body)| {
-        input.extra.block_indent -= 2;
-
-        (input, body)
-    })
-}
-
-pub fn parse_statement(input: Parser) -> IResult<Parser, Statement> {
-    let (input, indent) = parse_block_indent(input)?;
-
-    if indent == input.extra.block_indent {
-        alt((
-            map(parse_if, Statement::new_if),
-            map(parse_for, Statement::new_for),
-            map(parse_assign, Statement::new_assign),
-            map(parse_expression, Statement::new_expression),
-        ))(input)
+    if indent_len == input.extra.block_indent {
+        Ok((input, indent_len))
     } else {
         Err(nom::Err::Error(ParseError::from_error_kind(
             input,
             ErrorKind::Tag,
         )))
     }
+}
+
+pub fn parse_body(mut input: Parser) -> IResult<Parser, Body> {
+    indent(map(
+        tuple((
+            line_ending,
+            separated_list1(many1(line_ending), parse_statement),
+        )),
+        |(_, stmts)| Body::new(stmts),
+    ))(input)
+}
+
+pub fn parse_statement(input: Parser) -> IResult<Parser, Statement> {
+    let (input, _indent) = parse_block_indent(input)?;
+
+    alt((
+        map(parse_if, Statement::new_if),
+        map(parse_for, Statement::new_for),
+        map(parse_assign, Statement::new_assign),
+        map(parse_expression, Statement::new_expression),
+    ))(input)
 }
 
 pub fn parse_if(input: Parser) -> IResult<Parser, If> {
@@ -352,7 +399,7 @@ pub fn parse_struct_ctor(input: Parser) -> IResult<Parser, StructCtor> {
     map(
         tuple((
             terminated(parse_type, line_ending),
-            separated_list0(
+            indent(separated_list0(
                 line_ending,
                 preceded(
                     parse_block_indent,
@@ -361,7 +408,7 @@ pub fn parse_struct_ctor(input: Parser) -> IResult<Parser, StructCtor> {
                         parse_expression,
                     )),
                 ),
-            ),
+            )),
         )),
         |(name, decls)| {
             // FIXME

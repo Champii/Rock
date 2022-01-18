@@ -79,6 +79,14 @@ impl TopLevel {
     pub fn new_struct(s: StructDecl) -> Self {
         Self::Struct(s)
     }
+
+    pub fn new_trait(t: Trait) -> Self {
+        Self::Trait(t)
+    }
+
+    pub fn new_impl(t: Impl) -> Self {
+        Self::Impl(t)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -122,11 +130,23 @@ pub struct Trait {
     pub defs: Vec<Prototype>,
 }
 
+impl Trait {
+    pub fn new(name: Type, types: Vec<Type>, defs: Vec<Prototype>) -> Self {
+        Self { name, types, defs }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Impl {
     pub name: Type,
     pub types: Vec<Type>,
     pub defs: Vec<FunctionDecl>,
+}
+
+impl Impl {
+    pub fn new(name: Type, types: Vec<Type>, defs: Vec<FunctionDecl>) -> Self {
+        Self { name, types, defs }
+    }
 }
 
 #[derive(Debug, Clone)]
