@@ -29,9 +29,8 @@ mod tests;
 // - add support for comments
 // - add support for string literals
 // - add support for array literals
-// - add support for struct declarations
-// - add support for struct literals
 // - add support for module declarations
+// - add support for native operations
 
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
@@ -220,6 +219,7 @@ pub fn parse_statement(input: Parser) -> IResult<Parser, Statement> {
         alt((
             map(parse_if, Statement::new_if),
             map(parse_for, Statement::new_for),
+            map(parse_assign, Statement::new_assign),
             map(parse_expression, Statement::new_expression),
         ))(input)
     } else {
@@ -315,17 +315,22 @@ pub fn parse_assign(input: Parser) -> IResult<Parser, Assign> {
 }
 
 pub fn parse_assign_left_side(input: Parser) -> IResult<Parser, AssignLeftSide> {
-    map(parse_expression, |expr| {
-        if expr.is_dot() {
-            AssignLeftSide::Dot(expr)
-        } else if expr.is_indice() {
-            AssignLeftSide::Indice(expr)
-        } else if expr.is_identifier() {
-            AssignLeftSide::Identifier(expr)
-        } else {
-            panic!("Invalid left side of assignment: {:?}", expr);
-        }
-    })(input)
+    let (input, expr) = parse_expression(input)?;
+
+    let res = if expr.is_dot() {
+        AssignLeftSide::Dot(expr)
+    } else if expr.is_indice() {
+        AssignLeftSide::Indice(expr)
+    } else if expr.is_identifier() {
+        AssignLeftSide::Identifier(expr)
+    } else {
+        return Err(nom::Err::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::Tag,
+        )));
+    };
+
+    Ok((input, res))
 }
 
 pub fn parse_expression(input: Parser) -> IResult<Parser, Expression> {
@@ -339,7 +344,32 @@ pub fn parse_expression(input: Parser) -> IResult<Parser, Expression> {
             |(l, op, r)| Expression::new_binop(l, op, r),
         ),
         map(parse_unary, Expression::new_unary),
+        map(parse_struct_ctor, Expression::new_struct_ctor),
     ))(input)
+}
+
+pub fn parse_struct_ctor(input: Parser) -> IResult<Parser, StructCtor> {
+    map(
+        tuple((
+            terminated(parse_type, line_ending),
+            separated_list0(
+                line_ending,
+                preceded(
+                    parse_block_indent,
+                    tuple((
+                        terminated(parse_identifier, delimited(space0, tag(":"), space0)),
+                        parse_expression,
+                    )),
+                ),
+            ),
+        )),
+        |(name, decls)| {
+            // FIXME
+            // let (_input, node_id) = new_identity(input.clone(), &name);
+
+            StructCtor::new(0, name, decls.into_iter().collect())
+        },
+    )(input)
 }
 
 pub fn parse_unary(input: Parser) -> IResult<Parser, UnaryExpr> {

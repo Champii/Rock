@@ -788,3 +788,26 @@ mod parse_struct_decl {
         assert!(rest.fragment().is_empty());
     }
 }
+
+#[cfg(test)]
+mod parse_struct_ctor {
+    use super::*;
+
+    #[test]
+    fn valid_struct_ctor() {
+        let input = Parser::new_extra("Foo\n", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_struct_ctor(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_struct_ctor_with_fields() {
+        let input = Parser::new_extra("Foo\n  a: 2\n  b: 3.0", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_struct_ctor(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+}

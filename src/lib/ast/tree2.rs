@@ -105,6 +105,16 @@ pub struct StructCtor {
     pub defs: HashMap<Identifier, Expression>,
 }
 
+impl StructCtor {
+    pub fn new(node_id: NodeId, name: Type, defs: HashMap<Identifier, Expression>) -> Self {
+        Self {
+            node_id,
+            name,
+            defs,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Trait {
     pub name: Type,
@@ -325,6 +335,10 @@ impl Statement {
     pub fn new_for(for_: For) -> Self {
         Self::For(for_)
     }
+
+    pub fn new_assign(assign: Assign) -> Self {
+        Self::Assign(Box::new(assign))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -483,6 +497,10 @@ impl Expression {
     #[allow(dead_code)]
     pub fn new_binop(unary: UnaryExpr, operator: Operator, expr: Expression) -> Expression {
         Expression::BinopExpr(unary, operator, Box::new(expr))
+    }
+
+    pub fn new_struct_ctor(ctor: StructCtor) -> Expression {
+        Expression::StructCtor(ctor)
     }
 
     // #[allow(dead_code)]

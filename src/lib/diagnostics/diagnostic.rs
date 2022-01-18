@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-
 use crate::{diagnostics::DiagnosticType, parser::Span};
 use crate::{
     hir::HirId,
