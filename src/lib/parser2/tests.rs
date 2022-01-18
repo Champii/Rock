@@ -762,3 +762,29 @@ mod parse_assign {
         assert!(rest.fragment().is_empty());
     }
 }
+
+#[cfg(test)]
+mod parse_struct_decl {
+    use super::*;
+
+    #[test]
+    fn valid_struct_decl() {
+        let input = Parser::new_extra("struct Foo", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_struct_decl(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_struct_decl_with_fields() {
+        let input = Parser::new_extra(
+            "struct Foo\n  a :: Int64\n  b :: Float64",
+            ParserCtx::new(PathBuf::new()),
+        );
+
+        let (rest, _parsed) = parse_struct_decl(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+}

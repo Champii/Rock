@@ -75,6 +75,10 @@ impl TopLevel {
     pub fn new_use(u: Use) -> Self {
         Self::Use(u)
     }
+
+    pub fn new_struct(s: StructDecl) -> Self {
+        Self::Struct(s)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +86,16 @@ pub struct StructDecl {
     pub node_id: NodeId,
     pub name: Type,
     pub defs: Vec<Prototype>,
+}
+
+impl StructDecl {
+    pub fn new(node_id: NodeId, name: Type, defs: Vec<Prototype>) -> Self {
+        Self {
+            node_id,
+            name,
+            defs,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -7,7 +7,7 @@ use nom::bytes::complete::{tag, take_while};
 use nom::character::complete::{
     alphanumeric0, alphanumeric1, char, line_ending, one_of, satisfy, space0, space1,
 };
-use nom::combinator::{map, opt, recognize};
+use nom::combinator::{eof, map, opt, recognize};
 use nom::error::{Error, ErrorKind};
 use nom::multi::{many0, many1, separated_list0, separated_list1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
@@ -24,6 +24,14 @@ pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
 
 #[cfg(test)]
 mod tests;
+
+// TODO:
+// - add support for comments
+// - add support for string literals
+// - add support for array literals
+// - add support for struct declarations
+// - add support for struct literals
+// - add support for module declarations
 
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
@@ -79,7 +87,7 @@ impl ParserCtx {
 }
 
 pub fn parse_root(input: Parser) -> IResult<Parser, Root> {
-    map(parse_mod, Root::new)(input)
+    map(terminated(parse_mod, eof), Root::new)(input)
 }
 
 pub fn parse_mod(input: Parser) -> IResult<Parser, Mod> {
@@ -97,8 +105,28 @@ pub fn parse_top_level(input: Parser) -> IResult<Parser, TopLevel> {
         ),
         parse_infix,
         map(parse_use, TopLevel::new_use),
+        map(parse_struct_decl, TopLevel::new_struct),
         map(parse_fn, TopLevel::new_function),
     ))(input)
+}
+
+pub fn parse_struct_decl(input: Parser) -> IResult<Parser, StructDecl> {
+    map(
+        tuple((
+            terminated(tag("struct"), space1),
+            parse_type,
+            many0(line_ending),
+            separated_list0(
+                terminated(line_ending, space1),
+                preceded(parse_block_indent, parse_prototype),
+            ),
+        )),
+        |(tag, name, _, defs)| {
+            let (_input, node_id) = new_identity(input.clone(), &tag);
+
+            StructDecl::new(node_id, name, defs)
+        },
+    )(input.clone())
 }
 
 pub fn parse_use(input: Parser) -> IResult<Parser, Use> {
