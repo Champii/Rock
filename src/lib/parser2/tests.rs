@@ -174,6 +174,14 @@ mod parse_type {
         assert_eq!(parsed, Type::int64());
     }
 
+    fn valid_for_all() {
+        let input = Parser::new_extra("a", ParserCtx::new(PathBuf::new()));
+
+        let (_rest, parsed) = parse_type(input).finish().unwrap();
+
+        assert_eq!(parsed, Type::forall("a"));
+    }
+
     #[test]
     fn invalid() {
         let input = Parser::new_extra("int64", ParserCtx::new(PathBuf::new()));
@@ -603,6 +611,20 @@ mod parse_fn_decl {
 
         assert!(rest.fragment().is_empty());
     }
+
+    #[test]
+    fn valid_one_line() {
+        let operators = HashMap::from([("+".to_string(), 5)]);
+
+        let input = Parser::new_extra(
+            "toto a b = a + b",
+            ParserCtx::new_with_operators(PathBuf::new(), operators),
+        );
+
+        let (rest, _parsed) = parse_fn(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
 }
 
 #[cfg(test)]
@@ -836,12 +858,26 @@ mod parse_impl {
     #[test]
     fn valid_impl() {
         let input = Parser::new_extra(
-            "impl Foo\n  a =\n    2",
+            "impl Foo\n  a =\n    2\n  b a =\n    a",
             ParserCtx::new(PathBuf::new()),
         );
 
         let (rest, _parsed) = parse_impl(input).finish().unwrap();
 
         assert!(rest.fragment().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod parse_native_operator {
+    use super::*;
+
+    #[test]
+    fn valid_native_operator() {
+        let input = Parser::new_extra("~IAdd a b", ParserCtx::new(PathBuf::new()));
+
+        let (rest, (parsed, _, _)) = parse_native_operator(input).finish().unwrap();
+
+        assert_eq!(parsed.kind, NativeOperatorKind::IAdd);
     }
 }

@@ -87,6 +87,10 @@ impl TopLevel {
     pub fn new_impl(t: Impl) -> Self {
         Self::Impl(t)
     }
+
+    pub fn new_mod(ident: Identifier, mod_: Mod) -> Self {
+        Self::Mod(ident, mod_)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -282,6 +286,15 @@ impl IdentifierPath {
 pub struct Identifier {
     pub name: String,
     pub node_id: NodeId,
+}
+
+impl Identifier {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            node_id: 0, // FIXME: should have a valid node_id ?
+        }
+    }
 }
 
 // impl Identifier {
@@ -521,6 +534,14 @@ impl Expression {
 
     pub fn new_struct_ctor(ctor: StructCtor) -> Expression {
         Expression::StructCtor(ctor)
+    }
+
+    pub fn new_native_operator(
+        operator: NativeOperator,
+        id1: Identifier,
+        id2: Identifier,
+    ) -> Expression {
+        Expression::NativeOperation(operator, id1, id2)
     }
 
     // #[allow(dead_code)]
@@ -792,7 +813,13 @@ pub struct NativeOperator {
     pub node_id: NodeId,
 }
 
-#[derive(Debug, Clone)]
+impl NativeOperator {
+    pub fn new(node_id: NodeId, kind: NativeOperatorKind) -> Self {
+        Self { kind, node_id }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum NativeOperatorKind {
     IAdd,
     ISub,
@@ -814,4 +841,32 @@ pub enum NativeOperatorKind {
     Fle,
     BEq,
     Len,
+}
+
+impl NativeOperatorKind {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "IAdd" => Self::IAdd,
+            "ISub" => Self::ISub,
+            "IMul" => Self::IMul,
+            "IDiv" => Self::IDiv,
+            "FAdd" => Self::FAdd,
+            "FSub" => Self::FSub,
+            "FMul" => Self::FMul,
+            "FDiv" => Self::FDiv,
+            "IEq" => Self::IEq,
+            "Igt" => Self::Igt,
+            "Ige" => Self::Ige,
+            "Ilt" => Self::Ilt,
+            "Ile" => Self::Ile,
+            "FEq" => Self::FEq,
+            "Fgt" => Self::Fgt,
+            "Fge" => Self::Fge,
+            "Flt" => Self::Flt,
+            "Fle" => Self::Fle,
+            "BEq" => Self::BEq,
+            "Len" => Self::Len,
+            _ => panic!("Unknown native operator"),
+        }
+    }
 }

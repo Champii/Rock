@@ -7,7 +7,7 @@ use nom::bytes::complete::{tag, take_while};
 use nom::character::complete::{
     alphanumeric0, alphanumeric1, char, line_ending, one_of, satisfy, space0, space1,
 };
-use nom::combinator::{eof, map, opt, recognize};
+use nom::combinator::{eof, map, not, opt, recognize, peek};
 use nom::error::{Error, ErrorKind};
 use nom::multi::{many0, many1, separated_list0, separated_list1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
@@ -33,7 +33,8 @@ mod tests;
 // - add support for native operations
 // - add one-line blocks
 // - restore if then else blocks
-// - add support for traits and impl blocks
+// - fix duplicate node_id
+// - fix null node_id
 
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
@@ -41,6 +42,7 @@ pub struct ParserCtx {
     identities: Vec<Identity>,
     operators_list: HashMap<String, u8>,
     block_indent: usize,
+    first_indent: Option<usize>,
 }
 
 impl ParserCtx {
@@ -50,6 +52,7 @@ impl ParserCtx {
             identities: Vec::new(),
             operators_list: HashMap::new(),
             block_indent: 0,
+            first_indent: None,
         }
     }
 
@@ -60,6 +63,7 @@ impl ParserCtx {
             identities: Vec::new(),
             operators_list: operators,
             block_indent: 0,
+            first_indent: None,
         }
     }
 
@@ -86,15 +90,28 @@ impl ParserCtx {
     pub fn add_operator(&mut self, op: String, prec: u8) {
         self.operators_list.insert(op, prec);
     }
+
+    pub fn resolve_new_mod(&mut self, name: &str) -> Self {
+        Self::new(
+            self.cur_file_path
+                .parent()
+                .unwrap()
+                .join(name.to_owned() + ".rk"),
+        )
+    }
 }
 
 pub fn parse_root(input: Parser) -> IResult<Parser, Root> {
+    // TODO: move eof check in parse_mod
     map(terminated(parse_mod, eof), Root::new)(input)
 }
 
 pub fn parse_mod(input: Parser) -> IResult<Parser, Mod> {
     map(
-        many1(terminated(parse_top_level, many1(line_ending))),
+        many1(terminated(
+            parse_top_level,
+            many1(preceded(opt(parse_comment), line_ending)),
+        )),
         Mod::new,
     )(input)
 }
@@ -111,7 +128,31 @@ pub fn parse_top_level(input: Parser) -> IResult<Parser, TopLevel> {
         map(parse_trait, TopLevel::new_trait),
         map(parse_impl, TopLevel::new_impl),
         map(parse_fn, TopLevel::new_function),
+        map(parse_mod_decl, |(name, mod_)| TopLevel::new_mod(name, mod_)),
     ))(input)
+}
+
+pub fn parse_comment(input: Parser) -> IResult<Parser, ()> {
+    let (input, _) = tuple((tag("#"), many0(satisfy(|c: char| c != '\n'))))(input)?;
+
+    Ok((input, ()))
+}
+
+pub fn parse_mod_decl(input: Parser) -> IResult<Parser, (Identifier, Mod)> {
+    let (mut input, mod_name) = preceded(terminated(tag("mod"), space1), parse_identifier)(input)?;
+
+    let new_ctx = input.extra.resolve_new_mod(&mod_name.name);
+
+    let content = std::fs::read_to_string(&new_ctx.current_file_path()).unwrap();
+
+    let mut new_parser = Parser::new_extra(&content, new_ctx);
+
+    // FIXME: Errors are swallowed here
+    let (_input, mod_) = parse_mod(new_parser).unwrap();
+
+    // TODO: hydrate `input` with the new parser's operators
+
+    Ok((input, (mod_name, mod_)))
 }
 
 pub fn parse_trait(input: Parser) -> IResult<Parser, Trait> {
@@ -144,21 +185,6 @@ pub fn parse_impl(input: Parser) -> IResult<Parser, Impl> {
         )),
         |(_, name, types, _, defs)| Impl::new(name, types, defs),
     )(input.clone())
-}
-
-fn indent<'a, O, E, F>(mut parser: F) -> impl FnMut(Parser<'a>) -> IResult<Parser<'a>, O, E>
-where
-    F: nom::Parser<Parser<'a>, O, E>,
-{
-    move |mut input: Parser<'a>| {
-        input.extra.block_indent += 2;
-
-        let (mut input, output) = parser.parse(input)?;
-
-        input.extra.block_indent -= 2;
-
-        Ok((input, output))
-    }
 }
 
 pub fn parse_struct_decl(input: Parser) -> IResult<Parser, StructDecl> {
@@ -210,10 +236,17 @@ pub fn parse_infix(input: Parser) -> IResult<Parser, TopLevel> {
     Ok((input, TopLevel::new_infix(op, pred.as_i64() as u8)))
 }
 
+pub fn parse_identifier_or_operator(input: Parser) -> IResult<Parser, Identifier> {
+    alt((parse_identifier, map(parse_operator, |op| op.0)))(input)
+}
+
 pub fn parse_prototype(input: Parser) -> IResult<Parser, Prototype> {
     map(
         tuple((
-            terminated(parse_identifier, delimited(space0, tag("::"), space0)),
+            terminated(
+                parse_identifier_or_operator,
+                delimited(space0, tag("::"), space0),
+            ),
             parse_signature,
         )),
         |(name, signature)| Prototype {
@@ -228,7 +261,10 @@ pub fn parse_fn(input: Parser) -> IResult<Parser, FunctionDecl> {
     map(
         tuple((
             terminated(
-                tuple((parse_identifier, many0(preceded(space1, parse_identifier)))),
+                tuple((
+                    parse_identifier_or_operator,
+                    many0(preceded(space1, parse_identifier)),
+                )),
                 delimited(space0, char('='), space0),
             ),
             parse_body,
@@ -242,9 +278,34 @@ pub fn parse_fn(input: Parser) -> IResult<Parser, FunctionDecl> {
     )(input)
 }
 
+fn indent<'a, O, E, F>(mut parser: F) -> impl FnMut(Parser<'a>) -> IResult<Parser<'a>, O, E>
+where
+    F: nom::Parser<Parser<'a>, O, E>,
+{
+    move |mut input: Parser<'a>| {
+        if let Some(indent) = input.extra.first_indent {
+            input.extra.block_indent += indent;
+        }
+
+        let (mut input, output) = parser.parse(input)?;
+
+        if let Some(indent) = input.extra.first_indent {
+            input.extra.block_indent -= indent;
+        }
+
+        Ok((input, output))
+    }
+}
+
 pub fn parse_block_indent(input: Parser) -> IResult<Parser, usize> {
-    let (input, indent) = space0(input)?;
-    let indent_len = indent.len();
+    let (mut input, indent) = space1(input)?;
+    let indent_len = indent.fragment().len();
+
+    if input.extra.first_indent == None {
+        println!("{:?}", indent_len);
+        input.extra.first_indent = Some(indent_len);
+        input.extra.block_indent = indent_len;
+    }
 
     if indent_len == input.extra.block_indent {
         Ok((input, indent_len))
@@ -257,18 +318,22 @@ pub fn parse_block_indent(input: Parser) -> IResult<Parser, usize> {
 }
 
 pub fn parse_body(mut input: Parser) -> IResult<Parser, Body> {
-    indent(map(
-        tuple((
-            line_ending,
-            separated_list1(many1(line_ending), parse_statement),
-        )),
-        |(_, stmts)| Body::new(stmts),
-    ))(input)
+    let (input, opt_eol) = opt(line_ending)(input)?; // NOTE: should not fail
+
+    if opt_eol.is_some() {
+        indent(map(
+            separated_list1(
+                many1(line_ending),
+                preceded(parse_block_indent, parse_statement),
+            ),
+            Body::new,
+        ))(input)
+    } else {
+        map(parse_statement, |stmt| Body::new(vec![stmt]))(input)
+    }
 }
 
 pub fn parse_statement(input: Parser) -> IResult<Parser, Statement> {
-    let (input, _indent) = parse_block_indent(input)?;
-
     alt((
         map(parse_if, Statement::new_if),
         map(parse_for, Statement::new_for),
@@ -294,7 +359,11 @@ pub fn parse_if(input: Parser) -> IResult<Parser, If> {
 }
 
 pub fn parse_else(input: Parser) -> IResult<Parser, Else> {
-    let (input, indent) = parse_block_indent(input)?;
+    let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
+        parse_block_indent(input)?
+    } else {
+        (input, 0)
+    };
 
     if indent == input.extra.block_indent {
         alt((
@@ -392,7 +461,55 @@ pub fn parse_expression(input: Parser) -> IResult<Parser, Expression> {
         ),
         map(parse_unary, Expression::new_unary),
         map(parse_struct_ctor, Expression::new_struct_ctor),
+        map(parse_native_operator, |(op, id1, id2)| {
+            Expression::new_native_operator(op, id1, id2)
+        }),
+        // TODO: Return
     ))(input)
+}
+
+pub fn parse_native_operator(
+    input: Parser,
+) -> IResult<Parser, (NativeOperator, Identifier, Identifier)> {
+    map(
+        tuple((
+            preceded(
+                tag("~"),
+                alt((
+                    tag("IAdd"),
+                    tag("ISub"),
+                    tag("IMul"),
+                    tag("IDiv"),
+                    tag("FAdd"),
+                    tag("FSub"),
+                    tag("FMul"),
+                    tag("FDiv"),
+                    tag("IEq"),
+                    tag("Igt"),
+                    tag("Ige"),
+                    tag("Ilt"),
+                    tag("Ile"),
+                    tag("FEq"),
+                    tag("Fgt"),
+                    tag("Fge"),
+                    tag("Flt"),
+                    tag("Fle"),
+                    tag("BEq"),
+                    tag("Len"),
+                )),
+            ),
+            preceded(space1, parse_identifier),
+            preceded(space1, parse_identifier),
+        )),
+        |(tag, id1, id2)| {
+            let (input, node_id) = new_identity(input.clone(), &tag);
+            (
+                NativeOperator::new(node_id, NativeOperatorKind::from_str(tag.fragment())),
+                id1,
+                id2,
+            )
+        },
+    )(input.clone())
 }
 
 pub fn parse_struct_ctor(input: Parser) -> IResult<Parser, StructCtor> {
@@ -503,13 +620,21 @@ pub fn parse_operand(input: Parser) -> IResult<Parser, Operand> {
 
 pub fn parse_identifier_path(input: Parser) -> IResult<Parser, IdentifierPath> {
     map(
-        separated_list1(tag("::"), parse_identifier),
+        separated_list1(
+            tag("::"),
+            alt((
+                map(tag("*"), |_| Identifier::new("*".to_string())),
+                parse_identifier,
+            )),
+        ),
         IdentifierPath::new,
     )(input)
 }
 
 pub fn parse_identifier(input: Parser) -> IResult<Parser, Identifier> {
-    let (input, ident_parsed) = alphanumeric1(input)?;
+    // let (input, ident_parsed) = alphanumeric1(input)?;
+    let (input, ident_parsed) =
+        recognize(many1(one_of("abcdefghijklmnopqrstuvwxyz_0123456789")))(input)?;
 
     let (input, node_id) = new_identity(input, &ident_parsed);
 
@@ -609,7 +734,10 @@ pub fn parse_signature(input: Parser) -> IResult<Parser, FuncType> {
 }
 
 pub fn parse_type(input: Parser) -> IResult<Parser, Type> {
-    let (input, parsed) = parse_capitalized_text(input)?;
+    let (input, parsed) = alt((
+        parse_capitalized_text,
+        map(terminated(one_of("abcdefghijklmnopqrstuvwxyz"), peek(alt((space1, line_ending)))), |c| String::from(c)),
+    ))(input)?;
 
     let ty = Type::from(parsed);
 
