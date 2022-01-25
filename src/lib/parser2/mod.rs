@@ -7,7 +7,7 @@ use nom::bytes::complete::{tag, take_while};
 use nom::character::complete::{
     alphanumeric0, alphanumeric1, char, line_ending, one_of, satisfy, space0, space1,
 };
-use nom::combinator::{eof, map, not, opt, recognize, peek};
+use nom::combinator::{eof, map, not, opt, peek, recognize};
 use nom::error::{Error, ErrorKind};
 use nom::multi::{many0, many1, separated_list0, separated_list1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
@@ -26,13 +26,8 @@ pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
 mod tests;
 
 // TODO:
-// - add support for comments
 // - add support for string literals
 // - add support for array literals
-// - add support for module declarations
-// - add support for native operations
-// - add one-line blocks
-// - restore if then else blocks
 // - fix duplicate node_id
 // - fix null node_id
 
@@ -101,6 +96,14 @@ impl ParserCtx {
     }
 }
 
+pub fn create_parser(s: &str) -> Parser<'_> {
+    LocatedSpan::new_extra(s, ParserCtx::new(PathBuf::from("")))
+}
+
+pub fn create_parser_with_filename(s: &str, path: PathBuf) -> Parser<'_> {
+    LocatedSpan::new_extra(s, ParserCtx::new(path))
+}
+
 pub fn parse_root(input: Parser) -> IResult<Parser, Root> {
     // TODO: move eof check in parse_mod
     map(terminated(parse_mod, eof), Root::new)(input)
@@ -147,10 +150,15 @@ pub fn parse_mod_decl(input: Parser) -> IResult<Parser, (Identifier, Mod)> {
 
     let mut new_parser = Parser::new_extra(&content, new_ctx);
 
+    use nom::Finish;
     // FIXME: Errors are swallowed here
-    let (_input, mod_) = parse_mod(new_parser).unwrap();
+    let (input2, mod_) = parse_mod(new_parser).finish().unwrap();
 
-    // TODO: hydrate `input` with the new parser's operators
+    // hydrate `input` with the new parser's operators
+    input
+        .extra
+        .operators_list
+        .extend(input2.extra.operators_list);
 
     Ok((input, (mod_name, mod_)))
 }
@@ -302,7 +310,6 @@ pub fn parse_block_indent(input: Parser) -> IResult<Parser, usize> {
     let indent_len = indent.fragment().len();
 
     if input.extra.first_indent == None {
-        println!("{:?}", indent_len);
         input.extra.first_indent = Some(indent_len);
         input.extra.block_indent = indent_len;
     }
@@ -347,10 +354,12 @@ pub fn parse_if(input: Parser) -> IResult<Parser, If> {
         tuple((
             terminated(tag("if"), space1),
             terminated(parse_expression, space0),
+            many1(line_ending),
+            parse_then,
             parse_body,
             opt(tuple((line_ending, parse_else))),
         )),
-        |(if_, cond, body, else_)| {
+        |(if_, cond, _, _, body, else_)| {
             let (_input, node_id) = new_identity(input.clone(), &if_);
 
             If::new(node_id, cond, body, else_.map(|(_, else_)| Box::new(else_)))
@@ -358,7 +367,28 @@ pub fn parse_if(input: Parser) -> IResult<Parser, If> {
     )(input.clone())
 }
 
+pub fn parse_then(input: Parser) -> IResult<Parser, ()> {
+    // NOTE: This is a tweek for then block that are at indent 0 (i.e. in the test files)
+    let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
+        parse_block_indent(input)?
+    } else {
+        (input, 0)
+    };
+
+    if indent == input.extra.block_indent {
+        let (input, _) = terminated(tag("then"), space0)(input)?;
+
+        Ok((input, ()))
+    } else {
+        Err(nom::Err::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::Tag,
+        )))
+    }
+}
+
 pub fn parse_else(input: Parser) -> IResult<Parser, Else> {
+    // NOTE: This is a tweek for else block that are at indent 0 (i.e. in the test files)
     let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
         parse_block_indent(input)?
     } else {
@@ -736,7 +766,13 @@ pub fn parse_signature(input: Parser) -> IResult<Parser, FuncType> {
 pub fn parse_type(input: Parser) -> IResult<Parser, Type> {
     let (input, parsed) = alt((
         parse_capitalized_text,
-        map(terminated(one_of("abcdefghijklmnopqrstuvwxyz"), peek(alt((space1, line_ending)))), |c| String::from(c)),
+        map(
+            terminated(
+                one_of("abcdefghijklmnopqrstuvwxyz"),
+                peek(alt((space1, line_ending))),
+            ),
+            |c| String::from(c),
+        ),
     ))(input)?;
 
     let ty = Type::from(parsed);

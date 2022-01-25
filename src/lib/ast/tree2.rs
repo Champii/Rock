@@ -1,9 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
+
+use nom::Finish;
 
 use crate::{
     ast::NodeId,
     helpers::*,
     parser::span2::Span,
+    parser2::create_parser,
+    parser2::parse_root,
     resolver::ResolutionMap,
     ty::{FuncType, Type},
 };
@@ -17,6 +21,17 @@ pub struct Root {
     pub spans: HashMap<NodeId, Span>,
 }
 
+/* impl FromStr for Root {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match parse_root(create_parser(s)).finish() {
+            Ok((_, root)) => Ok(root),
+            Err(e) => Err(format!("{:?}", e)),
+        }
+    }
+}
+ */
 impl Root {
     pub fn new(r#mod: Mod) -> Self {
         Self {
@@ -565,7 +580,7 @@ pub enum Expression {
     UnaryExpr(UnaryExpr),
     NativeOperation(NativeOperator, Identifier, Identifier),
     StructCtor(StructCtor),
-    Return(Box<Expression>),
+    Return(Box<Expression>), // NOTE: Shouldn't that be a statement?
 }
 
 #[derive(Debug, Clone)]

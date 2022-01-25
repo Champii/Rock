@@ -681,7 +681,7 @@ mod parse_if {
 
     #[test]
     fn valid_if() {
-        let input = Parser::new_extra("if a\n  b", ParserCtx::new(PathBuf::new()));
+        let input = Parser::new_extra("if a\nthen b", ParserCtx::new(PathBuf::new()));
 
         let (rest, _parsed) = parse_if(input).finish().unwrap();
 
@@ -690,7 +690,7 @@ mod parse_if {
 
     #[test]
     fn valid_if_else() {
-        let input = Parser::new_extra("if a\n  b\nelse\n  c", ParserCtx::new(PathBuf::new()));
+        let input = Parser::new_extra("if a\nthen b\nelse c", ParserCtx::new(PathBuf::new()));
 
         let (rest, _parsed) = parse_if(input).finish().unwrap();
 
@@ -700,7 +700,7 @@ mod parse_if {
     #[test]
     fn valid_if_else_if() {
         let input = Parser::new_extra(
-            "if a\n  b\nelse if false\n  c",
+            "if a\nthen b\nelse if false\nthen c",
             ParserCtx::new(PathBuf::new()),
         );
 
@@ -708,12 +708,22 @@ mod parse_if {
 
         assert!(rest.fragment().is_empty());
     }
+
     #[test]
     fn valid_if_else_if_else() {
         let input = Parser::new_extra(
-            "if a\n  b\nelse if true\n  c\nelse\n  d",
+            "if a\nthen b\nelse if true\nthen c\nelse d",
             ParserCtx::new(PathBuf::new()),
         );
+
+        let (rest, _parsed) = parse_if(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+
+    #[test]
+    fn valid_multiline_if_else() {
+        let input = Parser::new_extra("if a\nthen\n  b\nelse\n  d", ParserCtx::new(PathBuf::new()));
 
         let (rest, _parsed) = parse_if(input).finish().unwrap();
 
