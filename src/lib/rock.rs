@@ -79,11 +79,7 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
     println!("TEST {:#?}", ast_test);
 
     match ast_test {
-        Ok((_, ast)) => {
-
-
-            Ok(ast)
-        }
+        Ok((_, ast)) => Ok(ast),
         Err(e) => {
             let diagnostic = Diagnostic::from(e.input);
 

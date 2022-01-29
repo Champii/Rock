@@ -906,3 +906,16 @@ mod parse_array {
     }
 }
 
+#[cfg(test)]
+mod parse_string {
+    use super::*;
+
+    #[test]
+    fn valid_string() {
+        let input = Parser::new_extra("\"foo\"", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_string(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+}

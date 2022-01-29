@@ -12,6 +12,8 @@ use nom::error::{Error, ErrorKind};
 use nom::multi::{many0, many1, separated_list0, separated_list1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{error::ParseError, Err, IResult};
+use nom::bytes::complete::escaped;
+use nom::character::complete::anychar;
 
 use crate::ast::identity2::Identity;
 use crate::ast::tree2::*;
@@ -26,8 +28,7 @@ pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
 mod tests;
 
 // TODO:
-// - add support for string literals
-// - add support for array literals
+// - add support for escaped string
 // - fix null node_id
 
 #[derive(Debug, Clone)]
@@ -66,7 +67,8 @@ impl ParserCtx {
 
     pub fn new_from(&self, name: &str) -> Self {
         Self {
-            cur_file_path: self.cur_file_path
+            cur_file_path: self
+                .cur_file_path
                 .parent()
                 .unwrap()
                 .join(name.to_owned() + ".rk"),
@@ -234,9 +236,7 @@ pub fn parse_struct_decl(input: Parser) -> IResult<Parser, StructDecl> {
                 preceded(parse_block_indent, parse_prototype),
             )),
         )),
-        |(tag, node_id, name, _, defs)| {
-            StructDecl::new(node_id, name, defs)
-        },
+        |(tag, node_id, name, _, defs)| StructDecl::new(node_id, name, defs),
     )(input.clone())
 }
 
@@ -733,7 +733,22 @@ pub fn parse_operator(input: Parser) -> IResult<Parser, Operator> {
 }
 
 pub fn parse_literal(input: Parser) -> IResult<Parser, Literal> {
-    alt((parse_bool, parse_float, parse_number, parse_array))(input)
+    alt((
+        parse_bool,
+        parse_float,
+        parse_number,
+        parse_array,
+        parse_string,
+    ))(input)
+}
+
+pub fn parse_string(input: Parser) -> IResult<Parser, Literal> {
+    map(tuple((
+        parse_identity,
+        terminated(tag("\""), space0),
+        recognize(take_while(|c: char| c != '"')),
+        terminated(tag("\""), space0),
+    )), |(node_id, _, s, _)| Literal::new_string(String::from(*s.fragment()), node_id))(input)
 }
 
 pub fn parse_array(input: Parser) -> IResult<Parser, Literal> {
@@ -747,7 +762,9 @@ pub fn parse_array(input: Parser) -> IResult<Parser, Literal> {
             ),
             terminated(tag("]"), space0),
         )),
-        |(node_id, _, elements, _)| Literal::new_array(Array::new(elements.into_iter().collect()), node_id),
+        |(node_id, _, elements, _)| {
+            Literal::new_array(Array::new(elements.into_iter().collect()), node_id)
+        },
     )(input)
 }
 

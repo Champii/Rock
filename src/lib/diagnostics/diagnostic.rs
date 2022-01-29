@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::parser2::Parser;
-use crate::{diagnostics::DiagnosticType, parser::Span, parser::span2::Span as Span2};
+use crate::{diagnostics::DiagnosticType, parser::span2::Span as Span2, parser::Span};
 use crate::{
     hir::HirId,
     parser::SourceFile,

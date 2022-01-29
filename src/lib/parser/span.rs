@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use super::span2::Span as Span2;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Span {
