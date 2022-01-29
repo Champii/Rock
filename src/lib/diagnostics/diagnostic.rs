@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
-use crate::{diagnostics::DiagnosticType, parser::Span};
+use crate::parser2::Parser;
+use crate::{diagnostics::DiagnosticType, parser::Span, parser::span2::Span as Span2};
 use crate::{
     hir::HirId,
     parser::SourceFile,
@@ -272,12 +273,13 @@ impl Display for DiagnosticKind {
     }
 }
 
-/* impl<'a> From<Parser<'a>> for Diagnostic {
+impl<'a> From<Parser<'a>> for Diagnostic {
     fn from(err: Parser<'a>) -> Self {
-        let span = Span::from(err);
+        let span2 = Span2::from(err);
+        let span = Span::from(span2);
 
         let msg = "Syntax error".to_string();
 
         Diagnostic::new_syntax_error(span, msg)
     }
-} */
+}

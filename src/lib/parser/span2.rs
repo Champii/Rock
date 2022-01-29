@@ -6,11 +6,11 @@ use crate::parser2::Parser;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Span {
-    file_path: PathBuf,
-    offset: usize,
-    line: usize,
-    column: usize,
-    txt: String,
+    pub file_path: PathBuf,
+    pub offset: usize,
+    pub line: usize,
+    pub column: usize,
+    pub txt: String,
 }
 
 impl<'a> From<Parser<'a>> for Span {

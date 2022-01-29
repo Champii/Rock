@@ -28,7 +28,6 @@ mod tests;
 // TODO:
 // - add support for string literals
 // - add support for array literals
-// - fix duplicate node_id
 // - fix null node_id
 
 #[derive(Debug, Clone)]
@@ -38,6 +37,7 @@ pub struct ParserCtx {
     operators_list: HashMap<String, u8>,
     block_indent: usize,
     first_indent: Option<usize>,
+    next_node_id: NodeId,
 }
 
 impl ParserCtx {
@@ -48,6 +48,7 @@ impl ParserCtx {
             operators_list: HashMap::new(),
             block_indent: 0,
             first_indent: None,
+            next_node_id: 0,
         }
     }
 
@@ -59,11 +60,28 @@ impl ParserCtx {
             operators_list: operators,
             block_indent: 0,
             first_indent: None,
+            next_node_id: 0,
+        }
+    }
+
+    pub fn new_from(&self, name: &str) -> Self {
+        Self {
+            cur_file_path: self.cur_file_path
+                .parent()
+                .unwrap()
+                .join(name.to_owned() + ".rk"),
+            identities: Vec::new(),
+            operators_list: HashMap::new(),
+            block_indent: 0,
+            first_indent: None,
+            next_node_id: self.next_node_id,
         }
     }
 
     pub fn new_identity(&mut self, span: Span) -> NodeId {
-        let node_id = self.identities.len() as NodeId;
+        let node_id = self.next_node_id;
+
+        self.next_node_id += 1;
 
         self.identities.push(Identity::new(node_id, span));
 
@@ -86,14 +104,18 @@ impl ParserCtx {
         self.operators_list.insert(op, prec);
     }
 
-    pub fn resolve_new_mod(&mut self, name: &str) -> Self {
-        Self::new(
+    /* pub fn resolve_new_mod(&mut self, name: &str) -> Self {
+        let mut new = Self::new(
             self.cur_file_path
                 .parent()
                 .unwrap()
                 .join(name.to_owned() + ".rk"),
-        )
-    }
+        );
+
+        new.identities = self.identities.clone();
+
+        new
+    } */
 }
 
 pub fn create_parser(s: &str) -> Parser<'_> {
@@ -144,7 +166,7 @@ pub fn parse_comment(input: Parser) -> IResult<Parser, ()> {
 pub fn parse_mod_decl(input: Parser) -> IResult<Parser, (Identifier, Mod)> {
     let (mut input, mod_name) = preceded(terminated(tag("mod"), space1), parse_identifier)(input)?;
 
-    let new_ctx = input.extra.resolve_new_mod(&mod_name.name);
+    let new_ctx = input.extra.new_from(&mod_name.name);
 
     let content = std::fs::read_to_string(&new_ctx.current_file_path()).unwrap();
 
@@ -155,10 +177,15 @@ pub fn parse_mod_decl(input: Parser) -> IResult<Parser, (Identifier, Mod)> {
     let (input2, mod_) = parse_mod(new_parser).finish().unwrap();
 
     // hydrate `input` with the new parser's operators
+    // TODO: handle duplicate operators
     input
         .extra
         .operators_list
         .extend(input2.extra.operators_list);
+
+    // extend identities
+    input.extra.identities.extend(input2.extra.identities);
+    input.extra.next_node_id = input2.extra.next_node_id;
 
     Ok((input, (mod_name, mod_)))
 }
@@ -176,7 +203,7 @@ pub fn parse_trait(input: Parser) -> IResult<Parser, Trait> {
             )),
         )),
         |(_, name, types, _, defs)| Trait::new(name, types, defs),
-    )(input.clone())
+    )(input)
 }
 
 pub fn parse_impl(input: Parser) -> IResult<Parser, Impl> {
@@ -192,13 +219,14 @@ pub fn parse_impl(input: Parser) -> IResult<Parser, Impl> {
             )),
         )),
         |(_, name, types, _, defs)| Impl::new(name, types, defs),
-    )(input.clone())
+    )(input)
 }
 
 pub fn parse_struct_decl(input: Parser) -> IResult<Parser, StructDecl> {
     map(
         tuple((
             terminated(tag("struct"), space1),
+            parse_identity,
             parse_type,
             many0(line_ending),
             indent(separated_list0(
@@ -206,9 +234,7 @@ pub fn parse_struct_decl(input: Parser) -> IResult<Parser, StructDecl> {
                 preceded(parse_block_indent, parse_prototype),
             )),
         )),
-        |(tag, name, _, defs)| {
-            let (_input, node_id) = new_identity(input.clone(), &tag);
-
+        |(tag, node_id, name, _, defs)| {
             StructDecl::new(node_id, name, defs)
         },
     )(input.clone())
@@ -573,8 +599,12 @@ pub fn parse_unary(input: Parser) -> IResult<Parser, UnaryExpr> {
 pub fn parse_primary(input: Parser) -> IResult<Parser, PrimaryExpr> {
     map(
         tuple((parse_operand, many0(parse_secondary))),
-        |(op, secs)| PrimaryExpr::new(op, secs),
-    )(input)
+        |(op, secs)| {
+            let (_input, node_id) = new_identity(input.clone(), &input.clone());
+
+            PrimaryExpr::new(node_id, op, secs)
+        },
+    )(input.clone())
 }
 
 pub fn parse_secondary(input: Parser) -> IResult<Parser, SecondaryExpr> {
@@ -678,7 +708,7 @@ pub fn parse_identifier(input: Parser) -> IResult<Parser, Identifier> {
 }
 
 pub fn parse_operator(input: Parser) -> IResult<Parser, Operator> {
-    let (input, parsed_op) = one_of(LocatedSpan::new(
+    let (input, parsed_op) = recognize(many1(one_of(LocatedSpan::new(
         input
             .extra
             .operators()
@@ -687,7 +717,7 @@ pub fn parse_operator(input: Parser) -> IResult<Parser, Operator> {
             .collect::<Vec<_>>()
             .join("")
             .as_str(),
-    ))(input)?;
+    ))))(input)?;
 
     let (input, pos) = position(input)?;
 
@@ -703,7 +733,22 @@ pub fn parse_operator(input: Parser) -> IResult<Parser, Operator> {
 }
 
 pub fn parse_literal(input: Parser) -> IResult<Parser, Literal> {
-    alt((parse_bool, parse_float, parse_number))(input)
+    alt((parse_bool, parse_float, parse_number, parse_array))(input)
+}
+
+pub fn parse_array(input: Parser) -> IResult<Parser, Literal> {
+    map(
+        tuple((
+            parse_identity,
+            terminated(tag("["), space0),
+            separated_list0(
+                tuple((space0, terminated(tag(","), space0), space0)),
+                parse_expression,
+            ),
+            terminated(tag("]"), space0),
+        )),
+        |(node_id, _, elements, _)| Literal::new_array(Array::new(elements.into_iter().collect()), node_id),
+    )(input)
 }
 
 pub fn parse_bool(input: Parser) -> IResult<Parser, Literal> {
@@ -800,6 +845,27 @@ fn new_identity<'a>(mut input: Parser<'a>, parsed: &Parser<'a>) -> (Parser<'a>, 
 
     (input, node_id)
 }
+
+fn parse_identity(input: Parser) -> IResult<Parser, NodeId> {
+    let (input, pos) = position(input)?;
+
+    let (input, node_id) = new_identity(input, &pos);
+
+    Ok((input, node_id))
+}
+
+/* fn parse_identity2<'a, O, E, F>(mut parser: F) -> impl FnMut(Parser<'a>) -> IResult<Parser<'a>, O, E>
+where
+    F: nom::Parser<Parser<'a>, O, E>,
+{
+    move |mut input: Parser<'a>| {
+        let (mut input, output) = parser.parse(input)?;
+
+        let (input, node_id) = new_identity(input, &output);
+
+        Ok(())
+    }
+} */
 
 pub fn allowed_operator_chars(input: Parser) -> IResult<Parser, String> {
     let (input, c) = one_of(LocatedSpan::new(

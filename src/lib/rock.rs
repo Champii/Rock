@@ -78,6 +78,21 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
 
     println!("TEST {:#?}", ast_test);
 
+    match ast_test {
+        Ok((_, ast)) => {
+
+
+            Ok(ast)
+        }
+        Err(e) => {
+            let diagnostic = Diagnostic::from(e.input);
+
+            parsing_ctx.diagnostics.push_error(diagnostic.clone());
+
+            Err(diagnostic)
+        }
+    };
+
     // Text to Ast
     debug!("    -> Parsing");
     let mut ast = parser::parse_root(parsing_ctx)?;

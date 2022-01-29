@@ -7,6 +7,8 @@ infix < 3
 main =
   let i = 0
   let x = 42
-  for i < x
+  # This fails because old parser does not handle while keyword
+  # Waiting for new parser to be merged
+  while i < x
     i = i + 1
   i

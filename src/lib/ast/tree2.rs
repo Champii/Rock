@@ -674,10 +674,10 @@ impl PrimaryExpr {
         }
     }
 
-    pub fn new(op: Operand, secondaries: Vec<SecondaryExpr>) -> PrimaryExpr {
+    pub fn new(node_id: NodeId, op: Operand, secondaries: Vec<SecondaryExpr>) -> PrimaryExpr {
         PrimaryExpr {
             op,
-            node_id: 0,
+            node_id,
             secondaries: if secondaries.len() == 0 {
                 None
             } else {
@@ -789,6 +789,13 @@ impl Literal {
         }
     }
 
+    pub fn new_array(arr: Array, node_id: NodeId) -> Self {
+        Self {
+            kind: LiteralKind::Array(arr),
+            node_id,
+        }
+    }
+
     pub fn as_i64(&self) -> i64 {
         match self.kind {
             LiteralKind::Number(n) => n,
@@ -802,11 +809,18 @@ pub enum LiteralKind {
     Bool(bool),
     Number(i64),
     Float(f64),
+    Array(Array),
 }
 
 #[derive(Debug, Clone)]
 pub struct Array {
     pub values: Vec<Expression>,
+}
+
+impl Array {
+    pub fn new(values: Vec<Expression>) -> Self {
+        Self { values }
+    }
 }
 
 pub type Arguments = Vec<Argument>;

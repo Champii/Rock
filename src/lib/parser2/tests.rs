@@ -746,7 +746,7 @@ mod parse_for {
 
     #[test]
     fn valid_while() {
-        let input = Parser::new_extra("while a\n  b", ParserCtx::new(PathBuf::new()));
+        let input = Parser::new_extra("while a\n  b = 2", ParserCtx::new(PathBuf::new()));
 
         let (rest, _parsed) = parse_for(input).finish().unwrap();
 
@@ -891,3 +891,18 @@ mod parse_native_operator {
         assert_eq!(parsed.kind, NativeOperatorKind::IAdd);
     }
 }
+
+#[cfg(test)]
+mod parse_array {
+    use super::*;
+
+    #[test]
+    fn valid_array() {
+        let input = Parser::new_extra("[1, 2, 3]", ParserCtx::new(PathBuf::new()));
+
+        let (rest, _parsed) = parse_array(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
+}
+
