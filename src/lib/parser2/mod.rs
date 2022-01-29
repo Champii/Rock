@@ -875,12 +875,14 @@ fn parse_identity(input: Parser) -> IResult<Parser, NodeId> {
 
     Ok((input, node_id))
 }
-
-/* fn parse_identity2<'a, O, E, F>(mut parser: F) -> impl FnMut(Parser<'a>) -> IResult<Parser<'a>, O, E>
+/*
+fn parse_identity2<'a, O, E, F>(mut parser: F) -> impl FnMut(Parser<'a>) -> IResult<Parser<'a>, O, E>
 where
     F: nom::Parser<Parser<'a>, O, E>,
 {
     move |mut input: Parser<'a>| {
+        let (input, pos) = position(input)?;
+
         let (mut input, output) = parser.parse(input)?;
 
         let (input, node_id) = new_identity(input, &output);
