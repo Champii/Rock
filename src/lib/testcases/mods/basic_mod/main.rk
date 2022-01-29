@@ -1,6 +1,5 @@
 mod _std
 
-use _std::+
 use _std::*
 
 test g h i j = g

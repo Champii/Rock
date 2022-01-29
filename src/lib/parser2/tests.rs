@@ -114,27 +114,6 @@ mod parse_number {
         assert!(parse_number(input).finish().is_err());
     }
 }
-/*
-#[cfg(test)]
-mod parse_string {
-    use super::*;
-
-    #[test]
-    fn valid() {
-        let input = Parser::new_extra("\"hello\"", ParserCtx::new(PathBuf::new()));
-
-        let (_rest, parsed) = parse_string(input).finish().unwrap();
-
-        assert!(matches!(parsed.kind, LiteralKind::String(ref s) if s == "hello"));
-    }
-
-    #[test]
-    fn invalid() {
-        let input = Parser::new_extra("\"hello", ParserCtx::new(PathBuf::new()));
-
-        assert!(parse_string(input).finish().is_err());
-    }
-} */
 
 #[cfg(test)]
 mod parse_signature {
@@ -174,6 +153,7 @@ mod parse_type {
         assert_eq!(parsed, Type::int64());
     }
 
+    #[test]
     fn valid_for_all() {
         let input = Parser::new_extra("a", ParserCtx::new(PathBuf::new()));
 

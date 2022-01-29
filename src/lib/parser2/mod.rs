@@ -686,6 +686,7 @@ pub fn parse_identifier_path(input: Parser) -> IResult<Parser, IdentifierPath> {
             alt((
                 map(tag("*"), |_| Identifier::new("*".to_string())),
                 parse_identifier,
+                // map(parse_operator, |op| op.0),
             )),
         ),
         IdentifierPath::new,
@@ -835,7 +836,7 @@ pub fn parse_type(input: Parser) -> IResult<Parser, Type> {
         map(
             terminated(
                 one_of("abcdefghijklmnopqrstuvwxyz"),
-                peek(alt((space1, line_ending))),
+                peek(alt((space1, line_ending, eof))),
             ),
             |c| Type::ForAll(String::from(c)),
         ),
