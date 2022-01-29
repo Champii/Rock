@@ -6,12 +6,9 @@ struct Foo
   titi :: Float64
 
 main =
-  let lol =
-    Foo
-      toto:
-        Bar
-          mdr: 42
-      titi:
-        10.2
+  let lol = Foo
+    toto: Bar
+      mdr: 42
+    titi: 10.2
 
   lol.toto.mdr

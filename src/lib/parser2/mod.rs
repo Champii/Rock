@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use nom::branch::alt;
+use nom::bytes::complete::escaped;
 use nom::bytes::complete::{tag, take_while};
+use nom::character::complete::anychar;
 use nom::character::complete::{
     alphanumeric0, alphanumeric1, char, line_ending, one_of, satisfy, space0, space1,
 };
@@ -12,14 +14,12 @@ use nom::error::{Error, ErrorKind};
 use nom::multi::{many0, many1, separated_list0, separated_list1};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{error::ParseError, Err, IResult};
-use nom::bytes::complete::escaped;
-use nom::character::complete::anychar;
 
 use crate::ast::identity2::Identity;
 use crate::ast::tree2::*;
 use crate::ast::NodeId;
 use crate::parser::span2::Span;
-use crate::ty::{FuncType, Type};
+use crate::ty::{FuncType, Type, PrimitiveType};
 
 use nom_locate::{position, LocatedSpan};
 pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
@@ -29,6 +29,7 @@ mod tests;
 
 // TODO:
 // - add support for escaped string
+// - fix typing (check every types)
 // - fix null node_id
 
 #[derive(Debug, Clone)]
@@ -743,12 +744,15 @@ pub fn parse_literal(input: Parser) -> IResult<Parser, Literal> {
 }
 
 pub fn parse_string(input: Parser) -> IResult<Parser, Literal> {
-    map(tuple((
-        parse_identity,
-        terminated(tag("\""), space0),
-        recognize(take_while(|c: char| c != '"')),
-        terminated(tag("\""), space0),
-    )), |(node_id, _, s, _)| Literal::new_string(String::from(*s.fragment()), node_id))(input)
+    map(
+        tuple((
+            parse_identity,
+            terminated(tag("\""), space0),
+            recognize(take_while(|c: char| c != '"')),
+            terminated(tag("\""), space0),
+        )),
+        |(node_id, _, s, _)| Literal::new_string(String::from(*s.fragment()), node_id),
+    )(input)
 }
 
 pub fn parse_array(input: Parser) -> IResult<Parser, Literal> {
@@ -826,18 +830,23 @@ pub fn parse_signature(input: Parser) -> IResult<Parser, FuncType> {
 }
 
 pub fn parse_type(input: Parser) -> IResult<Parser, Type> {
-    let (input, parsed) = alt((
-        parse_capitalized_text,
+    let (input, ty) = alt((
+        map(parse_capitalized_text, Type::Trait),
         map(
             terminated(
                 one_of("abcdefghijklmnopqrstuvwxyz"),
                 peek(alt((space1, line_ending))),
             ),
-            |c| String::from(c),
+            |c| Type::ForAll(String::from(c)),
+        ),
+        map(
+            delimited(tag("["), parse_type, tag("]")),
+            |t| Type::Primitive(PrimitiveType::Array(
+                Box::new(t),
+                0,
+            )),
         ),
     ))(input)?;
-
-    let ty = Type::from(parsed);
 
     Ok((input, ty))
 }

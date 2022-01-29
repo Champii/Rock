@@ -217,6 +217,13 @@ impl From<String> for Type {
     fn from(t: String) -> Self {
         if t.len() == 1 && (t.chars().next().unwrap()).is_lowercase() {
             Type::ForAll(t)
+        } else if t.chars().next().unwrap() == '[' {
+            Type::Primitive(PrimitiveType::Array(
+                Box::new(Type::from(
+                    t.trim_matches('[').trim_matches(']').to_string(),
+                )),
+                0,
+            ))
         } else {
             Type::Trait(t)
         }
