@@ -222,7 +222,7 @@ impl From<String> for Type {
                 Box::new(Type::from(
                     t.trim_matches('[').trim_matches(']').to_string(),
                 )),
-                0,
+                0, // FIXME
             ))
         } else {
             Type::Trait(t)

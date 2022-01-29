@@ -30,7 +30,6 @@ mod tests;
 // TODO:
 // - add support for escaped string
 // - fix typing (check every types)
-// - fix null node_id
 
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
@@ -238,13 +237,13 @@ pub fn parse_struct_decl(input: Parser) -> IResult<Parser, StructDecl> {
             )),
         )),
         |(tag, node_id, name, _, defs)| StructDecl::new(node_id, name, defs),
-    )(input.clone())
+    )(input)
 }
 
 pub fn parse_use(input: Parser) -> IResult<Parser, Use> {
     preceded(
         terminated(tag("use"), space1),
-        map(parse_identifier_path, Use::new),
+        map(tuple((parse_identity, parse_identifier_path)), |(node_id, ident)| Use::new(ident, node_id)),
     )(input)
 }
 
@@ -257,7 +256,9 @@ pub fn parse_infix(input: Parser) -> IResult<Parser, TopLevel> {
         )),
     )(input)?;
 
-    // let (input, node_id) = new_identity(input, &parsed_op);
+    let (input, pos) = position(input)?;
+
+    let (mut input, node_id) = new_identity(input, &pos);
 
     let op = parsed_op.join("");
 
@@ -265,7 +266,7 @@ pub fn parse_infix(input: Parser) -> IResult<Parser, TopLevel> {
 
     let op = Operator(Identifier {
         name: op,
-        node_id: 0,
+        node_id,
     });
 
     Ok((input, TopLevel::new_infix(op, pred.as_i64() as u8)))
@@ -379,6 +380,7 @@ pub fn parse_statement(input: Parser) -> IResult<Parser, Statement> {
 pub fn parse_if(input: Parser) -> IResult<Parser, If> {
     map(
         tuple((
+            parse_identity,
             terminated(tag("if"), space1),
             terminated(parse_expression, space0),
             many1(line_ending),
@@ -386,9 +388,7 @@ pub fn parse_if(input: Parser) -> IResult<Parser, If> {
             parse_body,
             opt(tuple((line_ending, parse_else))),
         )),
-        |(if_, cond, _, _, body, else_)| {
-            let (_input, node_id) = new_identity(input.clone(), &if_);
-
+        |(node_id, if_, cond, _, _, body, else_)| {
             If::new(node_id, cond, body, else_.map(|(_, else_)| Box::new(else_)))
         },
     )(input.clone())
@@ -572,6 +572,7 @@ pub fn parse_native_operator(
 pub fn parse_struct_ctor(input: Parser) -> IResult<Parser, StructCtor> {
     map(
         tuple((
+            parse_identity,
             terminated(parse_type, line_ending),
             indent(separated_list0(
                 line_ending,
@@ -584,11 +585,8 @@ pub fn parse_struct_ctor(input: Parser) -> IResult<Parser, StructCtor> {
                 ),
             )),
         )),
-        |(name, decls)| {
-            // FIXME
-            // let (_input, node_id) = new_identity(input.clone(), &name);
-
-            StructCtor::new(0, name, decls.into_iter().collect())
+        |(node_id, name, decls)| {
+            StructCtor::new(node_id, name, decls.into_iter().collect())
         },
     )(input)
 }
@@ -599,13 +597,11 @@ pub fn parse_unary(input: Parser) -> IResult<Parser, UnaryExpr> {
 
 pub fn parse_primary(input: Parser) -> IResult<Parser, PrimaryExpr> {
     map(
-        tuple((parse_operand, many0(parse_secondary))),
-        |(op, secs)| {
-            let (_input, node_id) = new_identity(input.clone(), &input.clone());
-
+        tuple((parse_identity, parse_operand, many0(parse_secondary))),
+        |(node_id, op, secs)| {
             PrimaryExpr::new(node_id, op, secs)
         },
-    )(input.clone())
+    )(input)
 }
 
 pub fn parse_secondary(input: Parser) -> IResult<Parser, SecondaryExpr> {
@@ -684,7 +680,7 @@ pub fn parse_identifier_path(input: Parser) -> IResult<Parser, IdentifierPath> {
         separated_list1(
             tag("::"),
             alt((
-                map(tag("*"), |_| Identifier::new("*".to_string())),
+                map(tuple((parse_identity, tag("*"))), |(node_id, _)| Identifier::new("*".to_string(), node_id)),
                 parse_identifier,
                 // map(parse_operator, |op| op.0),
             )),
@@ -694,7 +690,6 @@ pub fn parse_identifier_path(input: Parser) -> IResult<Parser, IdentifierPath> {
 }
 
 pub fn parse_identifier(input: Parser) -> IResult<Parser, Identifier> {
-    // let (input, ident_parsed) = alphanumeric1(input)?;
     let (input, ident_parsed) =
         recognize(many1(one_of("abcdefghijklmnopqrstuvwxyz_0123456789")))(input)?;
 
@@ -844,7 +839,7 @@ pub fn parse_type(input: Parser) -> IResult<Parser, Type> {
             delimited(tag("["), parse_type, tag("]")),
             |t| Type::Primitive(PrimitiveType::Array(
                 Box::new(t),
-                0,
+                0,// FIXME
             )),
         ),
     ))(input)?;

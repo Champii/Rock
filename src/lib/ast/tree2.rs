@@ -188,8 +188,8 @@ pub struct Use {
 }
 
 impl Use {
-    pub fn new(path: IdentifierPath) -> Self {
-        Self { path, node_id: 0 }
+    pub fn new(path: IdentifierPath, node_id: NodeId) -> Self {
+        Self { path, node_id }
     }
 }
 
@@ -304,10 +304,10 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, node_id: NodeId) -> Self {
         Self {
             name,
-            node_id: 0, // FIXME: should have a valid node_id ?
+            node_id,
         }
     }
 }
