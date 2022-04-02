@@ -497,8 +497,6 @@ pub fn parse_assign(input: Parser) -> Res<Parser, Assign> {
 pub fn parse_assign_left_side(input: Parser) -> Res<Parser, AssignLeftSide> {
     let (input, expr) = parse_expression(input)?;
 
-    println!("{:#?}", expr);
-
     let res = if expr.is_dot() {
         AssignLeftSide::Dot(expr)
     } else if expr.is_indice() {

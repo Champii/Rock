@@ -77,11 +77,16 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
 
     let ast_test = parser2::parse_root(parser).finish();
 
-    println!("TEST {:#?}", ast_test);
-
     match ast_test {
-        Ok((ctx, ast)) => {
+        Ok((ctx, mut ast)) => {
             parsing_ctx.identities = ctx.extra.identities();
+
+            debug!("    -> Resolving");
+            resolver2::resolve(&mut ast, parsing_ctx)?;
+
+            /* // Lowering to HIR
+            debug!("    -> Lowering to HIR");
+            let mut hir = ast_lowering2::lower_crate(&ast); */
 
             Ok(ast)
         }

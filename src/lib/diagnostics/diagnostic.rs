@@ -161,7 +161,7 @@ impl Diagnostic {
         );
 
         let line_span_start = line_start;
-        let mut line_span_stop = line_start + (self.span.end - self.span.start) + 1;
+        let mut line_span_stop = line_start + (self.span.end - self.span.start);
 
         let line_colored = lines[line - 1].iter().cloned().collect::<String>();
         if line_span_stop > line_colored.len() {

@@ -186,7 +186,13 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
         self.push_scope();
 
-        walk_function_decl(self, f);
+        self.visit_identifier(&f.name);
+
+        for arg in &f.arguments {
+            self.add_to_current_scope(arg.name.clone(), arg.node_id);
+        }
+
+        self.visit_body(&f.body);
 
         self.pop_scope();
     }
