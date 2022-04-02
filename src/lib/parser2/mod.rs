@@ -124,6 +124,10 @@ impl ParserCtx {
             .map(|identity| (identity.node_id, identity.clone()))
             .collect()
     }
+
+    pub fn operators_list(&self) -> HashMap<String, u8> {
+        self.operators_list.clone()
+    }
 }
 
 pub fn create_parser(s: &str) -> Parser<'_> {

@@ -82,6 +82,7 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
     let hir = match ast_test {
         Ok((ctx, mut ast)) => {
             parsing_ctx.identities = ctx.extra.identities();
+            ast.operators_list = ctx.extra.operators_list();
 
             // Debug ast
             if parsing_ctx.config.show_ast {
