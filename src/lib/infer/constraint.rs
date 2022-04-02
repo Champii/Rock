@@ -5,7 +5,7 @@ use crate::{
     hir::visit::*,
     hir::*,
     infer::Envs,
-    resolver::ResolutionMap,
+    resolver2::ResolutionMap,
     ty::{FuncType, PrimitiveType, Type},
 };
 
@@ -97,7 +97,12 @@ impl<'a> ConstraintContext<'a> {
                             .or_else(|| {
                                 self.envs.diagnostics.push_error(
                                     Diagnostic::new_unresolved_trait_call(
-                                        self.envs.spans.get(&call_hir_id.clone()).unwrap().clone(),
+                                        self.envs
+                                            .spans
+                                            .get(&call_hir_id.clone())
+                                            .unwrap()
+                                            .clone()
+                                            .into(),
                                         call_hir_id.clone(),
                                         new_sig,
                                         existing_impls.keys().cloned().collect(),
@@ -162,7 +167,12 @@ impl<'a> ConstraintContext<'a> {
             self.envs
                 .diagnostics
                 .push_error(Diagnostic::new_type_conflict(
-                    self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
+                    self.envs
+                        .spans
+                        .get(&fc.op.get_hir_id())
+                        .unwrap()
+                        .clone()
+                        .into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                     f.signature.clone().into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
@@ -214,7 +224,12 @@ impl<'a> ConstraintContext<'a> {
             self.envs
                 .diagnostics
                 .push_error(Diagnostic::new_type_conflict(
-                    self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
+                    self.envs
+                        .spans
+                        .get(&fc.op.get_hir_id())
+                        .unwrap()
+                        .clone()
+                        .into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                     sig.clone().into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
@@ -515,7 +530,12 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                 self.envs
                                     .diagnostics
                                     .push_error(Diagnostic::new_type_conflict(
-                                        self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                                        self.envs
+                                            .spans
+                                            .get(&i.value.get_hir_id())
+                                            .unwrap()
+                                            .clone()
+                                            .into(),
                                         Type::Primitive(PrimitiveType::Int64),
                                         other.clone(),
                                         Type::Primitive(PrimitiveType::Int64),
@@ -528,7 +548,12 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         .envs
                         .diagnostics
                         .push_error(Diagnostic::new_type_conflict(
-                            self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                            self.envs
+                                .spans
+                                .get(&i.value.get_hir_id())
+                                .unwrap()
+                                .clone()
+                                .into(),
                             Type::Primitive(PrimitiveType::Array(Box::new(value_t.clone()), 0)),
                             other.clone(),
                             Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
@@ -559,7 +584,12 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         self.envs
                             .diagnostics
                             .push_error(Diagnostic::new_type_conflict(
-                                self.envs.spans.get(&d.value.get_hir_id()).unwrap().clone(),
+                                self.envs
+                                    .spans
+                                    .get(&d.value.get_hir_id())
+                                    .unwrap()
+                                    .clone()
+                                    .into(),
                                 value_t.clone(),
                                 other.clone(),
                                 value_t,
@@ -680,6 +710,7 @@ pub fn solve(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnos
     let mut constraint_ctx = ConstraintContext::new(infer_state, root);
 
     constraint_ctx.constraint(root);
+    println!("here_final");
 
     let tmp_resolutions = constraint_ctx.tmp_resolutions.clone();
 

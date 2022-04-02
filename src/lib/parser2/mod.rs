@@ -285,14 +285,15 @@ pub fn parse_identifier_or_operator(input: Parser) -> Res<Parser, Identifier> {
 pub fn parse_prototype(input: Parser) -> Res<Parser, Prototype> {
     map(
         tuple((
+            parse_identity,
             terminated(
                 parse_identifier_or_operator,
                 delimited(space0, tag("::"), space0),
             ),
             parse_signature,
         )),
-        |(name, signature)| Prototype {
-            node_id: name.node_id,
+        |(node_id, name, signature)| Prototype {
+            node_id,
             name,
             signature,
         },
@@ -302,6 +303,7 @@ pub fn parse_prototype(input: Parser) -> Res<Parser, Prototype> {
 pub fn parse_fn(input: Parser) -> Res<Parser, FunctionDecl> {
     map(
         tuple((
+            parse_identity,
             terminated(
                 tuple((
                     parse_identifier_or_operator,
@@ -311,8 +313,8 @@ pub fn parse_fn(input: Parser) -> Res<Parser, FunctionDecl> {
             ),
             parse_body,
         )),
-        |((name, arguments), body)| FunctionDecl {
-            node_id: name.node_id,
+        |(node_id, (name, arguments), body)| FunctionDecl {
+            node_id,
             name,
             body,
             signature: FuncType::from_args_nb(arguments.len()),

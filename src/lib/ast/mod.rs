@@ -4,6 +4,7 @@ pub mod ast_print;
 mod identity;
 pub mod identity2;
 pub mod return_placement;
+pub mod return_placement2;
 pub mod span_collector;
 mod tree;
 pub mod tree2;

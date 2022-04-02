@@ -12,6 +12,7 @@ pub fn infer(
     parsing_ctx: &mut ParsingCtx,
     config: &Config,
 ) -> Result<crate::hir::Root, Diagnostic> {
+    println!("lol");
     let (tmp_resolutions, diags) = constraint::solve(root);
 
     parsing_ctx.diagnostics.append(diags);

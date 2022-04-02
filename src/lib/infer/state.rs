@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     diagnostics::{Diagnostic, Diagnostics},
     hir::*,
-    parser::Span,
+    parser::span2::Span,
     ty::*,
 };
 
@@ -81,7 +81,7 @@ impl Envs {
             (Type::Func(src_f), Some(Type::Func(prev_f))) if !src_f.eq(&prev_f) => {
                 if prev_f.is_solved() && src_f.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
-                        self.spans.get(dest).unwrap().clone(),
+                        self.spans.get(dest).unwrap().clone().into(),
                         previous.clone().unwrap(),
                         src.clone(),
                         previous.unwrap(),
@@ -92,7 +92,7 @@ impl Envs {
             (src, Some(previous)) if !src.eq(&previous) => {
                 if previous.is_solved() && src.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
-                        self.spans.get(dest).unwrap().clone(),
+                        self.spans.get(dest).unwrap().clone().into(),
                         previous.clone(),
                         src.clone(),
                         previous,
@@ -112,7 +112,7 @@ impl Envs {
             (Type::Func(src_f), Some(Type::Func(prev_f))) if !src_f.eq(&prev_f) => {
                 if prev_f.is_solved() && src_f.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
-                        self.spans.get(src).unwrap().clone(),
+                        self.spans.get(src).unwrap().clone().into(),
                         previous.clone().unwrap(),
                         src_t.clone(),
                         previous.unwrap(),
@@ -123,7 +123,7 @@ impl Envs {
             (src_t, Some(previous)) if !src_t.eq(&previous) => {
                 if previous.is_solved() && src_t.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
-                        self.spans.get(src).unwrap().clone(),
+                        self.spans.get(src).unwrap().clone().into(),
                         previous.clone(),
                         src_t.clone(),
                         previous,

@@ -221,7 +221,7 @@ impl IdentifierPath {
         Self {
             path: vec![Identifier {
                 name: "root".to_string(),
-                node_id: 0, // FIXME: should have a valid node_id ?
+                node_id: 42, // FIXME: should have a valid node_id ?
             }],
         }
     }
@@ -618,16 +618,16 @@ impl UnaryExpr {
         }
     }
 
-    // pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> UnaryExpr {
-    //     UnaryExpr::PrimaryExpr(PrimaryExpr {
-    //         node_id: node_id::new_placeholder(),
-    //         op,
-    //         secondaries: Some(vec![SecondaryExpr::Arguments(vec![
-    //             Argument { arg: arg1 },
-    //             Argument { arg: arg2 },
-    //         ])]),
-    //     })
-    // }
+    pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> UnaryExpr {
+        UnaryExpr::PrimaryExpr(PrimaryExpr {
+            node_id: u64::MAX,
+            op,
+            secondaries: Some(vec![SecondaryExpr::Arguments(vec![
+                Argument { arg: arg1 },
+                Argument { arg: arg2 },
+            ])]),
+        })
+    }
 
     pub fn new_primary(primary: PrimaryExpr) -> UnaryExpr {
         UnaryExpr::PrimaryExpr(primary)
@@ -676,7 +676,7 @@ impl PrimaryExpr {
     pub fn new_empty(op: Operand) -> PrimaryExpr {
         PrimaryExpr {
             op,
-            node_id: 0,
+            node_id: u64::MAX,
             secondaries: None,
         }
     }
@@ -740,6 +740,10 @@ impl Operand {
 
     pub fn new_literal(lit: Literal) -> Operand {
         Operand::Literal(lit)
+    }
+
+    pub fn from_identifier(id: Identifier) -> Operand {
+        Operand::new_identifier(id)
     }
 }
 

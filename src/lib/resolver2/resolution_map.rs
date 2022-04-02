@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ast::NodeId, ast_lowering::HirMap, hir::HirId};
+use crate::{ast::NodeId, ast_lowering2::HirMap, hir::HirId};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct ResolutionMap<T>(HashMap<T, T>)

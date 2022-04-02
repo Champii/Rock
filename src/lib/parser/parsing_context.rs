@@ -6,7 +6,7 @@ use std::{
 use colored::*;
 
 use crate::{
-    ast::{ast_print::AstPrintContext, identity2::Identity, Identifier, Root, NodeId},
+    ast::{ast_print::AstPrintContext, identity2::Identity, tree2, Identifier, NodeId, Root},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
     Config,
 };
@@ -180,8 +180,8 @@ impl ParsingCtx {
     }
 
     #[allow(dead_code)]
-    pub fn print_ast(&self, ast: &Root) {
-        use crate::ast::visit::Visitor;
+    pub fn print_ast(&self, ast: &tree2::Root) {
+        use crate::ast::visit2::Visitor;
 
         AstPrintContext::new().visit_root(ast);
     }

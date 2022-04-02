@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use crate::ast::visit::*;
-use crate::ast::*;
+use crate::ast::tree2::*;
+use crate::ast::visit2::*;
 use crate::helpers::*;
 use crate::ty::*;
 use paste::paste;
@@ -83,7 +83,7 @@ macro_rules! impl_visitor_trait {
 
 impl_visitor_trait!(
     Root
-    Mod
+    // Mod
     TopLevel
     StructDecl
     Use
@@ -92,7 +92,7 @@ impl_visitor_trait!(
     Impl
     FunctionDecl
     Identifier
-    ArgumentDecl
+    // ArgumentDecl
     Body
     Statement
     For

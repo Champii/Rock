@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::TryInto};
+/* use std::{collections::HashMap, convert::TryInto};
 
 use crate::{ast::*, diagnostics::Diagnostic, parser::*, resolver::ResolutionMap, ty::*};
 type Error = Diagnostic;
@@ -1309,4 +1309,4 @@ impl Parse for FuncType {
 
         Ok(FuncType { arguments, ret })
     }
-}
+} */

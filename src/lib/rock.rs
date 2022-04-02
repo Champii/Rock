@@ -22,7 +22,8 @@ mod ast;
 #[macro_use]
 mod infer;
 
-mod ast_lowering;
+// mod ast_lowering;
+mod ast_lowering2;
 mod codegen;
 pub mod diagnostics;
 mod hir;
@@ -33,6 +34,7 @@ mod resolver2;
 mod tests;
 mod ty;
 
+use ast::ast_print::AstPrintContext;
 use codegen::interpret;
 use diagnostics::Diagnostic;
 pub use helpers::config::Config;
@@ -77,18 +79,35 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
 
     let ast_test = parser2::parse_root(parser).finish();
 
-    match ast_test {
+    let hir = match ast_test {
         Ok((ctx, mut ast)) => {
             parsing_ctx.identities = ctx.extra.identities();
+
+            // Debug ast
+            if parsing_ctx.config.show_ast {
+                use crate::ast::visit2::Visitor;
+
+                // AstPrintContext::new().visit_root(&ast);
+                println!("{:#?}", ast);
+            }
 
             debug!("    -> Resolving");
             resolver2::resolve(&mut ast, parsing_ctx)?;
 
-            /* // Lowering to HIR
+            // Lowering to HIR
             debug!("    -> Lowering to HIR");
-            let mut hir = ast_lowering2::lower_crate(&ast); */
+            let mut hir = ast_lowering2::lower_crate(&ast);
 
-            Ok(ast)
+            // Debug hir
+            if parsing_ctx.config.show_hir {
+                hir.print();
+            }
+
+            // Infer Hir
+            debug!("    -> Infer HIR");
+            let new_hir = infer::infer(&mut hir, parsing_ctx, config)?;
+
+            Ok(new_hir)
         }
         Err(e) => {
             let diagnostic = Diagnostic::from(e);
@@ -97,11 +116,11 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
 
             Err(diagnostic)
         }
-    };
+    }?;
 
     parsing_ctx.return_if_error()?;
 
-    // Text to Ast
+    /* // Text to Ast
     debug!("    -> Parsing");
     let mut ast = parser::parse_root(parsing_ctx)?;
 
@@ -115,9 +134,10 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    let new_hir = infer::infer(&mut hir, parsing_ctx, config)?;
+    let new_hir = infer::infer(&mut hir, parsing_ctx, config)?; */
 
-    Ok(new_hir)
+    // Ok(new_hir)
+    Ok(hir)
 }
 
 pub fn generate_ir(hir: hir::Root, config: &Config) -> Result<(), Diagnostic> {
