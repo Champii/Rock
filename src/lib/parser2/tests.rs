@@ -505,6 +505,7 @@ mod parse_fn_decl {
                 ret: Box::new(Type::forall("a")),
                 arguments: vec![],
             },
+            node_id: 0,
         };
 
         assert_eq!(parsed.name, expected.name);
@@ -538,6 +539,7 @@ mod parse_fn_decl {
                     node_id: 0,
                 },
             ],
+            node_id: 0,
             body: Body {
                 stmts: vec![Statement::Expression(Box::new(Expression::BinopExpr(
                     UnaryExpr::PrimaryExpr(PrimaryExpr {

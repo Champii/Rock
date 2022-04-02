@@ -1,14 +1,10 @@
-use std::{collections::HashMap, str::FromStr};
-
-use nom::Finish;
+use std::collections::HashMap;
 
 use crate::{
     ast::NodeId,
     helpers::*,
     parser::span2::Span,
-    parser2::create_parser,
-    parser2::parse_root,
-    resolver::ResolutionMap,
+    resolver2::ResolutionMap,
     ty::{FuncType, Type},
 };
 
@@ -199,7 +195,7 @@ pub struct FunctionDecl {
     // pub mangled_name: Option<Identifier>,
     pub arguments: Vec<Identifier>,
     pub body: Body,
-    // pub node_id: NodeId,
+    pub node_id: NodeId,
     pub signature: FuncType,
 }
 
@@ -305,10 +301,7 @@ pub struct Identifier {
 
 impl Identifier {
     pub fn new(name: String, node_id: NodeId) -> Self {
-        Self {
-            name,
-            node_id,
-        }
+        Self { name, node_id }
     }
 }
 
@@ -559,6 +552,13 @@ impl Expression {
         Expression::NativeOperation(operator, id1, id2)
     }
 
+    pub fn as_identifier(&self) -> Option<&Identifier> {
+        match self {
+            Expression::UnaryExpr(unary) => unary.as_identifier(),
+            _ => None,
+        }
+    }
+
     // #[allow(dead_code)]
     // pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> Expression {
     //     Expression {
@@ -632,6 +632,13 @@ impl UnaryExpr {
     pub fn new_primary(primary: PrimaryExpr) -> UnaryExpr {
         UnaryExpr::PrimaryExpr(primary)
     }
+
+    pub fn as_identifier(&self) -> Option<&Identifier> {
+        match self {
+            UnaryExpr::PrimaryExpr(primary) => primary.as_identifier(),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -683,6 +690,13 @@ impl PrimaryExpr {
             } else {
                 Some(secondaries)
             },
+        }
+    }
+
+    pub fn as_identifier(&self) -> Option<&Identifier> {
+        match &self.op {
+            Operand::Identifier(id) => Some(id.path.last().unwrap()),
+            _ => None,
         }
     }
 }

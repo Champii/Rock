@@ -6,7 +6,7 @@ use std::{
 use colored::*;
 
 use crate::{
-    ast::{ast_print::AstPrintContext, Identifier, Root},
+    ast::{ast_print::AstPrintContext, identity2::Identity, Identifier, Root, NodeId},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
     Config,
 };
@@ -20,6 +20,7 @@ pub struct ParsingCtx {
     pub current_file: Option<PathBuf>,
     pub diagnostics: Diagnostics,
     pub operators_list: HashMap<String, u8>,
+    pub identities: HashMap<NodeId, Identity>,
 }
 
 impl ParsingCtx {

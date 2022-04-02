@@ -1,4 +1,4 @@
-#![feature(associated_type_bounds, destructuring_assignment, derive_default_enum)]
+#![feature(associated_type_bounds, derive_default_enum)]
 
 #[macro_use]
 extern crate serde_derive;
@@ -29,6 +29,7 @@ mod hir;
 mod parser;
 mod parser2;
 mod resolver;
+mod resolver2;
 mod tests;
 mod ty;
 
@@ -79,15 +80,21 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
     println!("TEST {:#?}", ast_test);
 
     match ast_test {
-        Ok((_, ast)) => Ok(ast),
+        Ok((ctx, ast)) => {
+            parsing_ctx.identities = ctx.extra.identities();
+
+            Ok(ast)
+        }
         Err(e) => {
-            let diagnostic = Diagnostic::from(e.input);
+            let diagnostic = Diagnostic::from(e);
 
             parsing_ctx.diagnostics.push_error(diagnostic.clone());
 
             Err(diagnostic)
         }
     };
+
+    parsing_ctx.return_if_error()?;
 
     // Text to Ast
     debug!("    -> Parsing");
