@@ -50,12 +50,7 @@ impl<'a> ResolveCtx<'a> {
     }
 
     pub fn get_span2(&self, node_id: NodeId) -> Span2 {
-        self.parsing_ctx
-            .identities
-            .get(&node_id)
-            .unwrap()
-            .span
-            .clone()
+        self.parsing_ctx.identities.get(&node_id).unwrap().clone()
     }
 }
 
@@ -74,7 +69,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     }
                 }
                 TopLevel::Struct(s) => {
-                    self.add_to_current_scope(s.name.get_name(), s.node_id);
+                    self.add_to_current_scope(s.name.name.clone(), s.name.node_id);
 
                     s.defs.iter().for_each(|p| {
                         self.add_to_current_scope((*p.name).clone(), p.node_id);
@@ -168,17 +163,17 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     }
 
     fn visit_struct_ctor(&mut self, s: &'a StructCtor) {
-        match self.get(s.name.get_name()) {
-            Some(pointed) => self.resolutions.insert(s.node_id, pointed),
+        match self.get(s.name.name.clone()) {
+            Some(pointed) => self.resolutions.insert(s.name.node_id, pointed),
             None => self
                 .parsing_ctx
                 .diagnostics
                 .push_error(Diagnostic::new_unknown_identifier(
-                    self.get_span2(s.node_id).into(),
+                    self.get_span2(s.name.node_id).into(),
                 )),
         };
 
-        self.visit_type(&s.name);
+        self.visit_identifier(&s.name);
 
         walk_struct_ctor(self, s);
     }

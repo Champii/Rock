@@ -29,6 +29,46 @@ impl fmt::Debug for StructType {
     }
 }
 
+impl From<&ast::tree2::StructDecl> for StructType {
+    fn from(s: &ast::tree2::StructDecl) -> Self {
+        s.into()
+    }
+}
+
+impl From<ast::tree2::StructDecl> for StructType {
+    fn from(s: ast::tree2::StructDecl) -> Self {
+        StructType {
+            name: s.name.to_string(),
+            defs: s
+                .defs
+                .iter()
+                .map(|proto| {
+                    if proto.signature.arguments.is_empty() {
+                        (proto.name.name.clone(), proto.signature.ret.clone())
+                    } else {
+                        (
+                            proto.name.name.clone(),
+                            Box::new(proto.signature.clone().into()),
+                        )
+                    }
+                })
+                .collect(),
+        }
+    }
+}
+
+/* impl From<&ast::tree2::StructCtor> for StructType {
+    fn from(s: &ast::tree2::StructCtor) -> Self {
+        s.into()
+    }
+}
+
+impl From<ast::tree2::StructCtor> for StructType {
+    fn from(s: ast::tree2::StructCtor) -> Self {
+        s.ty.clone()
+    }
+}
+ */
 impl From<&ast::StructDecl> for StructType {
     fn from(s: &ast::StructDecl) -> Self {
         s.into()
@@ -38,7 +78,7 @@ impl From<&ast::StructDecl> for StructType {
 impl From<ast::StructDecl> for StructType {
     fn from(s: ast::StructDecl) -> Self {
         StructType {
-            name: s.name.get_name(),
+            name: s.name.to_string(),
             defs: s
                 .defs
                 .iter()
@@ -60,7 +100,7 @@ impl From<ast::StructDecl> for StructType {
 impl From<hir::StructDecl> for StructType {
     fn from(s: hir::StructDecl) -> Self {
         StructType {
-            name: s.name.get_name(),
+            name: s.name.name,
             defs: s
                 .defs
                 .iter()

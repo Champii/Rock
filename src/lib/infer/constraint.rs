@@ -371,7 +371,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_struct_decl(&mut self, s: &StructDecl) {
         let t = s.into();
 
-        self.envs.set_type(&s.hir_id, &t);
+        self.envs.set_type(&s.name.hir_id, &t);
 
         let struct_t = t.as_struct_type();
 
@@ -382,13 +382,15 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     }
 
     fn visit_struct_ctor(&mut self, s: &StructCtor) {
-        let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
+        let s_decl = self.hir.structs.get(&s.name.name).unwrap();
 
         self.visit_struct_decl(s_decl);
 
         let t = s_decl.into();
 
-        self.envs.set_type(&s.hir_id, &t);
+        self.envs.set_type(&s.name.hir_id, &t);
+
+        println!("ENVS {:#?}", self.envs);
 
         let struct_t = t.as_struct_type();
 
@@ -705,6 +707,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 pub fn solve(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnostics) {
     let diagnostics = Diagnostics::default();
 
+    // println!("ROOT {:#?}", root.get_hir_spans());
     let infer_state = Envs::new(diagnostics, root.get_hir_spans());
 
     let mut constraint_ctx = ConstraintContext::new(infer_state, root);

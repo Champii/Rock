@@ -1,17 +1,18 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::{Component, PathBuf},
 };
 
 use colored::*;
 
 use crate::{
-    ast::{ast_print::AstPrintContext, identity2::Identity, tree2, Identifier, NodeId, Root},
+    ast::{ast_print::AstPrintContext, tree2, Identifier, NodeId, Root},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
+    parser::span2::Span,
     Config,
 };
 
-use super::{SourceFile, Span};
+use super::SourceFile;
 
 #[derive(Default, Debug)]
 pub struct ParsingCtx {
@@ -20,7 +21,7 @@ pub struct ParsingCtx {
     pub current_file: Option<PathBuf>,
     pub diagnostics: Diagnostics,
     pub operators_list: HashMap<String, u8>,
-    pub identities: HashMap<NodeId, Identity>,
+    pub identities: BTreeMap<NodeId, Span>,
 }
 
 impl ParsingCtx {
@@ -127,7 +128,11 @@ impl ParsingCtx {
     }
 
     pub fn new_span(&self, start: usize, end: usize) -> Span {
-        Span::new(self.get_current_file().file_path, start, end)
+        Span {
+            file_path: self.get_current_file().file_path,
+            offset: start,
+            ..Default::default()
+        }
     }
 
     pub fn resolve_and_add_file(&mut self, name: String) -> Result<SourceFile, Diagnostic> {
@@ -135,7 +140,14 @@ impl ParsingCtx {
 
         let new_file = current_file.resolve_new(name).map_err(|m| {
             // Placeholder span, to be overriden by calling mod (TopLevel::parse())
-            Diagnostic::new_module_not_found(Span::new(current_file.file_path.clone(), 0, 0), m)
+            Diagnostic::new_module_not_found(
+                Span {
+                    file_path: current_file.file_path.clone(),
+                    ..Default::default()
+                }
+                .into(),
+                m,
+            )
         })?;
 
         if self.config.verbose {

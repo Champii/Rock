@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use std::path::PathBuf;
 
@@ -33,7 +33,7 @@ mod tests;
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
     cur_file_path: PathBuf,
-    identities: Vec<Identity>,
+    identities: BTreeMap<NodeId, Span>,
     operators_list: HashMap<String, u8>,
     block_indent: usize,
     first_indent: Option<usize>,
@@ -44,7 +44,7 @@ impl ParserCtx {
     pub fn new(file_path: PathBuf) -> Self {
         Self {
             cur_file_path: file_path,
-            identities: Vec::new(),
+            identities: BTreeMap::new(),
             operators_list: HashMap::new(),
             block_indent: 0,
             first_indent: None,
@@ -56,7 +56,7 @@ impl ParserCtx {
     pub fn new_with_operators(file_path: PathBuf, operators: HashMap<String, u8>) -> Self {
         Self {
             cur_file_path: file_path,
-            identities: Vec::new(),
+            identities: BTreeMap::new(),
             operators_list: operators,
             block_indent: 0,
             first_indent: None,
@@ -71,7 +71,7 @@ impl ParserCtx {
                 .parent()
                 .unwrap()
                 .join(name.to_owned() + ".rk"),
-            identities: Vec::new(),
+            identities: BTreeMap::new(),
             operators_list: HashMap::new(),
             block_indent: 0,
             first_indent: None,
@@ -84,7 +84,7 @@ impl ParserCtx {
 
         self.next_node_id += 1;
 
-        self.identities.push(Identity::new(node_id, span));
+        self.identities.insert(node_id, span);
 
         node_id
     }
@@ -118,11 +118,11 @@ impl ParserCtx {
         new
     } */
 
-    pub fn identities(&self) -> HashMap<NodeId, Identity> {
-        self.identities
-            .iter()
-            .map(|identity| (identity.node_id, identity.clone()))
-            .collect()
+    pub fn identities(&self) -> BTreeMap<NodeId, Span> {
+        self.identities.clone()
+        /* .iter()
+        .map(|identity| (identity.node_id, identity.clone()))
+        .collect() */
     }
 
     pub fn operators_list(&self) -> HashMap<String, u8> {
@@ -238,15 +238,14 @@ pub fn parse_struct_decl(input: Parser) -> Res<Parser, StructDecl> {
     map(
         tuple((
             terminated(tag("struct"), space1),
-            parse_identity,
-            parse_type,
+            parse_capitalized_identifier,
             many0(line_ending),
             indent(separated_list0(
                 line_ending,
                 preceded(parse_block_indent, parse_prototype),
             )),
         )),
-        |(tag, node_id, name, _, defs)| StructDecl::new(node_id, name, defs),
+        |(tag, name, _, defs)| StructDecl::new(name, defs),
     )(input)
 }
 
@@ -585,8 +584,8 @@ pub fn parse_native_operator(
 pub fn parse_struct_ctor(input: Parser) -> Res<Parser, StructCtor> {
     map(
         tuple((
-            parse_identity,
-            terminated(parse_type, line_ending),
+            // parse_identity,
+            terminated(parse_capitalized_identifier, line_ending),
             indent(separated_list0(
                 line_ending,
                 preceded(
@@ -598,7 +597,7 @@ pub fn parse_struct_ctor(input: Parser) -> Res<Parser, StructCtor> {
                 ),
             )),
         )),
-        |(node_id, name, decls)| StructCtor::new(node_id, name, decls.into_iter().collect()),
+        |(name, decls)| StructCtor::new(name, decls.into_iter().collect()),
     )(input)
 }
 
@@ -698,6 +697,18 @@ pub fn parse_identifier_path(input: Parser) -> Res<Parser, IdentifierPath> {
         ),
         IdentifierPath::new,
     )(input)
+}
+
+pub fn parse_capitalized_identifier(input: Parser) -> Res<Parser, Identifier> {
+    let (input, (node_id, txt)) = tuple((parse_identity, parse_capitalized_text))(input)?;
+
+    Ok((
+        input,
+        Identifier {
+            name: txt.to_string(),
+            node_id,
+        },
+    ))
 }
 
 pub fn parse_identifier(input: Parser) -> Res<Parser, Identifier> {
@@ -840,7 +851,6 @@ pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {
 
 pub fn parse_type(input: Parser) -> Res<Parser, Type> {
     let (input, ty) = alt((
-        map(parse_capitalized_text, Type::Trait),
         map(
             terminated(
                 one_of("abcdefghijklmnopqrstuvwxyz"),
@@ -854,6 +864,16 @@ pub fn parse_type(input: Parser) -> Res<Parser, Type> {
                 0, // FIXME
             ))
         }),
+        map(
+            alt((
+                map(tag("Bool"), |_| PrimitiveType::Bool),
+                map(tag("Int64"), |_| PrimitiveType::Int64),
+                map(tag("Float64"), |_| PrimitiveType::Float64),
+                map(tag("String"), |_| PrimitiveType::String),
+            )),
+            |t| Type::from(t),
+        ),
+        map(parse_capitalized_text, Type::Trait),
     ))(input)?;
 
     Ok((input, ty))

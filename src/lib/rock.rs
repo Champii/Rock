@@ -83,6 +83,7 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
         Ok((ctx, mut ast)) => {
             parsing_ctx.identities = ctx.extra.identities();
             ast.operators_list = ctx.extra.operators_list();
+            ast.spans = ctx.extra.identities().into_iter().collect();
 
             // Debug ast
             if parsing_ctx.config.show_ast {

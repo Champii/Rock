@@ -4,7 +4,7 @@ use crate::parser2::Parser;
 
 // TODO: merge spans
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq)]
 pub struct Span {
     pub file_path: PathBuf,
     pub offset: usize,

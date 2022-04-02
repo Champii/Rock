@@ -33,13 +33,11 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
     let (mut unused_fns, unused_methods) = unused_collector::collect_unused(root);
 
     for unused_fn in &unused_fns {
-        let identity = parsing_ctx.identities.get(unused_fn).unwrap();
+        let span = parsing_ctx.identities.get(unused_fn).unwrap();
 
         parsing_ctx
             .diagnostics
-            .push_warning(Diagnostic::new_unused_function(Span::from(
-                identity.span.clone(),
-            )));
+            .push_warning(Diagnostic::new_unused_function(Span::from(span.clone())));
     }
 
     unused_fns.extend(unused_methods);

@@ -153,15 +153,15 @@ pub struct Impl {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructDecl {
-    pub hir_id: HirId,
-    pub name: Type,
+    // pub hir_id: HirId,
+    pub name: Identifier,
     pub defs: Vec<Prototype>,
 }
 
 impl StructDecl {
     pub fn to_type(&self) -> Type {
         Type::Struct(StructType {
-            name: self.name.get_name(),
+            name: self.name.name.clone(),
             defs: self
                 .defs
                 .iter()
@@ -178,13 +178,23 @@ impl StructDecl {
                 .collect(),
         })
     }
+
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.name.hir_id.clone()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructCtor {
-    pub hir_id: HirId,
-    pub name: Type,
+    // pub hir_id: HirId,
+    pub name: Identifier,
     pub defs: BTreeMap<Identifier, Expression>,
+}
+
+impl StructCtor {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.name.hir_id.clone()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -113,7 +113,7 @@ impl<'a> Lexer<'a> {
         self.ctx
             .diagnostics
             .push_error(Diagnostic::new_unexpected_token(
-                self.ctx.new_span(self.cur_idx, self.cur_idx),
+                self.ctx.new_span(self.cur_idx, self.cur_idx).into(),
             ));
 
         self.end = true;
@@ -170,7 +170,7 @@ impl<'a> Lexer<'a> {
     fn new_token(&self, t: TokenType, start: usize, txt: String) -> Token {
         Token {
             t,
-            span: self.ctx.new_span(start, self.cur_idx - 1),
+            span: self.ctx.new_span(start, self.cur_idx - 1).into(),
             txt,
         }
     }
@@ -476,7 +476,7 @@ impl<'a> Lexer<'a> {
         if self.last_char == '\n' {
             let res = Some(Token {
                 t: TokenType::Eol,
-                span: self.ctx.new_span(self.cur_idx, self.cur_idx),
+                span: self.ctx.new_span(self.cur_idx, self.cur_idx).into(),
                 txt: "\n".to_string(),
             });
 

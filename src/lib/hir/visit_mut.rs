@@ -75,13 +75,13 @@ pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
 }
 
 pub fn walk_struct_decl<'a, V: VisitorMut<'a>>(visitor: &mut V, s: &'a mut StructDecl) {
-    visitor.visit_type(&mut s.name);
+    visitor.visit_identifier(&mut s.name);
 
     walk_list!(visitor, visit_prototype, &mut s.defs);
 }
 
 pub fn walk_struct_ctor<'a, V: VisitorMut<'a>>(visitor: &mut V, s: &'a mut StructCtor) {
-    visitor.visit_type(&mut s.name);
+    visitor.visit_identifier(&mut s.name);
 
     walk_map!(visitor, visit_expression, &mut s.defs);
 }

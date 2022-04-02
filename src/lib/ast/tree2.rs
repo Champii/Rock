@@ -5,7 +5,7 @@ use crate::{
     helpers::*,
     parser::span2::Span,
     resolver2::ResolutionMap,
-    ty::{FuncType, Type},
+    ty::{FuncType, StructType, Type},
 };
 
 #[derive(Debug, Clone)]
@@ -106,35 +106,25 @@ impl TopLevel {
 
 #[derive(Debug, Clone)]
 pub struct StructDecl {
-    pub node_id: NodeId,
-    pub name: Type,
+    pub name: Identifier,
     pub defs: Vec<Prototype>,
 }
 
 impl StructDecl {
-    pub fn new(node_id: NodeId, name: Type, defs: Vec<Prototype>) -> Self {
-        Self {
-            node_id,
-            name,
-            defs,
-        }
+    pub fn new(name: Identifier, defs: Vec<Prototype>) -> Self {
+        Self { name, defs }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct StructCtor {
-    pub node_id: NodeId,
-    pub name: Type,
+    pub name: Identifier,
     pub defs: HashMap<Identifier, Expression>,
 }
 
 impl StructCtor {
-    pub fn new(node_id: NodeId, name: Type, defs: HashMap<Identifier, Expression>) -> Self {
-        Self {
-            node_id,
-            name,
-            defs,
-        }
+    pub fn new(name: Identifier, defs: HashMap<Identifier, Expression>) -> Self {
+        Self { name, defs }
     }
 }
 

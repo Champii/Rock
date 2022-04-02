@@ -82,7 +82,7 @@ pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLev
 }
 
 pub fn walk_struct_decl<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructDecl) {
-    visitor.visit_type(&s.name);
+    visitor.visit_identifier(&s.name);
 
     walk_list!(visitor, visit_prototype, &s.defs);
 }
@@ -194,7 +194,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
 }
 
 pub fn walk_struct_ctor<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructCtor) {
-    visitor.visit_type(&s.name);
+    visitor.visit_identifier(&s.name);
 
     walk_map!(visitor, visit_expression, &s.defs);
 }

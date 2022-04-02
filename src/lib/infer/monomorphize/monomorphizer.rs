@@ -397,15 +397,18 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
     }
 
     fn visit_struct_decl(&mut self, s: &'a mut StructDecl) {
-        let old_hir_id = s.hir_id.clone();
+        let old_hir_id = s.name.hir_id.clone();
 
-        s.hir_id = self.duplicate_hir_id(&old_hir_id);
+        s.name.hir_id = self.duplicate_hir_id(&old_hir_id);
 
         if let Some(t) = self.root.type_envs.get_type(&old_hir_id) {
-            self.root.node_types.insert(s.hir_id.clone(), t.clone());
+            self.root
+                .node_types
+                .insert(s.name.hir_id.clone(), t.clone());
         }
 
-        self.trans_resolutions.insert(old_hir_id, s.hir_id.clone());
+        self.trans_resolutions
+            .insert(old_hir_id, s.name.hir_id.clone());
 
         s.defs.iter().for_each(|p| {
             let t = *s
@@ -419,26 +422,29 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             self.root.node_types.insert(p.name.get_hir_id(), t);
         });
 
-        self.structs.insert(s.name.get_name(), s.clone());
+        self.structs.insert(s.name.name.clone(), s.clone());
     }
 
     fn visit_struct_ctor(&mut self, s: &'a mut StructCtor) {
-        let old_hir_id = s.hir_id.clone();
+        let old_hir_id = s.name.hir_id.clone();
 
-        let mut s_decl = self.root.structs.get(&s.name.get_name()).unwrap().clone();
+        let mut s_decl = self.root.structs.get(&s.name.name).unwrap().clone();
 
         // TODO: Do that once
         self.visit_struct_decl(&mut s_decl);
 
-        s.hir_id = self.duplicate_hir_id(&old_hir_id);
+        s.name.hir_id = self.duplicate_hir_id(&old_hir_id);
 
         if let Some(t) = self.root.type_envs.get_type(&old_hir_id) {
-            self.root.node_types.insert(s.hir_id.clone(), t.clone());
+            self.root
+                .node_types
+                .insert(s.name.hir_id.clone(), t.clone());
         }
 
-        self.trans_resolutions.insert(old_hir_id, s.hir_id.clone());
+        self.trans_resolutions
+            .insert(old_hir_id, s.name.hir_id.clone());
 
-        self.visit_type(&mut s.name);
+        // self.visit_identifier(&mut s.name);
 
         s.defs = s
             .defs
