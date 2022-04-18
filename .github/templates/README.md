@@ -89,7 +89,7 @@ Add some files like this:
 ```haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 fact a =
     if a <= 1
@@ -181,7 +181,7 @@ Test
 ``` haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 infix |> 1
 |> x f = f x
@@ -204,7 +204,7 @@ This `trait ToString` is redondant with the `trait Show` implemented in the lib,
 ``` haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 trait ToString a
   toString :: a -> String
@@ -237,7 +237,7 @@ Prints
 ``` haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 struct Player
   level :: Int64
