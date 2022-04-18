@@ -154,7 +154,7 @@ This includes I/O of all sorts (Looking at you, open/read/write in loops)
 ``` haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 id a = a
 
