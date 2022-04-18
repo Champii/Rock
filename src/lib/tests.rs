@@ -1,19 +1,19 @@
 use std::path::PathBuf;
 
 #[allow(dead_code)]
-fn run(path: &str, input: &str, expected_ret: &str, expected_output: &str) {
-    let mut config = super::Config::default();
+        fn run(path: &str, input: &str, expected_ret: &str, expected_output: &str) {
+            let mut config = super::Config::default();
 
-    config.project_config.entry_point = PathBuf::from(path);
+            config.project_config.entry_point = PathBuf::from(path);
 
-    let expected_ret = expected_ret.parse::<i64>().unwrap();
+            let expected_ret = expected_ret.parse::<i64>().unwrap();
 
-    let (ret_code, stdout) = super::test::run(path, input.to_string(), config);
+            let (ret_code, stdout) = super::test::run(path, input.to_string(), config);
 
-    assert_eq!(expected_ret, ret_code);
-    assert_eq!(expected_output, stdout);
-}
-#[test]
+            assert_eq!(expected_ret, ret_code);
+            assert_eq!(expected_output, stdout);
+        }
+        #[test]
 fn testcases_mods_basic_mod_main() {
     run("testcases/mods/basic_mod/main.rk", include_str!("testcases/mods/basic_mod/main.rk"), include_str!("testcases/mods/basic_mod/main.rk.out"), include_str!("testcases/mods/basic_mod/main.rk.stdout"));
 }

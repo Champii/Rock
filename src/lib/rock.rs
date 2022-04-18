@@ -71,7 +71,8 @@ pub fn compile_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic
 }
 
 pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {
-    let content = parsing_ctx.get_current_file().content.clone();
+    let content = &parsing_ctx.get_current_file().content;
+
     let parser = LocatedSpan::new_extra(
         content.as_str(),
         ParserCtx::new(parsing_ctx.get_current_file().file_path.clone()),
@@ -87,10 +88,7 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
 
             // Debug ast
             if parsing_ctx.config.show_ast {
-                use crate::ast::visit2::Visitor;
-
-                // AstPrintContext::new().visit_root(&ast);
-                println!("{:#?}", ast);
+                ast.print();
             }
 
             debug!("    -> Resolving");

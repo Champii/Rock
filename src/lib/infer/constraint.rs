@@ -376,8 +376,18 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         let struct_t = t.as_struct_type();
 
         s.defs.iter().for_each(|p| {
-            self.envs
-                .set_type(&p.hir_id, struct_t.defs.get(&p.name.name).unwrap());
+            let ty = *struct_t.defs.get(&p.name.name).unwrap().clone();
+
+            // FIXME: should not have to do this conversion from trait.
+            let ty = if let Type::Trait(t) = ty.clone() {
+                // println!("WHAT {:#?}, {:#?}, {:#?}", p, t, self.hir.structs);
+                self.hir.structs.get(&ty.get_name()).unwrap().to_type()
+            } else {
+                ty
+            };
+
+            println!("TRANSFORMED {:#?}", ty);
+            self.envs.set_type(&p.hir_id, &ty)
         });
     }
 
@@ -388,9 +398,9 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         let t = s_decl.into();
 
-        self.envs.set_type(&s.name.hir_id, &t);
+        println!("TYPE {:#?}", t);
 
-        println!("ENVS {:#?}", self.envs);
+        self.envs.set_type(&s.name.hir_id, &t);
 
         let struct_t = t.as_struct_type();
 
@@ -567,6 +577,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.visit_expression(&d.op);
                 self.visit_identifier(&d.value);
 
+                // println!("envs: {:#?}", self.envs);
                 match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
                     t @ Type::Struct(struct_t) => {
                         self.envs.set_type(&d.op.get_hir_id(), t);

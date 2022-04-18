@@ -8,6 +8,8 @@ use crate::{
     ty::{FuncType, StructType, Type},
 };
 
+use super::{ast_print::AstPrintContext, visit2::Visitor};
+
 #[derive(Debug, Clone)]
 pub struct Root {
     pub r#mod: Mod,
@@ -37,6 +39,10 @@ impl Root {
             unused: vec![],
             spans: HashMap::new(),
         }
+    }
+
+    pub fn print(&self) {
+        AstPrintContext::new().visit_root(self);
     }
 }
 
@@ -315,6 +321,7 @@ impl std::hash::Hash for Identifier {
 
 impl std::ops::Deref for Identifier {
     type Target = String;
+
     fn deref(&self) -> &Self::Target {
         &self.name
     }
