@@ -37,7 +37,14 @@ impl Diagnostics {
 
     pub fn print(&self, files: &HashMap<PathBuf, SourceFile>) {
         for (i, diag) in self.list.iter().enumerate() {
-            let input = files.get(&diag.span.file_path).unwrap();
+            let input = match files.get(&diag.span.file_path) {
+                Some(input) => input,
+                None => {
+                    warn!("Diagnostic has been silenced because the file is not found");
+
+                    continue;
+                }
+            };
 
             diag.print(input, self.list_types.get(i).unwrap());
         }

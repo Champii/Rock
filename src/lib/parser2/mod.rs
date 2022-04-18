@@ -16,6 +16,7 @@ use crate::ast::identity2::Identity;
 use crate::ast::tree2::*;
 use crate::ast::NodeId;
 use crate::parser::span2::Span;
+use crate::parser::SourceFile;
 use crate::ty::{FuncType, PrimitiveType, Type};
 
 use nom_locate::{position, LocatedSpan};
@@ -32,6 +33,7 @@ mod tests;
 
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
+    files: HashMap<PathBuf, SourceFile>,
     cur_file_path: PathBuf,
     identities: BTreeMap<NodeId, Span>,
     operators_list: HashMap<String, u8>,
@@ -43,6 +45,7 @@ pub struct ParserCtx {
 impl ParserCtx {
     pub fn new(file_path: PathBuf) -> Self {
         Self {
+            files: HashMap::new(),
             cur_file_path: file_path,
             identities: BTreeMap::new(),
             operators_list: HashMap::new(),
@@ -55,6 +58,7 @@ impl ParserCtx {
     #[cfg(test)]
     pub fn new_with_operators(file_path: PathBuf, operators: HashMap<String, u8>) -> Self {
         Self {
+            files: HashMap::new(),
             cur_file_path: file_path,
             identities: BTreeMap::new(),
             operators_list: operators,
@@ -66,6 +70,7 @@ impl ParserCtx {
 
     pub fn new_from(&self, name: &str) -> Self {
         Self {
+            files: HashMap::new(),
             cur_file_path: self
                 .cur_file_path
                 .parent()
@@ -128,6 +133,10 @@ impl ParserCtx {
     pub fn operators_list(&self) -> HashMap<String, u8> {
         self.operators_list.clone()
     }
+
+    pub fn files(&self) -> HashMap<PathBuf, SourceFile> {
+        self.files.clone()
+    }
 }
 
 pub fn create_parser(s: &str) -> Parser<'_> {
@@ -178,7 +187,13 @@ pub fn parse_comment(input: Parser) -> Res<Parser, ()> {
 pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     let (mut input, mod_name) = preceded(terminated(tag("mod"), space1), parse_identifier)(input)?;
 
-    let new_ctx = input.extra.new_from(&mod_name.name);
+    let mut new_ctx = input.extra.new_from(&mod_name.name);
+    let file_path = new_ctx.current_file_path().to_str().unwrap().to_string();
+
+    let file = SourceFile::from_file(file_path).unwrap(); // FIXME: ERRORS ARE swallowed HERE
+    new_ctx
+        .files
+        .insert(new_ctx.current_file_path().clone(), file);
 
     let content = std::fs::read_to_string(&new_ctx.current_file_path()).unwrap();
 
@@ -198,6 +213,7 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     // extend identities
     input.extra.identities.extend(input2.extra.identities);
     input.extra.next_node_id = input2.extra.next_node_id;
+    input.extra.files.extend(input2.extra.files);
 
     Ok((input, (mod_name, mod_)))
 }

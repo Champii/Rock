@@ -16,7 +16,7 @@ use super::SourceFile;
 
 #[derive(Default, Debug)]
 pub struct ParsingCtx {
-    files: HashMap<PathBuf, SourceFile>,
+    pub files: HashMap<PathBuf, SourceFile>,
     pub config: Config,
     pub current_file: Option<PathBuf>,
     pub diagnostics: Diagnostics,
