@@ -28,17 +28,16 @@ fn visit_dirs(dir: &Path) -> io::Result<Vec<String>> {
     Ok(res)
 }
 
-fn schedule_build_if_folder_changed(path: &Path) {
+fn schedule_rerun_if_folder_changed(path: &Path) {
     for entry in WalkDir::new(path) {
         let entry = entry.unwrap();
-        println!("{}", entry.path().display());
 
         if entry.path() == path {
             continue;
         }
 
         if entry.path().is_dir() {
-            schedule_build_if_folder_changed(&entry.path());
+            schedule_rerun_if_folder_changed(&entry.path());
         } else {
             println!("cargo:rerun-if-changed={}", entry.path().to_str().unwrap());
         }
@@ -47,7 +46,7 @@ fn schedule_build_if_folder_changed(path: &Path) {
 
 // build script's entry point
 fn main() {
-    schedule_build_if_folder_changed(&PathBuf::from("src/lib/testcases/"));
+    schedule_rerun_if_folder_changed(&PathBuf::from("src/lib/testcases/"));
 
     let out_dir = "src/lib";
     let destination = Path::new(&out_dir).join("tests.rs");
@@ -64,15 +63,12 @@ fn main() {
 fn write_test(output_file: &mut File, path: &str) {
     let path = path.replace("src/lib/", "");
 
-    let name = path.replace("./", "");
-    let name = name.replace("/", "_");
-    let name = name.replace(".rk", "");
-    let test_name = name;
+    let name = path.replace("./", "").replace("/", "_").replace(".rk", "");
 
     write!(
         output_file,
         include_str!("src/lib/testcases/test_template"),
-        name = test_name,
+        name = name,
         path = path
     )
     .unwrap();

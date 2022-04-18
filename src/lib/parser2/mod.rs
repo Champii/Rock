@@ -688,8 +688,8 @@ pub fn parse_identifier_path(input: Parser) -> Res<Parser, IdentifierPath> {
         separated_list1(
             tag("::"),
             alt((
-                map(tuple((parse_identity, tag("*"))), |(node_id, _)| {
-                    Identifier::new("*".to_string(), node_id)
+                map(tuple((parse_identity, tag("(*)"))), |(node_id, _)| {
+                    Identifier::new("(*)".to_string(), node_id)
                 }),
                 parse_identifier,
                 // map(parse_operator, |op| op.0),

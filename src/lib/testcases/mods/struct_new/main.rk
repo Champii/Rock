@@ -1,6 +1,6 @@
 mod lib
 
-use lib::*
+use lib::(*)
 
 main =
   let foo = new_foo "bar"

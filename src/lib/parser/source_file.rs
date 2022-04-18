@@ -43,7 +43,7 @@ impl SourceFile {
         }
 
         let top_levels = r##"mod lib
-use lib::prelude::*
+use lib::prelude::(*)
 "##
         .to_owned()
             + &top_levels
