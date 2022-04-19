@@ -6,7 +6,7 @@ use std::{
 use colored::*;
 
 use crate::{
-    ast::{ast_print::AstPrintContext, tree2, Identifier, NodeId, Root},
+    ast::{ast_print::AstPrintContext, tree, Identifier, NodeId, Root},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
     parser::span2::Span,
     Config,
@@ -175,7 +175,7 @@ impl ParsingCtx {
         Ok(new_file)
     }
 
-    pub fn add_operator(&mut self, name: &Identifier, precedence: u8) -> Result<(), Diagnostic> {
+    /* pub fn add_operator(&mut self, name: &Identifier, precedence: u8) -> Result<(), Diagnostic> {
         if self.operator_exists(name) {
             return Err(Diagnostic::new_duplicated_operator(
                 name.identity.span.clone(),
@@ -185,15 +185,15 @@ impl ParsingCtx {
         self.operators_list.insert(name.name.clone(), precedence);
 
         Ok(())
-    }
+    } */
 
     pub fn operator_exists(&self, name: &Identifier) -> bool {
         self.operators_list.contains_key(&name.name)
     }
 
     #[allow(dead_code)]
-    pub fn print_ast(&self, ast: &tree2::Root) {
-        use crate::ast::visit2::Visitor;
+    pub fn print_ast(&self, ast: &tree::Root) {
+        use crate::ast::visit::Visitor;
 
         AstPrintContext::new().visit_root(ast);
     }

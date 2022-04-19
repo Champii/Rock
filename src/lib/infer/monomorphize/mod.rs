@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     hir::{HirId, Root},
-    resolver2::ResolutionMap,
+    resolver::ResolutionMap,
 };
 
 use self::monomorphizer::Monomorphizer;

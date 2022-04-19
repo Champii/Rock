@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use crate::ast::tree2::*;
-use crate::ast::visit2::*;
+use crate::ast::tree::*;
+use crate::ast::visit::*;
 use crate::helpers::*;
 use crate::ty::*;
 use paste::paste;

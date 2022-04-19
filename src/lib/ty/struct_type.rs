@@ -29,14 +29,14 @@ impl fmt::Debug for StructType {
     }
 }
 
-impl From<&ast::tree2::StructDecl> for StructType {
-    fn from(s: &ast::tree2::StructDecl) -> Self {
+impl From<&ast::tree::StructDecl> for StructType {
+    fn from(s: &ast::tree::StructDecl) -> Self {
         s.into()
     }
 }
 
-impl From<ast::tree2::StructDecl> for StructType {
-    fn from(s: ast::tree2::StructDecl) -> Self {
+impl From<ast::tree::StructDecl> for StructType {
+    fn from(s: ast::tree::StructDecl) -> Self {
         StructType {
             name: s.name.to_string(),
             defs: s
@@ -57,19 +57,19 @@ impl From<ast::tree2::StructDecl> for StructType {
     }
 }
 
-/* impl From<&ast::tree2::StructCtor> for StructType {
-    fn from(s: &ast::tree2::StructCtor) -> Self {
+/* impl From<&ast::tree::StructCtor> for StructType {
+    fn from(s: &ast::tree::StructCtor) -> Self {
         s.into()
     }
 }
 
-impl From<ast::tree2::StructCtor> for StructType {
-    fn from(s: ast::tree2::StructCtor) -> Self {
+impl From<ast::tree::StructCtor> for StructType {
+    fn from(s: ast::tree::StructCtor) -> Self {
         s.ty.clone()
     }
 }
  */
-impl From<&ast::StructDecl> for StructType {
+/* impl From<&ast::StructDecl> for StructType {
     fn from(s: &ast::StructDecl) -> Self {
         s.into()
     }
@@ -95,7 +95,7 @@ impl From<ast::StructDecl> for StructType {
                 .collect(),
         }
     }
-}
+} */
 
 impl From<hir::StructDecl> for StructType {
     fn from(s: hir::StructDecl) -> Self {

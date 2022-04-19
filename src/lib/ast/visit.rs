@@ -1,6 +1,6 @@
 use paste::paste;
 
-use crate::ast::*;
+use crate::ast::tree::*;
 use crate::ty::*;
 
 macro_rules! generate_visitor_trait {
@@ -40,7 +40,7 @@ generate_visitor_trait!(
     StructDecl
     Identifier
     IdentifierPath
-    ArgumentDecl
+    // ArgumentDecl
     Body
     Statement
     For
@@ -72,23 +72,23 @@ pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {
 }
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
-    match &top_level.kind {
-        TopLevelKind::Prototype(p) => visitor.visit_prototype(p),
-        TopLevelKind::Use(u) => visitor.visit_use(u),
-        TopLevelKind::Trait(t) => visitor.visit_trait(t),
-        TopLevelKind::Impl(i) => visitor.visit_impl(i),
-        TopLevelKind::Struct(i) => visitor.visit_struct_decl(i),
-        TopLevelKind::Mod(name, m) => {
+    match &top_level {
+        TopLevel::Prototype(p) => visitor.visit_prototype(p),
+        TopLevel::Use(u) => visitor.visit_use(u),
+        TopLevel::Trait(t) => visitor.visit_trait(t),
+        TopLevel::Impl(i) => visitor.visit_impl(i),
+        TopLevel::Struct(i) => visitor.visit_struct_decl(i),
+        TopLevel::Mod(name, m) => {
             visitor.visit_identifier(name);
             visitor.visit_mod(m);
         }
-        TopLevelKind::Function(f) => visitor.visit_function_decl(f),
-        TopLevelKind::Infix(ident, _) => visitor.visit_identifier(ident),
+        TopLevel::Function(f) => visitor.visit_function_decl(f),
+        TopLevel::Infix(ident, _) => visitor.visit_operator(ident),
     };
 }
 
 pub fn walk_struct_decl<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructDecl) {
-    visitor.visit_type(&s.name);
+    visitor.visit_identifier(&s.name);
 
     walk_list!(visitor, visit_prototype, &s.defs);
 }
@@ -122,7 +122,7 @@ pub fn walk_use<'a, V: Visitor<'a>>(visitor: &mut V, r#use: &'a Use) {
 pub fn walk_function_decl<'a, V: Visitor<'a>>(visitor: &mut V, function_decl: &'a FunctionDecl) {
     visitor.visit_identifier(&function_decl.name);
 
-    walk_list!(visitor, visit_argument_decl, &function_decl.arguments);
+    walk_list!(visitor, visit_identifier, &function_decl.arguments);
 
     visitor.visit_body(&function_decl.body);
 }
@@ -138,20 +138,20 @@ pub fn walk_identifier<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a Iden
     visitor.visit_name(&identifier.name);
 }
 
-pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a ArgumentDecl) {
+/* pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a ArgumentDecl) {
     visitor.visit_name(&argument.name);
-}
+} */
 
 pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
     walk_list!(visitor, visit_statement, &body.stmts);
 }
 
 pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statement) {
-    match statement.kind.as_ref() {
-        StatementKind::Expression(expr) => visitor.visit_expression(expr),
-        StatementKind::Assign(assign) => visitor.visit_assign(assign),
-        StatementKind::If(expr) => visitor.visit_if(expr),
-        StatementKind::For(for_loop) => visitor.visit_for(for_loop),
+    match &statement {
+        Statement::Expression(expr) => visitor.visit_expression(expr),
+        Statement::Assign(assign) => visitor.visit_assign(assign),
+        Statement::If(expr) => visitor.visit_if(expr),
+        Statement::For(for_loop) => visitor.visit_for(for_loop),
     }
 }
 
@@ -175,7 +175,7 @@ pub fn walk_while<'a, V: Visitor<'a>>(visitor: &mut V, while_loop: &'a While) {
 
 pub fn walk_assign_left_side<'a, V: Visitor<'a>>(visitor: &mut V, assign_left: &'a AssignLeftSide) {
     match assign_left {
-        AssignLeftSide::Identifier(id) => visitor.visit_identifier(id),
+        AssignLeftSide::Identifier(id) => visitor.visit_expression(id),
         AssignLeftSide::Indice(expr) => visitor.visit_expression(expr),
         AssignLeftSide::Dot(expr) => visitor.visit_expression(expr),
     }
@@ -202,27 +202,27 @@ pub fn walk_else<'a, V: Visitor<'a>>(visitor: &mut V, r#else: &'a Else) {
 }
 
 pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression) {
-    match &expr.kind {
-        ExpressionKind::BinopExpr(unary, operator, expr) => {
+    match &expr {
+        Expression::BinopExpr(unary, operator, expr) => {
             visitor.visit_unary_expr(unary);
             visitor.visit_operator(operator);
             visitor.visit_expression(&*expr);
         }
-        ExpressionKind::UnaryExpr(unary) => visitor.visit_unary_expr(unary),
-        ExpressionKind::StructCtor(ctor) => visitor.visit_struct_ctor(ctor),
-        ExpressionKind::NativeOperation(op, left, right) => {
+        Expression::UnaryExpr(unary) => visitor.visit_unary_expr(unary),
+        Expression::StructCtor(ctor) => visitor.visit_struct_ctor(ctor),
+        Expression::NativeOperation(op, left, right) => {
             visitor.visit_identifier(left);
             visitor.visit_identifier(right);
             visitor.visit_native_operator(op);
         }
-        ExpressionKind::Return(expr) => {
+        Expression::Return(expr) => {
             visitor.visit_expression(expr);
         }
     }
 }
 
 pub fn walk_struct_ctor<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructCtor) {
-    visitor.visit_type(&s.name);
+    visitor.visit_identifier(&s.name);
 
     walk_map!(visitor, visit_expression, &s.defs);
 }
@@ -264,10 +264,10 @@ pub fn walk_operator<'a, V: Visitor<'a>>(visitor: &mut V, operator: &'a Operator
 }
 
 pub fn walk_operand<'a, V: Visitor<'a>>(visitor: &mut V, operand: &'a Operand) {
-    match &operand.kind {
-        OperandKind::Literal(l) => visitor.visit_literal(l),
-        OperandKind::Identifier(i) => visitor.visit_identifier_path(i),
-        OperandKind::Expression(e) => visitor.visit_expression(&*e),
+    match &operand {
+        Operand::Literal(l) => visitor.visit_literal(l),
+        Operand::Identifier(i) => visitor.visit_identifier_path(i),
+        Operand::Expression(e) => visitor.visit_expression(&*e),
     }
 }
 

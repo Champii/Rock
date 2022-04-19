@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{ast::*, resolver::ResolutionMap};
+use crate::{
+    ast::{tree::*, visit::*, NodeId},
+    resolver::ResolutionMap,
+};
 
 #[derive(Debug, Default)]
 pub struct UnusedCollector {
@@ -37,23 +40,23 @@ impl<'a> Visitor<'a> for UnusedCollector {
         // We add every top level first
 
         for top in &m.top_levels {
-            match &top.kind {
-                TopLevelKind::Prototype(_p) => {}
-                TopLevelKind::Use(_u) => (),
-                TopLevelKind::Trait(t) => {
+            match &top {
+                TopLevel::Prototype(_p) => {}
+                TopLevel::Use(_u) => (),
+                TopLevel::Trait(t) => {
                     for f in &t.defs {
-                        self.method_list.insert(f.identity.node_id, false);
+                        self.method_list.insert(f.node_id, false);
                     }
                 }
-                TopLevelKind::Impl(_i) => {}
-                TopLevelKind::Struct(_s) => {}
-                TopLevelKind::Mod(_, _m) => (),
-                TopLevelKind::Infix(_, _) => (),
-                TopLevelKind::Function(f) => {
-                    self.fn_list.insert(f.identity.node_id, false);
+                TopLevel::Impl(_i) => {}
+                TopLevel::Struct(_s) => {}
+                TopLevel::Mod(_, _m) => (),
+                TopLevel::Infix(_, _) => (),
+                TopLevel::Function(f) => {
+                    self.fn_list.insert(f.node_id, false);
 
                     if f.name.name == *"main" {
-                        self.fn_list.insert(f.identity.node_id, true);
+                        self.fn_list.insert(f.node_id, true);
                     }
                 }
             }
@@ -63,18 +66,18 @@ impl<'a> Visitor<'a> for UnusedCollector {
     }
 
     fn visit_top_level(&mut self, top_level: &'a TopLevel) {
-        match &top_level.kind {
-            TopLevelKind::Prototype(p) => self.visit_prototype(p),
-            TopLevelKind::Use(_u) => (),
-            TopLevelKind::Trait(t) => self.visit_trait(t),
-            TopLevelKind::Impl(i) => self.visit_impl(i),
-            TopLevelKind::Struct(i) => self.visit_struct_decl(i),
-            TopLevelKind::Mod(name, m) => {
+        match &top_level {
+            TopLevel::Prototype(p) => self.visit_prototype(p),
+            TopLevel::Use(_u) => (),
+            TopLevel::Trait(t) => self.visit_trait(t),
+            TopLevel::Impl(i) => self.visit_impl(i),
+            TopLevel::Struct(i) => self.visit_struct_decl(i),
+            TopLevel::Mod(name, m) => {
                 self.visit_identifier(name);
                 self.visit_mod(m);
             }
-            TopLevelKind::Function(f) => self.visit_function_decl(f),
-            TopLevelKind::Infix(_ident, _) => (),
+            TopLevel::Function(f) => self.visit_function_decl(f),
+            TopLevel::Infix(_ident, _) => (),
         };
     }
 
@@ -83,13 +86,13 @@ impl<'a> Visitor<'a> for UnusedCollector {
     }
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
-        walk_list!(self, visit_argument_decl, &f.arguments);
+        walk_list!(self, visit_identifier, &f.arguments);
 
         self.visit_body(&f.body);
     }
 
     fn visit_identifier(&mut self, id: &'a Identifier) {
-        if let Some(reso) = self.resolutions.get_recur(&id.identity.node_id) {
+        if let Some(reso) = self.resolutions.get_recur(&id.node_id) {
             if let Some(used) = self.fn_list.get_mut(&reso) {
                 *used = true;
             } else if let Some(used) = self.method_list.get_mut(&reso) {

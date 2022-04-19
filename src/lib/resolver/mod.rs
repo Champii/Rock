@@ -1,8 +1,8 @@
 use crate::{
-    ast::{span_collector, visit::*, IdentifierPath, Root},
+    ast::{tree::IdentifierPath, tree::Root, visit::*},
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
-    parser::ParsingCtx,
+    parser::{ParsingCtx, Span},
 };
 
 mod resolution_map;
@@ -10,6 +10,8 @@ mod resolve_ctx;
 mod unused_collector;
 
 use std::collections::HashMap;
+
+use crate::parser::span::Span as OldSpan;
 
 pub use resolution_map::*;
 pub use resolve_ctx::*;
@@ -32,14 +34,12 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
 
     let (mut unused_fns, unused_methods) = unused_collector::collect_unused(root);
 
-    root.spans = span_collector::collect_spans(root);
-
     for unused_fn in &unused_fns {
-        let span = root.spans.get(unused_fn).unwrap();
+        let span = parsing_ctx.identities.get(unused_fn).unwrap();
 
         parsing_ctx
             .diagnostics
-            .push_warning(Diagnostic::new_unused_function(span.clone()));
+            .push_warning(Diagnostic::new_unused_function(OldSpan::from(span.clone())));
     }
 
     unused_fns.extend(unused_methods);

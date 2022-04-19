@@ -2,11 +2,11 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     ast::NodeId,
-    ast_lowering2::HirMap,
+    ast_lowering::HirMap,
     hir::hir_id::*,
     infer::Envs,
     parser::span2::Span,
-    resolver2::ResolutionMap,
+    resolver::ResolutionMap,
     ty::{FuncType, StructType, Type},
 };
 

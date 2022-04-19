@@ -5,7 +5,7 @@ use crate::{
     hir::visit::*,
     hir::*,
     infer::Envs,
-    resolver2::ResolutionMap,
+    resolver::ResolutionMap,
     ty::{FuncType, PrimitiveType, Type},
 };
 

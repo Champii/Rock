@@ -23,14 +23,14 @@ mod ast;
 mod infer;
 
 // mod ast_lowering;
-mod ast_lowering2;
+mod ast_lowering;
 mod codegen;
 pub mod diagnostics;
 mod hir;
 mod parser;
-mod parser2;
+// mod parser2;
 mod resolver;
-mod resolver2;
+// mod resolver2;
 mod tests;
 mod ty;
 
@@ -40,9 +40,7 @@ use diagnostics::Diagnostic;
 pub use helpers::config::Config;
 use nom::Finish;
 use nom_locate::LocatedSpan;
-use parser::{ParsingCtx, SourceFile};
-
-use crate::parser2::ParserCtx;
+use parser::{ParserCtx, ParsingCtx, SourceFile};
 
 pub fn compile_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;
@@ -78,7 +76,7 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
         ParserCtx::new(parsing_ctx.get_current_file().file_path.clone()),
     );
 
-    let ast_test = parser2::parse_root(parser).finish();
+    let ast_test = parser::parse_root(parser).finish();
 
     let hir = match ast_test {
         Ok((ctx, mut ast)) => {
@@ -94,11 +92,11 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
             }
 
             debug!("    -> Resolving");
-            resolver2::resolve(&mut ast, parsing_ctx)?;
+            resolver::resolve(&mut ast, parsing_ctx)?;
 
             // Lowering to HIR
             debug!("    -> Lowering to HIR");
-            let mut hir = ast_lowering2::lower_crate(&ast);
+            let mut hir = ast_lowering::lower_crate(&ast);
 
             // Debug hir
             if parsing_ctx.config.show_hir {

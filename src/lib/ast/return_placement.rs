@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::ast::tree::*;
 
 pub struct ReturnInserter<'a> {
     pub body: &'a Body,
@@ -36,17 +36,17 @@ impl<'a> ReturnInserter<'a> {
     fn visit_statement(&mut self, stmt: &mut Statement) {
         let mut is_assign = None;
 
-        match *stmt.kind {
-            StatementKind::Expression(ref mut e) => {
-                e.kind = ExpressionKind::Return(e.clone());
+        match *stmt {
+            Statement::Expression(ref mut e) => {
+                *e = Box::new(Expression::Return(e.clone()));
             }
-            StatementKind::If(ref mut i) => {
+            Statement::If(ref mut i) => {
                 self.visit_if(i);
             }
-            StatementKind::Assign(ref mut a) => {
+            Statement::Assign(ref mut a) => {
                 is_assign = Some(a.value.clone());
             }
-            StatementKind::For(ref mut _fa) => {
+            Statement::For(ref mut _fa) => {
                 unimplemented!("Cannot have loop in return position");
             }
         }
@@ -54,9 +54,7 @@ impl<'a> ReturnInserter<'a> {
         // FIXME: do this only if a.name is Identifier
         // or else return the ident
         if let Some(value) = is_assign {
-            stmt.kind = Box::new(StatementKind::Expression(Box::new(Expression {
-                kind: ExpressionKind::Return(Box::new(value)),
-            })));
+            *stmt = Statement::Expression(Box::new(Expression::Return(Box::new(value))));
         }
     }
 

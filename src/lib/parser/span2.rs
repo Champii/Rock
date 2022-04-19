@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::parser2::Parser;
+use crate::parser::Parser;
 
 // TODO: merge spans
 

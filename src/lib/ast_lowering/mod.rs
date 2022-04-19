@@ -1,4 +1,4 @@
-use crate::{ast::Root, hir};
+use crate::{ast::tree::Root, hir};
 
 mod ast_lowering_context;
 mod hir_map;

@@ -5,7 +5,7 @@ use std::{
 
 use crate::diagnostics::Diagnostic;
 
-use super::Span;
+use super::span::Span;
 
 #[derive(Default, Debug, Clone)]
 pub struct SourceFile {
