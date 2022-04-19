@@ -5,7 +5,7 @@ use crate::{
     helpers::*,
     parser::span2::Span,
     resolver::ResolutionMap,
-    ty::{FuncType, StructType, Type},
+    ty::{FuncType, Type},
 };
 
 use super::{ast_print::AstPrintContext, visit::Visitor};
@@ -19,17 +19,6 @@ pub struct Root {
     pub spans: HashMap<NodeId, Span>,
 }
 
-/* impl FromStr for Root {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parse_root(create_parser(s)).finish() {
-            Ok((_, root)) => Ok(root),
-            Err(e) => Err(format!("{:?}", e)),
-        }
-    }
-}
- */
 impl Root {
     pub fn new(r#mod: Mod) -> Self {
         Self {
@@ -49,7 +38,6 @@ impl Root {
 #[derive(Debug, Clone)]
 pub struct Mod {
     pub top_levels: Vec<TopLevel>,
-    // pub node_id: NodeId, // TODO: setup a ModId
 }
 
 impl Mod {
@@ -57,12 +45,6 @@ impl Mod {
         Self { top_levels }
     }
 }
-
-// #[derive(Debug, Clone)]
-// pub struct TopLevel {
-//     pub kind: TopLevelKind,
-//     // pub node_id: NodeId,
-// }
 
 #[derive(Debug, Clone)]
 pub enum TopLevel {
@@ -188,7 +170,6 @@ impl Use {
 #[derive(Debug, Clone)]
 pub struct FunctionDecl {
     pub name: Identifier,
-    // pub mangled_name: Option<Identifier>,
     pub arguments: Vec<Identifier>,
     pub body: Body,
     pub node_id: NodeId,
@@ -301,12 +282,6 @@ impl Identifier {
     }
 }
 
-// impl Identifier {
-//     pub fn new(name: ) {
-
-//     }
-// }
-
 impl PartialEq for Identifier {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
@@ -329,14 +304,6 @@ impl std::ops::Deref for Identifier {
 
 generate_has_name!(Identifier);
 
-pub type ArgumentsDecl = Vec<Identifier>;
-
-// #[derive(Debug, Clone)]
-// pub struct ArgumentDecl {
-//     pub name: String,
-//     pub node_id: NodeId,
-// }
-
 #[derive(Debug, Clone)]
 pub struct Body {
     pub stmts: Vec<Statement>,
@@ -347,11 +314,6 @@ impl Body {
         Self { stmts }
     }
 }
-
-// #[derive(Debug, Clone)]
-// pub struct Statement {
-//     pub kind: Box<StatementKind>,
-// }
 
 #[derive(Debug, Clone)]
 pub enum Statement {
@@ -426,16 +388,6 @@ impl AssignLeftSide {
         }
     }
 }
-// impl AssignLeftSide {
-//     pub fn get_node_id(&self) -> NodeId {
-//         use AssignLeftSide::*;
-
-//         match self {
-//             Identifier(id) => id.node_id.node_id,
-//             Indice(expr) => expr.,
-//         }
-//     }
-// }
 
 #[derive(Debug, Clone)]
 pub struct Assign {
@@ -483,11 +435,6 @@ pub enum Else {
     If(If),
     Body(Body),
 }
-
-// #[derive(Debug, Clone)]
-// pub struct Expression {
-//     pub kind: ExpressionKind,
-// }
 
 impl Expression {
     #[allow(dead_code)]
@@ -555,20 +502,6 @@ impl Expression {
             _ => None,
         }
     }
-
-    // #[allow(dead_code)]
-    // pub fn create_2_args_func_call(op: Operand, arg1: UnaryExpr, arg2: UnaryExpr) -> Expression {
-    //     Expression {
-    //         kind: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
-    //             node_id: node_id::new_placeholder(),
-    //             op,
-    //             secondaries: Some(vec![SecondaryExpr::Arguments(vec![
-    //                 Argument { arg: arg1 },
-    //                 Argument { arg: arg2 },
-    //             ])]),
-    //         })),
-    //     }
-    // }
 }
 
 #[derive(Debug, Clone)]
@@ -697,11 +630,6 @@ impl PrimaryExpr {
         }
     }
 }
-
-// #[derive(Debug, Clone)]
-// pub struct Operand {
-//     pub kind: Operand,
-// }
 
 #[derive(Debug, Clone)]
 pub enum Operand {

@@ -1,4 +1,4 @@
-#![feature(associated_type_bounds, derive_default_enum)]
+#![feature(associated_type_bounds)]
 
 #[macro_use]
 extern crate serde_derive;
@@ -30,11 +30,10 @@ mod resolver;
 mod tests;
 mod ty;
 
-use ast::ast_print::AstPrintContext;
 use codegen::interpret;
 use diagnostics::Diagnostic;
 pub use helpers::config::Config;
-use parser::{ParserCtx, ParsingCtx, SourceFile};
+use parser::{ParsingCtx, SourceFile};
 
 pub fn compile_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;

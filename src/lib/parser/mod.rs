@@ -143,14 +143,14 @@ impl ParserCtx {
     }
 }
 
-pub fn create_parser(s: &str) -> Parser<'_> {
+/* pub fn create_parser(s: &str) -> Parser<'_> {
     LocatedSpan::new_extra(s, ParserCtx::new(PathBuf::from("")))
 }
-
-pub fn create_parser_with_filename(s: &str, path: PathBuf) -> Parser<'_> {
+ */
+/* pub fn create_parser_with_filename(s: &str, path: PathBuf) -> Parser<'_> {
     LocatedSpan::new_extra(s, ParserCtx::new(path))
 }
-
+ */
 pub fn parse_root(input: Parser) -> Res<Parser, Root> {
     // TODO: move eof check in parse_mod
     map(terminated(parse_mod, eof), Root::new)(input)
@@ -207,7 +207,7 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
 
     let content = std::fs::read_to_string(&new_ctx.current_file_path()).unwrap();
 
-    let mut new_parser = Parser::new_extra(&content, new_ctx);
+    let new_parser = Parser::new_extra(&content, new_ctx);
 
     use nom::Finish;
     // FIXME: Errors are swallowed here
@@ -271,7 +271,7 @@ pub fn parse_struct_decl(input: Parser) -> Res<Parser, StructDecl> {
                 preceded(parse_block_indent, parse_prototype),
             )),
         )),
-        |(tag, name, _, defs)| StructDecl::new(name, defs),
+        |(_tag, name, _, defs)| StructDecl::new(name, defs),
     )(input)?;
 
     let struct_t: StructType = struct_decl.clone().into();
@@ -295,7 +295,7 @@ pub fn parse_use(input: Parser) -> Res<Parser, Use> {
 }
 
 pub fn parse_infix(input: Parser) -> Res<Parser, TopLevel> {
-    let (mut input, (parsed_op, pred)) = preceded(
+    let (input, (parsed_op, pred)) = preceded(
         terminated(tag("infix"), space1),
         tuple((
             terminated(many1(allowed_operator_chars), space1),
@@ -399,7 +399,7 @@ pub fn parse_block_indent(input: Parser) -> Res<Parser, usize> {
     }
 }
 
-pub fn parse_body(mut input: Parser) -> Res<Parser, Body> {
+pub fn parse_body(input: Parser) -> Res<Parser, Body> {
     let (input, opt_eol) = opt(line_ending)(input)?; // NOTE: should not fail
 
     if opt_eol.is_some() {
@@ -435,7 +435,7 @@ pub fn parse_if(input: Parser) -> Res<Parser, If> {
             parse_body,
             opt(tuple((line_ending, parse_else))),
         )),
-        |(node_id, if_, cond, _, _, body, else_)| {
+        |(node_id, _if_, cond, _, _, body, else_)| {
             If::new(node_id, cond, body, else_.map(|(_, else_)| Box::new(else_)))
         },
     )(input.clone())
@@ -606,7 +606,7 @@ pub fn parse_native_operator(
             preceded(space1, parse_identifier),
         )),
         |(tag, id1, id2)| {
-            let (input, node_id) = new_identity(input.clone(), &tag);
+            let (_input, node_id) = new_identity(input.clone(), &tag);
             (
                 NativeOperator::new(node_id, NativeOperatorKind::from_str(tag.fragment())),
                 id1,
@@ -970,7 +970,6 @@ pub fn allowed_operator_chars(input: Parser) -> Res<Parser, String> {
 
 pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
     use nom::Finish;
-    use nom_locate::LocatedSpan;
 
     let content = &parsing_ctx.get_current_file().content;
 
@@ -981,7 +980,7 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
 
     let ast = parse_root(parser).finish();
 
-    let mut ast = match ast {
+    let ast = match ast {
         Ok((ctx, mut ast)) => {
             parsing_ctx.identities = ctx.extra.identities();
             parsing_ctx.files = ctx.extra.files();

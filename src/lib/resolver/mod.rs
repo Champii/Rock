@@ -2,7 +2,7 @@ use crate::{
     ast::{tree::IdentifierPath, tree::Root, visit::*},
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
-    parser::{ParsingCtx, Span},
+    parser::ParsingCtx,
 };
 
 mod resolution_map;

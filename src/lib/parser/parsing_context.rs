@@ -6,7 +6,7 @@ use std::{
 use colored::*;
 
 use crate::{
-    ast::{ast_print::AstPrintContext, tree, Identifier, NodeId, Root},
+    ast::{ast_print::AstPrintContext, tree, Identifier, NodeId},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
     parser::span2::Span,
     Config,
@@ -127,7 +127,7 @@ impl ParsingCtx {
         Ok(())
     }
 
-    pub fn new_span(&self, start: usize, end: usize) -> Span {
+    pub fn new_span(&self, start: usize, _end: usize) -> Span {
         Span {
             file_path: self.get_current_file().file_path,
             offset: start,
