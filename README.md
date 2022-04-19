@@ -117,7 +117,7 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 
 ## Showcases
 
-### Polymophic function
+### Polymorphic function
 
 
 ``` haskell
