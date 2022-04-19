@@ -4,8 +4,8 @@
 
 Little language made with Rust and LLVM.
 
-Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
-It's highly inspired from Livescript, and will borrow (pun intended) some features and syntaxes from Crystal, from functional languages like Haskell, or even from Rust itself.
+Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and achieve high native performances thanks to LLVM.  
+Rock is highly inspired from Livescript and Rust, and will also borrow (pun intended) some features from Crystal, from functional languages like Haskell, and even from Rust itself.
 
 No to be taken seriously (yet)
 
@@ -27,7 +27,7 @@ No to be taken seriously (yet)
 - Type inference
 - Custom operators
 - Typeclass (Traits)
-- Parametric Polymorphism by default
+- Polymorphism by default
 - Compile to LLVM IR
 - REPL (ALPHA)
 
@@ -58,7 +58,7 @@ You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
 #### With cargo from git
 
 ``` sh
-cargo install --git https://github.com/Champii/Rock
+cargo install --git https://github.com/Champii/Rock --locked
 rock -V
 ```
 
@@ -82,9 +82,9 @@ mkdir -P factorial/src && cd factorial
 
 Add some files like this:
 
-- Copy the std lib files from [std](https://github.com/Champii/Rock/blob/master/std/src) into `./src/`
+- Copy all the stdlib files from [std/src/\*.rk](https://github.com/Champii/Rock/blob/master/std/src) into `factorial/src/`
 
-- Create a `./src/main.rk` file:
+- Create a `factorial/src/main.rk` file:
 
 ```haskell
 mod lib
@@ -112,6 +112,8 @@ Should output
 ```
 
 Take a look at `rock --help` for a quick tour of its flags and arguments
+
+Note that you currently must be at the project root to run the compiler. (i.e. inside the `./factorial/` folder)
 
 ### REPL
 
@@ -145,6 +147,9 @@ Only supports basic expressions for now.
 
 Be warned that for a given session, the whole code is re-executed at each entry.  
 This includes I/O of all sorts (Looking at you, open/read/write in loops)
+
+Note that the REPL expects to be run from the project root, and expects some version of the stdlib
+to be available in the `./src` folder
 
 ## Showcases
 
