@@ -3,7 +3,6 @@
 #[macro_use]
 extern crate serde_derive;
 
-#[macro_use]
 extern crate bitflags;
 
 #[macro_use]
@@ -22,15 +21,12 @@ mod ast;
 #[macro_use]
 mod infer;
 
-// mod ast_lowering;
 mod ast_lowering;
 mod codegen;
 pub mod diagnostics;
 mod hir;
 mod parser;
-// mod parser2;
 mod resolver;
-// mod resolver2;
 mod tests;
 mod ty;
 
@@ -38,8 +34,6 @@ use ast::ast_print::AstPrintContext;
 use codegen::interpret;
 use diagnostics::Diagnostic;
 pub use helpers::config::Config;
-use nom::Finish;
-use nom_locate::LocatedSpan;
 use parser::{ParserCtx, ParsingCtx, SourceFile};
 
 pub fn compile_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
@@ -69,60 +63,9 @@ pub fn compile_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic
 }
 
 pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {
-    let content = &parsing_ctx.get_current_file().content;
-
-    let parser = LocatedSpan::new_extra(
-        content.as_str(),
-        ParserCtx::new(parsing_ctx.get_current_file().file_path.clone()),
-    );
-
-    let ast_test = parser::parse_root(parser).finish();
-
-    let hir = match ast_test {
-        Ok((ctx, mut ast)) => {
-            parsing_ctx.identities = ctx.extra.identities();
-            parsing_ctx.files = ctx.extra.files();
-
-            ast.operators_list = ctx.extra.operators_list();
-            ast.spans = ctx.extra.identities().into_iter().collect();
-
-            // Debug ast
-            if parsing_ctx.config.show_ast {
-                ast.print();
-            }
-
-            debug!("    -> Resolving");
-            resolver::resolve(&mut ast, parsing_ctx)?;
-
-            // Lowering to HIR
-            debug!("    -> Lowering to HIR");
-            let mut hir = ast_lowering::lower_crate(&ast);
-
-            // Debug hir
-            if parsing_ctx.config.show_hir {
-                hir.print();
-            }
-
-            // Infer Hir
-            debug!("    -> Infer HIR");
-            let new_hir = infer::infer(&mut hir, parsing_ctx, config)?;
-
-            Ok(new_hir)
-        }
-        Err(e) => {
-            let diagnostic = Diagnostic::from(e);
-
-            parsing_ctx.diagnostics.push_error(diagnostic.clone());
-
-            Err(diagnostic)
-        }
-    }?;
-
-    parsing_ctx.return_if_error()?;
-
-    /* // Text to Ast
+    // Text to Ast
     debug!("    -> Parsing");
-    let mut ast = parser::parse_root(parsing_ctx)?;
+    let mut ast = parser::parse(parsing_ctx)?;
 
     // Name resolving
     debug!("    -> Resolving");
@@ -134,10 +77,9 @@ pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::R
 
     // Infer Hir
     debug!("    -> Infer HIR");
-    let new_hir = infer::infer(&mut hir, parsing_ctx, config)?; */
+    let new_hir = infer::infer(&mut hir, parsing_ctx, config)?;
 
-    // Ok(new_hir)
-    Ok(hir)
+    Ok(new_hir)
 }
 
 pub fn generate_ir(hir: hir::Root, config: &Config) -> Result<(), Diagnostic> {
@@ -147,6 +89,7 @@ pub fn generate_ir(hir: hir::Root, config: &Config) -> Result<(), Diagnostic> {
 
     Ok(())
 }
+
 mod test {
     use super::*;
     use crate::{parser::SourceFile, Config};

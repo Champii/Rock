@@ -1,25 +1,31 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 
-use std::path::PathBuf;
-
-use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while};
-use nom::character::complete::{alphanumeric0, char, line_ending, one_of, satisfy, space0, space1};
-use nom::combinator::{eof, map, opt, peek, recognize};
-use nom::error::{make_error, ErrorKind, VerboseError};
-use nom::error_position;
-use nom::multi::{many0, many1, separated_list0, separated_list1};
-use nom::sequence::{delimited, preceded, terminated, tuple};
-use nom::{error::ParseError, Err, IResult};
-
-// use crate::ast::identity2::Identity;
-use crate::ast::tree::*;
-use crate::ast::NodeId;
-/* use crate::parser::span2::Span;
-use crate::parser::SourceFile; */
-use crate::ty::{FuncType, PrimitiveType, StructType, Type};
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take_while},
+    character::complete::{alphanumeric0, char, line_ending, one_of, satisfy, space0, space1},
+    combinator::{eof, map, opt, peek, recognize},
+    error::{make_error, ErrorKind, ParseError, VerboseError},
+    error_position,
+    multi::{many0, many1, separated_list0, separated_list1},
+    sequence::{delimited, preceded, terminated, tuple},
+    Err, IResult,
+};
 
 use nom_locate::{position, LocatedSpan};
+
+use crate::{
+    ast::{
+        tree::{self, *},
+        NodeId,
+    },
+    diagnostics::Diagnostic,
+    ty::{FuncType, PrimitiveType, StructType, Type},
+};
+
 pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
 
 type Res<T, U> = IResult<T, U, VerboseError<T>>;
@@ -116,10 +122,6 @@ impl ParserCtx {
         &self.cur_file_path
     }
 
-    // pub fn identities(&self) -> &Vec<Identity> {
-    //     &self.identities
-    // }
-
     pub fn operators(&self) -> &HashMap<String, u8> {
         &self.operators_list
     }
@@ -128,24 +130,8 @@ impl ParserCtx {
         self.operators_list.insert(op, prec);
     }
 
-    /* pub fn resolve_new_mod(&mut self, name: &str) -> Self {
-        let mut new = Self::new(
-            self.cur_file_path
-                .parent()
-                .unwrap()
-                .join(name.to_owned() + ".rk"),
-        );
-
-        new.identities = self.identities.clone();
-
-        new
-    } */
-
     pub fn identities(&self) -> BTreeMap<NodeId, Span> {
         self.identities.clone()
-        /* .iter()
-        .map(|identity| (identity.node_id, identity.clone()))
-        .collect() */
     }
 
     pub fn operators_list(&self) -> HashMap<String, u8> {
@@ -741,7 +727,6 @@ pub fn parse_identifier_path(input: Parser) -> Res<Parser, IdentifierPath> {
                     Identifier::new("(*)".to_string(), node_id)
                 }),
                 parse_identifier,
-                // map(parse_operator, |op| op.0),
             )),
         ),
         IdentifierPath::new,
@@ -969,21 +954,6 @@ fn parse_identity(input: Parser) -> Res<Parser, NodeId> {
 
     Ok((input, node_id))
 }
-/*
-fn parse_identity2<'a, O, E, F>(mut parser: F) -> impl FnMut(Parser<'a>) -> Res<Parser<'a>, O, E>
-where
-    F: nom::Parser<Parser<'a>, O, E>,
-{
-    move |mut input: Parser<'a>| {
-        let (input, pos) = position(input)?;
-
-        let (mut input, output) = parser.parse(input)?;
-
-        let (input, node_id) = new_identity(input, &output);
-
-        Ok(())
-    }
-} */
 
 pub fn allowed_operator_chars(input: Parser) -> Res<Parser, String> {
     let (input, c) = one_of(LocatedSpan::new(
@@ -996,4 +966,46 @@ pub fn allowed_operator_chars(input: Parser) -> Res<Parser, String> {
     ))(input)?;
 
     Ok((input, c.to_string()))
+}
+
+pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
+    use nom::Finish;
+    use nom_locate::LocatedSpan;
+
+    let content = &parsing_ctx.get_current_file().content;
+
+    let parser = LocatedSpan::new_extra(
+        content.as_str(),
+        ParserCtx::new(parsing_ctx.get_current_file().file_path.clone()),
+    );
+
+    let ast = parse_root(parser).finish();
+
+    let mut ast = match ast {
+        Ok((ctx, mut ast)) => {
+            parsing_ctx.identities = ctx.extra.identities();
+            parsing_ctx.files = ctx.extra.files();
+
+            ast.operators_list = ctx.extra.operators_list();
+            ast.spans = ctx.extra.identities().into_iter().collect();
+
+            // Debug ast
+            if parsing_ctx.config.show_ast {
+                ast.print();
+            }
+
+            Ok(ast)
+        }
+        Err(e) => {
+            let diagnostic = Diagnostic::from(e);
+
+            parsing_ctx.diagnostics.push_error(diagnostic.clone());
+
+            Err(diagnostic)
+        }
+    }?;
+
+    parsing_ctx.return_if_error()?;
+
+    Ok(ast)
 }
