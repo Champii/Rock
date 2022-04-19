@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::*,
+    ast::{return_placement::ReturnInserter, tree::*, NodeId},
     hir::{self, Arena, FnBodyId, HirId},
     infer::Envs,
     ty::*,
 };
 
-use super::{hir_map::HirMap, return_placement::ReturnInserter, InfixDesugar};
+use super::{hir_map::HirMap, InfixDesugar};
 
 pub struct AstLoweringContext {
     hir_map: HirMap,
@@ -62,40 +62,40 @@ impl AstLoweringContext {
     }
 
     pub fn lower_top_level(&mut self, top_level: &TopLevel) {
-        match &top_level.kind {
-            TopLevelKind::Prototype(p) => {
+        match &top_level {
+            TopLevel::Prototype(p) => {
                 let top_level = hir::TopLevel {
                     kind: hir::TopLevelKind::Prototype(self.lower_prototype(p)),
                 };
 
                 self.top_levels.push(top_level);
             }
-            TopLevelKind::Function(f) => {
+            TopLevel::Function(f) => {
                 let top_level = hir::TopLevel {
                     kind: hir::TopLevelKind::Function(self.lower_function_decl(f)),
                 };
 
                 self.top_levels.push(top_level);
             }
-            TopLevelKind::Trait(t) => {
+            TopLevel::Trait(t) => {
                 self.lower_trait(t);
             }
-            TopLevelKind::Struct(s) => {
+            TopLevel::Struct(s) => {
                 self.lower_struct_decl(s);
             }
-            TopLevelKind::Impl(i) => {
+            TopLevel::Impl(i) => {
                 self.lower_impl(i);
             }
-            TopLevelKind::Mod(_name, mod_) => self.lower_mod(mod_),
-            TopLevelKind::Infix(_, _) => (),
-            TopLevelKind::Use(_u) => (),
+            TopLevel::Mod(_name, mod_) => self.lower_mod(mod_),
+            TopLevel::Infix(_, _) => (),
+            TopLevel::Use(_u) => (),
         };
     }
 
     pub fn lower_struct_decl(&mut self, s: &StructDecl) -> hir::StructDecl {
         let hir_t = hir::StructDecl {
-            hir_id: self.hir_map.next_hir_id(s.identity.clone()),
-            name: s.name.clone(),
+            // hir_id: self.hir_map.next_hir_id(s.name.node_id),
+            name: self.lower_identifier(&s.name),
             defs: s
                 .defs
                 .iter()
@@ -103,7 +103,7 @@ impl AstLoweringContext {
                 .collect(),
         };
 
-        self.structs.insert(s.name.get_name(), hir_t.clone());
+        self.structs.insert(s.name.to_string(), hir_t.clone());
 
         hir_t
     }
@@ -153,14 +153,14 @@ impl AstLoweringContext {
                 .entry(hir_f.name.name.clone())
                 .or_insert_with(HashMap::new);
 
-            let _hir_id = self.hir_map.next_hir_id(f.identity.clone());
+            let _hir_id = self.hir_map.next_hir_id(f.node_id);
 
             (*fn_decls).insert(type_sig, hir_f);
         }
     }
 
     pub fn lower_prototype(&mut self, p: &Prototype) -> hir::Prototype {
-        let id = self.hir_map.next_hir_id(p.identity.clone());
+        let id = self.hir_map.next_hir_id(p.node_id);
         let ident = self.lower_identifier(&p.name);
 
         hir::Prototype {
@@ -172,7 +172,7 @@ impl AstLoweringContext {
 
     pub fn lower_function_decl(&mut self, f: &FunctionDecl) -> hir::FunctionDecl {
         let body_id = self.hir_map.next_body_id();
-        let id = self.hir_map.next_hir_id(f.identity.clone());
+        let id = self.hir_map.next_hir_id(f.node_id);
         let ident = self.lower_identifier(&f.name);
 
         let body = self.lower_fn_body(&f.body, ident.clone(), body_id.clone(), id.clone());
@@ -193,13 +193,13 @@ impl AstLoweringContext {
         }
     }
 
-    pub fn lower_argument_decl(&mut self, argument: &ArgumentDecl) -> hir::ArgumentDecl {
-        let id = self.hir_map.next_hir_id(argument.identity.clone());
+    pub fn lower_argument_decl(&mut self, identifier: &Identifier) -> hir::ArgumentDecl {
+        let id = self.hir_map.next_hir_id(identifier.node_id);
 
         hir::ArgumentDecl {
             name: hir::Identifier {
                 hir_id: id,
-                name: argument.name.clone(),
+                name: identifier.name.clone(),
             },
         }
     }
@@ -236,22 +236,43 @@ impl AstLoweringContext {
 
     pub fn lower_statement(&mut self, stmt: &Statement) -> hir::Statement {
         hir::Statement {
-            kind: match &*stmt.kind {
-                StatementKind::Expression(e) => {
+            kind: match &*stmt {
+                Statement::Expression(e) => {
                     Box::new(hir::StatementKind::Expression(self.lower_expression(e)))
                 }
-                StatementKind::If(e) => Box::new(hir::StatementKind::If(self.lower_if(e))),
-                StatementKind::Assign(a) => {
-                    Box::new(hir::StatementKind::Assign(self.lower_assign(a)))
-                }
+                Statement::If(e) => Box::new(hir::StatementKind::If(self.lower_if(e))),
+                Statement::Assign(a) => Box::new(hir::StatementKind::Assign(self.lower_assign(a))),
+                Statement::For(f) => Box::new(hir::StatementKind::For(self.lower_for(f))),
             },
+        }
+    }
+
+    pub fn lower_for(&mut self, for_loop: &For) -> hir::For {
+        match for_loop {
+            For::In(i) => hir::For::In(self.lower_for_in(i)),
+            For::While(w) => hir::For::While(self.lower_while(w)),
+        }
+    }
+
+    pub fn lower_for_in(&mut self, for_in: &ForIn) -> hir::ForIn {
+        hir::ForIn {
+            value: self.lower_identifier(&for_in.value),
+            expr: self.lower_expression(&for_in.expr),
+            body: self.lower_body(&for_in.body),
+        }
+    }
+
+    pub fn lower_while(&mut self, while_loop: &While) -> hir::While {
+        hir::While {
+            predicat: self.lower_expression(&while_loop.predicat),
+            body: self.lower_body(&while_loop.body),
         }
     }
 
     pub fn lower_assign_left_side(&mut self, assign_left: &AssignLeftSide) -> hir::AssignLeftSide {
         match assign_left {
             AssignLeftSide::Identifier(id) => {
-                hir::AssignLeftSide::Identifier(self.lower_identifier(id))
+                hir::AssignLeftSide::Identifier(self.lower_identifier(id.as_identifier().unwrap()))
             }
             AssignLeftSide::Indice(indice) => {
                 let expr_hir = self.lower_expression(indice);
@@ -287,18 +308,18 @@ impl AstLoweringContext {
     }
 
     pub fn lower_expression(&mut self, expr: &Expression) -> hir::Expression {
-        match &expr.kind {
-            ExpressionKind::UnaryExpr(unary) => self.lower_unary(unary),
-            ExpressionKind::StructCtor(s) => self.lower_struct_ctor(s),
-            ExpressionKind::NativeOperation(op, left, right) => {
+        match &expr {
+            Expression::UnaryExpr(unary) => self.lower_unary(unary),
+            Expression::StructCtor(s) => self.lower_struct_ctor(s),
+            Expression::NativeOperation(op, left, right) => {
                 self.lower_native_operation(op, left, right)
             }
-            ExpressionKind::BinopExpr(_unary, _op, _expr22) => {
+            Expression::BinopExpr(_unary, _op, _expr22) => {
                 let mut infix = InfixDesugar::new(self.operators_list.clone());
 
                 self.lower_expression(&infix.desugar(expr))
             }
-            ExpressionKind::Return(expr) => hir::Expression {
+            Expression::Return(expr) => hir::Expression {
                 kind: Box::new(hir::ExpressionKind::Return(self.lower_expression(&*expr))),
             },
         }
@@ -306,8 +327,8 @@ impl AstLoweringContext {
 
     pub fn lower_struct_ctor(&mut self, s: &StructCtor) -> hir::Expression {
         hir::Expression::new_struct_ctor(hir::StructCtor {
-            hir_id: self.hir_map.next_hir_id(s.identity.clone()),
-            name: s.name.clone(),
+            // hir_id: self.hir_map.next_hir_id(s.node_id),
+            name: self.lower_identifier(&s.name),
             defs: s
                 .defs
                 .iter()
@@ -318,7 +339,7 @@ impl AstLoweringContext {
 
     pub fn lower_if(&mut self, r#if: &If) -> hir::If {
         hir::If {
-            hir_id: self.hir_map.next_hir_id(r#if.identity.clone()),
+            hir_id: self.hir_map.next_hir_id(r#if.node_id),
             predicat: self.lower_expression(&r#if.predicat),
             body: self.lower_body(&r#if.body),
             else_: r#if.else_.as_ref().map(|e| Box::new(self.lower_else(e))),
@@ -347,19 +368,19 @@ impl AstLoweringContext {
         let mut expr = self.lower_operand(&primary.op);
 
         for secondary in &primary.secondaries.clone().unwrap() {
-            expr = self.lower_secondary(expr, secondary, &primary.identity.clone());
+            expr = self.lower_secondary(expr, secondary, primary.node_id);
         }
 
         expr
     }
 
     pub fn lower_operand(&mut self, operand: &Operand) -> hir::Expression {
-        match &operand.kind {
-            OperandKind::Literal(l) => hir::Expression::new_literal(self.lower_literal(l)),
-            OperandKind::Identifier(i) => {
+        match &operand {
+            Operand::Literal(l) => hir::Expression::new_literal(self.lower_literal(l)),
+            Operand::Identifier(i) => {
                 hir::Expression::new_identifier_path(self.lower_identifier_path(i))
             }
-            OperandKind::Expression(e) => self.lower_expression(&**e),
+            Operand::Expression(e) => self.lower_expression(&**e),
         }
     }
 
@@ -367,23 +388,23 @@ impl AstLoweringContext {
         &mut self,
         op: hir::Expression,
         secondary: &SecondaryExpr,
-        identity: &Identity,
+        node_id: NodeId,
     ) -> hir::Expression {
         match secondary {
             SecondaryExpr::Arguments(args) => {
                 hir::Expression::new_function_call(hir::FunctionCall {
-                    hir_id: self.hir_map.next_hir_id(identity.clone()),
+                    hir_id: self.hir_map.next_hir_id(node_id.clone()),
                     op,
                     args: args.iter().map(|arg| self.lower_unary(&arg.arg)).collect(),
                 })
             }
             SecondaryExpr::Indice(expr) => hir::Expression::new_indice(hir::Indice {
-                hir_id: self.hir_map.next_hir_id(identity.clone()),
+                hir_id: self.hir_map.next_hir_id(node_id.clone()),
                 op,
                 value: self.lower_expression(expr),
             }),
             SecondaryExpr::Dot(expr) => hir::Expression::new_dot(hir::Dot {
-                hir_id: self.hir_map.next_hir_id(identity.clone()),
+                hir_id: self.hir_map.next_hir_id(node_id.clone()),
                 op,
                 value: self.lower_identifier(expr),
             }),
@@ -391,7 +412,7 @@ impl AstLoweringContext {
     }
 
     pub fn lower_literal(&mut self, lit: &Literal) -> hir::Literal {
-        let hir_id = self.hir_map.next_hir_id(lit.identity.clone());
+        let hir_id = self.hir_map.next_hir_id(lit.node_id);
 
         hir::Literal {
             hir_id,
@@ -422,7 +443,7 @@ impl AstLoweringContext {
     }
 
     pub fn lower_identifier(&mut self, id: &Identifier) -> hir::Identifier {
-        let hir_id = self.hir_map.next_hir_id(id.identity.clone());
+        let hir_id = self.hir_map.next_hir_id(id.node_id);
 
         hir::Identifier {
             hir_id,
@@ -444,7 +465,7 @@ impl AstLoweringContext {
     }
 
     pub fn lower_native_operator(&mut self, op: &NativeOperator) -> hir::NativeOperator {
-        let hir_id = self.hir_map.next_hir_id(op.identity.clone());
+        let hir_id = self.hir_map.next_hir_id(op.node_id);
 
         let kind = match op.kind {
             NativeOperatorKind::IAdd => hir::NativeOperatorKind::IAdd,
@@ -466,6 +487,7 @@ impl AstLoweringContext {
             NativeOperatorKind::Flt => hir::NativeOperatorKind::Flt,
             NativeOperatorKind::Fle => hir::NativeOperatorKind::Fle,
             NativeOperatorKind::BEq => hir::NativeOperatorKind::BEq,
+            NativeOperatorKind::Len => hir::NativeOperatorKind::Len,
         };
 
         hir::NativeOperator { hir_id, kind }

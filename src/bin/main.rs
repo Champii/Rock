@@ -66,7 +66,7 @@ fn run(config: Config) {
         .output()
         .expect("failed to execute binary");
 
-    print!("{}", String::from_utf8(cmd.stdout).unwrap());
+    print!("{}", unsafe { String::from_utf8_unchecked(cmd.stdout) });
 
     match cmd.status.code() {
         Some(code) => {

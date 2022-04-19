@@ -15,6 +15,7 @@ pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
     if codegen_ctx.lower_hir(&hir, &builder).is_err() {
         // FIXME: have a movable `Diagnostics`
         // codegen_ctx.parsing_ctx.return_if_error()?;
+        panic!("GEN ERROR");
     }
 
     match codegen_ctx.module.verify() {

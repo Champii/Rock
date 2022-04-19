@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{visit::*, *},
+    ast::{tree::*, visit::*, NodeId},
     diagnostics::Diagnostic,
     helpers::scopes::*,
+    parser::span2::Span as Span2,
     parser::ParsingCtx,
     resolver::ResolutionMap,
 };
@@ -11,15 +12,15 @@ use crate::{
 #[derive(Debug)]
 pub struct ResolveCtx<'a> {
     pub parsing_ctx: &'a mut ParsingCtx,
-    pub scopes: HashMap<IdentifierPath, Scopes<String, Identity>>, // <ModPath, ModScopes>
+    pub scopes: HashMap<IdentifierPath, Scopes<String, NodeId>>, // <ModPath, ModScopes>
     pub cur_scope: IdentifierPath,
     pub resolutions: ResolutionMap<NodeId>,
 }
 
 impl<'a> ResolveCtx<'a> {
-    pub fn add_to_current_scope(&mut self, name: String, ident: Identity) {
+    pub fn add_to_current_scope(&mut self, name: String, node_id: NodeId) {
         if let Some(ref mut scopes) = self.scopes.get_mut(&self.cur_scope) {
-            scopes.add(name, ident);
+            scopes.add(name, node_id);
         }
     }
 
@@ -41,11 +42,15 @@ impl<'a> ResolveCtx<'a> {
         }
     }
 
-    pub fn get(&mut self, name: String) -> Option<Identity> {
+    pub fn get(&mut self, name: String) -> Option<NodeId> {
         match self.scopes.get_mut(&self.cur_scope) {
             Some(ref mut scopes) => scopes.get(name),
             None => None,
         }
+    }
+
+    pub fn get_span2(&self, node_id: NodeId) -> Span2 {
+        self.parsing_ctx.identities.get(&node_id).unwrap().clone()
     }
 }
 
@@ -53,36 +58,36 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     fn visit_mod(&mut self, m: &'a Mod) {
         // We add every top level first
         for top in &m.top_levels {
-            match &top.kind {
-                TopLevelKind::Prototype(p) => {
-                    self.add_to_current_scope((*p.name).clone(), p.identity.clone());
+            match &top {
+                TopLevel::Prototype(p) => {
+                    self.add_to_current_scope((*p.name).clone(), p.node_id);
                 }
-                TopLevelKind::Use(_u) => (),
-                TopLevelKind::Trait(t) => {
+                TopLevel::Use(_u) => (),
+                TopLevel::Trait(t) => {
                     for proto in &t.defs {
-                        self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
+                        self.add_to_current_scope((*proto.name).clone(), proto.node_id);
                     }
                 }
-                TopLevelKind::Struct(s) => {
-                    self.add_to_current_scope(s.name.get_name(), s.identity.clone());
+                TopLevel::Struct(s) => {
+                    self.add_to_current_scope(s.name.name.clone(), s.name.node_id);
 
                     s.defs.iter().for_each(|p| {
-                        self.add_to_current_scope((*p.name).clone(), p.identity.clone());
+                        self.add_to_current_scope((*p.name).clone(), p.node_id);
                     })
                 }
-                TopLevelKind::Impl(i) => {
+                TopLevel::Impl(i) => {
                     for proto in &i.defs {
                         let mut proto = proto.clone();
 
                         proto.mangle(&i.types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
 
-                        self.add_to_current_scope((*proto.name).clone(), proto.identity.clone());
+                        self.add_to_current_scope((*proto.name).clone(), proto.node_id);
                     }
                 }
-                TopLevelKind::Mod(_, _m) => (),
-                TopLevelKind::Infix(_, _) => (),
-                TopLevelKind::Function(f) => {
-                    self.add_to_current_scope((*f.name).clone(), f.identity.clone());
+                TopLevel::Mod(_, _m) => (),
+                TopLevel::Infix(_, _) => (),
+                TopLevel::Function(f) => {
+                    self.add_to_current_scope((*f.name).clone(), f.node_id);
                 }
             }
         }
@@ -90,21 +95,36 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         walk_list!(self, visit_top_level, &m.top_levels);
     }
 
+    // fn visit_for(&mut self, for_loop: &'a For) {
+    //     self.visit_expression(&for_loop.expr);
+    //     self.visit_body(&for_loop.body);
+    // }
+
+    fn visit_for_in(&mut self, for_in: &'a ForIn) {
+        self.visit_expression(&for_in.expr);
+
+        self.add_to_current_scope(for_in.value.name.clone(), for_in.value.node_id);
+
+        self.visit_body(&for_in.body);
+    }
+
     fn visit_assign(&mut self, assign: &'a Assign) {
         self.visit_expression(&assign.value);
 
         match &assign.name {
             AssignLeftSide::Identifier(id) => {
+                let ident = id.as_identifier().unwrap();
+
                 if !assign.is_let {
-                    if let Some(previous_assign_node_id) = self.get(id.name.clone()) {
+                    if let Some(previous_assign_node_id) = self.get(ident.name.clone()) {
                         self.resolutions
-                            .insert(id.identity.node_id, previous_assign_node_id.node_id);
+                            .insert(ident.node_id, previous_assign_node_id);
                     }
 
-                    self.visit_identifier(id)
+                    self.visit_identifier(ident)
                 }
 
-                self.add_to_current_scope(id.name.clone(), id.identity.clone());
+                self.add_to_current_scope(ident.name.clone(), ident.node_id);
             }
             AssignLeftSide::Indice(expr) => self.visit_expression(expr),
             AssignLeftSide::Dot(expr) => self.visit_expression(expr),
@@ -112,17 +132,17 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     }
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
-        match &top.kind {
-            TopLevelKind::Prototype(p) => self.visit_prototype(p),
-            TopLevelKind::Use(u) => {
+        match &top {
+            TopLevel::Prototype(p) => self.visit_prototype(p),
+            TopLevel::Use(u) => {
                 self.visit_use(u);
             }
-            TopLevelKind::Infix(_, _) => (),
-            TopLevelKind::Trait(t) => self.visit_trait(t),
-            TopLevelKind::Impl(i) => self.visit_impl(i),
-            TopLevelKind::Struct(s) => self.visit_struct_decl(s),
-            TopLevelKind::Function(f) => self.visit_function_decl(f),
-            TopLevelKind::Mod(name, m) => {
+            TopLevel::Infix(_, _) => (),
+            TopLevel::Trait(t) => self.visit_trait(t),
+            TopLevel::Impl(i) => self.visit_impl(i),
+            TopLevel::Struct(s) => self.visit_struct_decl(s),
+            TopLevel::Function(f) => self.visit_function_decl(f),
+            TopLevel::Mod(name, m) => {
                 let current_mod = self.cur_scope.clone();
 
                 self.new_mod(self.cur_scope.child(name.clone()));
@@ -143,15 +163,17 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     }
 
     fn visit_struct_ctor(&mut self, s: &'a StructCtor) {
-        match self.get(s.name.get_name()) {
-            Some(pointed) => self.resolutions.insert(s.identity.node_id, pointed.node_id),
+        match self.get(s.name.name.clone()) {
+            Some(pointed) => self.resolutions.insert(s.name.node_id, pointed),
             None => self
                 .parsing_ctx
                 .diagnostics
-                .push_error(Diagnostic::new_unknown_identifier(s.identity.span.clone())),
+                .push_error(Diagnostic::new_unknown_identifier(
+                    self.get_span2(s.name.node_id).into(),
+                )),
         };
 
-        self.visit_type(&s.name);
+        self.visit_identifier(&s.name);
 
         walk_struct_ctor(self, s);
     }
@@ -159,7 +181,13 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
         self.push_scope();
 
-        walk_function_decl(self, f);
+        self.visit_identifier(&f.name);
+
+        for arg in &f.arguments {
+            self.add_to_current_scope(arg.name.clone(), arg.node_id);
+        }
+
+        self.visit_body(&f.body);
 
         self.pop_scope();
     }
@@ -177,7 +205,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
         match self.scopes.get(&mod_path) {
             Some(scopes) => {
-                if ident.name == "*" {
+                if ident.name == "(*)" {
                     let scope = scopes.scopes.get(0).unwrap();
 
                     for (k, v) in &scope.items.clone() {
@@ -189,7 +217,9 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                             self.add_to_current_scope((*ident).name.clone(), pointed);
                         }
                         None => self.parsing_ctx.diagnostics.push_error(
-                            Diagnostic::new_unknown_identifier(ident.identity.span.clone()),
+                            Diagnostic::new_unknown_identifier(
+                                self.get_span2(ident.node_id).into(),
+                            ),
                         ),
                     };
                 }
@@ -199,7 +229,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .parsing_ctx
                 .diagnostics
                 .push_error(Diagnostic::new_module_not_found(
-                    ident.identity.span.clone(),
+                    self.get_span2(ident.node_id).into(),
                     mod_path
                         .path
                         .iter()
@@ -210,10 +240,10 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         };
     }
 
-    fn visit_argument_decl(&mut self, arg: &'a ArgumentDecl) {
-        self.add_to_current_scope(arg.name.clone(), arg.identity.clone());
-    }
-
+    /* fn visit_argument_decl(&mut self, arg: &'a ArgumentDecl) {
+           self.add_to_current_scope(arg.name.clone(), arg.node_id);
+       }
+    */
     fn visit_identifier_path(&mut self, path: &'a IdentifierPath) {
         let ident = path.last_segment_ref();
 
@@ -229,14 +259,12 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
         match self.scopes.get(&mod_path) {
             Some(scopes) => match scopes.get((*ident).to_string()) {
-                Some(pointed) => self
-                    .resolutions
-                    .insert(ident.identity.node_id, pointed.node_id),
+                Some(pointed) => self.resolutions.insert(ident.node_id, pointed),
                 None => {
                     self.parsing_ctx
                         .diagnostics
                         .push_error(Diagnostic::new_unknown_identifier(
-                            ident.identity.span.clone(),
+                            self.get_span2(ident.node_id).into(),
                         ))
                 }
             },
@@ -246,7 +274,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .parsing_ctx
                 .diagnostics
                 .push_error(Diagnostic::new_module_not_found(
-                    ident.identity.span.clone(),
+                    self.get_span2(ident.node_id).into(),
                     mod_path
                         .path
                         .iter()
@@ -259,13 +287,13 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_identifier(&mut self, id: &'a Identifier) {
         match self.get((*id).to_string()) {
-            Some(pointed) => self
-                .resolutions
-                .insert(id.identity.node_id, pointed.node_id),
+            Some(pointed) => self.resolutions.insert(id.node_id, pointed),
             None => self
                 .parsing_ctx
                 .diagnostics
-                .push_error(Diagnostic::new_unknown_identifier(id.identity.span.clone())),
+                .push_error(Diagnostic::new_unknown_identifier(
+                    self.get_span2(id.node_id).into(),
+                )),
         };
     }
 }

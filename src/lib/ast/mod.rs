@@ -1,12 +1,10 @@
 #[macro_use]
 pub mod ast_print;
 
-mod identity;
-pub mod span_collector;
-mod tree;
+pub mod return_placement;
+pub mod tree;
 pub mod visit;
 
-pub use identity::*;
 pub use tree::*;
 pub use visit::*;
 

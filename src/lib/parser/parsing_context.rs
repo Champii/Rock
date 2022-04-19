@@ -1,25 +1,27 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::{Component, PathBuf},
 };
 
 use colored::*;
 
 use crate::{
-    ast::{ast_print::AstPrintContext, Identifier, Root},
+    ast::{ast_print::AstPrintContext, tree, Identifier, NodeId},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
+    parser::span2::Span,
     Config,
 };
 
-use super::{SourceFile, Span};
+use super::SourceFile;
 
 #[derive(Default, Debug)]
 pub struct ParsingCtx {
-    files: HashMap<PathBuf, SourceFile>,
+    pub files: HashMap<PathBuf, SourceFile>,
     pub config: Config,
     pub current_file: Option<PathBuf>,
     pub diagnostics: Diagnostics,
     pub operators_list: HashMap<String, u8>,
+    pub identities: BTreeMap<NodeId, Span>,
 }
 
 impl ParsingCtx {
@@ -125,16 +127,27 @@ impl ParsingCtx {
         Ok(())
     }
 
-    pub fn new_span(&self, start: usize, end: usize) -> Span {
-        Span::new(self.get_current_file().file_path, start, end)
+    pub fn new_span(&self, start: usize, _end: usize) -> Span {
+        Span {
+            file_path: self.get_current_file().file_path,
+            offset: start,
+            ..Default::default()
+        }
     }
 
     pub fn resolve_and_add_file(&mut self, name: String) -> Result<SourceFile, Diagnostic> {
         let current_file = self.get_current_file();
 
-        let new_file = current_file.resolve_new(name.clone()).map_err(|m| {
+        let new_file = current_file.resolve_new(name).map_err(|m| {
             // Placeholder span, to be overriden by calling mod (TopLevel::parse())
-            Diagnostic::new_module_not_found(Span::new(current_file.file_path.clone(), 0, 0), m)
+            Diagnostic::new_module_not_found(
+                Span {
+                    file_path: current_file.file_path.clone(),
+                    ..Default::default()
+                }
+                .into(),
+                m,
+            )
         })?;
 
         if self.config.verbose {
@@ -162,7 +175,7 @@ impl ParsingCtx {
         Ok(new_file)
     }
 
-    pub fn add_operator(&mut self, name: &Identifier, precedence: u8) -> Result<(), Diagnostic> {
+    /* pub fn add_operator(&mut self, name: &Identifier, precedence: u8) -> Result<(), Diagnostic> {
         if self.operator_exists(name) {
             return Err(Diagnostic::new_duplicated_operator(
                 name.identity.span.clone(),
@@ -172,14 +185,14 @@ impl ParsingCtx {
         self.operators_list.insert(name.name.clone(), precedence);
 
         Ok(())
-    }
+    } */
 
     pub fn operator_exists(&self, name: &Identifier) -> bool {
         self.operators_list.contains_key(&name.name)
     }
 
     #[allow(dead_code)]
-    pub fn print_ast(&self, ast: &Root) {
+    pub fn print_ast(&self, ast: &tree::Root) {
         use crate::ast::visit::Visitor;
 
         AstPrintContext::new().visit_root(ast);

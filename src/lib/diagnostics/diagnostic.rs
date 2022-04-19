@@ -1,12 +1,14 @@
 use std::fmt::Display;
 
-use crate::{diagnostics::DiagnosticType, parser::Span};
+use crate::parser::Parser;
+use crate::{diagnostics::DiagnosticType, parser::span::Span, parser::span2::Span as Span2};
 use crate::{
     hir::HirId,
     parser::SourceFile,
     ty::{FuncType, Type},
 };
 use colored::*;
+use nom::error::VerboseError;
 
 #[derive(Clone, Debug)]
 pub struct Diagnostic {
@@ -159,7 +161,7 @@ impl Diagnostic {
         );
 
         let line_span_start = line_start;
-        let mut line_span_stop = line_start + (self.span.end - self.span.start) + 1;
+        let mut line_span_stop = line_start + (self.span.end - self.span.start);
 
         let line_colored = lines[line - 1].iter().cloned().collect::<String>();
         if line_span_stop > line_colored.len() {
@@ -229,7 +231,10 @@ impl Display for DiagnosticKind {
             Self::ModuleNotFound(path) => format!("Module not found: {}", path),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
             Self::TypeConflict(t1, t2, _in1, _in2) => {
-                format!("Type conflict: Expected {:?} but got {:?} ", t1, t2)
+                format!(
+                    "Type conflict:\n{:<8}Expected {:?}\n{:<8}But got  {:?}",
+                    "", t1, "", t2
+                )
             }
             Self::UnresolvedType(t) => {
                 format!(
@@ -266,5 +271,29 @@ impl Display for DiagnosticKind {
         };
 
         write!(f, "{}", s)
+    }
+}
+
+impl<'a> From<Parser<'a>> for Diagnostic {
+    fn from(err: Parser<'a>) -> Self {
+        let span2 = Span2::from(err);
+        let span = Span::from(span2);
+
+        let msg = "Syntax error".to_string();
+
+        Diagnostic::new_syntax_error(span, msg)
+    }
+}
+
+impl<'a> From<VerboseError<Parser<'a>>> for Diagnostic {
+    fn from(err: VerboseError<Parser<'a>>) -> Self {
+        let (input, _kind) = err.errors.into_iter().next().unwrap();
+
+        let span2 = Span2::from(input);
+        let span = Span::from(span2);
+
+        let msg = "Syntax error".to_string();
+
+        Diagnostic::new_syntax_error(span, msg)
     }
 }

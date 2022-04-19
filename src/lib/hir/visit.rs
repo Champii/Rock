@@ -39,6 +39,9 @@ generate_visitor_trait!(
     FnBody
     Body
     Statement
+    For
+    ForIn
+    While
     Expression
     If
     Else
@@ -79,7 +82,7 @@ pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLev
 }
 
 pub fn walk_struct_decl<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructDecl) {
-    visitor.visit_type(&s.name);
+    visitor.visit_identifier(&s.name);
 
     walk_list!(visitor, visit_prototype, &s.defs);
 }
@@ -151,7 +154,26 @@ pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statem
         StatementKind::Expression(expr) => visitor.visit_expression(expr),
         StatementKind::Assign(assign) => visitor.visit_assign(assign),
         StatementKind::If(expr) => visitor.visit_if(expr),
+        StatementKind::For(for_loop) => visitor.visit_for(for_loop),
     }
+}
+
+pub fn walk_for<'a, V: Visitor<'a>>(visitor: &mut V, for_loop: &'a For) {
+    match for_loop {
+        For::In(for_in) => visitor.visit_for_in(for_in),
+        For::While(while_loop) => visitor.visit_while(while_loop),
+    }
+}
+
+pub fn walk_for_in<'a, V: Visitor<'a>>(visitor: &mut V, for_in: &'a ForIn) {
+    visitor.visit_identifier(&for_in.value);
+    visitor.visit_expression(&for_in.expr);
+    visitor.visit_body(&for_in.body);
+}
+
+pub fn walk_while<'a, V: Visitor<'a>>(visitor: &mut V, while_loop: &'a While) {
+    visitor.visit_expression(&while_loop.predicat);
+    visitor.visit_body(&while_loop.body);
 }
 
 pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression) {
@@ -172,7 +194,7 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
 }
 
 pub fn walk_struct_ctor<'a, V: Visitor<'a>>(visitor: &mut V, s: &'a StructCtor) {
-    visitor.visit_type(&s.name);
+    visitor.visit_identifier(&s.name);
 
     walk_map!(visitor, visit_expression, &s.defs);
 }

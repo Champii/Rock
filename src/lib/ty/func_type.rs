@@ -123,7 +123,7 @@ impl FuncType {
             .enumerate()
             .filter_map(|(i, arg_t)| -> Option<(Type, Type)> {
                 if !arg_t.is_forall() {
-                    warn!("Trying to apply type to a not forall");
+                    warn!("Trying to apply type to a not forall: {:#?}", arg_t);
 
                     return None;
                 }
@@ -290,7 +290,7 @@ mod tests {
     fn apply_forall_types() {
         let sig = FuncType::from_args_nb(2);
 
-        let res = sig.apply_forall_types(&vec![Type::forall("b")], &vec![Type::int64()]);
+        let res = sig.apply_forall_types(&[Type::forall("b")], &[Type::int64()]);
 
         assert_eq!(res.arguments[0], Type::forall("a"));
         assert_eq!(res.arguments[1], Type::int64());
@@ -312,10 +312,20 @@ mod tests {
     fn apply_partial_types() {
         let sig = FuncType::from_args_nb(2);
 
-        let res = sig.apply_partial_types(&vec![None, Some(Type::int64())], Some(Type::int64()));
+        let res = sig.apply_partial_types(&[None, Some(Type::int64())], Some(Type::int64()));
 
         assert_eq!(res.arguments[0], Type::forall("a"));
         assert_eq!(res.arguments[1], Type::int64());
+        assert_eq!(*res.ret, Type::int64());
+    }
+
+    #[test]
+    fn apply_to_same_forall() {
+        let sig = FuncType::new(vec![Type::forall("a")], Type::forall("a"));
+
+        let res = sig.apply_forall_types(&[Type::forall("a")], &[Type::int64()]);
+
+        assert_eq!(res.arguments[0], Type::int64());
         assert_eq!(*res.ret, Type::int64());
     }
 }

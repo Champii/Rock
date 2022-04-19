@@ -1,10 +1,13 @@
-# Rock v0.1.7
+# Rock v0.2.0
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
-Little toy language made with Rust and LLVM.  
-Aim to follow the Rust model with enforced safeness with a borrow checker and native performances thanks to LLVM.  
-It's highly inspired from Livescript, and will borrow (pun intended) some features and syntaxes from Crystal, from functional languages like Haskell, or even from Rust itself.
+Little language made with Rust and LLVM.
+
+Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and achieve high native performances thanks to LLVM.  
+Rock is highly inspired from Livescript and Rust, and will also borrow (pun intended) some features from Crystal, from functional languages like Haskell, and even from Rust itself.
+
+No to be taken seriously (yet)
 
 # VTable
 - [Features]( #features )
@@ -13,9 +16,11 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
-  - [Basic setup]( #basic-setup )
-  - [REPL]( #repl )
 - [Showcases]( #showcases )
+    - [Polymorphic function]( #polymorphic-function )
+    - [Custom infix operator]( #custom-infix-operator )
+    - [Trait definition]( #trait-definition )
+- [REPL]( #repl )
 - [Development notes]( #development-notes )
 
 ## Features
@@ -24,7 +29,7 @@ It's highly inspired from Livescript, and will borrow (pun intended) some featur
 - Type inference
 - Custom operators
 - Typeclass (Traits)
-- Parametric Polymorphism by default
+- Polymorphism by default
 - Compile to LLVM IR
 - REPL (ALPHA)
 
@@ -40,10 +45,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.1.7](https://github.com/Champii/Rock/releases/download/v0.1.7/rock) (Tested on arch, btw)
+[Rock v0.2.0](https://github.com/Champii/Rock/releases/download/v0.2.0/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.7/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.0/rock
 chmod +x rock
 ./rock -V
 ```
@@ -55,7 +60,7 @@ You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
 #### With cargo from git
 
 ``` sh
-cargo install --git https://github.com/Champii/Rock
+cargo install --git https://github.com/Champii/Rock --locked
 rock -V
 ```
 
@@ -69,8 +74,6 @@ cargo run -- -V
 
 ## Quickstart
 
-### Basic setup
-
 Lets create a new project folder to compute some factorials
 
 ``` sh
@@ -79,14 +82,14 @@ mkdir -P factorial/src && cd factorial
 
 Add some files like this:
 
-- Copy the std lib files from [std](https://github.com/Champii/Rock/blob/master/std/src) into `./src/`
+- Copy all the stdlib files from [std/src/\*.rk](https://github.com/Champii/Rock/blob/master/std/src) into `factorial/src/`
 
-- Create a `./src/main.rk` file:
+- Create a `factorial/src/main.rk` file:
 
 ```haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 fact a =
     if a <= 1
@@ -110,45 +113,17 @@ Should output
 
 Take a look at `rock --help` for a quick tour of its flags and arguments
 
-### REPL
-
-You can start a REPL session with 
-
-``` sh
-rock -r
-# OR
-rock --repl
-```
-
-``` sh
-Rock: v0.1.7
-----
-
-Type ':?' for help
-
-> add a b = a + b
-> let x = 30
-30
-> let y = 12
-12
-> add x, y
-42
-> :t add
-add: (Int64 -> Int64 -> Int64)
-> _
-```
-
-Only supports basic expressions for now.
+Note that you currently must be at the project root to run the compiler. (i.e. inside the `./factorial/` folder)
 
 ## Showcases
 
-### Polymophic function
+### Polymorphic function
 
 
 ``` haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 id a = a
 
@@ -175,7 +150,7 @@ Test
 ``` haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 infix |> 1
 |> x f = f x
@@ -198,7 +173,7 @@ This `trait ToString` is redondant with the `trait Show` implemented in the lib,
 ``` haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 trait ToString a
   toString :: a -> String
@@ -231,7 +206,7 @@ Prints
 ``` haskell
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 struct Player
   level :: Int64
@@ -255,8 +230,46 @@ rock run
 
 Prints `MyName`
 
+## REPL
+
+Only supports basic expressions for now.
+Very unstable, very work in progress.
+
+Be warned that for a given session, the whole code is re-executed at each entry.  
+This includes I/O of all sorts (Looking at you, open/read/write in loops)
+
+Note that the REPL expects to be run from the project root, and expects some version of the stdlib
+to be available in the `./src` folder
+
+You can start a REPL session with 
+
+``` sh
+rock -r
+# OR
+rock --repl
+```
+
+``` sh
+Rock: v0.2.0
+----
+
+Type ':?' for help
+
+> add a b = a + b
+> let x = 30
+30
+> let y = 12
+12
+> add x, y
+42
+> :t add
+add: (Int64 -> Int64 -> Int64)
+> _
+```
+
 ## Development notes
 
 This project, its syntax and its APIs are subject to change at any moment.  
-This is a personal project, so please bear with me  
-(Differently put: this is a big red hot pile of experimental garbage right now)
+This is a personal project, so please bear with me
+
+Differently put: this is a big red hot pile of experimental garbage right now

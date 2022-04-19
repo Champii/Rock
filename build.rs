@@ -3,6 +3,9 @@ use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
+
+use walkdir::WalkDir;
 
 fn visit_dirs(dir: &Path) -> io::Result<Vec<String>> {
     let mut res = vec![];
@@ -25,8 +28,26 @@ fn visit_dirs(dir: &Path) -> io::Result<Vec<String>> {
     Ok(res)
 }
 
+fn schedule_rerun_if_folder_changed(path: &Path) {
+    for entry in WalkDir::new(path) {
+        let entry = entry.unwrap();
+
+        if entry.path() == path {
+            continue;
+        }
+
+        if entry.path().is_dir() {
+            schedule_rerun_if_folder_changed(&entry.path());
+        } else {
+            println!("cargo:rerun-if-changed={}", entry.path().to_str().unwrap());
+        }
+    }
+}
+
 // build script's entry point
 fn main() {
+    schedule_rerun_if_folder_changed(&PathBuf::from("src/lib/testcases/"));
+
     let out_dir = "src/lib";
     let destination = Path::new(&out_dir).join("tests.rs");
     let mut output_file = File::create(&destination).unwrap();
@@ -42,15 +63,12 @@ fn main() {
 fn write_test(output_file: &mut File, path: &str) {
     let path = path.replace("src/lib/", "");
 
-    let name = path.replace("./", "");
-    let name = name.replace("/", "_");
-    let name = name.replace(".rk", "");
-    let test_name = name;
+    let name = path.replace("./", "").replace("/", "_").replace(".rk", "");
 
     write!(
         output_file,
         include_str!("src/lib/testcases/test_template"),
-        name = test_name,
+        name = name,
         path = path
     )
     .unwrap();
@@ -62,19 +80,19 @@ fn write_header(output_file: &mut File) {
         r##"use std::path::PathBuf;
 
 #[allow(dead_code)]
-fn run(path: &str, input: &str, expected_ret: &str, expected_output: &str) {{
-    let mut config = super::Config::default();
+        fn run(path: &str, input: &str, expected_ret: &str, expected_output: &str) {{
+            let mut config = super::Config::default();
 
-    config.project_config.entry_point = PathBuf::from(path);
+            config.project_config.entry_point = PathBuf::from(path);
 
-    let expected_ret = expected_ret.parse::<i64>().unwrap();
+            let expected_ret = expected_ret.parse::<i64>().unwrap();
 
-    let (ret_code, stdout) = super::test::run(path, input.to_string(), config);
+            let (ret_code, stdout) = super::test::run(path, input.to_string(), config);
 
-    assert_eq!(expected_ret, ret_code);
-    assert_eq!(expected_output, stdout);
-}}
-"##
+            assert_eq!(expected_ret, ret_code);
+            assert_eq!(expected_output, stdout);
+        }}
+        "##
     )
     .unwrap();
 }

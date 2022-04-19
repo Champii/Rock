@@ -20,3 +20,12 @@ impl Num Float64
     - c d = ~FSub c d
     * c d = ~FMul c d
     / c d = ~FDiv c d
+
+use super::externs::(*)
+
+impl Num String
+    + a b =
+        let s = c_malloc (c_strlen a + c_strlen b)
+        c_strcpy s, a
+        c_strcat s, b
+        s

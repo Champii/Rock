@@ -1,13 +1,15 @@
-#![feature(associated_type_bounds, destructuring_assignment, derive_default_enum)]
+#![feature(associated_type_bounds)]
 
 #[macro_use]
 extern crate serde_derive;
 
-#[macro_use]
 extern crate bitflags;
 
 #[macro_use]
 extern crate log;
+
+#[macro_use]
+extern crate nom_locate;
 
 use std::path::PathBuf;
 
@@ -62,7 +64,7 @@ pub fn compile_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic
 pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {
     // Text to Ast
     debug!("    -> Parsing");
-    let mut ast = parser::parse_root(parsing_ctx)?;
+    let mut ast = parser::parse(parsing_ctx)?;
 
     // Name resolving
     debug!("    -> Resolving");
@@ -86,6 +88,7 @@ pub fn generate_ir(hir: hir::Root, config: &Config) -> Result<(), Diagnostic> {
 
     Ok(())
 }
+
 mod test {
     use super::*;
     use crate::{parser::SourceFile, Config};

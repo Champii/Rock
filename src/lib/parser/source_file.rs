@@ -5,7 +5,7 @@ use std::{
 
 use crate::diagnostics::Diagnostic;
 
-use super::Span;
+use super::span::Span;
 
 #[derive(Default, Debug, Clone)]
 pub struct SourceFile {
@@ -43,11 +43,11 @@ impl SourceFile {
         }
 
         let top_levels = r##"mod lib
-use lib::prelude::*
+use lib::prelude::(*)
 "##
         .to_owned()
             + &top_levels
-            + &r##"
+            + r##"
 
 main =
   "## + &print_str.to_string()
@@ -58,6 +58,7 @@ custom =
             .to_owned()
             + &expr;
 
+        // println!("{}", top_levels);
         Ok(SourceFile {
             file_path: PathBuf::from("./src/main.rk"),
             mod_path: PathBuf::from("root"),

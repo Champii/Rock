@@ -22,11 +22,9 @@ macro_rules! impl_direct_get_hir_id_trait {
 impl_direct_get_hir_id_trait!(
     Prototype
     FunctionDecl
-    StructDecl
     Identifier
     If
     FunctionCall
-    StructCtor
     Indice
     Dot
     Literal
@@ -52,11 +50,16 @@ macro_rules! impl_indirect_get_hir_id_trait {
 impl_indirect_get_hir_id_trait!(
     TopLevel
     Statement
+    StructCtor
+    StructDecl
     Assign
     AssignLeftSide
     ArgumentDecl
     IdentifierPath
     FnBody
+    For
+    ForIn
+    While
     Body
     Expression
     Array

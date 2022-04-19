@@ -39,6 +39,9 @@ generate_visitor_mut_trait!(
     FnBody
     Body
     Statement
+    For
+    ForIn
+    While
     Expression
     If
     Else
@@ -72,13 +75,13 @@ pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
 }
 
 pub fn walk_struct_decl<'a, V: VisitorMut<'a>>(visitor: &mut V, s: &'a mut StructDecl) {
-    visitor.visit_type(&mut s.name);
+    visitor.visit_identifier(&mut s.name);
 
     walk_list!(visitor, visit_prototype, &mut s.defs);
 }
 
 pub fn walk_struct_ctor<'a, V: VisitorMut<'a>>(visitor: &mut V, s: &'a mut StructCtor) {
-    visitor.visit_type(&mut s.name);
+    visitor.visit_identifier(&mut s.name);
 
     walk_map!(visitor, visit_expression, &mut s.defs);
 }
@@ -151,7 +154,26 @@ pub fn walk_statement<'a, V: VisitorMut<'a>>(visitor: &mut V, statement: &'a mut
         StatementKind::Expression(expr) => visitor.visit_expression(expr),
         StatementKind::Assign(assign) => visitor.visit_assign(assign),
         StatementKind::If(expr) => visitor.visit_if(expr),
+        StatementKind::For(for_loop) => visitor.visit_for(for_loop),
     }
+}
+
+pub fn walk_for<'a, V: VisitorMut<'a>>(visitor: &mut V, for_loop: &'a mut For) {
+    match for_loop {
+        For::In(for_in) => visitor.visit_for_in(for_in),
+        For::While(while_loop) => visitor.visit_while(while_loop),
+    }
+}
+
+pub fn walk_for_in<'a, V: VisitorMut<'a>>(visitor: &mut V, for_in: &'a mut ForIn) {
+    visitor.visit_identifier(&mut for_in.value);
+    visitor.visit_expression(&mut for_in.expr);
+    visitor.visit_body(&mut for_in.body);
+}
+
+pub fn walk_while<'a, V: VisitorMut<'a>>(visitor: &mut V, while_loop: &'a mut While) {
+    visitor.visit_expression(&mut while_loop.predicat);
+    visitor.visit_body(&mut while_loop.body);
 }
 
 pub fn walk_assign_left_side<'a, V: VisitorMut<'a>>(

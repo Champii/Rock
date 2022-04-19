@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{Expression, ExpressionKind, Identifier, Operand, UnaryExpr};
+use crate::ast::tree::{Expression, Identifier, Operand, UnaryExpr};
 
 #[derive(Debug)]
 pub enum ExprOrIdentifier {
@@ -42,7 +42,7 @@ impl InfixDesugar {
                     let left = stack.pop().unwrap();
 
                     stack.push(UnaryExpr::create_2_args_func_call(
-                        Operand::from_identifier(id),
+                        Operand::from_identifier(id.clone()),
                         left.clone(),
                         right.clone(),
                     ));
@@ -50,12 +50,12 @@ impl InfixDesugar {
             }
         }
 
-        Expression::from_unary(&stack.pop().unwrap())
+        Expression::new_unary(stack.pop().unwrap())
     }
 
     pub fn populate_rec(&mut self, expr: &Expression) {
-        match &expr.kind {
-            ExpressionKind::BinopExpr(unary, op, expr2) => {
+        match &expr {
+            Expression::BinopExpr(unary, op, expr2) => {
                 self.output.push(ExprOrIdentifier::Expr(unary.clone()));
 
                 self.pop_higher_operators(
@@ -66,9 +66,7 @@ impl InfixDesugar {
 
                 self.desugar(expr2);
             }
-            ExpressionKind::UnaryExpr(unary) => {
-                self.output.push(ExprOrIdentifier::Expr(unary.clone()))
-            }
+            Expression::UnaryExpr(unary) => self.output.push(ExprOrIdentifier::Expr(unary.clone())),
             _ => unimplemented!(),
         }
     }

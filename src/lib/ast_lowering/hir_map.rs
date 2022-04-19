@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::*,
+    ast::NodeId,
     hir::{FnBodyId, HirId},
 };
 
@@ -18,12 +18,12 @@ impl HirMap {
         Self::default()
     }
 
-    pub fn next_hir_id(&mut self, identity: Identity) -> HirId {
+    pub fn next_hir_id(&mut self, node_id: NodeId) -> HirId {
         let hir_id = HirId(self.hir_id_next);
 
         self.hir_id_next += 1;
 
-        self.add_hir_mapping(hir_id.clone(), identity.node_id);
+        self.add_hir_mapping(hir_id.clone(), node_id);
 
         hir_id
     }
@@ -53,11 +53,11 @@ impl HirMap {
     pub fn duplicate_hir_mapping(&mut self, hir_id: HirId) -> Option<HirId> {
         let node_id = self.get_node_id(&hir_id)?;
 
-        let mut fake_ident = Identity::new_placeholder();
+        /* let mut fake_ident = Identity::new_placeholder();
 
-        fake_ident.node_id = node_id;
+        fake_ident.node_id = node_id; */
 
-        let new_id = self.next_hir_id(fake_ident);
+        let new_id = self.next_hir_id(node_id);
 
         self.add_hir_mapping(new_id.clone(), node_id);
 

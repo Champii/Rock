@@ -97,7 +97,12 @@ impl<'a> ConstraintContext<'a> {
                             .or_else(|| {
                                 self.envs.diagnostics.push_error(
                                     Diagnostic::new_unresolved_trait_call(
-                                        self.envs.spans.get(&call_hir_id.clone()).unwrap().clone(),
+                                        self.envs
+                                            .spans
+                                            .get(&call_hir_id.clone())
+                                            .unwrap()
+                                            .clone()
+                                            .into(),
                                         call_hir_id.clone(),
                                         new_sig,
                                         existing_impls.keys().cloned().collect(),
@@ -162,7 +167,12 @@ impl<'a> ConstraintContext<'a> {
             self.envs
                 .diagnostics
                 .push_error(Diagnostic::new_type_conflict(
-                    self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
+                    self.envs
+                        .spans
+                        .get(&fc.op.get_hir_id())
+                        .unwrap()
+                        .clone()
+                        .into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                     f.signature.clone().into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
@@ -214,7 +224,12 @@ impl<'a> ConstraintContext<'a> {
             self.envs
                 .diagnostics
                 .push_error(Diagnostic::new_type_conflict(
-                    self.envs.spans.get(&fc.op.get_hir_id()).unwrap().clone(),
+                    self.envs
+                        .spans
+                        .get(&fc.op.get_hir_id())
+                        .unwrap()
+                        .clone()
+                        .into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                     sig.clone().into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
@@ -356,7 +371,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_struct_decl(&mut self, s: &StructDecl) {
         let t = s.into();
 
-        self.envs.set_type(&s.hir_id, &t);
+        self.envs.set_type(&s.name.hir_id, &t);
 
         let struct_t = t.as_struct_type();
 
@@ -364,16 +379,31 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             self.envs
                 .set_type(&p.hir_id, struct_t.defs.get(&p.name.name).unwrap());
         });
+        // FIXME: should be done in the ast_lowering phase
+        /* s.defs.iter().for_each(|p| {
+            let ty = *struct_t.defs.get(&p.name.name).unwrap().clone();
+
+            // FIXME: should not have to do this conversion from trait.
+            let ty = if let Type::Trait(t) = ty.clone() {
+                println!("WHAT {:#?}, {:#?}, {:#?}", p, t, self.hir.structs);
+                self.hir.structs.get(&ty.get_name()).unwrap().to_type()
+            } else {
+                ty
+            };
+
+            println!("TRANSFORMED {:#?}", ty);
+            self.envs.set_type(&p.hir_id, &ty)
+        }); */
     }
 
     fn visit_struct_ctor(&mut self, s: &StructCtor) {
-        let s_decl = self.hir.structs.get(&s.name.get_name()).unwrap();
+        let s_decl = self.hir.structs.get(&s.name.name).unwrap();
 
         self.visit_struct_decl(s_decl);
 
         let t = s_decl.into();
 
-        self.envs.set_type(&s.hir_id, &t);
+        self.envs.set_type(&s.name.hir_id, &t);
 
         let struct_t = t.as_struct_type();
 
@@ -464,11 +494,14 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     | NativeOperatorKind::FDiv
                     | NativeOperatorKind::FMul => PrimitiveType::Float64,
                     NativeOperatorKind::BEq => PrimitiveType::Bool,
+                    NativeOperatorKind::Len => PrimitiveType::Void, // ignored
                 };
 
-                self.envs
-                    .set_type(&left.hir_id.clone(), &arg_t.clone().into());
-                self.envs.set_type(&right.hir_id.clone(), &arg_t.into());
+                if !matches!(arg_t, PrimitiveType::Void) {
+                    self.envs
+                        .set_type(&left.hir_id.clone(), &arg_t.clone().into());
+                    self.envs.set_type(&right.hir_id.clone(), &arg_t.into());
+                }
 
                 self.visit_native_operator(op);
             }
@@ -512,7 +545,12 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                 self.envs
                                     .diagnostics
                                     .push_error(Diagnostic::new_type_conflict(
-                                        self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                                        self.envs
+                                            .spans
+                                            .get(&i.value.get_hir_id())
+                                            .unwrap()
+                                            .clone()
+                                            .into(),
                                         Type::Primitive(PrimitiveType::Int64),
                                         other.clone(),
                                         Type::Primitive(PrimitiveType::Int64),
@@ -525,7 +563,12 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         .envs
                         .diagnostics
                         .push_error(Diagnostic::new_type_conflict(
-                            self.envs.spans.get(&i.value.get_hir_id()).unwrap().clone(),
+                            self.envs
+                                .spans
+                                .get(&i.value.get_hir_id())
+                                .unwrap()
+                                .clone()
+                                .into(),
                             Type::Primitive(PrimitiveType::Array(Box::new(value_t.clone()), 0)),
                             other.clone(),
                             Type::Primitive(PrimitiveType::Array(Box::new(value_t), 0)),
@@ -537,6 +580,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.visit_expression(&d.op);
                 self.visit_identifier(&d.value);
 
+                // println!("envs: {:#?}", self.envs);
                 match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
                     t @ Type::Struct(struct_t) => {
                         self.envs.set_type(&d.op.get_hir_id(), t);
@@ -556,7 +600,12 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         self.envs
                             .diagnostics
                             .push_error(Diagnostic::new_type_conflict(
-                                self.envs.spans.get(&d.value.get_hir_id()).unwrap().clone(),
+                                self.envs
+                                    .spans
+                                    .get(&d.value.get_hir_id())
+                                    .unwrap()
+                                    .clone()
+                                    .into(),
                                 value_t.clone(),
                                 other.clone(),
                                 value_t,
@@ -604,13 +653,35 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         }
     }
 
+    fn visit_for_in(&mut self, for_in: &'a ForIn) {
+        self.visit_expression(&for_in.expr);
+
+        self.envs
+            .get_type(&for_in.expr.get_hir_id())
+            .cloned()
+            .and_then(|expr_t| {
+                expr_t
+                    .is_array()
+                    .then(|| expr_t.try_as_primitive_type().unwrap())
+                    .and_then(|p| p.try_as_array())
+                    .map(|(inner_t, _size)| {
+                        self.envs.set_type(&for_in.value.get_hir_id(), &inner_t)
+                    })
+            });
+
+        self.visit_body(&for_in.body);
+
+        // assert expr to arr type
+        // set item to inner type;
+    }
+
     fn visit_identifier_path(&mut self, id: &'a IdentifierPath) {
         self.visit_identifier(id.path.iter().last().unwrap());
     }
 
     fn visit_identifier(&mut self, id: &Identifier) {
         // We set the type to resolution if any
-        if let Some(reso) = self.resolve_rec(&id.hir_id) {
+        if let Some(reso) = self.resolve(&id.hir_id) {
             if self.envs.get_type(&reso).is_some() {
                 self.envs.set_type_eq(&id.get_hir_id(), &reso);
             }
@@ -637,9 +708,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             | NativeOperatorKind::IDiv
             | NativeOperatorKind::IMul => PrimitiveType::Int64,
             NativeOperatorKind::FAdd
-            | NativeOperatorKind::FSub
             | NativeOperatorKind::FDiv
-            | NativeOperatorKind::FMul => PrimitiveType::Float64,
+            | NativeOperatorKind::FMul
+            | NativeOperatorKind::FSub => PrimitiveType::Float64,
+            NativeOperatorKind::Len => PrimitiveType::Int64,
         };
 
         self.envs.set_type(&op.hir_id, &t.into());

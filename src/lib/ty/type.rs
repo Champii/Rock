@@ -152,6 +152,9 @@ impl fmt::Debug for Type {
         let s = match self {
             Self::Func(f) => format!("{:?}", f),
             Self::Struct(s) => format!("{:?}", s),
+            Self::Trait(t) => format!("Trait {:?}", t),
+            Self::ForAll(t) => format!("forall. {:?}", t),
+            Self::Undefined(t) => format!("UNDEFINED {:?}", t),
             _ => self.get_name().cyan().to_string(),
         };
 
@@ -217,6 +220,15 @@ impl From<String> for Type {
     fn from(t: String) -> Self {
         if t.len() == 1 && (t.chars().next().unwrap()).is_lowercase() {
             Type::ForAll(t)
+        } else if t.chars().next().unwrap() == '[' {
+            Type::Primitive(PrimitiveType::Array(
+                Box::new(Type::from(
+                    t.trim_matches('[').trim_matches(']').to_string(),
+                )),
+                0, // FIXME
+            ))
+        } else if PrimitiveType::from_name(&t).is_some() {
+            Type::Primitive(PrimitiveType::from_name(&t).unwrap())
         } else {
             Type::Trait(t)
         }

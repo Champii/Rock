@@ -1,16 +1,16 @@
-extern malloc :: Int64 -> String
-extern strlen :: String -> Int64
-extern strcpy :: String -> String -> Int64
-extern sprintf :: String -> String -> Int64 -> Int64
-extern gcvt :: Float64 -> Int64 -> String -> String -> String
+use super::externs::(*)
+use super::num::(*)
+use super::eq::(*)
 
 itoa a =
-    let s = malloc 10
-    sprintf s, "%d", a
+    let s = c_malloc 10
+
+    c_sprintf s, "%d", a
+
     s
 
 ftoa c =
-    gcvt c, 10, (malloc 4), (malloc 4)
+    c_gcvt c, 10, (c_malloc 4), (c_malloc 4)
 
 trait Show a
     show :: a -> String
@@ -29,6 +29,40 @@ impl Show Bool
 
 impl Show String
     show c =
-        let s = malloc strlen c
-        strcpy s, c
+        let s = c_malloc c_strlen c
+
+        c_strcpy s, c
+
         s
+
+
+show_arr a =
+    let s = c_malloc 100
+
+    c_strcpy s, "["
+
+    let i = 0
+
+    let len = ~Len a a
+
+    while i < len
+        c_strcat s, show a[i]
+        c_strcat s, ", "
+
+        i = i + 1
+
+    c_strcat s, "]"
+
+    s
+
+impl Show [Int64]
+    show a = show_arr a
+
+impl Show [Float64]
+    show a = show_arr a
+
+impl Show [String]
+    show a = show_arr a
+
+impl Show [Bool]
+    show a = show_arr a

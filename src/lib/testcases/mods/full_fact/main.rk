@@ -1,6 +1,6 @@
 mod lib
 
-use lib::prelude::*
+use lib::prelude::(*)
 
 fact a =
     if a <= 1

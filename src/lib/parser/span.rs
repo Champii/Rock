@@ -1,3 +1,4 @@
+use super::span2::Span as Span2;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +22,16 @@ impl Span {
             start: 0,
             end: 0,
             file_path: PathBuf::new(),
+        }
+    }
+}
+
+impl From<Span2> for Span {
+    fn from(span: Span2) -> Self {
+        Self {
+            start: span.offset,
+            end: span.txt.len() + span.offset,
+            file_path: span.file_path,
         }
     }
 }

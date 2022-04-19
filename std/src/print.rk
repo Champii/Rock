@@ -1,5 +1,8 @@
-extern puts :: String -> Int64
-
+use super::externs::(*)
 use super::show::show
 
-print a = puts show a
+print a = c_puts show a
+
+_shut_up_warnings =
+  print 0
+  _shut_up_warnings()

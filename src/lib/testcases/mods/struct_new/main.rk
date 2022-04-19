@@ -1,0 +1,7 @@
+mod lib
+
+use lib::(*)
+
+main =
+  let foo = new_foo "bar"
+  foo.i
