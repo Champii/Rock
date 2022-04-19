@@ -16,9 +16,11 @@ No to be taken seriously (yet)
     - [With cargo from Git]( #with-cargo-from-git )
     - [From sources]( #from-sources )
 - [Quickstart]( #quickstart )
-  - [Basic setup]( #basic-setup )
-  - [REPL]( #repl )
 - [Showcases]( #showcases )
+    - [Polymorphic function]( #polymorphic-function )
+    - [Custom infix operator]( #custom-infix-operator )
+    - [Trait definition]( #trait-definition )
+- [REPL]( #repl )
 - [Development notes]( #development-notes )
 
 ## Features
@@ -72,8 +74,6 @@ cargo run -- -V
 
 ## Quickstart
 
-### Basic setup
-
 Lets create a new project folder to compute some factorials
 
 ``` sh
@@ -114,42 +114,6 @@ Should output
 Take a look at `rock --help` for a quick tour of its flags and arguments
 
 Note that you currently must be at the project root to run the compiler. (i.e. inside the `./factorial/` folder)
-
-### REPL
-
-You can start a REPL session with 
-
-``` sh
-rock -r
-# OR
-rock --repl
-```
-
-``` sh
-Rock: v0.1.8-new-parser
-----
-
-Type ':?' for help
-
-> add a b = a + b
-> let x = 30
-30
-> let y = 12
-12
-> add x, y
-42
-> :t add
-add: (Int64 -> Int64 -> Int64)
-> _
-```
-
-Only supports basic expressions for now.
-
-Be warned that for a given session, the whole code is re-executed at each entry.  
-This includes I/O of all sorts (Looking at you, open/read/write in loops)
-
-Note that the REPL expects to be run from the project root, and expects some version of the stdlib
-to be available in the `./src` folder
 
 ## Showcases
 
@@ -265,6 +229,43 @@ rock run
 ```
 
 Prints `MyName`
+
+## REPL
+
+Only supports basic expressions for now.
+Very unstable, very work in progress.
+
+Be warned that for a given session, the whole code is re-executed at each entry.  
+This includes I/O of all sorts (Looking at you, open/read/write in loops)
+
+Note that the REPL expects to be run from the project root, and expects some version of the stdlib
+to be available in the `./src` folder
+
+You can start a REPL session with 
+
+``` sh
+rock -r
+# OR
+rock --repl
+```
+
+``` sh
+Rock: v0.1.8-new-parser
+----
+
+Type ':?' for help
+
+> add a b = a + b
+> let x = 30
+30
+> let y = 12
+12
+> add x, y
+42
+> :t add
+add: (Int64 -> Int64 -> Int64)
+> _
+```
 
 ## Development notes
 
