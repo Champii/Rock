@@ -151,7 +151,7 @@ impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
             Self::Func(f) => format!("{:?}", f),
-            Self::Struct(s) => format!("{{{:?}}}", s),
+            Self::Struct(s) => format!("{:?}", s),
             Self::Trait(t) => format!("Trait {:?}", t),
             Self::ForAll(t) => format!("forall. {:?}", t),
             Self::Undefined(t) => format!("UNDEFINED {:?}", t),

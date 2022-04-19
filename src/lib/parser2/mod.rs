@@ -17,7 +17,7 @@ use crate::ast::tree2::*;
 use crate::ast::NodeId;
 use crate::parser::span2::Span;
 use crate::parser::SourceFile;
-use crate::ty::{FuncType, PrimitiveType, Type};
+use crate::ty::{FuncType, PrimitiveType, StructType, Type};
 
 use nom_locate::{position, LocatedSpan};
 pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
@@ -40,6 +40,7 @@ pub struct ParserCtx {
     block_indent: usize,
     first_indent: Option<usize>,
     next_node_id: NodeId,
+    structs: HashMap<String, Type>,
 }
 
 impl ParserCtx {
@@ -52,6 +53,7 @@ impl ParserCtx {
             block_indent: 0,
             first_indent: None,
             next_node_id: 0,
+            structs: HashMap::new(),
         }
     }
 
@@ -65,6 +67,7 @@ impl ParserCtx {
             block_indent: 0,
             first_indent: None,
             next_node_id: 0,
+            structs: HashMap::new(),
         }
     }
 
@@ -81,6 +84,7 @@ impl ParserCtx {
             block_indent: 0,
             first_indent: None,
             next_node_id: self.next_node_id,
+            structs: HashMap::new(),
         }
     }
 
@@ -184,6 +188,12 @@ pub fn parse_comment(input: Parser) -> Res<Parser, ()> {
     Ok((input, ()))
 }
 
+pub fn parse_eol(input: Parser) -> Res<Parser, ()> {
+    let (input, _) = tuple((opt(parse_comment), line_ending))(input)?;
+
+    Ok((input, ()))
+}
+
 pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     let (mut input, mod_name) = preceded(terminated(tag("mod"), space1), parse_identifier)(input)?;
 
@@ -251,7 +261,7 @@ pub fn parse_impl(input: Parser) -> Res<Parser, Impl> {
 }
 
 pub fn parse_struct_decl(input: Parser) -> Res<Parser, StructDecl> {
-    map(
+    let (mut input, struct_decl) = map(
         tuple((
             terminated(tag("struct"), space1),
             parse_capitalized_identifier,
@@ -262,7 +272,16 @@ pub fn parse_struct_decl(input: Parser) -> Res<Parser, StructDecl> {
             )),
         )),
         |(tag, name, _, defs)| StructDecl::new(name, defs),
-    )(input)
+    )(input)?;
+
+    let struct_t: StructType = struct_decl.clone().into();
+
+    input
+        .extra
+        .structs
+        .insert(struct_decl.name.name.clone(), struct_t.into());
+
+    Ok((input, struct_decl))
 }
 
 pub fn parse_use(input: Parser) -> Res<Parser, Use> {
@@ -336,7 +355,7 @@ pub fn parse_fn(input: Parser) -> Res<Parser, FunctionDecl> {
             node_id,
             name,
             body,
-            signature: FuncType::from_args_nb(arguments.len()),
+            signature: FuncType::from_args_nb(arguments.len()), // FIXME: Should not generate random signature
             arguments,
         },
     )(input)
@@ -386,7 +405,7 @@ pub fn parse_body(mut input: Parser) -> Res<Parser, Body> {
     if opt_eol.is_some() {
         indent(map(
             separated_list1(
-                many1(line_ending),
+                many1(parse_eol),
                 preceded(parse_block_indent, parse_statement),
             ),
             Body::new,
@@ -886,8 +905,24 @@ pub fn parse_type(input: Parser) -> Res<Parser, Type> {
             )),
             |t| Type::from(t),
         ),
+        map(parse_struct_type, Type::Struct),
         map(parse_capitalized_text, Type::Trait),
     ))(input)?;
+
+    Ok((input, ty))
+}
+
+pub fn parse_struct_type(input: Parser) -> Res<Parser, StructType> {
+    let (input, name) = parse_capitalized_text(input)?;
+
+    let ty = if let Some(struct_t) = input.extra.structs.get(&name) {
+        struct_t.as_struct_type()
+    } else {
+        return Err(nom::Err::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::Tag,
+        )));
+    };
 
     Ok((input, ty))
 }
