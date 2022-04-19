@@ -1,5 +1,5 @@
 mod externs
-use externs::*
+use externs::(*)
 
 mod num
 mod eq

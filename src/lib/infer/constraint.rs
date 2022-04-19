@@ -376,6 +376,10 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         let struct_t = t.as_struct_type();
 
         s.defs.iter().for_each(|p| {
+            self.envs
+                .set_type(&p.hir_id, struct_t.defs.get(&p.name.name).unwrap());
+        });
+        /* s.defs.iter().for_each(|p| {
             let ty = *struct_t.defs.get(&p.name.name).unwrap().clone();
 
             // FIXME: should not have to do this conversion from trait.
@@ -388,7 +392,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
             println!("TRANSFORMED {:#?}", ty);
             self.envs.set_type(&p.hir_id, &ty)
-        });
+        }); */
     }
 
     fn visit_struct_ctor(&mut self, s: &StructCtor) {
@@ -397,8 +401,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         self.visit_struct_decl(s_decl);
 
         let t = s_decl.into();
-
-        println!("TYPE {:#?}", t);
 
         self.envs.set_type(&s.name.hir_id, &t);
 
@@ -718,13 +720,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 pub fn solve(root: &mut Root) -> (BTreeMap<HirId, ResolutionMap<HirId>>, Diagnostics) {
     let diagnostics = Diagnostics::default();
 
-    // println!("ROOT {:#?}", root.get_hir_spans());
     let infer_state = Envs::new(diagnostics, root.get_hir_spans());
 
     let mut constraint_ctx = ConstraintContext::new(infer_state, root);
 
     constraint_ctx.constraint(root);
-    println!("here_final");
 
     let tmp_resolutions = constraint_ctx.tmp_resolutions.clone();
 

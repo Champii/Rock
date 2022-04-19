@@ -123,7 +123,7 @@ impl FuncType {
             .enumerate()
             .filter_map(|(i, arg_t)| -> Option<(Type, Type)> {
                 if !arg_t.is_forall() {
-                    warn!("Trying to apply type to a not forall");
+                    warn!("Trying to apply type to a not forall: {:#?}", arg_t);
 
                     return None;
                 }
@@ -316,6 +316,16 @@ mod tests {
 
         assert_eq!(res.arguments[0], Type::forall("a"));
         assert_eq!(res.arguments[1], Type::int64());
+        assert_eq!(*res.ret, Type::int64());
+    }
+
+    #[test]
+    fn apply_to_same_forall() {
+        let sig = FuncType::new(vec![Type::forall("a")], Type::forall("a"));
+
+        let res = sig.apply_forall_types(&[Type::forall("a")], &[Type::int64()]);
+
+        assert_eq!(res.arguments[0], Type::int64());
         assert_eq!(*res.ret, Type::int64());
     }
 }

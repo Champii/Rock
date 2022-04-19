@@ -4,7 +4,7 @@ struct Vec
   len :: Int64
 
 use super::show::show
-use super::externs::*
+use super::externs::(*)
 
 impl Show Vec
   show v = show v.len
@@ -16,8 +16,8 @@ new_vec =
     len: 0
 
 
-use super::num::*
-use super::eq::*
+use super::num::(*)
+use super::eq::(*)
 
 realloc_vec v =
   let orig_data = v.data

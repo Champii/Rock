@@ -1,6 +1,6 @@
-use super::externs::*
-use super::num::*
-use super::eq::*
+use super::externs::(*)
+use super::num::(*)
+use super::eq::(*)
 
 itoa a =
     let s = c_malloc 10
@@ -45,7 +45,7 @@ show_arr a =
 
     let len = ~Len a a
 
-    for i < len
+    while i < len
         c_strcat s, show a[i]
         c_strcat s, ", "
 

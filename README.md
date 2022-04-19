@@ -1,6 +1,6 @@
-# Rock v0.1.8-new-parser
+# Rock v0.1.8-435fa9fb
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=new_parser)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=435fa9fb)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -43,10 +43,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.1.8-new-parser](https://github.com/Champii/Rock/releases/download/v0.1.8-new-parser/rock) (Tested on arch, btw)
+[Rock v0.1.8-435fa9fb](https://github.com/Champii/Rock/releases/download/v0.1.8-435fa9fb/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.1.8-new-parser/rock
+wget https://github.com/Champii/Rock/releases/download/v0.1.8-435fa9fb/rock
 chmod +x rock
 ./rock -V
 ```
@@ -124,7 +124,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.1.8-new-parser
+Rock: v0.1.8-435fa9fb
 ----
 
 Type ':?' for help

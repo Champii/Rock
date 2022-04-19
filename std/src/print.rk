@@ -1,4 +1,4 @@
-use super::externs::*
+use super::externs::(*)
 use super::show::show
 
 print a = c_puts show a

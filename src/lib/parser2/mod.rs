@@ -859,10 +859,7 @@ pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {
 
     let ret = types.pop().unwrap();
 
-    Ok((
-        input,
-        FuncType::from_args_nb(types.len()).apply_types(types, ret),
-    ))
+    Ok((input, FuncType::new(types, ret)))
 }
 
 pub fn parse_type(input: Parser) -> Res<Parser, Type> {

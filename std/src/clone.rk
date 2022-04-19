@@ -1,4 +1,4 @@
-use super::externs::*
+use super::externs::(*)
 
 trait Clone a
   clone :: a -> a
@@ -15,7 +15,7 @@ impl Clone String
     c_strcpy s, a
     s
 
-use super::functor::*
+use super::functor::(*)
 
 impl Clone [Int64]
   clone a = map clone, a

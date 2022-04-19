@@ -21,7 +21,7 @@ impl Num Float64
     * c d = ~FMul c d
     / c d = ~FDiv c d
 
-use super::externs::*
+use super::externs::(*)
 
 impl Num String
     + a b =

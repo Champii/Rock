@@ -1,9 +1,9 @@
-use super::externs::*
+use super::externs::(*)
 
 use super::print::print
 use super::show::show
-use super::num::*
-use super::eq::*
+use super::num::(*)
+use super::eq::(*)
 
 struct File
   fd :: Int64

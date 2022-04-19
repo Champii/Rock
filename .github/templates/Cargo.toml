@@ -23,6 +23,9 @@ rustyline = "9.0.0"
 nom = "7.0.0"
 nom_locate = "4.0.0"
 
+[build-dependencies]
+walkdir = "2"
+
 [lib]
 name = "rock"
 path = "src/lib/rock.rs"
