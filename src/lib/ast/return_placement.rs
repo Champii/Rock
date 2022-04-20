@@ -4,33 +4,20 @@ pub struct ReturnInserter<'a> {
     pub body: &'a Body,
 }
 
+// TODO: Implement `Visitor` trait for `ReturnInserter`
 impl<'a> ReturnInserter<'a> {
     pub fn run(&mut self) -> Body {
         let mut body = self.body.clone();
 
         self.visit_body(&mut body);
 
-        body.clone()
+        body
     }
 
     fn visit_body(&mut self, body: &mut Body) {
-        // let mut is_assign = None;
-
         if let Some(stmt) = body.stmts.iter_mut().last() {
-            // if let StatementKind::Assign(ref mut a) = *stmt.kind.clone() {
-            //     is_assign = Some(a.clone());
-            // }
-
             self.visit_statement(stmt);
         }
-
-        // if let Some(a) = is_assign {
-        //     body.stmts.push(Statement {
-        //         kind: Box::new(StatementKind::Expression(Box::new(Expression {
-        //             kind: ExpressionKind::Return(Box::new(a.name.as_expression())),
-        //         }))),
-        //     });
-        // }
     }
 
     fn visit_statement(&mut self, stmt: &mut Statement) {

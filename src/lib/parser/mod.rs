@@ -143,14 +143,6 @@ impl ParserCtx {
     }
 }
 
-/* pub fn create_parser(s: &str) -> Parser<'_> {
-    LocatedSpan::new_extra(s, ParserCtx::new(PathBuf::from("")))
-}
- */
-/* pub fn create_parser_with_filename(s: &str, path: PathBuf) -> Parser<'_> {
-    LocatedSpan::new_extra(s, ParserCtx::new(path))
-}
- */
 pub fn parse_root(input: Parser) -> Res<Parser, Root> {
     // TODO: move eof check in parse_mod
     map(terminated(parse_mod, eof), Root::new)(input)

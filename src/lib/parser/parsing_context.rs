@@ -175,26 +175,7 @@ impl ParsingCtx {
         Ok(new_file)
     }
 
-    /* pub fn add_operator(&mut self, name: &Identifier, precedence: u8) -> Result<(), Diagnostic> {
-        if self.operator_exists(name) {
-            return Err(Diagnostic::new_duplicated_operator(
-                name.identity.span.clone(),
-            ));
-        }
-
-        self.operators_list.insert(name.name.clone(), precedence);
-
-        Ok(())
-    } */
-
     pub fn operator_exists(&self, name: &Identifier) -> bool {
         self.operators_list.contains_key(&name.name)
-    }
-
-    #[allow(dead_code)]
-    pub fn print_ast(&self, ast: &tree::Root) {
-        use crate::ast::visit::Visitor;
-
-        AstPrintContext::new().visit_root(ast);
     }
 }

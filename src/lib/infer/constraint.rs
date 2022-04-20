@@ -379,21 +379,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             self.envs
                 .set_type(&p.hir_id, struct_t.defs.get(&p.name.name).unwrap());
         });
-        // FIXME: should be done in the ast_lowering phase
-        /* s.defs.iter().for_each(|p| {
-            let ty = *struct_t.defs.get(&p.name.name).unwrap().clone();
-
-            // FIXME: should not have to do this conversion from trait.
-            let ty = if let Type::Trait(t) = ty.clone() {
-                println!("WHAT {:#?}, {:#?}, {:#?}", p, t, self.hir.structs);
-                self.hir.structs.get(&ty.get_name()).unwrap().to_type()
-            } else {
-                ty
-            };
-
-            println!("TRANSFORMED {:#?}", ty);
-            self.envs.set_type(&p.hir_id, &ty)
-        }); */
     }
 
     fn visit_struct_ctor(&mut self, s: &StructCtor) {

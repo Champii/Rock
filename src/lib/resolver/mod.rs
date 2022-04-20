@@ -1,17 +1,18 @@
+use std::collections::HashMap;
+
 use crate::{
-    ast::{tree::IdentifierPath, tree::Root, visit::*},
+    ast::{
+        tree::{IdentifierPath, Root},
+        visit::*,
+    },
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
-    parser::ParsingCtx,
+    parser::{span::Span as OldSpan, ParsingCtx},
 };
 
 mod resolution_map;
 mod resolve_ctx;
 mod unused_collector;
-
-use std::collections::HashMap;
-
-use crate::parser::span::Span as OldSpan;
 
 pub use resolution_map::*;
 pub use resolve_ctx::*;

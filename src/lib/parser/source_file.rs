@@ -58,7 +58,6 @@ custom =
             .to_owned()
             + &expr;
 
-        // println!("{}", top_levels);
         Ok(SourceFile {
             file_path: PathBuf::from("./src/main.rk"),
             mod_path: PathBuf::from("root"),

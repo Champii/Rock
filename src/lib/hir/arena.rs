@@ -25,6 +25,7 @@ impl Arena {
 // FIXME: Code smell
 impl std::ops::Deref for Arena {
     type Target = BTreeMap<HirId, HirNode>;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -57,7 +58,7 @@ impl HirNodeCollector {
     where
         T: HasHirId,
         T: Clone,
-        hir_node::HirNode: From<T>, // HirNode: From<&T>,
+        hir_node::HirNode: From<T>,
     {
         self.arena.insert(node.get_hir_id(), node.clone().into());
     }
