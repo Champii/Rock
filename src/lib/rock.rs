@@ -64,7 +64,7 @@ pub fn compile_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic
 pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {
     // Text to Ast
     debug!("    -> Parsing");
-    let mut ast = parser::parse(parsing_ctx, true)?;
+    let mut ast = parser::parse(parsing_ctx)?;
 
     // Name resolving
     debug!("    -> Resolving");

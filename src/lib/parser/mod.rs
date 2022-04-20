@@ -202,14 +202,13 @@ pub fn parse_eol(input: Parser) -> Res<Parser, ()> {
 pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     let (mut input, mod_name) = preceded(terminated(tag("mod"), space1), parse_identifier)(input)?;
 
-    let (mut new_ctx, file_path) = if mod_name.name == "std" {
-        (input.extra.new_std(), "../std/src/lib.rk".into())
+    let mut new_ctx = if mod_name.name == "std" {
+        input.extra.new_std()
     } else {
-        let new_ctx = input.extra.new_from(&mod_name.name);
-        let path = new_ctx.current_file_path().to_str().unwrap().to_string();
-
-        (new_ctx, path)
+        input.extra.new_from(&mod_name.name)
     };
+
+    let file_path = new_ctx.current_file_path().to_str().unwrap().to_string();
 
     let file = SourceFile::from_file(file_path).unwrap(); // FIXME: ERRORS ARE swallowed HERE
                                                           //
@@ -980,12 +979,13 @@ pub fn allowed_operator_chars(input: Parser) -> Res<Parser, String> {
     Ok((input, c.to_string()))
 }
 
-pub fn parse(parsing_ctx: &mut ParsingCtx, std: bool) -> Result<tree::Root, Diagnostic> {
+// FIXME: put std bool into config
+pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
     use nom::Finish;
 
     let content = &parsing_ctx.get_current_file().content;
 
-    let content = if std {
+    let content = if parsing_ctx.config.std {
         "mod std\nuse std::prelude::(*)\n".to_owned() + content
     } else {
         content.clone()

@@ -142,6 +142,12 @@ fn main() {
                 .help("Show the InferContext state before solve (DEPRECATED)"),
         )
         .arg(
+            Arg::with_name("nostd")
+                .long("nostd")
+                .takes_value(false)
+                .help("Does not include stdlib"),
+        )
+        .arg(
             Arg::with_name("output-folder")
                 .short("o")
                 .long("output-folder")
@@ -163,6 +169,7 @@ fn main() {
         repl: matches.is_present("repl"),
         no_optimize: matches.is_present("no-optimize"),
         build_folder: PathBuf::from(matches.value_of("output-folder").unwrap()),
+        std: !matches.is_present("nostd"),
         ..Default::default()
     };
 
