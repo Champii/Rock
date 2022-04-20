@@ -1,6 +1,6 @@
-mod lib
+mod std
 
-use lib::prelude::(*)
+use std::prelude::(*)
 
 fact a =
     if a <= 1
