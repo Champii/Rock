@@ -1,6 +1,6 @@
-# Rock v0.2.1-autoprelude
+# Rock v0.2.1-develop
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=autoprelude)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -45,10 +45,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.1-autoprelude](https://github.com/Champii/Rock/releases/download/v0.2.1-autoprelude/rock) (Tested on arch, btw)
+[Rock v0.2.1-develop](https://github.com/Champii/Rock/releases/download/v0.2.1-develop/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.1-autoprelude/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.1-develop/rock
 chmod +x rock
 ./rock -V
 ```
@@ -228,7 +228,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.1-autoprelude
+Rock: v0.2.1-develop
 ----
 
 Type ':?' for help
