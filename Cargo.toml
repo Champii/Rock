@@ -1,12 +1,12 @@
 [package]
 name = "rock"
-version = "0.2.1-develop"
+version = "0.2.1-autoprelude"
 authors = ["champii <contact@champii>"]
 edition = "2018"
 
 [dependencies]
 clap = "2.32.0"
-lazy_static = "1.4.0"
+lazy_static = "1.2.0"
 regex = "1"
 env_logger = "0.5.12"
 log = "0.4"
