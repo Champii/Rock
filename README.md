@@ -82,15 +82,9 @@ mkdir -P factorial/src && cd factorial
 
 Add some files like this:
 
-- Copy all the stdlib files from [std/src/\*.rk](https://github.com/Champii/Rock/blob/master/std/src) into `factorial/src/`
-
 - Create a `factorial/src/main.rk` file:
 
 ```haskell
-mod lib
-
-use lib::prelude::(*)
-
 fact a =
     if a <= 1
     then 1
@@ -121,10 +115,6 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 
 
 ``` haskell
-mod lib
-
-use lib::prelude::(*)
-
 id a = a
 
 main =
@@ -148,10 +138,6 @@ Test
 ### Custom infix operator
 
 ``` haskell
-mod lib
-
-use lib::prelude::(*)
-
 infix |> 1
 |> x f = f x
 
@@ -171,10 +157,6 @@ Prints `6`
 This `trait ToString` is redondant with the `trait Show` implemented in the lib, and serves as a demonstration only
 
 ``` haskell
-mod lib
-
-use lib::prelude::(*)
-
 trait ToString a
   toString :: a -> String
 
@@ -204,10 +186,6 @@ Prints
 ### Struct instance and Show implementation
 
 ``` haskell
-mod lib
-
-use lib::prelude::(*)
-
 struct Player
   level :: Int64
   name :: String
