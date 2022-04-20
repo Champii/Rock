@@ -314,8 +314,6 @@ impl<'a> CodegenContext<'a> {
         name: &str,
         builder: &'a Builder,
     ) -> Result<(AnyValueEnum<'a>, BasicBlock<'a>), ()> {
-        // self.scopes.push();
-
         let basic_block = self
             .context
             .append_basic_block(self.cur_func.unwrap(), name);
@@ -328,8 +326,6 @@ impl<'a> CodegenContext<'a> {
             .map(|stmt| self.lower_stmt(stmt, builder))
             .last()
             .unwrap()?;
-
-        // self.scopes.pop();
 
         Ok((stmt, basic_block))
     }
@@ -440,10 +436,7 @@ impl<'a> CodegenContext<'a> {
                         builder.build_store(ptr, value);
                         ptr.as_basic_value_enum()
                     })
-                    .or({
-                        // self.scopes.add(id.get_hir_id(), value.clone());
-                        Some(value)
-                    })
+                    .or(Some(value))
                     .unwrap();
 
                 self.scopes.add(id.get_hir_id(), val);
@@ -553,15 +546,7 @@ impl<'a> CodegenContext<'a> {
                 self.lower_native_operation(op, left, right, builder)?
             }
             ExpressionKind::Return(expr) => {
-                // println!("RETURN {:#?}", expr);
                 let val = self.lower_expression(expr, builder)?;
-                // println!("RETURN2 {:#?}", val);
-
-                // let val = val
-                //     .is_pointer_value()
-                //     .then(|| builder.build_load(val.into_pointer_value(), "test"))
-                //     .or(Some(val))
-                //     .unwrap();
 
                 builder.build_return(Some(&val.as_basic_value_enum()));
 
@@ -670,7 +655,7 @@ impl<'a> CodegenContext<'a> {
         let const_0 = i64_type.const_zero();
 
         let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "index") };
-        // builder.build_load(ptr, "load_indice");
+
         Ok(ptr.as_basic_value_enum())
     }
 

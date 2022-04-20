@@ -16,9 +16,13 @@ pub struct SourceFile {
 
 impl SourceFile {
     pub fn from_file(in_name: String) -> Result<Self, Diagnostic> {
-        let file = fs::read_to_string(in_name.clone()).map_err(|_| {
-            Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
-        })?;
+        let file = if let Some(content) = super::STDLIB_FILES.get(&in_name) {
+            content.to_string()
+        } else {
+            fs::read_to_string(in_name.clone()).map_err(|_| {
+                Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
+            })?
+        };
 
         let mut mod_path = PathBuf::from(in_name.clone());
 
@@ -28,6 +32,18 @@ impl SourceFile {
             file_path: PathBuf::from(in_name),
             mod_path,
             content: file,
+        })
+    }
+
+    pub fn from_str(path: &str, content: &str) -> Result<Self, Diagnostic> {
+        let mut mod_path = PathBuf::from(path.clone());
+
+        mod_path.set_extension("");
+
+        Ok(SourceFile {
+            file_path: PathBuf::from(path.clone()),
+            mod_path,
+            content: content.to_string(),
         })
     }
 
@@ -58,7 +74,6 @@ custom =
             .to_owned()
             + &expr;
 
-        // println!("{}", top_levels);
         Ok(SourceFile {
             file_path: PathBuf::from("./src/main.rk"),
             mod_path: PathBuf::from("root"),

@@ -63,13 +63,13 @@ pub fn walk_root<'a, V: VisitorMut<'a>>(visitor: &mut V, root: &'a mut Root) {
         visitor.visit_struct_decl(r#struct);
     }
 
-    // for (_, r#trait) in &mut root.traits {
-    //     visitor.visit_trait(r#trait);
-    // }
+    for (_, r#trait) in &mut root.traits {
+        visitor.visit_trait(r#trait);
+    }
 
-    // for (_, impls) in &mut root.trait_methods {
-    //     walk_map!(visitor, visit_function_decl, impls);
-    // }
+    for (_, impls) in &mut root.trait_methods {
+        walk_map!(visitor, visit_function_decl, impls);
+    }
 
     walk_map!(visitor, visit_fn_body, &mut root.bodies);
 }

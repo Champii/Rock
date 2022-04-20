@@ -19,7 +19,7 @@ pub struct Root {
     pub resolutions: ResolutionMap<HirId>,
     pub type_envs: Envs,
     pub node_types: BTreeMap<HirId, Type>,
-    pub traits: HashMap<Type, Trait>, // TraitHirId => (Trait, TypeId => Impl)
+    pub traits: HashMap<Type, Trait>,
     pub trait_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,
     pub top_levels: Vec<TopLevel>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
@@ -153,7 +153,6 @@ pub struct Impl {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructDecl {
-    // pub hir_id: HirId,
     pub name: Identifier,
     pub defs: Vec<Prototype>,
 }
@@ -186,7 +185,6 @@ impl StructDecl {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructCtor {
-    // pub hir_id: HirId,
     pub name: Identifier,
     pub defs: BTreeMap<Identifier, Expression>,
 }

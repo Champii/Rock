@@ -38,15 +38,6 @@ impl Envs {
     }
 
     pub fn set_current_fn(&mut self, f: (HirId, FuncType)) -> bool {
-        // if !f.1.are_args_solved() {
-        //     self.diagnostics.push_error(Diagnostic::new_unresolved_type(
-        //         self.spans.get(&f.0).unwrap().clone(),
-        //         f.1.to_func_type(),
-        //     ));
-
-        //     return false;
-        // }
-
         self.fns
             .entry(f.0.clone())
             .or_insert_with(HashMap::new)

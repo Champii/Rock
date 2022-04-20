@@ -95,11 +95,6 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         walk_list!(self, visit_top_level, &m.top_levels);
     }
 
-    // fn visit_for(&mut self, for_loop: &'a For) {
-    //     self.visit_expression(&for_loop.expr);
-    //     self.visit_body(&for_loop.body);
-    // }
-
     fn visit_for_in(&mut self, for_in: &'a ForIn) {
         self.visit_expression(&for_in.expr);
 
@@ -240,10 +235,6 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         };
     }
 
-    /* fn visit_argument_decl(&mut self, arg: &'a ArgumentDecl) {
-           self.add_to_current_scope(arg.name.clone(), arg.node_id);
-       }
-    */
     fn visit_identifier_path(&mut self, path: &'a IdentifierPath) {
         let ident = path.last_segment_ref();
 

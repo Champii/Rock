@@ -40,7 +40,6 @@ generate_visitor_trait!(
     StructDecl
     Identifier
     IdentifierPath
-    // ArgumentDecl
     Body
     Statement
     For
@@ -137,10 +136,6 @@ pub fn walk_identifier_path<'a, V: Visitor<'a>>(
 pub fn walk_identifier<'a, V: Visitor<'a>>(visitor: &mut V, identifier: &'a Identifier) {
     visitor.visit_name(&identifier.name);
 }
-
-/* pub fn walk_argument_decl<'a, V: Visitor<'a>>(visitor: &mut V, argument: &'a ArgumentDecl) {
-    visitor.visit_name(&argument.name);
-} */
 
 pub fn walk_body<'a, V: Visitor<'a>>(visitor: &mut V, body: &'a Body) {
     walk_list!(visitor, visit_statement, &body.stmts);

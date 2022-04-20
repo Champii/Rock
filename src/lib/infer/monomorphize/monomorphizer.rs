@@ -54,6 +54,7 @@ impl<'a> Monomorphizer<'a> {
         }
 
         // The collect here is needed as we NEED the generated_fn_hir_id.insert() side effect
+        // and the for version would be too messy
         #[allow(clippy::needless_collect)]
         let fresh_top_levels_flat = self
             .get_fn_envs_pairs()
@@ -297,7 +298,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             .unwrap()
         {
             HirNode::FunctionDecl(_) => {
-                // println!("ENV {:#?}", self.root.type_envs);
                 if let Some(generated_fn) = self.generated_fn_hir_id.get(&(
                     self.resolve_rec(&old_fc_op).unwrap(),
                     fc.to_func_type(&self.root.node_types),
@@ -305,7 +305,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     self.new_resolutions
                         .insert(fc.op.get_hir_id(), generated_fn.clone());
                 } else {
-                    // self.
                     panic!("BUG: Cannot find function from signature");
                 }
 
@@ -336,11 +335,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
                 self.trans_resolutions.remove(&old_fc_op);
             }
-            _ => {
-                // FIXME: This may be bad
-                // self.new_resolutions
-                // .insert(fc.op.get_hir_id(), self.resolve_rec(&old_fc_op).unwrap());
-            }
+            _ => {}
         }
 
         for (i, arg) in fc.args.iter().enumerate() {
@@ -443,8 +438,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
         self.trans_resolutions
             .insert(old_hir_id, s.name.hir_id.clone());
-
-        // self.visit_identifier(&mut s.name);
 
         s.defs = s
             .defs

@@ -42,6 +42,10 @@ impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
     pub fn remove(&mut self, item: &T) {
         self.0.remove(item);
     }
+
+    pub fn extend(&mut self, other: Self) {
+        self.0.extend(other.0);
+    }
 }
 
 impl ResolutionMap<NodeId> {

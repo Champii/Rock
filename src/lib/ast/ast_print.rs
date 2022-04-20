@@ -1,10 +1,12 @@
 use std::fmt::Debug;
 
-use crate::ast::tree::*;
-use crate::ast::visit::*;
-use crate::helpers::*;
-use crate::ty::*;
 use paste::paste;
+
+use crate::{
+    ast::{tree::*, visit::*},
+    helpers::*,
+    ty::*,
+};
 
 pub struct AstPrintContext {
     indent: usize,
@@ -83,7 +85,6 @@ macro_rules! impl_visitor_trait {
 
 impl_visitor_trait!(
     Root
-    // Mod
     TopLevel
     StructDecl
     Use
@@ -92,7 +93,6 @@ impl_visitor_trait!(
     Impl
     FunctionDecl
     Identifier
-    // ArgumentDecl
     Body
     Statement
     For

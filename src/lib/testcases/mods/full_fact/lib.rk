@@ -1,7 +1,0 @@
-mod num
-mod eq
-mod show
-mod print
-# mod helpers
-
-mod prelude

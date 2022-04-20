@@ -94,7 +94,6 @@ impl AstLoweringContext {
 
     pub fn lower_struct_decl(&mut self, s: &StructDecl) -> hir::StructDecl {
         let hir_t = hir::StructDecl {
-            // hir_id: self.hir_map.next_hir_id(s.name.node_id),
             name: self.lower_identifier(&s.name),
             defs: s
                 .defs
@@ -327,7 +326,6 @@ impl AstLoweringContext {
 
     pub fn lower_struct_ctor(&mut self, s: &StructCtor) -> hir::Expression {
         hir::Expression::new_struct_ctor(hir::StructCtor {
-            // hir_id: self.hir_map.next_hir_id(s.node_id),
             name: self.lower_identifier(&s.name),
             defs: s
                 .defs
