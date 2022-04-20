@@ -379,16 +379,6 @@ pub enum AssignLeftSide {
     Dot(Expression),
 }
 
-impl AssignLeftSide {
-    pub fn as_expression(&self) -> Expression {
-        match self {
-            AssignLeftSide::Identifier(i) => i.clone(),
-            AssignLeftSide::Indice(i) => i.clone(),
-            AssignLeftSide::Dot(d) => d.clone(),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Assign {
     pub name: AssignLeftSide,
@@ -516,7 +506,8 @@ pub enum Expression {
 #[derive(Debug, Clone)]
 pub enum UnaryExpr {
     PrimaryExpr(PrimaryExpr),
-    UnaryExpr(Operator, Box<UnaryExpr>),
+    #[allow(dead_code)]
+    UnaryExpr(Operator, Box<UnaryExpr>), // Parser for that is not implemented yet
 }
 
 impl UnaryExpr {
@@ -600,14 +591,6 @@ impl PrimaryExpr {
             secondaries.iter().any(|secondary| secondary.is_dot())
         } else {
             false
-        }
-    }
-
-    pub fn new_empty(op: Operand) -> PrimaryExpr {
-        PrimaryExpr {
-            op,
-            node_id: u64::MAX,
-            secondaries: None,
         }
     }
 
@@ -699,6 +682,8 @@ impl SecondaryExpr {
         matches!(self, SecondaryExpr::Dot(_))
     }
 
+    // might be useful
+    #[allow(dead_code)]
     pub fn is_arguments(&self) -> bool {
         matches!(self, SecondaryExpr::Arguments(_))
     }

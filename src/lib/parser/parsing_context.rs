@@ -6,7 +6,7 @@ use std::{
 use colored::*;
 
 use crate::{
-    ast::{ast_print::AstPrintContext, tree, Identifier, NodeId},
+    ast::{Identifier, NodeId},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
     parser::span2::Span,
     Config,
