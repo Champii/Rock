@@ -31,6 +31,18 @@ impl SourceFile {
         })
     }
 
+    pub fn from_str(path: &str, content: &str) -> Result<Self, Diagnostic> {
+        let mut mod_path = PathBuf::from(path.clone());
+
+        mod_path.set_extension("");
+
+        Ok(SourceFile {
+            file_path: PathBuf::from(path.clone()),
+            mod_path,
+            content: content.to_string(),
+        })
+    }
+
     pub fn from_expr(
         top_levels: String,
         mut expr: String,

@@ -108,6 +108,19 @@ impl ParserCtx {
         }
     }
 
+    pub fn new_std(&self) -> Self {
+        Self {
+            files: HashMap::new(),
+            cur_file_path: PathBuf::from("../std/src/lib.rk"),
+            identities: BTreeMap::new(),
+            operators_list: HashMap::new(),
+            block_indent: 0,
+            first_indent: None,
+            next_node_id: self.next_node_id,
+            structs: HashMap::new(),
+        }
+    }
+
     pub fn new_identity(&mut self, span: Span) -> NodeId {
         let node_id = self.next_node_id;
 
@@ -189,10 +202,17 @@ pub fn parse_eol(input: Parser) -> Res<Parser, ()> {
 pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     let (mut input, mod_name) = preceded(terminated(tag("mod"), space1), parse_identifier)(input)?;
 
-    let mut new_ctx = input.extra.new_from(&mod_name.name);
-    let file_path = new_ctx.current_file_path().to_str().unwrap().to_string();
+    let (mut new_ctx, file_path) = if mod_name.name == "std" {
+        (input.extra.new_std(), "../std/src/lib.rk".into())
+    } else {
+        let new_ctx = input.extra.new_from(&mod_name.name);
+        let path = new_ctx.current_file_path().to_str().unwrap().to_string();
+
+        (new_ctx, path)
+    };
 
     let file = SourceFile::from_file(file_path).unwrap(); // FIXME: ERRORS ARE swallowed HERE
+                                                          //
     new_ctx
         .files
         .insert(new_ctx.current_file_path().clone(), file);
@@ -960,10 +980,16 @@ pub fn allowed_operator_chars(input: Parser) -> Res<Parser, String> {
     Ok((input, c.to_string()))
 }
 
-pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
+pub fn parse(parsing_ctx: &mut ParsingCtx, std: bool) -> Result<tree::Root, Diagnostic> {
     use nom::Finish;
 
     let content = &parsing_ctx.get_current_file().content;
+
+    let content = if std {
+        "mod std\nuse std::prelude::(*)\n".to_owned() + content
+    } else {
+        content.clone()
+    };
 
     let parser = LocatedSpan::new_extra(
         content.as_str(),
