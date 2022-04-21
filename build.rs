@@ -87,7 +87,7 @@ fn write_header(output_file: &mut File) {
 
             let expected_ret = expected_ret.parse::<i64>().unwrap();
 
-            let (ret_code, stdout) = super::test::run(path, input.to_string(), config);
+            let (ret_code, stdout) = super::helpers::test_utils::run(path, input.to_string(), config);
 
             assert_eq!(expected_ret, ret_code);
             assert_eq!(expected_output, stdout);
