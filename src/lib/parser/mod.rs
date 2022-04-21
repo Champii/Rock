@@ -1035,17 +1035,10 @@ pub fn allowed_operator_chars(input: Parser) -> Res<Parser, String> {
     Ok((input, c.to_string()))
 }
 
-// FIXME: put std bool into config
 pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
     use nom::Finish;
 
     let content = &parsing_ctx.get_current_file().content;
-
-    let content = if parsing_ctx.config.std {
-        "mod std\nuse std::prelude::(*)\n".to_owned() + content
-    } else {
-        content.clone()
-    };
 
     let parser = LocatedSpan::new_extra(
         content.as_str(),
@@ -1057,7 +1050,7 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
     let ast = match ast {
         Ok((ctx, mut ast)) => {
             parsing_ctx.identities = ctx.extra.identities();
-            parsing_ctx.files = ctx.extra.files();
+            parsing_ctx.files.extend(ctx.extra.files());
 
             ast.operators_list = ctx.extra.operators_list();
             ast.spans = ctx.extra.identities().into_iter().collect();

@@ -41,6 +41,10 @@ use parser::{ParsingCtx, SourceFile};
 pub fn compile_file(in_name: String, config: &Config) -> Result<(), Diagnostic> {
     let mut source_file = SourceFile::from_file(in_name)?;
 
+    if config.std {
+        source_file.content = "mod std\nuse std::prelude::(*)\n".to_owned() + &source_file.content;
+    }
+
     source_file.mod_path = PathBuf::from("root");
 
     compile_str(&source_file, config)

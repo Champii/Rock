@@ -102,6 +102,7 @@ impl Diagnostic {
         let count: usize = lines.clone()[..line - 1].iter().map(|v| v.len()).sum();
 
         let count = count + line;
+        println!("PAS OK");
 
         let line_start = if count > self.span.start {
             0
@@ -128,12 +129,15 @@ impl Diagnostic {
 
         arrow.push('^');
 
-        let mut i = 0;
+        // FIXME: some span don't have txt
+        if self.span.end - self.span.start > 0 {
+            let mut i = 0;
 
-        while i < self.span.end - self.span.start {
-            arrow.push('~');
+            while i < self.span.end - self.span.start - 1 {
+                arrow.push('~');
 
-            i += 1;
+                i += 1;
+            }
         }
 
         let diag_type_str = match diag_type {
