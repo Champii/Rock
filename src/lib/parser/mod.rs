@@ -8,7 +8,7 @@ use nom::{
     bytes::complete::{tag, take_while},
     character::complete::{alphanumeric0, char, line_ending, one_of, satisfy, space0, space1},
     combinator::{eof, map, opt, peek, recognize},
-    error::{make_error, ErrorKind, ParseError, VerboseError},
+    error::{make_error, ErrorKind, FromExternalError, ParseError, VerboseError},
     error_position,
     multi::{many0, many1, separated_list0, separated_list1},
     sequence::{delimited, preceded, terminated, tuple},
@@ -22,7 +22,7 @@ use crate::{
         tree::{self, *},
         NodeId,
     },
-    diagnostics::Diagnostic,
+    diagnostics::{Diagnostic, Diagnostics},
     ty::{FuncType, PrimitiveType, StructType, Type},
 };
 
@@ -110,6 +110,7 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
     files: HashMap<PathBuf, SourceFile>,
+    diagnostics: Diagnostics,
     cur_file_path: PathBuf,
     identities: BTreeMap<NodeId, Span>,
     operators_list: HashMap<String, u8>,
@@ -130,6 +131,7 @@ impl ParserCtx {
             first_indent: None,
             next_node_id: 0,
             structs: HashMap::new(),
+            diagnostics: Diagnostics::default(),
         }
     }
 
@@ -144,6 +146,7 @@ impl ParserCtx {
             first_indent: None,
             next_node_id: 0,
             structs: HashMap::new(),
+            diagnostics: Diagnostics::default(),
         }
     }
 
@@ -161,6 +164,7 @@ impl ParserCtx {
             first_indent: None,
             next_node_id: self.next_node_id,
             structs: HashMap::new(),
+            diagnostics: Diagnostics::default(), // FIXME
         }
     }
 
@@ -174,6 +178,7 @@ impl ParserCtx {
             first_indent: None,
             next_node_id: self.next_node_id,
             structs: HashMap::new(),
+            diagnostics: Diagnostics::default(),
         }
     }
 
@@ -209,6 +214,10 @@ impl ParserCtx {
 
     pub fn files(&self) -> HashMap<PathBuf, SourceFile> {
         self.files.clone()
+    }
+
+    pub fn diagnostics(&self) -> Diagnostics {
+        self.diagnostics.clone()
     }
 }
 
@@ -272,13 +281,29 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
         .files
         .insert(new_ctx.current_file_path().clone(), file.clone());
 
-    let content = &file.content;
-
-    let new_parser = Parser::new_extra(content, new_ctx);
+    let new_parser = Parser::new_extra(&file.content, new_ctx);
 
     use nom::Finish;
-    // FIXME: Errors are swallowed here
-    let (input2, mod_) = parse_mod(new_parser).finish().unwrap();
+
+    let parsed_mod_opt = parse_mod(new_parser.clone()).finish();
+
+    let (input2, mod_) = match parsed_mod_opt {
+        Ok((input2, mod_)) => (input2, mod_),
+        Err(err) => {
+            input
+                .extra
+                .diagnostics
+                .append(Diagnostics::from(err.clone()));
+            input.extra.identities.extend(new_parser.extra.identities);
+            input.extra.files.extend(new_parser.extra.files);
+
+            return Err(nom::Err::Error(VerboseError::from_external_error(
+                input,
+                ErrorKind::Fail,
+                err.to_owned(),
+            )));
+        }
+    };
 
     // hydrate `input` with the new parser's operators
     // TODO: handle duplicate operators
@@ -287,9 +312,11 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
         .operators_list
         .extend(input2.extra.operators_list);
 
+    input.extra.diagnostics.append(input2.extra.diagnostics);
+
     // extend identities
-    input.extra.identities.extend(input2.extra.identities);
     input.extra.next_node_id = input2.extra.next_node_id;
+    input.extra.identities.extend(input2.extra.identities);
     input.extra.files.extend(input2.extra.files);
 
     Ok((input, (mod_name, mod_)))
@@ -1040,9 +1067,14 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
 
     let content = &parsing_ctx.get_current_file().content;
 
-    let parser = LocatedSpan::new_extra(
+    let mut parser = LocatedSpan::new_extra(
         content.as_str(),
         ParserCtx::new(parsing_ctx.get_current_file().file_path.clone()),
+    );
+
+    parser.extra.files.insert(
+        parsing_ctx.get_current_file().file_path.clone(),
+        parsing_ctx.get_current_file().clone(),
     );
 
     let ast = parse_root(parser).finish();
@@ -1063,11 +1095,19 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
             Ok(ast)
         }
         Err(e) => {
-            let diagnostic = Diagnostic::from(e);
+            parsing_ctx
+                .files
+                .extend(e.errors.get(0).unwrap().clone().0.extra.files());
 
-            parsing_ctx.diagnostics.push_error(diagnostic.clone());
+            let diagnostics = Diagnostics::from(e);
 
-            Err(diagnostic)
+            parsing_ctx.diagnostics.append(diagnostics);
+
+            // parsing_ctx.identities = ast.extra.identities();
+
+            parsing_ctx.return_if_error()?;
+
+            Err(parsing_ctx.diagnostics.list.get(0).unwrap().clone())
         }
     }?;
 

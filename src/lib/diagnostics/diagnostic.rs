@@ -8,7 +8,7 @@ use crate::{
     ty::{FuncType, Type},
 };
 use colored::*;
-use nom::error::VerboseError;
+use nom::error::{VerboseError, VerboseErrorKind};
 
 #[derive(Clone, Debug)]
 pub struct Diagnostic {
@@ -102,7 +102,6 @@ impl Diagnostic {
         let count: usize = lines.clone()[..line - 1].iter().map(|v| v.len()).sum();
 
         let count = count + line;
-        println!("PAS OK");
 
         let line_start = if count > self.span.start {
             0
@@ -293,6 +292,20 @@ impl<'a> From<VerboseError<Parser<'a>>> for Diagnostic {
     fn from(err: VerboseError<Parser<'a>>) -> Self {
         let (input, _kind) = err.errors.into_iter().next().unwrap();
 
+        let span2 = Span2::from(input);
+        let span = Span::from(span2);
+
+        let msg = "Syntax error".to_string();
+
+        Diagnostic::new_syntax_error(span, msg)
+    }
+}
+
+impl<I> From<(I, VerboseErrorKind)> for Diagnostic
+where
+    Span2: From<I>,
+{
+    fn from((input, _kind): (I, VerboseErrorKind)) -> Self {
         let span2 = Span2::from(input);
         let span = Span::from(span2);
 
