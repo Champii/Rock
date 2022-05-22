@@ -1,8 +1,16 @@
 use super::externs::(*)
 use super::show::show
+use super::eq::(*)
+use super::num::(*)
+
 
 print a = c_puts show a
 
+printl a = c_write 1, a, c_strlen a
+
 _shut_up_warnings =
   print 0
+  printl 0
   _shut_up_warnings()
+
+
