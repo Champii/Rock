@@ -77,7 +77,7 @@ cargo run -- -V
 - Lets create a new project folder to compute some factorials
 
 ``` sh
-mkdir -P factorial/src && cd factorial
+mkdir -p factorial/src && cd factorial
 ```
 
 - Create a `factorial/src/main.rk` file:
@@ -137,9 +137,10 @@ The `id` function here is polymorphic by default, as we don't make any constrain
 If we did something like this  
 `id a = a + a`  
 We would have constrained `a` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
-Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num` 
-`String` is nowhere at its place here, and only implements `+` for string concatenation. Should change in the future with more traits like `Add` in rust
 
+Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num` 
+
+`String` is nowhere at its place here, and only implements `+` for string concatenation. Should change in the future with more traits like `Add` in rust
 
 
 ### Custom infix operator
@@ -158,6 +159,12 @@ rock run
 ```
 
 Prints `6`
+
+You can create any operator that is made of any combination of one or more of `'+', '-', '/', '*', '|', '<', '>', '=', '!', '$', '@', '&'`  
+with an exception of `=` that can only be part of a two char (or more) operator like `!=` or `===>`
+
+Most of the commonly defined operators like `+`, `<=`, etc are already implemented by the [std](https://github.com/Champii/Rock/tree/master/std) that is automaticaly compiled with every package.  
+We plan on providing an option like `--no-std` to allow you to use your own custom implementation. 
 
 ### Trait definition
 
@@ -235,7 +242,7 @@ main = print bar 1
 
 Prints `2`
 
-Note that we could have skip the
+Note that we could have skiped the
 `use foo::bar`
 if we did
 `main = print foo::bar 1` 
