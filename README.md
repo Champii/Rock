@@ -74,13 +74,11 @@ cargo run -- -V
 
 ## Quickstart
 
-Lets create a new project folder to compute some factorials
+- Lets create a new project folder to compute some factorials
 
 ``` sh
 mkdir -p factorial/src && cd factorial
 ```
-
-Add some files like this:
 
 - Create a `factorial/src/main.rk` file:
 
@@ -140,9 +138,8 @@ If we did something like this
 `id a = a + a`  
 We would have constrained `a` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
 
-Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num` 
-
-`String` is nowhere at its place here, and only implements `+` for string concatenation. Should change in the future with more traits like `Add` in rust
+Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`.   
+`String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
 
 ### Custom infix operator
 
@@ -245,7 +242,7 @@ Prints `2`
 
 Note that we could have skiped the
 `use foo::bar`
-if we did
+if we wrote
 `main = print foo::bar 1` 
 
 ## REPL
