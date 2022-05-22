@@ -77,7 +77,7 @@ cargo run -- -V
 - Lets create a new project folder to compute some factorials
 
 ``` sh
-mkdir -p factorial/src && cd factorial
+mkdir -P factorial/src && cd factorial
 ```
 
 - Create a `factorial/src/main.rk` file:
@@ -157,12 +157,6 @@ rock run
 ```
 
 Prints `6`
-
-You can create any operator that is made of any combination of one or more of `'+', '-', '/', '*', '|', '<', '>', '=', '!', '$', '@', '&'`  
-with an exception of `=` that can only be part of a two char (or more) operator like `!=` or `===>`
-
-Most of the commonly defined operators like `+`, `<=`, etc are already implemented by the [std](https://github.com/Champii/Rock/tree/master/std) that is automaticaly compiled with every package.  
-We plan on providing an option like `--no-std` to allow you to use your own custom implementation. 
 
 ### Trait definition
 
