@@ -9,7 +9,7 @@ Rock is highly inspired from Livescript and Rust, and will also borrow (pun inte
 
 No to be taken seriously (yet)
 
-# VTable
+# Index
 - [Features]( #features )
 - [Install]( #install )
     - [Using released binary]( #using-released-binary )
@@ -138,8 +138,16 @@ If we did something like this
 `id a = a + a`  
 We would have constrained `a` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
 
-Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`.   
-`String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
+Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`(*).  
+The output would be  
+
+``` sh
+2
+4.4
+TestTest
+```
+
+(*) `String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
 
 ### Custom infix operator
 
@@ -159,14 +167,13 @@ rock run
 Prints `6`
 
 You can create any operator that is made of any combination of one or more of `'+', '-', '/', '*', '|', '<', '>', '=', '!', '$', '@', '&'`  
-with an exception of `=` that can only be part of a two char (or more) operator like `!=` or `===>`
 
-Most of the commonly defined operators like `+`, `<=`, etc are already implemented by the [std](https://github.com/Champii/Rock/tree/master/std) that is automaticaly compiled with every package.  
+Most of the commonly defined operators like `+`, `<=`, etc are already implemented by the [stdlib](https://github.com/Champii/Rock/tree/master/std) that is automaticaly compiled with every package.  
 There is a `--nostd` option to allow you to use your own custom implementation. 
 
 ### Trait definition
 
-This `trait ToString` is redondant with the `trait Show` implemented in the lib, and serves as a demonstration only
+This `trait ToString` is redondant with the `trait Show` implemented in the stdlib, and serves as a demonstration only
 
 ``` haskell
 trait ToString a
@@ -188,7 +195,7 @@ main =
 rock run
 ```
 
-Prints 
+Prints
 
 ```
 33
