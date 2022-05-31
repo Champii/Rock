@@ -203,7 +203,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 if ident.name == "(*)" {
                     let scope = scopes.scopes.get(0).unwrap();
 
-                    for (k, v) in &scope.items.clone() {
+                    for (k, v) in &scope.clone() {
                         self.add_to_current_scope(k.clone(), v.clone());
                     }
                 } else {

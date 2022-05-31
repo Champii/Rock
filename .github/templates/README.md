@@ -133,7 +133,7 @@ Prints
 Test
 ```
 
-The `id` function here is polymorphic by default, as we don't make any constraint on the type that we should return.  
+The `id` function here is polymorphic by default, as we don't make any constraint on the type that we should take or return.  
 If we did something like this  
 `id a = a + a`  
 We would have constrained `a` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
@@ -162,7 +162,7 @@ You can create any operator that is made of any combination of one or more of `'
 with an exception of `=` that can only be part of a two char (or more) operator like `!=` or `===>`
 
 Most of the commonly defined operators like `+`, `<=`, etc are already implemented by the [std](https://github.com/Champii/Rock/tree/master/std) that is automaticaly compiled with every package.  
-We plan on providing an option like `--no-std` to allow you to use your own custom implementation. 
+There is a `--nostd` option to allow you to use your own custom implementation. 
 
 ### Trait definition
 

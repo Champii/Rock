@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
+pub type Scope<K, T> = HashMap<K, T>;
+
 #[derive(Clone, Debug)]
 pub struct Scopes<K, T>
 where
@@ -32,12 +34,8 @@ where
     }
 
     pub fn get(&self, s: K) -> Option<T> {
-        let mut test = self.scopes.clone();
-        test.reverse();
-        // Here need reverse scopes
-
-        for scope in test {
-            if let Some(res) = scope.items.get(&s) {
+        for scope in self.scopes.iter().rev() {
+            if let Some(res) = scope.get(&s) {
                 return Some(res.clone());
             }
         }
@@ -46,10 +44,7 @@ where
     }
 
     pub fn add(&mut self, s: K, val: T) {
-        // Here need reverse scopes
-        let scope = self.scopes.last_mut().unwrap();
-
-        scope.insert(s, val);
+        self.scopes.last_mut().unwrap().insert(s, val);
     }
 
     pub fn push(&mut self) {
@@ -58,44 +53,6 @@ where
 
     pub fn pop(&mut self) {
         self.scopes.pop();
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Scope<K, T>
-where
-    K: Default + Hash + Eq + Clone,
-    T: Clone,
-{
-    pub ordering: Vec<K>,
-    pub items: HashMap<K, T>,
-}
-
-impl<K, T> Default for Scope<K, T>
-where
-    K: Default + Hash + Eq + Clone,
-    T: Clone,
-{
-    fn default() -> Self {
-        Self {
-            ordering: Default::default(),
-            items: Default::default(),
-        }
-    }
-}
-
-impl<K, T> Scope<K, T>
-where
-    K: Default + Hash + Eq + Clone,
-    T: Clone,
-{
-    pub fn new() -> Scope<K, T> {
-        Default::default()
-    }
-
-    pub fn insert(&mut self, s: K, v: T) {
-        self.items.insert(s.clone(), v);
-        self.ordering.push(s);
     }
 }
 
@@ -115,8 +72,12 @@ mod tests {
 
         scopes.push();
 
-        scopes.add("a", 3);
         scopes.add("b", 4);
+
+        assert_eq!(scopes.get("a").unwrap(), 1);
+        assert_eq!(scopes.get("b").unwrap(), 4);
+
+        scopes.add("a", 3);
 
         assert_eq!(scopes.get("a").unwrap(), 3);
         assert_eq!(scopes.get("b").unwrap(), 4);
