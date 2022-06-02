@@ -475,38 +475,47 @@ impl<'a> CodegenContext<'a> {
 
         let predicat = self.lower_expression(&r#if.predicat, builder)?;
 
-        let (_, then_block) = self.lower_body(&r#if.body, "then", builder)?;
+        let (then_value, then_block) = self.lower_body(&r#if.body, "then", builder)?;
 
-        let else_block = if let Some(e) = &r#if.else_ {
-            let else_block = self.lower_else(e, builder)?;
-
-            else_block
+        let (else_value, else_block) = if let Some(e) = &r#if.else_ {
+            // let else_block = self.lower_else(e, builder)?;
+            self.lower_else(e, builder)?
         } else {
             //new empty block
-            let f = self.module.get_last_function().unwrap();
+            /* let f = self.module.get_last_function().unwrap();
 
-            self.context.append_basic_block(f, "else")
+            self.context.append_basic_block(f, "else") */
+            (then_value, then_block)
         };
 
         // FIXME: Need a last block if the 'if' is not the last statement in the fn body
         // Investigate PHI values
         //
-        // let rest_block = self
-        //     .context
-        //     .append_basic_block(self.module.get_last_function().unwrap(), "rest");
+        let rest_block = self
+            .context
+            .append_basic_block(self.module.get_last_function().unwrap(), "rest");
 
-        // builder.build_unconditional_branch(rest_block);
+        builder.position_at_end(then_block);
+        builder.build_unconditional_branch(rest_block);
 
-        // builder.position_at_end(then_block);
-
-        // builder.build_unconditional_branch(rest_block);
+        if r#if.else_.is_some() {
+            builder.position_at_end(else_block);
+            builder.build_unconditional_branch(rest_block);
+        }
 
         builder.position_at_end(block);
 
         let if_value =
             builder.build_conditional_branch(predicat.into_int_value(), then_block, else_block);
 
-        builder.position_at_end(else_block);
+        builder.position_at_end(rest_block);
+
+        let phi = builder.build_phi(then_value.get_type().into(), "phi");
+
+        phi.add_incoming(&[
+            (&then_value.into(), then_block),
+            (&else_value.into(), else_block),
+        ]);
 
         Ok((if_value.as_any_value_enum(), block))
     }
@@ -515,7 +524,7 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         r#else: &'a Else,
         builder: &'a Builder,
-    ) -> Result<BasicBlock<'a>, ()> {
+    ) -> Result<(AnyValueEnum<'a>, BasicBlock<'a>), ()> {
         Ok(match &r#else {
             Else::If(i) => {
                 let block = self
@@ -524,9 +533,9 @@ impl<'a> CodegenContext<'a> {
 
                 builder.position_at_end(block);
 
-                self.lower_if(i, builder)?.1
+                self.lower_if(i, builder)?
             }
-            Else::Body(b) => self.lower_body(b, "else", builder)?.1,
+            Else::Body(b) => self.lower_body(b, "else", builder)?,
         })
     }
 
