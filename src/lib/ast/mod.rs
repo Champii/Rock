@@ -1,7 +1,6 @@
 #[macro_use]
 pub mod ast_print;
 
-pub mod return_placement;
 pub mod tree;
 pub mod visit;
 

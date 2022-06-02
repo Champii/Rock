@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{return_placement::ReturnInserter, tree::*, NodeId},
+    ast::{tree::*, NodeId},
     hir::{self, Arena, FnBodyId, HirId},
     infer::Envs,
     ty::*,
@@ -210,9 +210,7 @@ impl AstLoweringContext {
         body_id: FnBodyId,
         fn_id: HirId,
     ) -> hir::FnBody {
-        let body = ReturnInserter { body: fn_body }.run();
-
-        let body = self.lower_body(&body);
+        let body = self.lower_body(&fn_body);
 
         hir::FnBody {
             id: body_id,
