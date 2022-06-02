@@ -322,9 +322,17 @@ impl<'a> CodegenContext<'a> {
 
         builder.position_at_end(basic_block);
 
-        let stmt = body
+        let first_return_idx = body
             .stmts
             .iter()
+            .position(|s| s.is_return())
+            .unwrap_or(body.stmts.len());
+
+        let stmts = body.stmts.iter().take(first_return_idx + 1);
+
+        // FIXME: Add warning here for unreachable statements
+
+        let stmt = stmts
             .map(|stmt| self.lower_stmt(stmt, builder))
             .last()
             .unwrap()?;
@@ -545,7 +553,8 @@ impl<'a> CodegenContext<'a> {
             ExpressionKind::Return(expr) => {
                 let val = self.lower_expression(expr, builder)?;
 
-                builder.build_return(Some(&val.as_basic_value_enum()));
+                // This is disabled because this is handled in lower_body
+                // builder.build_return(Some(&val.as_basic_value_enum()));
 
                 val
             }

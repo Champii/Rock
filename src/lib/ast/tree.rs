@@ -469,8 +469,18 @@ impl Expression {
     }
 
     #[allow(dead_code)]
+    pub fn is_return(&self) -> bool {
+        matches!(&self, Expression::Return(_))
+    }
+
+    #[allow(dead_code)]
     pub fn new_unary(unary: UnaryExpr) -> Expression {
         Expression::UnaryExpr(unary)
+    }
+
+    #[allow(dead_code)]
+    pub fn new_return(expr: Expression) -> Expression {
+        Expression::Return(Box::new(expr))
     }
 
     #[allow(dead_code)]

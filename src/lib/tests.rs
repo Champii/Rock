@@ -106,6 +106,10 @@ fn testcases_basic_simple_struct_main() {
     run("testcases/basic/simple_struct/main.rk", include_str!("testcases/basic/simple_struct/main.rk"), include_str!("testcases/basic/simple_struct/main.rk.out"), include_str!("testcases/basic/simple_struct/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_early_return_main() {
+    run("testcases/basic/early_return/main.rk", include_str!("testcases/basic/early_return/main.rk"), include_str!("testcases/basic/early_return/main.rk.out"), include_str!("testcases/basic/early_return/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_bool_false_main() {
     run("testcases/basic/bool_false/main.rk", include_str!("testcases/basic/bool_false/main.rk"), include_str!("testcases/basic/bool_false/main.rk.out"), include_str!("testcases/basic/bool_false/main.rk.stdout"));
 }

@@ -669,6 +669,10 @@ pub fn parse_assign_left_side(input: Parser) -> Res<Parser, AssignLeftSide> {
 pub fn parse_expression(input: Parser) -> Res<Parser, Expression> {
     alt((
         map(
+            preceded(terminated(tag("return"), space1), parse_expression),
+            Expression::new_return,
+        ),
+        map(
             tuple((
                 parse_unary,
                 delimited(space0, parse_operator, space0),
@@ -681,7 +685,6 @@ pub fn parse_expression(input: Parser) -> Res<Parser, Expression> {
         map(parse_native_operator, |(op, id1, id2)| {
             Expression::new_native_operator(op, id1, id2)
         }),
-        // TODO: Return
     ))(input)
 }
 
