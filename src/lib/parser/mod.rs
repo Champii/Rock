@@ -543,12 +543,11 @@ pub fn parse_if(input: Parser) -> Res<Parser, If> {
             parse_identity,
             terminated(tag("if"), space1),
             terminated(parse_expression, space0),
-            many1(line_ending),
-            parse_then,
+            opt(tuple((many0(line_ending), parse_then))),
             parse_body,
             opt(tuple((line_ending, parse_else))),
         )),
-        |(node_id, _if_, cond, _, _, body, else_)| {
+        |(node_id, _if_, cond, _, body, else_)| {
             If::new(node_id, cond, body, else_.map(|(_, else_)| Box::new(else_)))
         },
     )(input.clone())
