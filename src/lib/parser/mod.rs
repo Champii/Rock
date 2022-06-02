@@ -24,6 +24,7 @@ use crate::{
     },
     diagnostics::{Diagnostic, Diagnostics},
     ty::{FuncType, PrimitiveType, StructType, Type},
+    Config,
 };
 
 pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
@@ -118,10 +119,11 @@ pub struct ParserCtx {
     first_indent: Option<usize>,
     next_node_id: NodeId,
     structs: HashMap<String, Type>,
+    pub config: Config,
 }
 
 impl ParserCtx {
-    pub fn new(file_path: PathBuf) -> Self {
+    pub fn new(file_path: PathBuf, config: Config) -> Self {
         Self {
             files: HashMap::new(),
             cur_file_path: file_path,
@@ -132,11 +134,16 @@ impl ParserCtx {
             next_node_id: 0,
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
+            config,
         }
     }
 
     #[cfg(test)]
-    pub fn new_with_operators(file_path: PathBuf, operators: HashMap<String, u8>) -> Self {
+    pub fn new_with_operators(
+        file_path: PathBuf,
+        operators: HashMap<String, u8>,
+        config: Config,
+    ) -> Self {
         Self {
             files: HashMap::new(),
             cur_file_path: file_path,
@@ -147,10 +154,11 @@ impl ParserCtx {
             next_node_id: 0,
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
+            config,
         }
     }
 
-    pub fn new_from(&self, name: &str) -> Self {
+    pub fn new_from(&self, name: &str, config: Config) -> Self {
         Self {
             files: HashMap::new(),
             cur_file_path: self
@@ -165,10 +173,11 @@ impl ParserCtx {
             next_node_id: self.next_node_id,
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(), // FIXME
+            config,
         }
     }
 
-    pub fn new_std(&self) -> Self {
+    pub fn new_std(&self, config: Config) -> Self {
         Self {
             files: HashMap::new(),
             cur_file_path: PathBuf::from("/std/src/lib.rk"),
@@ -179,6 +188,7 @@ impl ParserCtx {
             next_node_id: self.next_node_id,
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
+            config,
         }
     }
 
@@ -265,18 +275,27 @@ pub fn parse_eol(input: Parser) -> Res<Parser, ()> {
 }
 
 pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
+    let config = input.extra.config.clone();
+
     let (mut input, mod_name) = preceded(terminated(tag("mod"), space1), parse_identifier)(input)?;
 
     let mut new_ctx = if mod_name.name == "std" {
-        input.extra.new_std()
+        input.extra.new_std(config.clone())
     } else {
-        input.extra.new_from(&mod_name.name)
+        input.extra.new_from(&mod_name.name, config.clone())
     };
 
     let file_path = new_ctx.current_file_path().to_str().unwrap().to_string();
 
-    let file = SourceFile::from_file(file_path).unwrap(); // FIXME: ERRORS ARE swallowed HERE
-                                                          //
+    let mut file = SourceFile::from_file(file_path.clone()).unwrap(); // FIXME: ERRORS ARE swallowed HERE
+                                                                      //
+
+    if config.std {
+        if STDLIB_FILES.get(&file_path).is_none() {
+            file.content = "use root::std::prelude::(*)\n".to_owned() + &file.content;
+        }
+    }
+
     new_ctx
         .files
         .insert(new_ctx.current_file_path().clone(), file.clone());
@@ -1069,7 +1088,10 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
 
     let mut parser = LocatedSpan::new_extra(
         content.as_str(),
-        ParserCtx::new(parsing_ctx.get_current_file().file_path.clone()),
+        ParserCtx::new(
+            parsing_ctx.get_current_file().file_path.clone(),
+            parsing_ctx.config.clone(),
+        ),
     );
 
     parser.extra.files.insert(
