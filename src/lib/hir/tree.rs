@@ -337,6 +337,13 @@ impl Statement {
             StatementKind::For(f) => f.get_hir_id(),
         }
     }
+
+    pub fn is_return(&self) -> bool {
+        match &*self.kind {
+            StatementKind::Expression(expr) => expr.is_return(),
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -514,6 +521,14 @@ impl Expression {
             l.clone()
         } else {
             panic!("Not a literal");
+        }
+    }
+
+    pub fn is_return(&self) -> bool {
+        if let ExpressionKind::Return(_) = &*self.kind {
+            true
+        } else {
+            false
         }
     }
 }
