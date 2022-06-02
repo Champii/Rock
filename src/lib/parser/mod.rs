@@ -542,8 +542,8 @@ pub fn parse_if(input: Parser) -> Res<Parser, If> {
         tuple((
             parse_identity,
             terminated(tag("if"), space1),
-            terminated(parse_expression, space0),
-            opt(tuple((many0(line_ending), parse_then))),
+            parse_expression,
+            opt(preceded(many1(line_ending), parse_then_multi)),
             parse_body,
             opt(tuple((line_ending, parse_else))),
         )),
@@ -553,7 +553,7 @@ pub fn parse_if(input: Parser) -> Res<Parser, If> {
     )(input.clone())
 }
 
-pub fn parse_then(input: Parser) -> Res<Parser, ()> {
+pub fn parse_then_multi(input: Parser) -> Res<Parser, ()> {
     // NOTE: This is a tweek for then block that are at indent 0 (i.e. in the test files)
     let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
         parse_block_indent(input)?

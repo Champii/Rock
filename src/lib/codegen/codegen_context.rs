@@ -509,11 +509,17 @@ impl<'a> CodegenContext<'a> {
 
         builder.position_at_end(rest_block);
 
-        let phi = builder.build_phi(then_value.get_type(), "phi");
+        let last = if r#if.else_.is_some() {
+            let phi = builder.build_phi(then_value.get_type(), "phi");
 
-        phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
+            phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
 
-        Ok((phi.as_basic_value(), block))
+            phi.as_basic_value()
+        } else {
+            then_value
+        };
+
+        Ok((last, block))
     }
 
     pub fn lower_else(
