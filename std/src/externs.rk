@@ -10,8 +10,8 @@ c_strcat dest src = strcat dest, src
 extern strcpy :: String -> String -> String
 c_strcpy dest src = strcpy dest, src
 
-extern strncpy :: String -> String -> Int64 -> String
-c_strncpy dest src len = strncpy dest, src, len
+#extern strncpy :: String -> String -> Int64 -> String
+#c_strncpy dest src len = strncpy dest, src, len
 
 extern sprintf :: String -> String -> Int64 -> Int64
 c_sprintf dest format i = sprintf dest, format, i

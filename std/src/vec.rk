@@ -15,27 +15,20 @@ new_vec =
     cap: 1
     len: 0
 
-
 use super::num::(*)
 use super::eq::(*)
 
 realloc_vec v =
   let orig_data = v.data
-
   v.cap = v.cap * 2
-
   v.data = c_malloc (v.cap * 4)
-
   c_memcpy v.data, orig_data
-
   0
 
 push_vec v item =
   let d = v.data
   d[v.len] = item
-
   v.len = v.len + 1
-
   if v.len == v.cap
   then realloc_vec v
   else 0
@@ -46,3 +39,4 @@ _shut_up_warnings =
   push_vec 0, 0
   realloc_vec 0
   _shut_up_warnings()
+
