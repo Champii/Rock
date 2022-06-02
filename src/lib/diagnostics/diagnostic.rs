@@ -8,7 +8,7 @@ use crate::{
     ty::{FuncType, Type},
 };
 use colored::*;
-use nom::error::VerboseError;
+use nom::error::{VerboseError, VerboseErrorKind};
 
 #[derive(Clone, Debug)]
 pub struct Diagnostic {
@@ -128,12 +128,15 @@ impl Diagnostic {
 
         arrow.push('^');
 
-        let mut i = 0;
+        // FIXME: some span don't have txt
+        if self.span.end - self.span.start > 0 {
+            let mut i = 0;
 
-        while i < self.span.end - self.span.start {
-            arrow.push('~');
+            while i < self.span.end - self.span.start - 1 {
+                arrow.push('~');
 
-            i += 1;
+                i += 1;
+            }
         }
 
         let diag_type_str = match diag_type {
@@ -289,6 +292,20 @@ impl<'a> From<VerboseError<Parser<'a>>> for Diagnostic {
     fn from(err: VerboseError<Parser<'a>>) -> Self {
         let (input, _kind) = err.errors.into_iter().next().unwrap();
 
+        let span2 = Span2::from(input);
+        let span = Span::from(span2);
+
+        let msg = "Syntax error".to_string();
+
+        Diagnostic::new_syntax_error(span, msg)
+    }
+}
+
+impl<I> From<(I, VerboseErrorKind)> for Diagnostic
+where
+    Span2: From<I>,
+{
+    fn from((input, _kind): (I, VerboseErrorKind)) -> Self {
         let span2 = Span2::from(input);
         let span = Span::from(span2);
 

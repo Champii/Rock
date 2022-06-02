@@ -194,7 +194,11 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
             panic!("Unimplemented");
         }
 
-        let mut mod_path = r#use.path.parent().prepend_mod(self.cur_scope.clone());
+        let mut mod_path = if r#use.path.has_root() {
+            r#use.path.parent()
+        } else {
+            r#use.path.parent().prepend_mod(self.cur_scope.clone())
+        };
 
         mod_path.resolve_supers();
 
@@ -203,7 +207,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 if ident.name == "(*)" {
                     let scope = scopes.scopes.get(0).unwrap();
 
-                    for (k, v) in &scope.items.clone() {
+                    for (k, v) in &scope.clone() {
                         self.add_to_current_scope(k.clone(), v.clone());
                     }
                 } else {

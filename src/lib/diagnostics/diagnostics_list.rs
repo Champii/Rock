@@ -1,6 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::parser::SourceFile;
+use nom::error::VerboseError;
+
+use crate::parser::{Parser, SourceFile};
 
 use super::Diagnostic;
 
@@ -40,6 +42,7 @@ impl Diagnostics {
             let input = match files.get(&diag.span.file_path) {
                 Some(input) => input,
                 None => {
+                    println!("DIAG FILE {:#?}", diag.span.file_path);
                     warn!("Diagnostic has been silenced because the file is not found");
 
                     continue;
@@ -54,5 +57,35 @@ impl Diagnostics {
         self.list.extend(other.list);
         self.list_types.extend(other.list_types);
         self.must_stop = self.must_stop || other.must_stop;
+    }
+}
+
+impl<'a> From<VerboseError<Parser<'a>>> for Diagnostics {
+    fn from(err: VerboseError<Parser<'a>>) -> Self {
+        let mut diags = err
+            .errors
+            .clone()
+            .into_iter()
+            .take(1)
+            .map(Diagnostic::from)
+            .collect::<Vec<_>>();
+
+        let diags2 = err
+            .errors
+            .into_iter()
+            .take(1)
+            .map(|(input, _kind)| input.extra.diagnostics().list)
+            .flatten()
+            .collect::<Vec<_>>();
+
+        diags.extend(diags2);
+
+        let mut list = Diagnostics::default();
+
+        for diag in diags {
+            list.push_error(diag);
+        }
+
+        list
     }
 }

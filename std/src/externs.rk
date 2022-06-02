@@ -10,8 +10,14 @@ c_strcat dest src = strcat dest, src
 extern strcpy :: String -> String -> String
 c_strcpy dest src = strcpy dest, src
 
+#extern strncpy :: String -> String -> Int64 -> String
+#c_strncpy dest src len = strncpy dest, src, len
+
 extern sprintf :: String -> String -> Int64 -> Int64
 c_sprintf dest format i = sprintf dest, format, i
+
+extern strcmp :: String -> String -> Int64
+c_strcmp src dest = strcmp src, dest
 
 extern gcvt :: Float64 -> Int64 -> String -> String -> String
 c_gcvt float digits unused1 unused2 = gcvt float, digits, unused1, unused2
@@ -35,3 +41,6 @@ c_strtol octal_str unused base = strtol octal_str, unused, base
 
 extern read :: Int64 -> String -> Int64 -> Int64
 c_read fd buf len = read fd, buf, len
+
+extern write :: Int64 -> String -> Int64 -> Int64
+c_write fd buf len = write fd, buf, len

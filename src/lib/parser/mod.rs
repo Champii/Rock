@@ -8,7 +8,7 @@ use nom::{
     bytes::complete::{tag, take_while},
     character::complete::{alphanumeric0, char, line_ending, one_of, satisfy, space0, space1},
     combinator::{eof, map, opt, peek, recognize},
-    error::{make_error, ErrorKind, ParseError, VerboseError},
+    error::{make_error, ErrorKind, FromExternalError, ParseError, VerboseError},
     error_position,
     multi::{many0, many1, separated_list0, separated_list1},
     sequence::{delimited, preceded, terminated, tuple},
@@ -22,8 +22,9 @@ use crate::{
         tree::{self, *},
         NodeId,
     },
-    diagnostics::Diagnostic,
+    diagnostics::{Diagnostic, Diagnostics},
     ty::{FuncType, PrimitiveType, StructType, Type},
+    Config,
 };
 
 pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
@@ -110,6 +111,7 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct ParserCtx {
     files: HashMap<PathBuf, SourceFile>,
+    diagnostics: Diagnostics,
     cur_file_path: PathBuf,
     identities: BTreeMap<NodeId, Span>,
     operators_list: HashMap<String, u8>,
@@ -117,10 +119,11 @@ pub struct ParserCtx {
     first_indent: Option<usize>,
     next_node_id: NodeId,
     structs: HashMap<String, Type>,
+    pub config: Config,
 }
 
 impl ParserCtx {
-    pub fn new(file_path: PathBuf) -> Self {
+    pub fn new(file_path: PathBuf, config: Config) -> Self {
         Self {
             files: HashMap::new(),
             cur_file_path: file_path,
@@ -130,11 +133,17 @@ impl ParserCtx {
             first_indent: None,
             next_node_id: 0,
             structs: HashMap::new(),
+            diagnostics: Diagnostics::default(),
+            config,
         }
     }
 
     #[cfg(test)]
-    pub fn new_with_operators(file_path: PathBuf, operators: HashMap<String, u8>) -> Self {
+    pub fn new_with_operators(
+        file_path: PathBuf,
+        operators: HashMap<String, u8>,
+        config: Config,
+    ) -> Self {
         Self {
             files: HashMap::new(),
             cur_file_path: file_path,
@@ -144,10 +153,12 @@ impl ParserCtx {
             first_indent: None,
             next_node_id: 0,
             structs: HashMap::new(),
+            diagnostics: Diagnostics::default(),
+            config,
         }
     }
 
-    pub fn new_from(&self, name: &str) -> Self {
+    pub fn new_from(&self, name: &str, config: Config) -> Self {
         Self {
             files: HashMap::new(),
             cur_file_path: self
@@ -161,10 +172,12 @@ impl ParserCtx {
             first_indent: None,
             next_node_id: self.next_node_id,
             structs: HashMap::new(),
+            diagnostics: Diagnostics::default(), // FIXME
+            config,
         }
     }
 
-    pub fn new_std(&self) -> Self {
+    pub fn new_std(&self, config: Config) -> Self {
         Self {
             files: HashMap::new(),
             cur_file_path: PathBuf::from("/std/src/lib.rk"),
@@ -174,6 +187,8 @@ impl ParserCtx {
             first_indent: None,
             next_node_id: self.next_node_id,
             structs: HashMap::new(),
+            diagnostics: Diagnostics::default(),
+            config,
         }
     }
 
@@ -209,6 +224,10 @@ impl ParserCtx {
 
     pub fn files(&self) -> HashMap<PathBuf, SourceFile> {
         self.files.clone()
+    }
+
+    pub fn diagnostics(&self) -> Diagnostics {
+        self.diagnostics.clone()
     }
 }
 
@@ -256,29 +275,54 @@ pub fn parse_eol(input: Parser) -> Res<Parser, ()> {
 }
 
 pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
+    let config = input.extra.config.clone();
+
     let (mut input, mod_name) = preceded(terminated(tag("mod"), space1), parse_identifier)(input)?;
 
     let mut new_ctx = if mod_name.name == "std" {
-        input.extra.new_std()
+        input.extra.new_std(config.clone())
     } else {
-        input.extra.new_from(&mod_name.name)
+        input.extra.new_from(&mod_name.name, config.clone())
     };
 
     let file_path = new_ctx.current_file_path().to_str().unwrap().to_string();
 
-    let file = SourceFile::from_file(file_path).unwrap(); // FIXME: ERRORS ARE swallowed HERE
-                                                          //
+    let mut file = SourceFile::from_file(file_path.clone()).unwrap(); // FIXME: ERRORS ARE swallowed HERE
+                                                                      //
+
+    if config.std {
+        if STDLIB_FILES.get(&file_path).is_none() {
+            file.content = "use root::std::prelude::(*)\n".to_owned() + &file.content;
+        }
+    }
+
     new_ctx
         .files
         .insert(new_ctx.current_file_path().clone(), file.clone());
 
-    let content = &file.content;
-
-    let new_parser = Parser::new_extra(content, new_ctx);
+    let new_parser = Parser::new_extra(&file.content, new_ctx);
 
     use nom::Finish;
-    // FIXME: Errors are swallowed here
-    let (input2, mod_) = parse_mod(new_parser).finish().unwrap();
+
+    let parsed_mod_opt = parse_mod(new_parser.clone()).finish();
+
+    let (input2, mod_) = match parsed_mod_opt {
+        Ok((input2, mod_)) => (input2, mod_),
+        Err(err) => {
+            input
+                .extra
+                .diagnostics
+                .append(Diagnostics::from(err.clone()));
+            input.extra.identities.extend(new_parser.extra.identities);
+            input.extra.files.extend(new_parser.extra.files);
+
+            return Err(nom::Err::Error(VerboseError::from_external_error(
+                input,
+                ErrorKind::Fail,
+                err.to_owned(),
+            )));
+        }
+    };
 
     // hydrate `input` with the new parser's operators
     // TODO: handle duplicate operators
@@ -287,9 +331,11 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
         .operators_list
         .extend(input2.extra.operators_list);
 
+    input.extra.diagnostics.append(input2.extra.diagnostics);
+
     // extend identities
-    input.extra.identities.extend(input2.extra.identities);
     input.extra.next_node_id = input2.extra.next_node_id;
+    input.extra.identities.extend(input2.extra.identities);
     input.extra.files.extend(input2.extra.files);
 
     Ok((input, (mod_name, mod_)))
@@ -1035,21 +1081,22 @@ pub fn allowed_operator_chars(input: Parser) -> Res<Parser, String> {
     Ok((input, c.to_string()))
 }
 
-// FIXME: put std bool into config
 pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
     use nom::Finish;
 
     let content = &parsing_ctx.get_current_file().content;
 
-    let content = if parsing_ctx.config.std {
-        "mod std\nuse std::prelude::(*)\n".to_owned() + content
-    } else {
-        content.clone()
-    };
-
-    let parser = LocatedSpan::new_extra(
+    let mut parser = LocatedSpan::new_extra(
         content.as_str(),
-        ParserCtx::new(parsing_ctx.get_current_file().file_path.clone()),
+        ParserCtx::new(
+            parsing_ctx.get_current_file().file_path.clone(),
+            parsing_ctx.config.clone(),
+        ),
+    );
+
+    parser.extra.files.insert(
+        parsing_ctx.get_current_file().file_path.clone(),
+        parsing_ctx.get_current_file().clone(),
     );
 
     let ast = parse_root(parser).finish();
@@ -1057,7 +1104,7 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
     let ast = match ast {
         Ok((ctx, mut ast)) => {
             parsing_ctx.identities = ctx.extra.identities();
-            parsing_ctx.files = ctx.extra.files();
+            parsing_ctx.files.extend(ctx.extra.files());
 
             ast.operators_list = ctx.extra.operators_list();
             ast.spans = ctx.extra.identities().into_iter().collect();
@@ -1070,11 +1117,19 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
             Ok(ast)
         }
         Err(e) => {
-            let diagnostic = Diagnostic::from(e);
+            parsing_ctx
+                .files
+                .extend(e.errors.get(0).unwrap().clone().0.extra.files());
 
-            parsing_ctx.diagnostics.push_error(diagnostic.clone());
+            let diagnostics = Diagnostics::from(e);
 
-            Err(diagnostic)
+            parsing_ctx.diagnostics.append(diagnostics);
+
+            // parsing_ctx.identities = ast.extra.identities();
+
+            parsing_ctx.return_if_error()?;
+
+            Err(parsing_ctx.diagnostics.list.get(0).unwrap().clone())
         }
     }?;
 

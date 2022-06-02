@@ -8,7 +8,7 @@ use inkwell::{
     passes::{PassManager, PassManagerBuilder},
     targets::{InitializationConfig, Target},
     types::{BasicType, BasicTypeEnum},
-    values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, CallableValue, FunctionValue},
+    values::{BasicValue, BasicValueEnum, CallableValue, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
     OptimizationLevel::Aggressive,
 };
@@ -300,7 +300,9 @@ impl<'a> CodegenContext<'a> {
                 self.scopes.add(arg.name.hir_id.clone(), param);
             }
 
-            self.lower_body(&fn_body.body, "entry", builder)?;
+            let (last, _) = self.lower_body(&fn_body.body, "entry", builder)?;
+
+            builder.build_return(Some(&last));
         } else {
             panic!("Cannot find function {:?}", top_f.get_name());
         }
@@ -313,7 +315,7 @@ impl<'a> CodegenContext<'a> {
         body: &'a Body,
         name: &str,
         builder: &'a Builder,
-    ) -> Result<(AnyValueEnum<'a>, BasicBlock<'a>), ()> {
+    ) -> Result<(BasicValueEnum<'a>, BasicBlock<'a>), ()> {
         let basic_block = self
             .context
             .append_basic_block(self.cur_func.unwrap(), name);
@@ -334,9 +336,9 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         stmt: &'a Statement,
         builder: &'a Builder,
-    ) -> Result<AnyValueEnum<'a>, ()> {
+    ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &*stmt.kind {
-            StatementKind::Expression(e) => self.lower_expression(e, builder)?.as_any_value_enum(),
+            StatementKind::Expression(e) => self.lower_expression(e, builder)?,
             StatementKind::If(e) => self.lower_if(e, builder)?.0,
             StatementKind::Assign(a) => self.lower_assign(a, builder)?,
             StatementKind::For(f) => self.lower_for(f, builder)?,
@@ -347,7 +349,7 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         for_loop: &'a For,
         builder: &'a Builder,
-    ) -> Result<AnyValueEnum<'a>, ()> {
+    ) -> Result<BasicValueEnum<'a>, ()> {
         match &for_loop {
             For::In(i) => self.lower_for_in(i, builder),
             For::While(w) => self.lower_while(w, builder),
@@ -358,7 +360,7 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         for_in: &'a ForIn,
         builder: &'a Builder,
-    ) -> Result<AnyValueEnum<'a>, ()> {
+    ) -> Result<BasicValueEnum<'a>, ()> {
         let block = builder.get_insert_block().unwrap();
         let cur_f = block.get_parent().unwrap();
 
@@ -383,7 +385,7 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         while_loop: &'a While,
         builder: &'a Builder,
-    ) -> Result<AnyValueEnum<'a>, ()> {
+    ) -> Result<BasicValueEnum<'a>, ()> {
         let block = builder.get_insert_block().unwrap();
         let cur_f = block.get_parent().unwrap();
 
@@ -408,7 +410,7 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         assign: &'a Assign,
         builder: &'a Builder,
-    ) -> Result<AnyValueEnum<'a>, ()> {
+    ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &assign.name {
             AssignLeftSide::Identifier(id) => {
                 let value = self.lower_expression(&assign.value, builder)?;
@@ -441,7 +443,7 @@ impl<'a> CodegenContext<'a> {
 
                 self.scopes.add(id.get_hir_id(), val);
 
-                val.as_any_value_enum()
+                val
             }
             AssignLeftSide::Indice(indice) => {
                 let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
@@ -450,7 +452,7 @@ impl<'a> CodegenContext<'a> {
 
                 builder.build_store(ptr, value);
 
-                ptr.as_any_value_enum()
+                ptr.as_basic_value_enum()
             }
             AssignLeftSide::Dot(dot) => {
                 let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
@@ -459,7 +461,7 @@ impl<'a> CodegenContext<'a> {
 
                 builder.build_store(ptr, value);
 
-                ptr.as_any_value_enum()
+                ptr.as_basic_value_enum()
             }
         })
     }
@@ -468,54 +470,49 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         r#if: &'a If,
         builder: &'a Builder,
-    ) -> Result<(AnyValueEnum<'a>, BasicBlock<'a>), ()> {
+    ) -> Result<(BasicValueEnum<'a>, BasicBlock<'a>), ()> {
         let block = builder.get_insert_block().unwrap();
 
         builder.position_at_end(block);
 
         let predicat = self.lower_expression(&r#if.predicat, builder)?;
 
-        let (_, then_block) = self.lower_body(&r#if.body, "then", builder)?;
+        let (then_value, then_block) = self.lower_body(&r#if.body, "then", builder)?;
 
-        let else_block = if let Some(e) = &r#if.else_ {
-            let else_block = self.lower_else(e, builder)?;
-
-            else_block
+        let (else_value, else_block) = if let Some(e) = &r#if.else_ {
+            self.lower_else(e, builder)?
         } else {
-            //new empty block
-            let f = self.module.get_last_function().unwrap();
-
-            self.context.append_basic_block(f, "else")
+            (then_value, then_block)
         };
 
-        // FIXME: Need a last block if the 'if' is not the last statement in the fn body
-        // Investigate PHI values
-        //
-        // let rest_block = self
-        //     .context
-        //     .append_basic_block(self.module.get_last_function().unwrap(), "rest");
+        let rest_block = self.context.insert_basic_block_after(else_block, "rest");
 
-        // builder.build_unconditional_branch(rest_block);
+        builder.position_at_end(then_block);
+        builder.build_unconditional_branch(rest_block);
 
-        // builder.position_at_end(then_block);
-
-        // builder.build_unconditional_branch(rest_block);
+        if r#if.else_.is_some() {
+            builder.position_at_end(else_block);
+            builder.build_unconditional_branch(rest_block);
+        }
 
         builder.position_at_end(block);
 
-        let if_value =
-            builder.build_conditional_branch(predicat.into_int_value(), then_block, else_block);
+        builder.build_conditional_branch(predicat.into_int_value(), then_block, else_block);
 
-        builder.position_at_end(else_block);
+        builder.position_at_end(rest_block);
 
-        Ok((if_value.as_any_value_enum(), block))
+        let phi = builder.build_phi(then_value.get_type(), "phi");
+
+        phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
+
+        Ok((phi.as_basic_value(), block))
     }
 
     pub fn lower_else(
         &mut self,
         r#else: &'a Else,
         builder: &'a Builder,
-    ) -> Result<BasicBlock<'a>, ()> {
+    ) -> Result<(BasicValueEnum<'a>, BasicBlock<'a>), ()> {
         Ok(match &r#else {
             Else::If(i) => {
                 let block = self
@@ -524,9 +521,9 @@ impl<'a> CodegenContext<'a> {
 
                 builder.position_at_end(block);
 
-                self.lower_if(i, builder)?.1
+                self.lower_if(i, builder)?
             }
-            Else::Body(b) => self.lower_body(b, "else", builder)?.1,
+            Else::Body(b) => self.lower_body(b, "else", builder)?,
         })
     }
 

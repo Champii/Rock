@@ -1,6 +1,6 @@
-# Rock v0.2.1
+# Rock v0.2.2
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=-)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -9,7 +9,7 @@ Rock is highly inspired from Livescript and Rust, and will also borrow (pun inte
 
 No to be taken seriously (yet)
 
-# VTable
+# Index
 - [Features]( #features )
 - [Install]( #install )
     - [Using released binary]( #using-released-binary )
@@ -45,10 +45,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.1](https://github.com/Champii/Rock/releases/download/v0.2.1/rock) (Tested on arch, btw)
+[Rock v0.2.2](https://github.com/Champii/Rock/releases/download/v0.2.2/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.1/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.2/rock
 chmod +x rock
 ./rock -V
 ```
@@ -74,13 +74,11 @@ cargo run -- -V
 
 ## Quickstart
 
-Lets create a new project folder to compute some factorials
+- Lets create a new project folder to compute some factorials
 
 ``` sh
-mkdir -P factorial/src && cd factorial
+mkdir -p factorial/src && cd factorial
 ```
-
-Add some files like this:
 
 - Create a `factorial/src/main.rk` file:
 
@@ -135,6 +133,22 @@ Prints
 Test
 ```
 
+The `id` function here is polymorphic by default, as we don't make any constraint on the type that we should take or return.  
+If we did something like this  
+`id a = a + a`  
+We would have constrained `a` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
+
+Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`(*).  
+The output would be  
+
+``` sh
+2
+4.4
+TestTest
+```
+
+(*) `String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
+
 ### Custom infix operator
 
 ``` haskell
@@ -152,9 +166,14 @@ rock run
 
 Prints `6`
 
+You can create any operator that is made of any combination of one or more of `'+', '-', '/', '*', '|', '<', '>', '=', '!', '$', '@', '&'`  
+
+Most of the commonly defined operators like `+`, `<=`, etc are already implemented by the [stdlib](https://github.com/Champii/Rock/tree/master/std) that is automaticaly compiled with every package.  
+There is a `--nostd` option to allow you to use your own custom implementation. 
+
 ### Trait definition
 
-This `trait ToString` is redondant with the `trait Show` implemented in the lib, and serves as a demonstration only
+This `trait ToString` is redondant with the `trait Show` implemented in the stdlib, and serves as a demonstration only
 
 ``` haskell
 trait ToString a
@@ -176,7 +195,7 @@ main =
 rock run
 ```
 
-Prints 
+Prints
 
 ```
 33
@@ -208,6 +227,31 @@ rock run
 
 Prints `MyName`
 
+### Modules and code separation
+
+- `./myproj/src/foo.rk`
+
+```haskell
+bar a = a + 1
+```
+
+- `./myproj/src/main.rk`
+
+```haskell
+mod foo
+
+use foo::bar
+
+main = print bar 1
+```
+
+Prints `2`
+
+Note that we could have skiped the
+`use foo::bar`
+if we wrote
+`main = print foo::bar 1` 
+
 ## REPL
 
 Only supports basic expressions for now.
@@ -228,7 +272,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.1
+Rock: v0.2.2
 ----
 
 Type ':?' for help

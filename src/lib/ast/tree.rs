@@ -198,9 +198,13 @@ impl IdentifierPath {
         Self {
             path: vec![Identifier {
                 name: "root".to_string(),
-                node_id: 42, // FIXME: should have a valid node_id ?
+                node_id: 0, // FIXME: should have a valid node_id ?
             }],
         }
+    }
+
+    pub fn has_root(&self) -> bool {
+        self.path.len() > 0 && self.path[0].name == "root"
     }
 
     pub fn parent(&self) -> Self {
