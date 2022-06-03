@@ -422,12 +422,48 @@ impl If {
             else_,
         }
     }
+
+    pub fn get_flat(&self) -> Vec<(NodeId, Expression, Body)> {
+        let mut res = vec![];
+
+        res.push((self.node_id, self.predicat.clone(), self.body.clone()));
+
+        if let Some(else_) = &self.else_ {
+            res.extend(else_.get_flat());
+        }
+
+        res
+    }
+
+    pub fn last_else(&self) -> Option<&Body> {
+        if let Some(else_) = &self.else_ {
+            else_.last_else()
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum Else {
     If(If),
     Body(Body),
+}
+
+impl Else {
+    pub fn get_flat(&self) -> Vec<(NodeId, Expression, Body)> {
+        match self {
+            Else::If(if_) => if_.get_flat(),
+            Else::Body(_body) => vec![],
+        }
+    }
+
+    pub fn last_else(&self) -> Option<&Body> {
+        match self {
+            Else::If(if_) => if_.last_else(),
+            Else::Body(body) => Some(body),
+        }
+    }
 }
 
 impl Expression {

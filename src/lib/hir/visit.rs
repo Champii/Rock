@@ -43,8 +43,8 @@ generate_visitor_trait!(
     ForIn
     While
     Expression
+    IfChain
     If
-    Else
     FunctionCall
     StructCtor
     Indice
@@ -153,7 +153,7 @@ pub fn walk_statement<'a, V: Visitor<'a>>(visitor: &mut V, statement: &'a Statem
     match statement.kind.as_ref() {
         StatementKind::Expression(expr) => visitor.visit_expression(expr),
         StatementKind::Assign(assign) => visitor.visit_assign(assign),
-        StatementKind::If(expr) => visitor.visit_if(expr),
+        StatementKind::If(expr) => visitor.visit_if_chain(expr),
         StatementKind::For(for_loop) => visitor.visit_for(for_loop),
     }
 }
@@ -233,20 +233,17 @@ pub fn walk_native_operator<'a, V: Visitor<'a>>(visitor: &mut V, operator: &'a N
     visitor.visit_primitive(operator.kind.clone());
 }
 
-pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {
-    visitor.visit_expression(&r#if.predicat);
-    visitor.visit_body(&r#if.body);
+pub fn walk_if_chain<'a, V: Visitor<'a>>(visitor: &mut V, if_chain: &'a IfChain) {
+    walk_list!(visitor, visit_if, &if_chain.ifs);
 
-    if let Some(r#else) = &r#if.else_ {
-        visitor.visit_else(r#else);
+    if let Some(body) = &if_chain.else_body {
+        visitor.visit_body(body);
     }
 }
 
-pub fn walk_else<'a, V: Visitor<'a>>(visitor: &mut V, r#else: &'a Else) {
-    match r#else {
-        Else::If(expr) => visitor.visit_if(expr),
-        Else::Body(expr) => visitor.visit_body(expr),
-    }
+pub fn walk_if<'a, V: Visitor<'a>>(visitor: &mut V, r#if: &'a If) {
+    visitor.visit_expression(&r#if.predicat);
+    visitor.visit_body(&r#if.body);
 }
 
 pub fn walk_type<'a, V: Visitor<'a>>(_visitor: &mut V, _t: &'a Type) {

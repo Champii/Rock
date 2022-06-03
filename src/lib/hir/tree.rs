@@ -350,7 +350,7 @@ impl Statement {
 pub enum StatementKind {
     Expression(Expression),
     Assign(Assign),
-    If(If),
+    If(IfChain),
     For(For),
 }
 
@@ -425,26 +425,21 @@ impl Assign {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IfChain {
+    pub ifs: Vec<If>,
+    pub else_body: Option<Body>,
+}
+
+impl IfChain {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.ifs.iter().last().unwrap().get_hir_id()
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct If {
     pub hir_id: HirId,
     pub predicat: Expression,
     pub body: Body,
-    pub else_: Option<Box<Else>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Else {
-    If(If),
-    Body(Body),
-}
-
-impl Else {
-    pub fn get_terminal_hir_id(&self) -> HirId {
-        match self {
-            Else::If(i) => i.get_hir_id(),
-            Else::Body(b) => b.get_hir_id(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -9,4 +9,4 @@ recur a =
     then a
     else recur (a - 1)
 
-main = recur 1
+main = recur 2
