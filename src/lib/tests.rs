@@ -186,6 +186,10 @@ fn testcases_basic_dot_assign_main() {
     run("testcases/basic/dot_assign/main.rk", include_str!("testcases/basic/dot_assign/main.rk"), include_str!("testcases/basic/dot_assign/main.rk.out"), include_str!("testcases/basic/dot_assign/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_struct_impl_main() {
+    run("testcases/basic/struct_impl/main.rk", include_str!("testcases/basic/struct_impl/main.rk"), include_str!("testcases/basic/struct_impl/main.rk.out"), include_str!("testcases/basic/struct_impl/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_recur_main() {
     run("testcases/basic/recur/main.rk", include_str!("testcases/basic/recur/main.rk"), include_str!("testcases/basic/recur/main.rk.out"), include_str!("testcases/basic/recur/main.rk.stdout"));
 }

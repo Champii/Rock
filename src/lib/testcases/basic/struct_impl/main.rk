@@ -1,0 +1,13 @@
+struct Foo
+  bar :: Int64
+  toto :: String
+
+impl Foo
+  new a =
+    Foo
+      bar: a
+      toto: "Default"
+
+main =
+  let foo = new 42
+  foo.bar
