@@ -1,6 +1,6 @@
-# Rock v0.2.3-develop
+# Rock v0.2.3-impl-struct
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=impl_struct)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -45,10 +45,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.3-develop](https://github.com/Champii/Rock/releases/download/v0.2.3-develop/rock) (Tested on arch, btw)
+[Rock v0.2.3-impl-struct](https://github.com/Champii/Rock/releases/download/v0.2.3-impl-struct/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.3-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.3-impl-struct/rock
 chmod +x rock
 ./rock -V
 ```
@@ -272,7 +272,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.3-develop
+Rock: v0.2.3-impl-struct
 ----
 
 Type ':?' for help
