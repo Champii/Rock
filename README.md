@@ -20,6 +20,10 @@ No to be taken seriously (yet)
     - [Polymorphic function]( #polymorphic-function )
     - [Custom infix operator]( #custom-infix-operator )
     - [Trait definition]( #trait-definition )
+    - [Struct instance and methods]( #struct-instance-and-methods )
+    - [Show implementation]( #show-implementation )
+    - [Modules and code separation]( #modules-and-code-separation )
+Struct instance and methods 
 - [REPL]( #repl )
 - [Development notes]( #development-notes )
 
@@ -202,7 +206,33 @@ Prints
 42.42
 ```
 
-### Struct instance and Show implementation
+### Struct instance and methods 
+
+``` haskell
+struct Player
+  level :: Int64
+  name :: String
+
+impl Player
+  new level =
+    Player
+      level: level
+      name: "Default"
+  getlevel player = player.level
+
+main =
+  let player = Player::new 1
+  print Player::getlevel player
+```
+
+``` sh
+rock run
+```
+
+Prints `1`
+
+
+### Show implementation
 
 ``` haskell
 struct Player
