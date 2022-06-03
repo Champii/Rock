@@ -1,5 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
+use itertools::Itertools;
+
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
@@ -347,7 +349,7 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &*stmt.kind {
             StatementKind::Expression(e) => self.lower_expression(e, builder)?,
-            StatementKind::If(e) => self.lower_if(e, builder)?.0,
+            StatementKind::If(e) => self.lower_if_chain(e, builder)?.0,
             StatementKind::Assign(a) => self.lower_assign(a, builder)?,
             StatementKind::For(f) => self.lower_for(f, builder)?,
         })
@@ -473,72 +475,98 @@ impl<'a> CodegenContext<'a> {
             }
         })
     }
+    pub fn lower_if_chain(
+        &mut self,
+        if_chain: &'a IfChain,
+        builder: &'a Builder,
+    ) -> Result<(BasicValueEnum<'a>, BasicBlock<'a>), ()> {
+        let block = builder.get_insert_block().unwrap();
+        let cur_f = block.get_parent().unwrap();
+
+        let mut value_blocks = Vec::new();
+
+        for if_ in &if_chain.ifs {
+            let (value, block) = self.lower_if(&if_, builder)?;
+
+            value_blocks.push((value.clone(), block));
+        }
+
+        // else block
+        if let Some(else_body) = &if_chain.else_body {
+            let (value, block) = self.lower_body(&else_body, "else_body", builder)?;
+
+            value_blocks.push((value.clone(), block));
+        }
+
+        let (first_value, first_block) = value_blocks.first().unwrap();
+
+        builder.position_at_end(block);
+        builder.build_unconditional_branch(first_block.get_previous_basic_block().unwrap());
+
+        let exit_block = self.context.append_basic_block(cur_f, "if_exit");
+
+        builder.position_at_end(exit_block);
+
+        let phi = builder.build_phi(first_value.get_type(), "phi");
+
+        let ifs = if_chain.ifs.iter().map(Some);
+        let ifs = if if_chain.else_body.is_some() {
+            ifs.chain(vec![None].into_iter())
+        } else {
+            ifs.chain(vec![])
+        };
+
+        for (((value_a, block_a), (value_b, block_b)), if_) in
+            value_blocks.iter().circular_tuple_windows().zip(ifs)
+        {
+            let if_block = block_a.get_previous_basic_block().unwrap();
+
+            builder.position_at_end(if_block);
+
+            if let Some(if_) = if_ {
+                let predicat = self.lower_expression(&if_.predicat, builder)?;
+
+                let if_block_b = if value_b == first_value {
+                    block_a.clone()
+                } else {
+                    if if_chain.else_body.is_some() && *value_b == value_blocks.last().unwrap().0 {
+                        block_b.clone()
+                    } else {
+                        block_b.get_previous_basic_block().unwrap()
+                    }
+                };
+
+                builder.build_conditional_branch(predicat.into_int_value(), *block_a, if_block_b);
+            } else {
+                // else block is ignored
+            }
+
+            builder.position_at_end(*block_a);
+
+            builder.build_unconditional_branch(exit_block);
+
+            phi.add_incoming(&[(value_a, *block_a)]);
+        }
+
+        builder.position_at_end(exit_block);
+
+        Ok((phi.as_basic_value(), exit_block))
+    }
 
     pub fn lower_if(
         &mut self,
         r#if: &'a If,
         builder: &'a Builder,
     ) -> Result<(BasicValueEnum<'a>, BasicBlock<'a>), ()> {
-        let block = builder.get_insert_block().unwrap();
+        let if_block = self
+            .context
+            .append_basic_block(self.cur_func.unwrap(), "if");
 
-        builder.position_at_end(block);
-
-        let predicat = self.lower_expression(&r#if.predicat, builder)?;
+        builder.position_at_end(if_block);
 
         let (then_value, then_block) = self.lower_body(&r#if.body, "then", builder)?;
 
-        let (else_value, else_block) = if let Some(e) = &r#if.else_ {
-            self.lower_else(e, builder)?
-        } else {
-            (then_value, then_block)
-        };
-
-        let rest_block = self.context.insert_basic_block_after(else_block, "rest");
-
-        builder.position_at_end(then_block);
-        builder.build_unconditional_branch(rest_block);
-
-        if r#if.else_.is_some() {
-            builder.position_at_end(else_block);
-            builder.build_unconditional_branch(rest_block);
-        }
-
-        builder.position_at_end(block);
-
-        builder.build_conditional_branch(predicat.into_int_value(), then_block, else_block);
-
-        builder.position_at_end(rest_block);
-
-        let last = if r#if.else_.is_some() {
-            let phi = builder.build_phi(then_value.get_type(), "phi");
-
-            phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
-
-            phi.as_basic_value()
-        } else {
-            then_value
-        };
-
-        Ok((last, block))
-    }
-
-    pub fn lower_else(
-        &mut self,
-        r#else: &'a Else,
-        builder: &'a Builder,
-    ) -> Result<(BasicValueEnum<'a>, BasicBlock<'a>), ()> {
-        Ok(match &r#else {
-            Else::If(i) => {
-                let block = self
-                    .context
-                    .append_basic_block(self.cur_func.unwrap(), "if");
-
-                builder.position_at_end(block);
-
-                self.lower_if(i, builder)?
-            }
-            Else::Body(b) => self.lower_body(b, "else", builder)?,
-        })
+        Ok((then_value, then_block))
     }
 
     pub fn lower_expression(

@@ -63,7 +63,7 @@ impl_indirect_get_hir_id_trait!(
     Body
     Expression
     Array
-    Else
+    IfChain
 );
 
 impl<T: HasHirId> HasHirId for Vec<T> {

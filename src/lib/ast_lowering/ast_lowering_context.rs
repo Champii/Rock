@@ -237,7 +237,7 @@ impl AstLoweringContext {
                 Statement::Expression(e) => {
                     Box::new(hir::StatementKind::Expression(self.lower_expression(e)))
                 }
-                Statement::If(e) => Box::new(hir::StatementKind::If(self.lower_if(e))),
+                Statement::If(e) => Box::new(hir::StatementKind::If(self.lower_if_chain(e))),
                 Statement::Assign(a) => Box::new(hir::StatementKind::Assign(self.lower_assign(a))),
                 Statement::For(f) => Box::new(hir::StatementKind::For(self.lower_for(f))),
             },
@@ -333,19 +333,22 @@ impl AstLoweringContext {
         })
     }
 
-    pub fn lower_if(&mut self, r#if: &If) -> hir::If {
-        hir::If {
-            hir_id: self.hir_map.next_hir_id(r#if.node_id),
-            predicat: self.lower_expression(&r#if.predicat),
-            body: self.lower_body(&r#if.body),
-            else_: r#if.else_.as_ref().map(|e| Box::new(self.lower_else(e))),
-        }
-    }
+    pub fn lower_if_chain(&mut self, r#if: &If) -> hir::IfChain {
+        let flat_if = r#if.get_flat();
 
-    pub fn lower_else(&mut self, r#else: &Else) -> hir::Else {
-        match r#else {
-            Else::If(e) => hir::Else::If(self.lower_if(e)),
-            Else::Body(b) => hir::Else::Body(self.lower_body(b)),
+        let flat_hir_if = flat_if.iter().map(|(node_id, predicat, body)| {
+            let body = self.lower_body(body);
+
+            hir::If {
+                hir_id: self.hir_map.next_hir_id(*node_id),
+                predicat: self.lower_expression(predicat),
+                body,
+            }
+        });
+
+        hir::IfChain {
+            ifs: flat_hir_if.collect(),
+            else_body: r#if.last_else().map(|body| self.lower_body(body)),
         }
     }
 

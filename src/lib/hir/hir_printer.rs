@@ -112,7 +112,7 @@ impl_visitor_trait2!(
     Body
     Statement
     If
-    Else
+    IfChain
     FunctionCall
     StructCtor
     Indice
