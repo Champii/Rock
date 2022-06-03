@@ -454,7 +454,7 @@ impl Else {
     pub fn get_flat(&self) -> Vec<(NodeId, Expression, Body)> {
         match self {
             Else::If(if_) => if_.get_flat(),
-            Else::Body(body) => vec![],
+            Else::Body(_body) => vec![],
         }
     }
 
