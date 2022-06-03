@@ -178,6 +178,10 @@ pub struct FunctionDecl {
 
 impl FunctionDecl {
     pub fn mangle(&mut self, prefixes: &[String]) {
+        if prefixes.is_empty() {
+            return;
+        }
+
         self.name.name = prefixes.join("_") + "_" + &self.name.name;
     }
 }

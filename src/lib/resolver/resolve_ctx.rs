@@ -82,6 +82,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                         proto.mangle(&i.types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
 
                         self.add_to_current_scope((*proto.name).clone(), proto.node_id);
+                        // add to type_name scope
                     }
                 }
                 TopLevel::Mod(_, _m) => (),

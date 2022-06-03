@@ -16,6 +16,7 @@ pub struct AstLoweringContext {
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
     trait_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
+    struct_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
     structs: HashMap<String, hir::StructDecl>,
 }
 
@@ -27,6 +28,7 @@ impl AstLoweringContext {
             bodies: BTreeMap::new(),
             traits: HashMap::new(),
             trait_methods: HashMap::new(),
+            struct_methods: HashMap::new(),
             structs: HashMap::new(),
             operators_list,
         }
@@ -45,6 +47,7 @@ impl AstLoweringContext {
             bodies: self.bodies.clone(),
             traits: self.traits.clone(),
             trait_methods: self.trait_methods.clone(),
+            struct_methods: self.struct_methods.clone(),
             spans: root.spans.clone(),
             structs: self.structs.clone(),
         };
@@ -133,26 +136,35 @@ impl AstLoweringContext {
             let body = self.bodies.get_mut(&hir_f.body_id).unwrap();
             body.mangle(&types);
 
-            let r#trait = self.traits.get(&i.name).unwrap();
+            let type_sig = if let Some(r#trait) = self.traits.get(&i.name) {
+                let type_sig = r#trait
+                    .defs
+                    .iter()
+                    .find(|proto| *proto.name == *hir_f.name)
+                    .unwrap()
+                    .signature
+                    .clone();
 
-            let type_sig = r#trait
-                .defs
-                .iter()
-                .find(|proto| *proto.name == *hir_f.name)
-                .unwrap()
-                .signature
-                .clone();
-
-            let type_sig = type_sig.apply_forall_types(&r#trait.types, &i.types);
+                let type_sig = type_sig.apply_forall_types(&r#trait.types, &i.types);
+                type_sig
+            } else {
+                f.signature.clone()
+            };
 
             hir_f.signature = type_sig.clone();
 
-            let fn_decls = self
-                .trait_methods
-                .entry(hir_f.name.name.clone())
-                .or_insert_with(HashMap::new);
+            let fn_decls = if self.traits.get(&i.name).is_some() {
+                self.trait_methods
+                    .entry(hir_f.name.name.clone())
+                    .or_insert_with(HashMap::new)
+            } else {
+                self.struct_methods
+                    .entry(hir_f.name.name.clone())
+                    .or_insert_with(HashMap::new)
+            };
 
             let _hir_id = self.hir_map.next_hir_id(f.node_id);
+            hir_f.hir_id = _hir_id;
 
             (*fn_decls).insert(type_sig, hir_f);
         }

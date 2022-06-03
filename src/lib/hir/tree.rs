@@ -21,6 +21,7 @@ pub struct Root {
     pub node_types: BTreeMap<HirId, Type>,
     pub traits: HashMap<Type, Trait>,
     pub trait_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,
+    pub struct_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,
     pub top_levels: Vec<TopLevel>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub spans: HashMap<NodeId, Span>,
