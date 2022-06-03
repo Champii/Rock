@@ -543,6 +543,7 @@ impl<'a> CodegenContext<'a> {
 
             builder.position_at_end(*block_a);
 
+
             builder.build_unconditional_branch(exit_block);
 
             phi.add_incoming(&[(value_a, *block_a)]);
