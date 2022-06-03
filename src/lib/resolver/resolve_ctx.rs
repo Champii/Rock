@@ -24,6 +24,23 @@ impl<'a> ResolveCtx<'a> {
         }
     }
 
+    pub fn add_to_struct_scope(&mut self, struct_name: String, name: String, node_id: NodeId) {
+        let mut struct_scope_name = self.cur_scope.clone();
+        struct_scope_name.path.push(Identifier::new(struct_name, 0));
+
+        if let Some(ref mut scopes) = self.scopes.get_mut(&struct_scope_name) {
+            scopes.add(name, node_id);
+        }
+    }
+
+    pub fn new_struct(&mut self, name: Identifier) {
+        let mut struct_scope_name = self.cur_scope.clone();
+        struct_scope_name.path.push(name);
+        self.scopes.insert(struct_scope_name.clone(), Scopes::new());
+
+        // self.cur_scope = name;
+    }
+
     pub fn new_mod(&mut self, name: IdentifierPath) {
         self.scopes.insert(name.clone(), Scopes::new());
 
@@ -69,6 +86,8 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     }
                 }
                 TopLevel::Struct(s) => {
+                    self.new_struct(s.name.clone());
+
                     self.add_to_current_scope(s.name.name.clone(), s.name.node_id);
 
                     s.defs.iter().for_each(|p| {
@@ -81,8 +100,16 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
                         proto.mangle(&i.types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
 
+                        // FIXME: This is a hack that pollute the scope with struct methods
+                        // This conflicts with trait impls that need to be in scope to be solved
+                        // Waiting for the struct dot notation instead
                         self.add_to_current_scope((*proto.name).clone(), proto.node_id);
-                        // add to type_name scope
+
+                        self.add_to_struct_scope(
+                            i.name.get_name(),
+                            (*proto.name).clone(),
+                            proto.node_id,
+                        );
                     }
                 }
                 TopLevel::Mod(_, _m) => (),

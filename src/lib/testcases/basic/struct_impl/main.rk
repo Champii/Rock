@@ -7,7 +7,8 @@ impl Foo
     Foo
       bar: a
       toto: "Default"
+  getbar a = a.bar
 
 main =
-  let foo = new 42
-  foo.bar
+  let foo = Foo::new 42
+  Foo::getbar foo
