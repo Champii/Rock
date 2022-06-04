@@ -23,7 +23,6 @@ No to be taken seriously (yet)
     - [Struct instance and methods]( #struct-instance-and-methods )
     - [Show implementation]( #show-implementation )
     - [Modules and code separation]( #modules-and-code-separation )
-Struct instance and methods 
 - [REPL]( #repl )
 - [Development notes]( #development-notes )
 
