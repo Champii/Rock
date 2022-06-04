@@ -9,7 +9,7 @@ fn build(input: String, config: Config) -> bool {
     let file = SourceFile {
         file_path: PathBuf::from("src/lib").join(&config.project_config.entry_point),
         mod_path: PathBuf::from("main"),
-        content: input,
+        content: input + "\n",
     };
 
     if let Err(_e) = crate::compile_str(&file, &config) {
