@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# Rock v0.2.2
-=======
-# Rock v0.2.3-develop
->>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
+# Rock v0.2.3
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=-)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -13,12 +9,9 @@ Rock is highly inspired from Livescript and Rust, and will also borrow (pun inte
 
 No to be taken seriously (yet)
 
-<<<<<<< HEAD
----
-
 ## Index
 
-- [Rock v0.2.2](#rock-v022)
+- [Rock v0.2.3](#rock-v0.2.3)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -32,30 +25,13 @@ No to be taken seriously (yet)
     - [Polymorphic function](#polymorphic-function)
     - [Custom infix operator](#custom-infix-operator)
     - [Trait Definition](#trait-definition)
-    - [Struct instance and Show implementation](#struct-instance-and-show-implementation)
+    - [Struct instance and methods]( #struct-instance-and-methods )
+    - [Show implementation]( #show-implementation )
     - [Modules and Code Separation](#modules-and-code-separation)
   - [REPL](#repl)
   - [Development notes](#development-notes)
 
 ---
-=======
-# Index
-- [Features]( #features )
-- [Install]( #install )
-    - [Using released binary]( #using-released-binary )
-    - [With cargo from Git]( #with-cargo-from-git )
-    - [From sources]( #from-sources )
-- [Quickstart]( #quickstart )
-- [Showcases]( #showcases )
-    - [Polymorphic function]( #polymorphic-function )
-    - [Custom infix operator]( #custom-infix-operator )
-    - [Trait definition]( #trait-definition )
-    - [Struct instance and methods]( #struct-instance-and-methods )
-    - [Show implementation]( #show-implementation )
-    - [Modules and code separation]( #modules-and-code-separation )
-- [REPL]( #repl )
-- [Development notes]( #development-notes )
->>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
 
 ## Features
 
@@ -75,23 +51,16 @@ Warning: This project has only been tested on Linux x86_64.
 
 How to install and run the compiler:
 
-### Using Released Binary
+### Using Released Binary 
 
 You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-<<<<<<< HEAD
-[Rock v0.2.2](https://github.com/Champii/Rock/releases/download/v0.2.2/rock) (Tested on arch, btw)
+[Rock v0.2.3](https://github.com/Champii/Rock/releases/download/v0.2.3/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.2/rock
-=======
-[Rock v0.2.3-develop](https://github.com/Champii/Rock/releases/download/v0.2.3-develop/rock) (Tested on arch, btw)
-
-``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.3-develop/rock
->>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
+wget https://github.com/Champii/Rock/releases/download/v0.2.3/rock
 chmod +x rock
 ./rock -V
 ```
@@ -218,6 +187,8 @@ main =
   print id "Test"
 ```
 
+Prints 
+
 ``` sh
 $ rock run
 1
@@ -261,9 +232,9 @@ $ rock run
 You can create any operator that is made of any combination of one or more of `'+', '-', '/', '*', '|', '<', '>', '=', '!', '$', '@', '&'`  
 
 Most of the commonly defined operators like `+`, `<=`, etc are already implemented by the [stdlib](https://github.com/Champii/Rock/tree/master/std) that is automaticaly compiled with every package.  
-There is a `--nostd` option to allow you to use your own custom implementation.
+There is a `--nostd` option to allow you to use your own custom implementation. 
 
-### Trait Definition
+### Trait definition
 
 This `trait ToString` is redondant with the `trait Show` implemented in the stdlib, and serves as a demonstration only
 
@@ -284,12 +255,7 @@ main =
 ```
 
 ``` sh
-rock run
-```
-
-Prints:
-
-```sh
+$ rock run
 33
 42.42
 ```
@@ -314,15 +280,13 @@ main =
 ```
 
 ``` sh
-rock run
+$ rock run
+1
 ```
-
-Prints `1`
-
 
 ### Show implementation
 
-```haskell
+``` haskell
 struct Player
   level :: Int64
   name :: String
@@ -340,12 +304,11 @@ main =
 ```
 
 ``` sh
-rock run
+$ rock run
+MyName
 ```
 
-Prints `MyName`
-
-### Modules and Code Separation
+### Modules and code separation
 
 - `./myproj/src/foo.rk`
 
@@ -363,12 +326,15 @@ use foo::bar
 main = print bar 1
 ```
 
-Prints `2`
+```sh
+$ rock run
+2
+```
 
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main = print foo::bar 1`
+`main = print foo::bar 1` 
 
 ## REPL
 
@@ -381,7 +347,7 @@ This includes I/O of all sorts (Looking at you, open/read/write in loops)
 Note that the REPL expects to be run from the project root, and expects some version of the stdlib
 to be available in the `./src` folder
 
-You can start a REPL session with
+You can start a REPL session with 
 
 ``` sh
 rock -r
@@ -390,11 +356,7 @@ rock --repl
 ```
 
 ``` sh
-<<<<<<< HEAD
-Rock: v0.2.2
-=======
-Rock: v0.2.3-develop
->>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
+Rock: v0.2.3
 ----
 
 Type ':?' for help
