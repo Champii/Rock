@@ -13,6 +13,10 @@ c_strcpy dest src = strcpy dest, src
 extern strncpy :: String -> String -> Int64 -> String
 c_strncpy dest src len = strncpy dest, src, len
 
+_shutup_warnings =
+  c_strncpy "a", "b", 1
+  _shutup_warnings()
+
 extern sprintf :: String -> String -> Int64 -> Int64
 c_sprintf dest format i = sprintf dest, format, i
 
