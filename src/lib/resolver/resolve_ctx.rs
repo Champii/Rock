@@ -98,10 +98,16 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     for proto in &i.defs {
                         let mut proto = proto.clone();
 
-                        proto.mangle(&i.types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
+                        proto.mangle(
+                            &i.types
+                                .iter()
+                                // .chain(&[i.name.clone()])
+                                .map(|t| t.get_name())
+                                .collect::<Vec<_>>(),
+                        );
 
                         // FIXME: This is a hack that pollute the scope with struct methods
-                        // This conflicts with trait impls that need to be in scope to be solved
+                        // This conflicts with trait impls that need to be in scope to be resolved
                         // Waiting for the struct dot notation instead
                         self.add_to_current_scope((*proto.name).clone(), proto.node_id);
 
