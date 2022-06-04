@@ -16,12 +16,16 @@ pub struct SourceFile {
 
 impl SourceFile {
     pub fn from_file(in_name: String) -> Result<Self, Diagnostic> {
-        let file = if let Some(content) = super::STDLIB_FILES.get(&in_name) {
+        let content = if let Some(content) = super::STDLIB_FILES.get(&in_name) {
             content.to_string()
         } else {
-            fs::read_to_string(in_name.clone()).map_err(|_| {
-                Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
-            })?
+            fs::read_to_string(in_name.clone())
+                .map_err(|_| {
+                    Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
+                })
+                // We manually add a endofline to avoid out of bounds error
+                // as the parser requires a newline at the end of the file
+                .map(|content| content + "\n")?
         };
 
         let mut mod_path = PathBuf::from(in_name.clone());
@@ -31,7 +35,7 @@ impl SourceFile {
         Ok(SourceFile {
             file_path: PathBuf::from(in_name),
             mod_path,
-            content: file,
+            content,
         })
     }
 
