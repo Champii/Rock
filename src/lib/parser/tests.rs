@@ -753,6 +753,18 @@ mod parse_if {
 
         assert!(rest.fragment().is_empty());
     }
+
+    #[test]
+    fn valid_classical_if() {
+        let input = Parser::new_extra(
+            "if a\n  b\nelse c",
+            ParserCtx::new(PathBuf::new(), Config::default()),
+        );
+
+        let (rest, _parsed) = parse_if(input).finish().unwrap();
+
+        assert!(rest.fragment().is_empty());
+    }
 }
 
 #[cfg(test)]

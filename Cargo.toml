@@ -1,6 +1,10 @@
 [package]
 name = "rock"
+<<<<<<< HEAD
 version = "0.2.2"
+=======
+version = "0.2.3-develop"
+>>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
 authors = ["champii <contact@champii>"]
 edition = "2018"
 
@@ -22,6 +26,7 @@ paste = "1.0.5"
 rustyline = "9.0.0"
 nom = "7.0.0"
 nom_locate = "4.0.0"
+itertools = "0.10.3"
 
 [build-dependencies]
 walkdir = "2"

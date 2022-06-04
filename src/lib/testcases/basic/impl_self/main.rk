@@ -1,0 +1,12 @@
+struct Foo
+  bar :: Int64
+
+impl Foo
+  @getbar = self.bar
+
+main =
+  let foo = Foo
+    bar: 42
+
+  foo.getbar()
+

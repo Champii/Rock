@@ -261,17 +261,6 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
         self.visit_expression(&mut r#if.predicat);
 
         self.visit_body(&mut r#if.body);
-
-        if let Some(e) = &mut r#if.else_ {
-            match &mut **e {
-                Else::Body(b) => {
-                    self.visit_body(b);
-                }
-                Else::If(i) => {
-                    self.visit_if(i);
-                }
-            }
-        }
     }
 
     // FIXME: missing IF, assign, etc etc

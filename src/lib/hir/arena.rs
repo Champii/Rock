@@ -93,7 +93,7 @@ generate_hirnode_collector!(
     Statement,
     Expression,
     If,
-    Else,
+    IfChain,
     FunctionCall,
     Literal,
     NativeOperator,

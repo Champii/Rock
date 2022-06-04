@@ -16,6 +16,7 @@ pub struct AstLoweringContext {
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
     trait_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
+    struct_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
     structs: HashMap<String, hir::StructDecl>,
 }
 
@@ -27,6 +28,7 @@ impl AstLoweringContext {
             bodies: BTreeMap::new(),
             traits: HashMap::new(),
             trait_methods: HashMap::new(),
+            struct_methods: HashMap::new(),
             structs: HashMap::new(),
             operators_list,
         }
@@ -45,6 +47,7 @@ impl AstLoweringContext {
             bodies: self.bodies.clone(),
             traits: self.traits.clone(),
             trait_methods: self.trait_methods.clone(),
+            struct_methods: self.struct_methods.clone(),
             spans: root.spans.clone(),
             structs: self.structs.clone(),
         };
@@ -133,26 +136,35 @@ impl AstLoweringContext {
             let body = self.bodies.get_mut(&hir_f.body_id).unwrap();
             body.mangle(&types);
 
-            let r#trait = self.traits.get(&i.name).unwrap();
+            let type_sig = if let Some(r#trait) = self.traits.get(&i.name) {
+                let type_sig = r#trait
+                    .defs
+                    .iter()
+                    .find(|proto| *proto.name == *hir_f.name)
+                    .unwrap()
+                    .signature
+                    .clone();
 
-            let type_sig = r#trait
-                .defs
-                .iter()
-                .find(|proto| *proto.name == *hir_f.name)
-                .unwrap()
-                .signature
-                .clone();
-
-            let type_sig = type_sig.apply_forall_types(&r#trait.types, &i.types);
+                let type_sig = type_sig.apply_forall_types(&r#trait.types, &i.types);
+                type_sig
+            } else {
+                f.signature.clone()
+            };
 
             hir_f.signature = type_sig.clone();
 
-            let fn_decls = self
-                .trait_methods
-                .entry(hir_f.name.name.clone())
-                .or_insert_with(HashMap::new);
+            let fn_decls = if self.traits.get(&i.name).is_some() {
+                self.trait_methods
+                    .entry(hir_f.name.name.clone())
+                    .or_insert_with(HashMap::new)
+            } else {
+                self.struct_methods
+                    .entry(hir_f.name.name.clone())
+                    .or_insert_with(HashMap::new)
+            };
 
             let _hir_id = self.hir_map.next_hir_id(f.node_id);
+            hir_f.hir_id = _hir_id;
 
             (*fn_decls).insert(type_sig, hir_f);
         }
@@ -237,7 +249,7 @@ impl AstLoweringContext {
                 Statement::Expression(e) => {
                     Box::new(hir::StatementKind::Expression(self.lower_expression(e)))
                 }
-                Statement::If(e) => Box::new(hir::StatementKind::If(self.lower_if(e))),
+                Statement::If(e) => Box::new(hir::StatementKind::If(self.lower_if_chain(e))),
                 Statement::Assign(a) => Box::new(hir::StatementKind::Assign(self.lower_assign(a))),
                 Statement::For(f) => Box::new(hir::StatementKind::For(self.lower_for(f))),
             },
@@ -333,19 +345,22 @@ impl AstLoweringContext {
         })
     }
 
-    pub fn lower_if(&mut self, r#if: &If) -> hir::If {
-        hir::If {
-            hir_id: self.hir_map.next_hir_id(r#if.node_id),
-            predicat: self.lower_expression(&r#if.predicat),
-            body: self.lower_body(&r#if.body),
-            else_: r#if.else_.as_ref().map(|e| Box::new(self.lower_else(e))),
-        }
-    }
+    pub fn lower_if_chain(&mut self, r#if: &If) -> hir::IfChain {
+        let flat_if = r#if.get_flat();
 
-    pub fn lower_else(&mut self, r#else: &Else) -> hir::Else {
-        match r#else {
-            Else::If(e) => hir::Else::If(self.lower_if(e)),
-            Else::Body(b) => hir::Else::Body(self.lower_body(b)),
+        let flat_hir_if = flat_if.iter().map(|(node_id, predicat, body)| {
+            let body = self.lower_body(body);
+
+            hir::If {
+                hir_id: self.hir_map.next_hir_id(*node_id),
+                predicat: self.lower_expression(predicat),
+                body,
+            }
+        });
+
+        hir::IfChain {
+            ifs: flat_hir_if.collect(),
+            else_body: r#if.last_else().map(|body| self.lower_body(body)),
         }
     }
 
@@ -364,7 +379,16 @@ impl AstLoweringContext {
         let mut expr = self.lower_operand(&primary.op);
 
         for secondary in &primary.secondaries.clone().unwrap() {
-            expr = self.lower_secondary(expr, secondary, primary.node_id);
+            let mut expr2 = self.lower_secondary(expr.clone(), secondary, primary.node_id);
+
+            // If the caller is a dot notation, we need to inject self as first argument
+            if let hir::ExpressionKind::Dot(dot) = &mut *expr.kind {
+                if let hir::ExpressionKind::FunctionCall(fc) = &mut *expr2.kind {
+                    fc.args.insert(0, dot.op.clone());
+                }
+            }
+
+            expr = expr2;
         }
 
         expr

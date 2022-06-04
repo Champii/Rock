@@ -239,6 +239,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9a9d19fa1e79b6215ff29b9d6880b706147f16e9b1dbb1e4e5947b5b02bc5e3"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -464,7 +473,11 @@ checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
 name = "rock"
+<<<<<<< HEAD
 version = "0.2.2"
+=======
+version = "0.2.3-develop"
+>>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
 dependencies = [
  "bincode",
  "bitflags",
@@ -473,6 +486,7 @@ dependencies = [
  "either",
  "env_logger",
  "inkwell",
+ "itertools",
  "lazy_static",
  "log",
  "nom",

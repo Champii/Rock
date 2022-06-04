@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Rock v0.2.2
+=======
+# Rock v0.2.3-develop
+>>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=-)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -9,6 +13,7 @@ Rock is highly inspired from Livescript and Rust, and will also borrow (pun inte
 
 No to be taken seriously (yet)
 
+<<<<<<< HEAD
 ---
 
 ## Index
@@ -33,6 +38,24 @@ No to be taken seriously (yet)
   - [Development notes](#development-notes)
 
 ---
+=======
+# Index
+- [Features]( #features )
+- [Install]( #install )
+    - [Using released binary]( #using-released-binary )
+    - [With cargo from Git]( #with-cargo-from-git )
+    - [From sources]( #from-sources )
+- [Quickstart]( #quickstart )
+- [Showcases]( #showcases )
+    - [Polymorphic function]( #polymorphic-function )
+    - [Custom infix operator]( #custom-infix-operator )
+    - [Trait definition]( #trait-definition )
+    - [Struct instance and methods]( #struct-instance-and-methods )
+    - [Show implementation]( #show-implementation )
+    - [Modules and code separation]( #modules-and-code-separation )
+- [REPL]( #repl )
+- [Development notes]( #development-notes )
+>>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
 
 ## Features
 
@@ -58,10 +81,17 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
+<<<<<<< HEAD
 [Rock v0.2.2](https://github.com/Champii/Rock/releases/download/v0.2.2/rock) (Tested on arch, btw)
 
 ``` sh
 wget https://github.com/Champii/Rock/releases/download/v0.2.2/rock
+=======
+[Rock v0.2.3-develop](https://github.com/Champii/Rock/releases/download/v0.2.3-develop/rock) (Tested on arch, btw)
+
+``` sh
+wget https://github.com/Champii/Rock/releases/download/v0.2.3-develop/rock
+>>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
 chmod +x rock
 ./rock -V
 ```
@@ -264,7 +294,33 @@ Prints:
 42.42
 ```
 
-### Struct instance and Show implementation
+### Struct instance and methods 
+
+``` haskell
+struct Player
+  level :: Int64
+  name :: String
+
+impl Player
+  new level =
+    Player
+      level: level
+      name: "Default"
+  getlevel player = player.level
+
+main =
+  let player = Player::new 1
+  print Player::getlevel player
+```
+
+``` sh
+rock run
+```
+
+Prints `1`
+
+
+### Show implementation
 
 ```haskell
 struct Player
@@ -334,7 +390,11 @@ rock --repl
 ```
 
 ``` sh
+<<<<<<< HEAD
 Rock: v0.2.2
+=======
+Rock: v0.2.3-develop
+>>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
 ----
 
 Type ':?' for help
