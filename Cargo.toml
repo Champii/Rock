@@ -1,10 +1,6 @@
 [package]
 name = "rock"
-<<<<<<< HEAD
-version = "0.2.2"
-=======
 version = "0.2.3-develop"
->>>>>>> 18e4cf37e8bbce6723f212962ac1dbfc0c355a2f
 authors = ["champii <contact@champii>"]
 edition = "2018"
 
