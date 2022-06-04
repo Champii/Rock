@@ -71,6 +71,10 @@ pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
         walk_map!(visitor, visit_function_decl, impls);
     }
 
+    for impls in root.struct_methods.values() {
+        walk_map!(visitor, visit_function_decl, impls);
+    }
+
     walk_map!(visitor, visit_fn_body, &root.bodies);
 }
 

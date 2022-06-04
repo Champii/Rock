@@ -1,6 +1,6 @@
-# Rock v0.2.3-develop
+# Rock v0.2.3-impl-struct
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=impl_struct)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -20,6 +20,9 @@ No to be taken seriously (yet)
     - [Polymorphic function]( #polymorphic-function )
     - [Custom infix operator]( #custom-infix-operator )
     - [Trait definition]( #trait-definition )
+    - [Struct instance and methods]( #struct-instance-and-methods )
+    - [Show implementation]( #show-implementation )
+    - [Modules and code separation]( #modules-and-code-separation )
 - [REPL]( #repl )
 - [Development notes]( #development-notes )
 
@@ -45,10 +48,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.3-develop](https://github.com/Champii/Rock/releases/download/v0.2.3-develop/rock) (Tested on arch, btw)
+[Rock v0.2.3-impl-struct](https://github.com/Champii/Rock/releases/download/v0.2.3-impl-struct/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.3-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.3-impl-struct/rock
 chmod +x rock
 ./rock -V
 ```
@@ -202,7 +205,33 @@ Prints
 42.42
 ```
 
-### Struct instance and Show implementation
+### Struct instance and methods 
+
+``` haskell
+struct Player
+  level :: Int64
+  name :: String
+
+impl Player
+  new level =
+    Player
+      level: level
+      name: "Default"
+  getlevel player = player.level
+
+main =
+  let player = Player::new 1
+  print Player::getlevel player
+```
+
+``` sh
+rock run
+```
+
+Prints `1`
+
+
+### Show implementation
 
 ``` haskell
 struct Player
@@ -272,7 +301,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.3-develop
+Rock: v0.2.3-impl-struct
 ----
 
 Type ':?' for help
