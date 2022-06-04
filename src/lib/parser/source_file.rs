@@ -19,14 +19,12 @@ impl SourceFile {
         let content = if let Some(content) = super::STDLIB_FILES.get(&in_name) {
             content.to_string()
         } else {
-            fs::read_to_string(in_name.clone())
-                .map_err(|_| {
-                    Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
-                })
-                // We manually add a endofline to avoid out of bounds error
-                // as the parser requires a newline at the end of the file
-                .map(|content| content + "\n")?
-        };
+            fs::read_to_string(in_name.clone()).map_err(|_| {
+                Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
+            })?
+            // We manually add a endofline to avoid out of bounds error
+            // as the parser requires a newline at the end of the file
+        } + "\n";
 
         let mut mod_path = PathBuf::from(in_name.clone());
 
@@ -47,7 +45,9 @@ impl SourceFile {
         Ok(SourceFile {
             file_path: PathBuf::from(path.clone()),
             mod_path,
-            content: content.to_string(),
+            // We manually add a endofline to avoid out of bounds error
+            // as the parser requires a newline at the end of the file
+            content: content.to_string() + "\n",
         })
     }
 
@@ -81,7 +81,9 @@ custom =
         Ok(SourceFile {
             file_path: PathBuf::from("./src/main.rk"),
             mod_path: PathBuf::from("root"),
-            content: top_levels,
+            // We manually add a endofline to avoid out of bounds error
+            // as the parser requires a newline at the end of the file
+            content: top_levels + "\n",
         })
     }
 
@@ -95,7 +97,9 @@ custom =
         let content = match fs::read_to_string(file_path.to_str().unwrap().to_string()) {
             Ok(content) => content,
             Err(_) => return Err(mod_path.as_path().to_str().unwrap().to_string()),
-        };
+            // We manually add a endofline to avoid out of bounds error
+            // as the parser requires a newline at the end of the file
+        } + "\n";
 
         Ok(Self {
             file_path,

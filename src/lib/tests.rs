@@ -198,6 +198,10 @@ fn testcases_basic_recur_main() {
     run("testcases/basic/recur/main.rk", include_str!("testcases/basic/recur/main.rk"), include_str!("testcases/basic/recur/main.rk.out"), include_str!("testcases/basic/recur/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_no_newline_end_main() {
+    run("testcases/basic/no_newline_end/main.rk", include_str!("testcases/basic/no_newline_end/main.rk"), include_str!("testcases/basic/no_newline_end/main.rk.out"), include_str!("testcases/basic/no_newline_end/main.rk.stdout"));
+}
+#[test]
 fn testcases_trait_multi_resolution_main() {
     run("testcases/trait/multi_resolution/main.rk", include_str!("testcases/trait/multi_resolution/main.rk"), include_str!("testcases/trait/multi_resolution/main.rk.out"), include_str!("testcases/trait/multi_resolution/main.rk.stdout"));
 }
