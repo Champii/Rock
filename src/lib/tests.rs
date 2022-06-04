@@ -122,6 +122,10 @@ fn testcases_basic_reassign_return_main() {
     run("testcases/basic/reassign_return/main.rk", include_str!("testcases/basic/reassign_return/main.rk"), include_str!("testcases/basic/reassign_return/main.rk.out"), include_str!("testcases/basic/reassign_return/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_impl_self_main() {
+    run("testcases/basic/impl_self/main.rk", include_str!("testcases/basic/impl_self/main.rk"), include_str!("testcases/basic/impl_self/main.rk.out"), include_str!("testcases/basic/impl_self/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_reassign_main() {
     run("testcases/basic/reassign/main.rk", include_str!("testcases/basic/reassign/main.rk"), include_str!("testcases/basic/reassign/main.rk.out"), include_str!("testcases/basic/reassign/main.rk.stdout"));
 }

@@ -366,7 +366,7 @@ pub fn parse_impl(input: Parser) -> Res<Parser, Impl> {
             many0(line_ending),
             indent(separated_list1(
                 line_ending,
-                preceded(parse_block_indent, parse_fn),
+                preceded(parse_block_indent, alt((parse_self_fn, parse_fn))),
             )),
         )),
         |(_, name, types, _, defs)| Impl::new(name, types, defs),
@@ -447,6 +447,27 @@ pub fn parse_prototype(input: Parser) -> Res<Parser, Prototype> {
             node_id,
             name,
             signature,
+        },
+    )(input)
+}
+
+pub fn parse_self_fn(input: Parser) -> Res<Parser, FunctionDecl> {
+    map(
+        tuple((
+            parse_identity,
+            parse_identity,
+            tag("@"),
+            terminated(
+                tuple((
+                    parse_identifier_or_operator,
+                    many0(preceded(space1, parse_identifier)),
+                )),
+                delimited(space0, char('='), space0),
+            ),
+            parse_body,
+        )),
+        |(node_id, self_node_id, _, (name, arguments), body)| {
+            FunctionDecl::new_self(node_id, self_node_id, name, body, arguments)
         },
     )(input)
 }

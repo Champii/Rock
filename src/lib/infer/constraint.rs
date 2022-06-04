@@ -571,13 +571,28 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     t @ Type::Struct(struct_t) => {
                         self.envs.set_type(&d.op.get_hir_id(), t);
 
-                        self.envs
-                            .set_type(&d.get_hir_id(), struct_t.defs.get(&d.value.name).unwrap());
+                        if let Some(field) = struct_t.defs.get(&d.value.name) {
+                            self.envs.set_type(&d.get_hir_id(), field);
 
-                        if let Type::Func(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
-                            let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
+                            if let Type::Func(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
+                                let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
 
-                            self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+                                self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+                            }
+                        } else {
+                            // check for struct impls
+                            if let Some(method) = self.hir.struct_methods.get(&d.value.name) {
+                                let method = method.values().next().unwrap();
+
+                                self.envs
+                                    .set_type(&method.hir_id, &method.signature.clone().into());
+
+                                let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
+
+                                self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+                            } else {
+                                panic!("Not a field and not a method ? How did you get here ?");
+                            }
                         }
                     }
                     other => {

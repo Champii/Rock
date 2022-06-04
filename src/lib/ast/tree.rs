@@ -177,6 +177,22 @@ pub struct FunctionDecl {
 }
 
 impl FunctionDecl {
+    pub fn new_self(
+        node_id: NodeId,
+        self_node_id: NodeId,
+        name: Identifier,
+        body: Body,
+        mut arguments: Vec<Identifier>,
+    ) -> Self {
+        arguments.insert(0, Identifier::new("self".to_string(), self_node_id));
+        Self {
+            name,
+            signature: FuncType::from_args_nb(arguments.len()),
+            arguments,
+            body,
+            node_id,
+        }
+    }
     pub fn mangle(&mut self, prefixes: &[String]) {
         if prefixes.is_empty() {
             return;

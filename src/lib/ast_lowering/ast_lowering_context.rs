@@ -379,7 +379,16 @@ impl AstLoweringContext {
         let mut expr = self.lower_operand(&primary.op);
 
         for secondary in &primary.secondaries.clone().unwrap() {
-            expr = self.lower_secondary(expr, secondary, primary.node_id);
+            let mut expr2 = self.lower_secondary(expr.clone(), secondary, primary.node_id);
+
+            // If the caller is a dot notation, we need to inject self as first argument
+            if let hir::ExpressionKind::Dot(dot) = &mut *expr.kind {
+                if let hir::ExpressionKind::FunctionCall(fc) = &mut *expr2.kind {
+                    fc.args.insert(0, dot.op.clone());
+                }
+            }
+
+            expr = expr2;
         }
 
         expr

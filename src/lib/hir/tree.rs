@@ -506,6 +506,8 @@ impl Expression {
     pub fn as_identifier(&self) -> Identifier {
         if let ExpressionKind::Identifier(i) = &*self.kind {
             i.last_segment()
+        } else if let ExpressionKind::Dot(d) = &*self.kind {
+            d.value.clone()
         } else {
             panic!("Not an identifier");
         }
@@ -517,6 +519,14 @@ impl Expression {
             l.clone()
         } else {
             panic!("Not a literal");
+        }
+    }
+
+    pub fn as_dot(&self) -> Dot {
+        if let ExpressionKind::Dot(l) = &*self.kind {
+            l.clone()
+        } else {
+            panic!("Not a dot");
         }
     }
 
@@ -563,6 +573,9 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
+    pub fn new(hir_id: HirId, op: Expression, args: Vec<Expression>) -> Self {
+        Self { hir_id, op, args }
+    }
     pub fn mangle(&mut self, prefixes: Vec<String>) {
         if let ExpressionKind::Identifier(id) = &mut *self.op.kind {
             let identifier = id.path.iter_mut().last().unwrap();
