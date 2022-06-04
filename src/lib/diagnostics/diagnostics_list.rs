@@ -6,11 +6,16 @@ use crate::parser::{Parser, SourceFile};
 
 use super::Diagnostic;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub enum DiagnosticType {
     Warning,
-    #[default]
     Error,
+}
+
+impl Default for DiagnosticType {
+    fn default() -> Self {
+        DiagnosticType::Error
+    }
 }
 
 #[derive(Debug, Default, Clone)]
