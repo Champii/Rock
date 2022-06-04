@@ -366,7 +366,7 @@ pub fn parse_impl(input: Parser) -> Res<Parser, Impl> {
             many0(line_ending),
             indent(separated_list1(
                 line_ending,
-                preceded(parse_block_indent, parse_fn),
+                preceded(parse_block_indent, alt((parse_self_fn, parse_fn))),
             )),
         )),
         |(_, name, types, _, defs)| Impl::new(name, types, defs),
@@ -447,6 +447,27 @@ pub fn parse_prototype(input: Parser) -> Res<Parser, Prototype> {
             node_id,
             name,
             signature,
+        },
+    )(input)
+}
+
+pub fn parse_self_fn(input: Parser) -> Res<Parser, FunctionDecl> {
+    map(
+        tuple((
+            parse_identity,
+            parse_identity,
+            tag("@"),
+            terminated(
+                tuple((
+                    parse_identifier_or_operator,
+                    many0(preceded(space1, parse_identifier)),
+                )),
+                delimited(space0, char('='), space0),
+            ),
+            parse_body,
+        )),
+        |(node_id, self_node_id, _, (name, arguments), body)| {
+            FunctionDecl::new_self(node_id, self_node_id, name, body, arguments)
         },
     )(input)
 }
@@ -542,19 +563,18 @@ pub fn parse_if(input: Parser) -> Res<Parser, If> {
         tuple((
             parse_identity,
             terminated(tag("if"), space1),
-            terminated(parse_expression, space0),
-            many1(line_ending),
-            parse_then,
+            parse_expression,
+            opt(preceded(many1(line_ending), parse_then_multi)),
             parse_body,
             opt(tuple((line_ending, parse_else))),
         )),
-        |(node_id, _if_, cond, _, _, body, else_)| {
+        |(node_id, _if_, cond, _, body, else_)| {
             If::new(node_id, cond, body, else_.map(|(_, else_)| Box::new(else_)))
         },
     )(input.clone())
 }
 
-pub fn parse_then(input: Parser) -> Res<Parser, ()> {
+pub fn parse_then_multi(input: Parser) -> Res<Parser, ()> {
     // NOTE: This is a tweek for then block that are at indent 0 (i.e. in the test files)
     let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
         parse_block_indent(input)?
@@ -668,6 +688,7 @@ pub fn parse_assign_left_side(input: Parser) -> Res<Parser, AssignLeftSide> {
 
 pub fn parse_expression(input: Parser) -> Res<Parser, Expression> {
     alt((
+        map(parse_struct_ctor, Expression::new_struct_ctor),
         map(
             preceded(terminated(tag("return"), space1), parse_expression),
             Expression::new_return,
@@ -681,7 +702,6 @@ pub fn parse_expression(input: Parser) -> Res<Parser, Expression> {
             |(l, op, r)| Expression::new_binop(l, op, r),
         ),
         map(parse_unary, Expression::new_unary),
-        map(parse_struct_ctor, Expression::new_struct_ctor),
         map(parse_native_operator, |(op, id1, id2)| {
             Expression::new_native_operator(op, id1, id2)
         }),
@@ -783,11 +803,8 @@ pub fn parse_arguments(input: Parser) -> Res<Parser, Arguments> {
         ),
         map(
             tuple((
-                space1,
-                separated_list1(
-                    tuple((space0, terminated(tag(","), space0), space0)),
-                    parse_argument,
-                ),
+                space0,
+                separated_list1(tuple((space0, tag(","), space0)), parse_argument),
             )),
             |(_, args)| args,
         ),
@@ -843,6 +860,8 @@ pub fn parse_identifier_path(input: Parser) -> Res<Parser, IdentifierPath> {
                     Identifier::new("(*)".to_string(), node_id)
                 }),
                 parse_identifier,
+                parse_capitalized_identifier,
+                // map(parse_type, |t| Identifier::new(t.to_string(), 0)), // fixme: 0
             )),
         ),
         IdentifierPath::new,

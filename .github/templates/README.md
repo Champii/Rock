@@ -9,19 +9,29 @@ Rock is highly inspired from Livescript and Rust, and will also borrow (pun inte
 
 No to be taken seriously (yet)
 
-# Index
-- [Features]( #features )
-- [Install]( #install )
-    - [Using released binary]( #using-released-binary )
-    - [With cargo from Git]( #with-cargo-from-git )
-    - [From sources]( #from-sources )
-- [Quickstart]( #quickstart )
-- [Showcases]( #showcases )
-    - [Polymorphic function]( #polymorphic-function )
-    - [Custom infix operator]( #custom-infix-operator )
-    - [Trait definition]( #trait-definition )
-- [REPL]( #repl )
-- [Development notes]( #development-notes )
+## Index
+
+- [Rock {version}](#rock-{version})
+  - [Index](#index)
+  - [Features](#features)
+  - [Install](#install)
+    - [Using Released Binary](#using-released-binary)
+    - [From source](#from-source)
+      - [Adding Rust Nightly](#adding-rust-nightly)
+      - [With Cargo from Git](#with-cargo-from-git)
+      - [Manual Clone and Build from Git](#manual-clone-and-build-from-git)
+  - [Quickstart](#quickstart)
+  - [Showcases](#showcases)
+    - [Polymorphic function](#polymorphic-function)
+    - [Custom infix operator](#custom-infix-operator)
+    - [Trait Definition](#trait-definition)
+    - [Struct instance and methods]( #struct-instance-and-methods )
+    - [Show implementation]( #show-implementation )
+    - [Modules and Code Separation](#modules-and-code-separation)
+  - [REPL](#repl)
+  - [Development notes](#development-notes)
+
+---
 
 ## Features
 
@@ -33,13 +43,15 @@ No to be taken seriously (yet)
 - Compile to LLVM IR
 - REPL (ALPHA)
 
+---
+
 ## Install
 
 Warning: This project has only been tested on Linux x86_64.
 
 How to install and run the compiler:
 
-### Using released binary 
+### Using Released Binary 
 
 You will need `clang` somewhere in your $PATH
 
@@ -57,20 +69,80 @@ chmod +x rock
 
 You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
 
-#### With cargo from git
+You will also want the nightly channel added for Rust.
+
+#### Adding Rust Nightly
+
+To check if you already have the nightly channel added for Rust, use:
+
+```sh
+rustup show
+```
+
+This will give you infomation about which build channels you have for rust and which one is active. If you have the nightly, you should see something like this:
+
+```sh
+Default host: x86_64-unknown-linux-gnu
+rustup home:  /home/<username>/.rustup
+
+installed toolchains
+--------------------
+
+stable-x86_64-unknown-linux-gnu (default)
+nightly-x86_64-unknown-linux-gnu
+
+active toolchain
+----------------
+
+stable-x86_64-unknown-linux-gnu (default)
+rustc 1.61.0 (fe5b13d68 2022-05-18)
+```
+
+If you don't see the nightly build you can add it using the following command:
+
+```sh
+rustup install nightly
+```
+
+This will add the option to use the nightly build of Rust for this and any other projects.
+Note you don't have to switch to the nightly to be the active toolchain but can use it specific projects, see below.
+
+#### With Cargo from Git
+
+If your active toolchain is stable:
+
+```sh
+cargo +nightly install --git https://github.com/Champii/Rock --locked
+rock -V
+```
+
+If your active rust toolchain is nightly:
 
 ``` sh
 cargo install --git https://github.com/Champii/Rock --locked
 rock -V
 ```
 
-#### Manual clone and build from git
+#### Manual Clone and Build from Git
+
+If your active toolchain is stable:
+
+```sh
+git clone https://github.com/Champii/Rock.git rock
+cd rock
+cargo +nightly run --<release|debug> -- -V
+```
+
+If your active toolchain is nightly:
+You can pick the release or debug build
 
 ``` sh
-git clone https://github.com/Champii/Rock.git
-cd Rock
-cargo run -- -V
+git clone https://github.com/Champii/Rock.git rock
+cd rock
+cargo run --<release|debug> -- -V
 ```
+
+Note: If you clone and build manually, make sure to add `path-to-install/rock/target/<release|debug>/` to you `$PATH` so you can run it anywhere on your system.
 
 ## Quickstart
 
@@ -94,12 +166,7 @@ main = print fact 4
 Assuming that you built Rock and put its binary in your PATH:
 
 ``` sh
-rock run
-```
-
-Should output
-
-``` sh
+$ rock run
 24
 ```
 
@@ -111,7 +178,6 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 
 ### Polymorphic function
 
-
 ``` haskell
 id a = a
 
@@ -121,13 +187,10 @@ main =
   print id "Test"
 ```
 
-``` sh
-rock run
-```
-
 Prints 
 
 ``` sh
+$ rock run
 1
 2.2
 Test
@@ -139,7 +202,8 @@ If we did something like this
 We would have constrained `a` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
 
 Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`(*).  
-The output would be  
+
+The output would be:
 
 ``` sh
 2
@@ -161,10 +225,9 @@ main = print (4 |> f)
 ```
 
 ``` sh
-rock run
+$ rock run
+6
 ```
-
-Prints `6`
 
 You can create any operator that is made of any combination of one or more of `'+', '-', '/', '*', '|', '<', '>', '=', '!', '$', '@', '&'`  
 
@@ -192,17 +255,36 @@ main =
 ```
 
 ``` sh
-rock run
-```
-
-Prints
-
-```
+$ rock run
 33
 42.42
 ```
 
-### Struct instance and Show implementation
+### Struct instance and methods 
+
+``` haskell
+struct Player
+  level :: Int64
+  name :: String
+
+impl Player
+  new level =
+    Player
+      level: level
+      name: "Default"
+  getlevel player = player.level
+
+main =
+  let player = Player::new 1
+  print Player::getlevel player
+```
+
+``` sh
+$ rock run
+1
+```
+
+### Show implementation
 
 ``` haskell
 struct Player
@@ -222,10 +304,9 @@ main =
 ```
 
 ``` sh
-rock run
+$ rock run
+MyName
 ```
-
-Prints `MyName`
 
 ### Modules and code separation
 
@@ -245,7 +326,10 @@ use foo::bar
 main = print bar 1
 ```
 
-Prints `2`
+```sh
+$ rock run
+2
+```
 
 Note that we could have skiped the
 `use foo::bar`

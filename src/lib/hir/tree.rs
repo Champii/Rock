@@ -21,6 +21,7 @@ pub struct Root {
     pub node_types: BTreeMap<HirId, Type>,
     pub traits: HashMap<Type, Trait>,
     pub trait_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,
+    pub struct_methods: HashMap<String, HashMap<FuncType, FunctionDecl>>,
     pub top_levels: Vec<TopLevel>,
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub spans: HashMap<NodeId, Span>,
@@ -350,7 +351,7 @@ impl Statement {
 pub enum StatementKind {
     Expression(Expression),
     Assign(Assign),
-    If(If),
+    If(IfChain),
     For(For),
 }
 
@@ -425,26 +426,21 @@ impl Assign {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IfChain {
+    pub ifs: Vec<If>,
+    pub else_body: Option<Body>,
+}
+
+impl IfChain {
+    pub fn get_terminal_hir_id(&self) -> HirId {
+        self.ifs.iter().last().unwrap().get_hir_id()
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct If {
     pub hir_id: HirId,
     pub predicat: Expression,
     pub body: Body,
-    pub else_: Option<Box<Else>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Else {
-    If(If),
-    Body(Body),
-}
-
-impl Else {
-    pub fn get_terminal_hir_id(&self) -> HirId {
-        match self {
-            Else::If(i) => i.get_hir_id(),
-            Else::Body(b) => b.get_hir_id(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -510,6 +506,8 @@ impl Expression {
     pub fn as_identifier(&self) -> Identifier {
         if let ExpressionKind::Identifier(i) = &*self.kind {
             i.last_segment()
+        } else if let ExpressionKind::Dot(d) = &*self.kind {
+            d.value.clone()
         } else {
             panic!("Not an identifier");
         }
@@ -521,6 +519,14 @@ impl Expression {
             l.clone()
         } else {
             panic!("Not a literal");
+        }
+    }
+
+    pub fn as_dot(&self) -> Dot {
+        if let ExpressionKind::Dot(l) = &*self.kind {
+            l.clone()
+        } else {
+            panic!("Not a dot");
         }
     }
 
@@ -567,6 +573,9 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
+    pub fn new(hir_id: HirId, op: Expression, args: Vec<Expression>) -> Self {
+        Self { hir_id, op, args }
+    }
     pub fn mangle(&mut self, prefixes: Vec<String>) {
         if let ExpressionKind::Identifier(id) = &mut *self.op.kind {
             let identifier = id.path.iter_mut().last().unwrap();

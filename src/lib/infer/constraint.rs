@@ -427,25 +427,26 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             .set_type_eq(&assign.name.get_hir_id(), &assign.value.get_hir_id());
     }
 
+    fn visit_if_chain(&mut self, if_chain: &'a IfChain) {
+        walk_if_chain(self, if_chain);
+
+        let else_hir_id = if_chain
+            .else_body
+            .as_ref()
+            .map(|b| b.get_hir_id())
+            .unwrap_or(HirId(0));
+
+        if_chain.ifs.iter().for_each(|if_| {
+            self.envs.set_type_eq(&else_hir_id, &if_.get_hir_id());
+        });
+    }
+
     fn visit_if(&mut self, r#if: &'a If) {
         self.visit_expression(&r#if.predicat);
 
         self.visit_body(&r#if.body);
 
         self.envs.set_type_eq(&r#if.hir_id, &r#if.body.get_hir_id());
-
-        if let Some(e) = &r#if.else_ {
-            match &**e {
-                Else::Body(b) => {
-                    self.visit_body(b);
-                    self.envs
-                        .set_type_eq(&b.get_hir_id(), &r#if.body.get_hir_id());
-                }
-                Else::If(i) => {
-                    self.visit_if(i);
-                }
-            }
-        }
     }
 
     fn visit_expression(&mut self, expr: &'a Expression) {
@@ -570,13 +571,28 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     t @ Type::Struct(struct_t) => {
                         self.envs.set_type(&d.op.get_hir_id(), t);
 
-                        self.envs
-                            .set_type(&d.get_hir_id(), struct_t.defs.get(&d.value.name).unwrap());
+                        if let Some(field) = struct_t.defs.get(&d.value.name) {
+                            self.envs.set_type(&d.get_hir_id(), field);
 
-                        if let Type::Func(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
-                            let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
+                            if let Type::Func(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
+                                let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
 
-                            self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+                                self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+                            }
+                        } else {
+                            // check for struct impls
+                            if let Some(method) = self.hir.struct_methods.get(&d.value.name) {
+                                let method = method.values().next().unwrap();
+
+                                self.envs
+                                    .set_type(&method.hir_id, &method.signature.clone().into());
+
+                                let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
+
+                                self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+                            } else {
+                                panic!("Not a field and not a method ? How did you get here ?");
+                            }
                         }
                     }
                     other => {
