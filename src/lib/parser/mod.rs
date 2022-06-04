@@ -803,11 +803,8 @@ pub fn parse_arguments(input: Parser) -> Res<Parser, Arguments> {
         ),
         map(
             tuple((
-                space1,
-                separated_list1(
-                    tuple((space0, terminated(tag(","), space0), space0)),
-                    parse_argument,
-                ),
+                space0,
+                separated_list1(tuple((space0, tag(","), space0)), parse_argument),
             )),
             |(_, args)| args,
         ),
