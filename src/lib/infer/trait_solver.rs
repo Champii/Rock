@@ -92,6 +92,12 @@ impl TraitSolver {
             })
             // TODO: Assuming we failed earlier if there were multiple traits implementing the same fn
             .nth(0)
-            .map(|(_, set)| set.iter().next().unwrap().1.clone())
+            .map(|(_, set)| {
+                set.iter()
+                    .find(|(name, _)| **name == fn_name)
+                    .unwrap()
+                    .1
+                    .clone()
+            })
     }
 }

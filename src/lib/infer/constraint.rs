@@ -605,6 +605,8 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                             {
                                 node_id
                             } else {
+                                self.envs.set_type(&d.get_hir_id(), t);
+
                                 self.envs.diagnostics.push_error(
                                     Diagnostic::new_is_not_a_property_of(
                                         self.hir
