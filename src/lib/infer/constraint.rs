@@ -63,14 +63,19 @@ impl<'a> ConstraintContext<'a> {
             .and_then(|reso| self.resolve_rec(&reso).or(Some(reso)))
     }
 
-    pub fn resolve_and_get(&self, hir: &HirId) -> Option<&HirNode> {
+    pub fn resolve_and_get(&mut self, hir: &HirId) -> Option<&HirNode> {
+        let node = match self.resolve(hir) {
+            Some(node) => node,
+            None => {
+                warn!("cannot resolve {}", hir);
+
+                return None;
+            }
+        };
+
         self.hir
             .arena
-            .get(
-                &self
-                    .resolve(hir)
-                    .or_else(|| panic!("NO RESO FOR {:?}", hir))?,
-            )
+            .get(&node)
             .or_else(|| panic!("NO ARENA ITEM FOR {:?}", hir))
     }
 
@@ -595,7 +600,17 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                     &method.hir_id,
                                 );
                             } else {
-                                panic!("Not a field and not a method ? How did you get here ?");
+                                self.envs.set_type(&d.get_hir_id(), t);
+                                self.envs.diagnostics.push_error(
+                                    Diagnostic::new_unknown_identifier(
+                                        self.hir
+                                            .get_hir_spans()
+                                            .get(&d.value.get_hir_id())
+                                            .unwrap()
+                                            .clone()
+                                            .into(),
+                                    ),
+                                );
                             }
                         }
                     }
