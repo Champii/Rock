@@ -99,7 +99,14 @@ impl Envs {
         // we short-circuit if the type is not found
         // this is useful only when some diagnostics has been emited
         // but we want to continue to infer the rest of the types
-        let src_t = self.get_type(src)?.clone();
+        let src_t_opt = self.get_type(src);
+        if src_t_opt.is_none() {
+            error!("Cannot set the type of `{}` to `{}`", dest, src);
+
+            return None;
+        }
+
+        let src_t = src_t_opt?.clone();
         let previous = self.set_type_alone(dest, &src_t);
 
         match (src_t.clone(), previous.clone()) {

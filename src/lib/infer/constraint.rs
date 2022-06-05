@@ -177,6 +177,7 @@ impl<'a> ConstraintContext<'a> {
 
     // FIXME: This is ugly as well
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
+        // println!("Setup call {:?}, {:?}", fc.op, f.name);
         if f.signature.arguments.len() != fc.args.len() {
             self.envs
                 .diagnostics
@@ -273,6 +274,7 @@ impl<'a> ConstraintContext<'a> {
 
         // We change scope here
         if !self.envs.set_current_fn((f.hir_id.clone(), sig.clone())) {
+            error!("Could not set current function");
             return;
         }
 
@@ -312,6 +314,7 @@ impl<'a> ConstraintContext<'a> {
 
         // We restore the scope here
         if !self.envs.set_current_fn(old_f) {
+            error!("Could not set current function");
             return;
         }
 
@@ -337,6 +340,8 @@ impl<'a> ConstraintContext<'a> {
     }
 
     pub fn resolve_dot_notation(&mut self, t: &Type, d: &Dot) -> Option<()> {
+        self.envs.set_type(&d.op.get_hir_id(), t);
+
         let node_id = if let Some(node_id) = self
             .hir
             .trait_solver
@@ -360,6 +365,7 @@ impl<'a> ConstraintContext<'a> {
                         .into(),
                     t.clone(),
                 ));
+
             return None;
         };
 
@@ -376,7 +382,10 @@ impl<'a> ConstraintContext<'a> {
             let method = method.values().next().unwrap();
 
             self.envs
-                .set_type(&method.hir_id, &method.signature.clone().into());
+                .set_type(&d.value.hir_id, &method.signature.clone().into());
+
+            /* self.envs
+            .set_type(&method.hir_id, &method.signature.clone().into()); */
 
             self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &method.hir_id);
         } else {
@@ -412,6 +421,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_trait(&mut self, _t: &'a Trait) {}
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
+        println!("fndecl {:?}", f.name);
         self.envs.apply_args_type(f);
 
         walk_list!(self, visit_argument_decl, &f.arguments);
@@ -437,6 +447,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
 
         self.add_tmp_resolution_to_current_fn(&f.name.hir_id, &f.hir_id);
+        println!("current fn {:#?}", self.envs.get_current_fn());
     }
 
     fn visit_prototype(&mut self, p: &Prototype) {
@@ -649,9 +660,9 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
                 match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
                     t @ Type::Struct(struct_t) => {
-                        self.envs.set_type(&d.op.get_hir_id(), t);
-
                         if let Some(field) = struct_t.defs.get(&d.value.name) {
+                            self.envs.set_type(&d.op.get_hir_id(), t);
+
                             self.envs.set_type(&d.get_hir_id(), field);
 
                             if let Type::Func(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
@@ -664,8 +675,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         }
                     }
                     other => {
-                        self.envs.set_type(&d.op.get_hir_id(), other);
-
                         self.resolve_dot_notation(other, d);
                     }
                 }

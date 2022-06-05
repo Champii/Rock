@@ -151,6 +151,7 @@ impl<'a> Monomorphizer<'a> {
         new_root.spans = self.root.spans.clone();
         new_root.structs = self.structs.clone(); // TODO: monomorphize that
         new_root.node_types = self.root.node_types.clone();
+        new_root.trait_solver = self.root.trait_solver.clone();
 
         new_root
     }
@@ -294,6 +295,8 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     self.new_resolutions
                         .insert(fc.op.get_hir_id(), generated_fn.clone());
                 } else {
+                    /* self.new_resolutions
+                    .insert(fc.op.get_hir_id(), f.hir_id.clone()); */
                     // println!("hir {:#?}", self.root);
                     println!("resolved hir {:#?}", self.resolve(&old_fc_op).unwrap());
                     println!("func type {:#?}", fc.to_func_type(&self.root.node_types));

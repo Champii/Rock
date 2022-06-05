@@ -83,14 +83,8 @@ impl TraitSolver {
         self.implemented_fns
             .get(&implementor_type.get_name())
             .and_then(|set| {
-                println!("set ?? {:?}", set);
                 set.iter()
-                    .filter(|(_, name)| **name == fn_name)
-                    .map(|x| {
-                        println!("{:?}", x);
-                        x
-                    })
-                    .nth(0)
+                    .find(|(_, name)| **name == fn_name)
                     .map(|(id, _)| id.clone())
             })
     }
