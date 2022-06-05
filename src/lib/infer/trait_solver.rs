@@ -1,7 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    ast::{Impl, NodeId, Trait},
+    ast::{Impl, NodeId},
     ty::Type,
 };
 
@@ -19,15 +19,6 @@ impl TraitSolver {
             trait_methods: BTreeMap::new(),
             implemented_fns: BTreeMap::new(),
         }
-    }
-
-    pub fn add_trait(&mut self, tr: &Trait) {
-        /* self.trait_methods.entry(tr.name.get_name()).or_insert(
-            tr.defs
-                .iter()
-                .map(|fundecl| (fundecl.name.to_string(), fundecl.node_id))
-                .collect(),
-        ); */
     }
 
     pub fn add_impl(&mut self, tr: &Impl) {
@@ -65,24 +56,7 @@ impl TraitSolver {
             .insert(trait_type.get_name());
     }
 
-    /* pub fn does_impl_fn(&self, implementor_type: &Type, fn_name: String) -> bool {
-           let trait_associated = if let Some((trait_name, _)) = self
-               .trait_methods
-               .iter()
-               .find(|(_trait_name, set)| set.values().find(|k| **k == fn_name).is_some())
-           {
-               trait_name.clone()
-           } else {
-               return false;
-           };
-
-           self.implemented_trait
-               .get(&implementor_type.get_name())
-               .map(|set| set.contains(&trait_associated))
-               .unwrap_or(false)
-       }
-    */
-    pub fn trait_of_fn(&self, implementor_type: &Type, fn_name: String) -> Option<String> {
+    /* pub fn trait_of_fn(&self, implementor_type: &Type, fn_name: String) -> Option<String> {
         self.trait_methods
             .iter()
             .filter(|(_trait_name, set)| set.values().find(|k| **k == fn_name).is_some())
@@ -93,9 +67,13 @@ impl TraitSolver {
                     .unwrap_or(false)
             })
             // TODO: Assuming we failed earlier if there were multiple traits implementing the same fn
+            .map(|x| {
+                println!("{:?}", x);
+                x
+            })
             .nth(0)
             .map(|(trait_name, _)| trait_name.clone())
-    }
+    } */
 
     pub fn node_id_of_fn_implementor(
         &self,
@@ -105,8 +83,14 @@ impl TraitSolver {
         self.implemented_fns
             .get(&implementor_type.get_name())
             .and_then(|set| {
+                println!("set ?? {:?}", set);
                 set.iter()
-                    .find(|(_, name)| **name == fn_name)
+                    .filter(|(_, name)| **name == fn_name)
+                    .map(|x| {
+                        println!("{:?}", x);
+                        x
+                    })
+                    .nth(0)
                     .map(|(id, _)| id.clone())
             })
     }

@@ -11,6 +11,8 @@ impl Eq Int64
 impl Eq Bool
     == i j = ~BEq i j
 
+use Eq::(*)
+
 trait Print a
     print :: a -> Int64
 
@@ -24,4 +26,4 @@ mdr a b = a == b
 mdr2 a b = a == b
 lol a b = mdr a, b == mdr2 2, 2
 
-main = print (lol 2, 2)
+main = lol(2, 2).print()

@@ -8,13 +8,13 @@ trait Show a
   show :: a -> String
 
 impl Show Int64
-  show a = "2"
+  @show = "2"
 
-print a = puts show a
+print a = puts a.show()
 
 impl Show Bar
-  show b =
-    show b.toto
+  @show =
+    self.toto.show()
 
 main =
   let bar = Bar

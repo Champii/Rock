@@ -294,6 +294,10 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     self.new_resolutions
                         .insert(fc.op.get_hir_id(), generated_fn.clone());
                 } else {
+                    // println!("hir {:#?}", self.root);
+                    println!("resolved hir {:#?}", self.resolve(&old_fc_op).unwrap());
+                    println!("func type {:#?}", fc.to_func_type(&self.root.node_types));
+                    println!("generated fn {:#?}", self.generated_fn_hir_id);
                     panic!("BUG: Cannot find function from signature");
                 }
 
@@ -304,7 +308,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
 
                 if let Type::Func(f_type) = f_type {
                     // Traits
-                    if let Some(f) = self.root.get_trait_method((*p.name).clone(), f_type) {
+                    if let Some(f) = self.root.get_trait_method((p.name.name).clone(), f_type) {
                         if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {
                             self.new_resolutions.insert(fc.op.get_hir_id(), trans_res);
                         } else {

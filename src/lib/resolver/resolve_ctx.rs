@@ -37,16 +37,13 @@ impl<'a> ResolveCtx<'a> {
         if let Some(ref mut scopes) = self.scopes.get_mut(&struct_scope_name) {
             scopes.add(name.clone(), node_id);
         }
-
-        // self.add_to_current_scope(name, node_id);
     }
 
     pub fn new_struct(&mut self, name: Identifier) {
         let mut struct_scope_name = self.cur_scope.clone();
         struct_scope_name.path.push(name);
-        self.scopes.insert(struct_scope_name.clone(), Scopes::new());
 
-        // self.cur_scope = name;
+        self.scopes.insert(struct_scope_name.clone(), Scopes::new());
     }
 
     pub fn import_struct_scope(&mut self, struct_name: Identifier) {
@@ -105,12 +102,9 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 }
                 TopLevel::Use(_u) => (),
                 TopLevel::Trait(t) => {
-                    // self.trait_solver.add_trait(t);
                     self.new_struct(Identifier::new(t.name.get_name(), 0));
 
                     for proto in &t.defs {
-                        // self.add_to_current_scope((*proto.name).clone(), proto.node_id);
-
                         self.add_to_struct_scope(
                             t.name.get_name(),
                             (*proto.name).clone(),
@@ -124,8 +118,6 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     self.add_to_current_scope(s.name.name.clone(), s.name.node_id);
 
                     s.defs.iter().for_each(|p| {
-                        // self.add_to_current_scope((*p.name).clone(), p.node_id);
-
                         self.add_to_struct_scope(s.name.name.clone(), (*p.name).clone(), p.node_id);
                     })
                 }
@@ -142,13 +134,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     for proto in &i.defs {
                         let mut proto = proto.clone();
 
-                        proto.mangle(
-                            &i.types
-                                .iter()
-                                // .chain(&[i.name.clone()])
-                                .map(|t| t.get_name())
-                                .collect::<Vec<_>>(),
-                        );
+                        proto.mangle(&i.types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
 
                         // FIXME: This is a hack that pollute the scope with struct methods
                         // This conflicts with trait impls that need to be in scope to be resolved
@@ -403,13 +389,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         };
     }
 
-    fn visit_primary_expr(&mut self, node: &'a PrimaryExpr) {
-        // println!("self = {:#?}", self);
-        walk_primary_expr(self, node);
-    }
-
     fn visit_secondary_expr(&mut self, node: &'a SecondaryExpr) {
-        // walk_secondary_expr(self, node);
         match node {
             SecondaryExpr::Arguments(args) => walk_list!(self, visit_argument, args),
             SecondaryExpr::Indice(expr) => self.visit_expression(expr),
