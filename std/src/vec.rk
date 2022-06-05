@@ -3,11 +3,12 @@ struct Vec
   cap :: Int64
   len :: Int64
 
-use super::show::show
 use super::externs::(*)
+# This is problematic
+use super::show::Show::(*)
 
 impl Show Vec
-  show v = show v.len
+  @show = self.len.show()
 
 new_vec =
   Vec

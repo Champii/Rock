@@ -32,3 +32,5 @@ impl Num String
         c_strcpy s, a
         c_strcat s, b
         s
+
+use Num::(*)

@@ -106,15 +106,16 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 TopLevel::Use(_u) => (),
                 TopLevel::Trait(t) => {
                     // self.trait_solver.add_trait(t);
+                    self.new_struct(Identifier::new(t.name.get_name(), 0));
 
                     for proto in &t.defs {
-                        self.add_to_current_scope((*proto.name).clone(), proto.node_id);
+                        // self.add_to_current_scope((*proto.name).clone(), proto.node_id);
 
-                        /* self.add_to_struct_scope(
+                        self.add_to_struct_scope(
                             t.name.get_name(),
                             (*proto.name).clone(),
                             proto.node_id,
-                        ); */
+                        );
                     }
                 }
                 TopLevel::Struct(s) => {
@@ -203,6 +204,14 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         }
     }
 
+    fn visit_trait(&mut self, trait_: &'a Trait) {
+        self.push_scope();
+        self.import_struct_scope(Identifier::new(trait_.name.get_name(), 0));
+
+        walk_trait(self, trait_);
+
+        self.pop_scope();
+    }
     fn visit_impl(&mut self, impl_: &'a Impl) {
         self.push_scope();
         self.import_struct_scope(Identifier::new(impl_.name.get_name(), 0));

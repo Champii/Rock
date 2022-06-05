@@ -4,18 +4,19 @@ use super::externs::c_close
 use super::externs::c_open
 use super::externs::c_strtol
 
-use super::print::print
-use super::show::show
 use super::num::(*)
 use super::eq::(*)
+use super::show::(*)
+# This is problematic
+use super::show::Show::(*)
 
 struct File
   fd :: Int64
   path :: String
 
 impl Show File
-  show f =
-    "File { fd: " + show f.fd + ", path: " + f.path + " }"
+  @show =
+    "File { fd: " + self.fd.show() + ", path: " + self.path + " }"
 
 impl File
   new p = 

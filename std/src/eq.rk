@@ -37,3 +37,4 @@ use super::externs::c_strcmp
 impl Eq String
     == k l = c_strcmp k, l == 0
 
+use Eq::(*)
