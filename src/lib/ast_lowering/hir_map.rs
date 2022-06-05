@@ -5,12 +5,23 @@ use crate::{
     hir::{FnBodyId, HirId},
 };
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HirMap {
     map: HashMap<HirId, NodeId>,
     rev_map: HashMap<NodeId, HirId>,
     pub hir_id_next: u64,
     pub body_id_next: u64,
+}
+
+impl Default for HirMap {
+    fn default() -> Self {
+        Self {
+            hir_id_next: 1,
+            body_id_next: 1,
+            map: HashMap::new(),
+            rev_map: HashMap::new(),
+        }
+    }
 }
 
 impl HirMap {

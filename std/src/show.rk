@@ -1,4 +1,8 @@
-use super::externs::(*)
+use super::externs::c_malloc
+use super::externs::c_sprintf
+use super::externs::c_gcvt
+use super::externs::c_strcpy
+use super::externs::c_strcat
 use super::num::(*)
 use super::eq::(*)
 

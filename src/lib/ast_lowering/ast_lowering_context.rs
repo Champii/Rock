@@ -50,6 +50,7 @@ impl AstLoweringContext {
             struct_methods: self.struct_methods.clone(),
             spans: root.spans.clone(),
             structs: self.structs.clone(),
+            trait_solver: root.trait_solver.clone(),
         };
 
         hir.arena = hir::collect_arena(&hir);

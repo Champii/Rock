@@ -7,6 +7,7 @@ use crate::{
     },
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
+    infer::trait_solver::TraitSolver,
     parser::{span::Span as OldSpan, ParsingCtx},
 };
 
@@ -22,16 +23,22 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
 
     scopes.insert(IdentifierPath::new_root(), Scopes::new());
 
-    let mut ctx = ResolveCtx {
-        parsing_ctx,
-        scopes,
-        cur_scope: IdentifierPath::new_root(),
-        resolutions: ResolutionMap::default(),
+    let (resolutions, trait_solver) = {
+        let mut ctx = ResolveCtx {
+            parsing_ctx,
+            scopes,
+            cur_scope: IdentifierPath::new_root(),
+            resolutions: ResolutionMap::default(),
+            trait_solver: TraitSolver::new(),
+        };
+
+        ctx.run(root);
+
+        (ctx.resolutions, ctx.trait_solver)
     };
 
-    ctx.visit_root(root);
-
-    root.resolutions = ctx.resolutions;
+    root.resolutions = resolutions;
+    root.trait_solver = trait_solver;
 
     let (mut unused_fns, unused_methods) = unused_collector::collect_unused(root);
 

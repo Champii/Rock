@@ -5,6 +5,7 @@ use crate::{
     hir::visit::*,
     hir::*,
     infer::Envs,
+    parser::Span,
     resolver::ResolutionMap,
     ty::{FuncType, PrimitiveType, Type},
 };
@@ -100,7 +101,7 @@ impl<'a> ConstraintContext<'a> {
                                         self.envs
                                             .spans
                                             .get(&call_hir_id.clone())
-                                            .unwrap()
+                                            .unwrap_or(&Span::default())
                                             .clone()
                                             .into(),
                                         call_hir_id.clone(),
@@ -170,7 +171,7 @@ impl<'a> ConstraintContext<'a> {
                     self.envs
                         .spans
                         .get(&fc.op.get_hir_id())
-                        .unwrap()
+                        .unwrap_or(&Span::default())
                         .clone()
                         .into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
@@ -587,31 +588,84 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                 self.envs
                                     .set_type(&method.hir_id, &method.signature.clone().into());
 
-                                let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
+                                // let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
 
-                                self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+                                self.add_tmp_resolution_to_current_fn(
+                                    &d.get_hir_id(),
+                                    &method.hir_id,
+                                );
                             } else {
                                 panic!("Not a field and not a method ? How did you get here ?");
                             }
                         }
                     }
                     other => {
-                        let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();
+                        self.envs.set_type(&d.op.get_hir_id(), other);
+                        // check for trait impls for that `other` type
+                        // we need a trait resolution mecanism
+                        // like
+                        // trait_solver.does_impl_trait(ty, trait_name) -> bool;
+                        // with access to the set containing the attached methods
+                        // trait_solver.does_impl_fn(ty, fn_name) -> bool;
+                        // or
+                        // trait_solver.trait_that_impl(ty, fn_name) -> bool;
+                        // It is obvious here that we can abstract trait and struct methods
+                        //
+                        //
+                        /* println!("{:#?}", other);
+                        println!("{:#?}", self.envs); */
+
+                        println!(
+                            "{:#?}",
+                            self.hir
+                                .trait_solver
+                                .does_impl_fn(&other, d.value.name.clone(),)
+                        );
+                        let tr = self.hir.get_trait_by_method(d.value.name.clone()).unwrap();
+
+                        let method = tr
+                            .defs
+                            .iter()
+                            .find(|proto| proto.name.name == d.value.name)
+                            .unwrap();
+                        /* let method = self
+                        .hir
+                        .trait_methods
+                        .get(&d.value.name)
+                        .unwrap()
+                        .get(&other)
+                        .unwrap(); */
 
                         self.envs
-                            .diagnostics
-                            .push_error(Diagnostic::new_type_conflict(
-                                self.envs
-                                    .spans
-                                    .get(&d.value.get_hir_id())
-                                    .unwrap()
-                                    .clone()
-                                    .into(),
-                                value_t.clone(),
-                                other.clone(),
-                                value_t,
-                                other.clone(),
-                            ))
+                            .set_type(&method.hir_id, &method.signature.clone().into());
+
+                        println!("name {:#?}", d.value.name);
+                        let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
+                        println!("resolved {:#?}", resolved);
+                        // println!("hir {:#?}", self.hir);
+
+                        self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
+
+                        /* let value_t = self
+                        .envs
+                        .get_type(&d.value.get_hir_id())
+                        .unwrap_or(&other.clone())
+                        .clone(); */
+
+                        /* self.envs
+                        .diagnostics
+                        .push_error(Diagnostic::new_type_conflict(
+                            self.envs
+                                .spans
+                                .get(&d.value.get_hir_id())
+                                .unwrap()
+                                .clone()
+                                .into(),
+                            value_t.clone(),
+                            other.clone(),
+                            value_t,
+                            other.clone(),
+                        )) */
                     }
                 }
             }

@@ -1,4 +1,5 @@
-use super::externs::(*)
+use super::externs::c_puts
+use super::externs::c_write
 use super::show::show
 use super::eq::(*)
 use super::num::(*)
