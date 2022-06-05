@@ -107,7 +107,7 @@ fact a =
     then 1
     else a * fact (a - 1)
 
-main = print fact 4
+main = fact(4).print()
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -129,9 +129,9 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 id a = a
 
 main =
-  print id 1
-  print id 2.2
-  print id "Test"
+  id(1).print()
+  id(2.2).print()
+  id("Test").print()
 ```
 
 Prints 
@@ -168,7 +168,7 @@ infix |> 1
 
 f a = a + 2
 
-main = print (4 |> f)
+main = (4 |> f).print()
 ```
 
 ``` sh
@@ -187,18 +187,17 @@ This `trait ToString` is redondant with the `trait Show` implemented in the stdl
 
 ``` haskell
 trait ToString a
-  toString :: a -> String
+  tostring :: a -> String
 
 impl ToString Int64
-  toString x = show x
+  @tostring = self.show()
 
 impl ToString Float64
-  toString x = show x
+  @tostring = self.show()
 
 main =
-  print toString 33
-  print toString 42.42
-
+  (33).tostring().print()
+  (42.42).tostring().print()
 ```
 
 ``` sh
@@ -223,7 +222,7 @@ impl Player
 
 main =
   let player = Player::new 1
-  print player.getlevel()
+  player.getlevel().print()
 ```
 
 ``` sh
@@ -239,15 +238,17 @@ struct Player
   name :: String
 
 impl Show Player
-  show p = show p.name
+  @show = self.name + "(" + self.level.show() + ")"
+
+impl Print Player
+  @print = printl self.show()
 
 main =
-  let player = 
-    Player
-      level: 42
-      name: "MyName"
+  let player = Player
+    level: 42
+    name: "MyName"
 
-  print player
+  player.print()
 ```
 
 ``` sh
@@ -270,7 +271,7 @@ mod foo
 
 use foo::bar
 
-main = print bar 1
+main = bar(1).print()
 ```
 
 ```sh
@@ -281,7 +282,7 @@ $ rock run
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main = print foo::bar 1` 
+`main = foo::bar(1).print()` 
 
 ## REPL
 
