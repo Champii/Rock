@@ -16,3 +16,5 @@ impl Num Float64
     + c d = ~FAdd c d
     * c d = ~FMul c d
     - c d = ~FSub c d
+
+use Num::(*)

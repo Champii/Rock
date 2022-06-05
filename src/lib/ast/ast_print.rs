@@ -89,7 +89,7 @@ impl_visitor_trait!(
     StructDecl
     Use
     Trait
-    Assign
+    // Assign
     Impl
     FunctionDecl
     Identifier
@@ -98,17 +98,17 @@ impl_visitor_trait!(
     For
     While
     ForIn
-    Expression
-    If
-    Else
-    UnaryExpr
+    // Expression
+    /* If
+    Else */
+    // UnaryExpr
     StructCtor
     Operator
-    PrimaryExpr
+    // PrimaryExpr
     SecondaryExpr
     Operand
     Argument
-    Literal
+    // Literal
     Array
     NativeOperator
     FuncType

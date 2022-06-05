@@ -1,16 +1,27 @@
-use super::externs::(*)
-use super::show::show
+use super::externs::c_puts
+use super::show::(*)
 use super::eq::(*)
 use super::num::(*)
 
+# there is a bug here if a method exists with the same name in the scope 
+# of the module (like Print::print and print)
+printl a = c_puts a.show()
 
-print a = c_puts show a
+trait Print a
+  print :: a -> a
 
-printl a = c_write 1, a, c_strlen a
+# Here we would need generic impl
+impl Print Bool
+  @print = printl self
 
-_shut_up_warnings =
-  print 0
-  printl 0
-  _shut_up_warnings()
+impl Print Int64
+  @print = printl self
+
+impl Print Float64
+  @print = printl self
+
+impl Print String
+  @print = printl self
 
 
+use Print::(*)

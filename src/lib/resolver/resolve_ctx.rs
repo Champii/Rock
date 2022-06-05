@@ -4,6 +4,7 @@ use crate::{
     ast::{tree::*, visit::*, NodeId},
     diagnostics::Diagnostic,
     helpers::scopes::*,
+    infer::trait_solver::TraitSolver,
     parser::span2::Span as Span2,
     parser::ParsingCtx,
     resolver::ResolutionMap,
@@ -15,9 +16,14 @@ pub struct ResolveCtx<'a> {
     pub scopes: HashMap<IdentifierPath, Scopes<String, NodeId>>, // <ModPath, ModScopes>
     pub cur_scope: IdentifierPath,
     pub resolutions: ResolutionMap<NodeId>,
+    pub trait_solver: TraitSolver,
 }
 
 impl<'a> ResolveCtx<'a> {
+    pub fn run(&mut self, root: &'a mut Root) {
+        self.visit_root(root);
+    }
+
     pub fn add_to_current_scope(&mut self, name: String, node_id: NodeId) {
         if let Some(ref mut scopes) = self.scopes.get_mut(&self.cur_scope) {
             scopes.add(name, node_id);
@@ -29,16 +35,31 @@ impl<'a> ResolveCtx<'a> {
         struct_scope_name.path.push(Identifier::new(struct_name, 0));
 
         if let Some(ref mut scopes) = self.scopes.get_mut(&struct_scope_name) {
-            scopes.add(name, node_id);
+            scopes.add(name.clone(), node_id);
         }
     }
 
     pub fn new_struct(&mut self, name: Identifier) {
         let mut struct_scope_name = self.cur_scope.clone();
         struct_scope_name.path.push(name);
-        self.scopes.insert(struct_scope_name.clone(), Scopes::new());
 
-        // self.cur_scope = name;
+        self.scopes.insert(struct_scope_name.clone(), Scopes::new());
+    }
+
+    pub fn import_struct_scope(&mut self, struct_name: Identifier) {
+        let mut struct_scope_name = self.cur_scope.clone();
+        struct_scope_name.path.push(struct_name);
+
+        let struct_scope = if let Some(struct_scope) = self.scopes.get(&struct_scope_name) {
+            struct_scope.clone()
+        } else {
+            return;
+        };
+
+        self.scopes
+            .get_mut(&self.cur_scope)
+            .unwrap()
+            .extend(struct_scope.scopes.last().unwrap());
     }
 
     pub fn new_mod(&mut self, name: IdentifierPath) {
@@ -81,8 +102,14 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 }
                 TopLevel::Use(_u) => (),
                 TopLevel::Trait(t) => {
+                    self.new_struct(Identifier::new(t.name.get_name(), 0));
+
                     for proto in &t.defs {
-                        self.add_to_current_scope((*proto.name).clone(), proto.node_id);
+                        self.add_to_struct_scope(
+                            t.name.get_name(),
+                            (*proto.name).clone(),
+                            proto.node_id,
+                        );
                     }
                 }
                 TopLevel::Struct(s) => {
@@ -91,19 +118,23 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     self.add_to_current_scope(s.name.name.clone(), s.name.node_id);
 
                     s.defs.iter().for_each(|p| {
-                        self.add_to_current_scope((*p.name).clone(), p.node_id);
+                        self.add_to_struct_scope(s.name.name.clone(), (*p.name).clone(), p.node_id);
                     })
                 }
                 TopLevel::Impl(i) => {
+                    self.trait_solver
+                        .add_implementor(i.name.clone(), i.name.clone());
+                    if !i.types.is_empty() {
+                        self.trait_solver
+                            .add_implementor(i.types.first().unwrap().clone(), i.name.clone());
+                    }
+
+                    self.trait_solver.add_impl(i);
+
                     for proto in &i.defs {
                         let mut proto = proto.clone();
 
                         proto.mangle(&i.types.iter().map(|t| t.get_name()).collect::<Vec<_>>());
-
-                        // FIXME: This is a hack that pollute the scope with struct methods
-                        // This conflicts with trait impls that need to be in scope to be solved
-                        // Waiting for the struct dot notation instead
-                        self.add_to_current_scope((*proto.name).clone(), proto.node_id);
 
                         self.add_to_struct_scope(
                             i.name.get_name(),
@@ -154,6 +185,23 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         }
     }
 
+    fn visit_trait(&mut self, trait_: &'a Trait) {
+        self.push_scope();
+        self.import_struct_scope(Identifier::new(trait_.name.get_name(), 0));
+
+        walk_trait(self, trait_);
+
+        self.pop_scope();
+    }
+    fn visit_impl(&mut self, impl_: &'a Impl) {
+        self.push_scope();
+        self.import_struct_scope(Identifier::new(impl_.name.get_name(), 0));
+
+        walk_impl(self, impl_);
+
+        self.pop_scope();
+    }
+
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top {
             TopLevel::Prototype(p) => self.visit_prototype(p),
@@ -179,6 +227,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_struct_decl(&mut self, s: &'a StructDecl) {
         self.push_scope();
+        self.import_struct_scope(s.name.clone());
 
         walk_struct_decl(self, s);
 
@@ -237,6 +286,21 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
                     for (k, v) in &scope.clone() {
                         self.add_to_current_scope(k.clone(), v.clone());
+
+                        // This is barbarian, we try each resolution if it match a scope name
+                        // If so, we hard-copy the struct scope into the current
+                        let mut struct_scope_name = mod_path.clone();
+                        struct_scope_name.path.push(Identifier::new(k.clone(), 0));
+
+                        if let Some(struct_scopes) =
+                            self.scopes.get_mut(&struct_scope_name).cloned()
+                        {
+                            let mut struct_scope_name = self.cur_scope.clone();
+
+                            struct_scope_name.path.push(Identifier::new(k.clone(), *v));
+
+                            self.scopes.insert(struct_scope_name, struct_scopes);
+                        }
                     }
                 } else {
                     match scopes.get((*ident).to_string()) {
@@ -318,5 +382,13 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     self.get_span2(id.node_id).into(),
                 )),
         };
+    }
+
+    fn visit_secondary_expr(&mut self, node: &'a SecondaryExpr) {
+        match node {
+            SecondaryExpr::Arguments(args) => walk_list!(self, visit_argument, args),
+            SecondaryExpr::Indice(expr) => self.visit_expression(expr),
+            SecondaryExpr::Dot(_) => (), // ignored for now, we don't have the means to typecheck deep properties
+        }
     }
 }

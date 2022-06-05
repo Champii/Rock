@@ -5,6 +5,7 @@ use crate::{
     hir::visit::*,
     hir::*,
     infer::Envs,
+    parser::Span,
     resolver::ResolutionMap,
     ty::{FuncType, PrimitiveType, Type},
 };
@@ -62,15 +63,28 @@ impl<'a> ConstraintContext<'a> {
             .and_then(|reso| self.resolve_rec(&reso).or(Some(reso)))
     }
 
-    pub fn resolve_and_get(&self, hir: &HirId) -> Option<&HirNode> {
-        self.hir
-            .arena
-            .get(
-                &self
-                    .resolve(hir)
-                    .or_else(|| panic!("NO RESO FOR {:?}", hir))?,
-            )
-            .or_else(|| panic!("NO ARENA ITEM FOR {:?}", hir))
+    pub fn resolve_and_get(&mut self, hir: &HirId) -> Option<&HirNode> {
+        let node = match self.resolve(hir) {
+            Some(node) => node,
+            None => {
+                warn!("cannot resolve {}", hir);
+
+                return None;
+            }
+        };
+
+        self.hir.arena.get(&node).or_else(|| {
+            // FIXME: Is this right or even justified ?
+            warn!("cannot get arena for {}", hir);
+
+            self.envs
+                .diagnostics
+                .push_error(Diagnostic::new_unknown_identifier(
+                    self.hir.get_hir_spans().get(&node).unwrap().clone().into(),
+                ));
+
+            None
+        })
     }
 
     // FIXME: This is ugly
@@ -100,7 +114,7 @@ impl<'a> ConstraintContext<'a> {
                                         self.envs
                                             .spans
                                             .get(&call_hir_id.clone())
-                                            .unwrap()
+                                            .unwrap_or(&Span::default())
                                             .clone()
                                             .into(),
                                         call_hir_id.clone(),
@@ -163,6 +177,7 @@ impl<'a> ConstraintContext<'a> {
 
     // FIXME: This is ugly as well
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
+        // println!("Setup call {:?}, {:?}", fc.op, f.name);
         if f.signature.arguments.len() != fc.args.len() {
             self.envs
                 .diagnostics
@@ -170,7 +185,7 @@ impl<'a> ConstraintContext<'a> {
                     self.envs
                         .spans
                         .get(&fc.op.get_hir_id())
-                        .unwrap()
+                        .unwrap_or(&Span::default())
                         .clone()
                         .into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
@@ -259,6 +274,7 @@ impl<'a> ConstraintContext<'a> {
 
         // We change scope here
         if !self.envs.set_current_fn((f.hir_id.clone(), sig.clone())) {
+            error!("Could not set current function");
             return;
         }
 
@@ -298,6 +314,7 @@ impl<'a> ConstraintContext<'a> {
 
         // We restore the scope here
         if !self.envs.set_current_fn(old_f) {
+            error!("Could not set current function");
             return;
         }
 
@@ -320,6 +337,76 @@ impl<'a> ConstraintContext<'a> {
                     .set_type(&arg.get_hir_id(), new_f_arg_types.get(i).unwrap());
             }
         });
+    }
+
+    pub fn resolve_dot_notation(&mut self, t: &Type, d: &Dot) -> Option<()> {
+        self.envs.set_type(&d.op.get_hir_id(), t);
+
+        let node_id = if let Some(node_id) = self
+            .hir
+            .trait_solver
+            .node_id_of_fn_implementor(t, d.value.name.clone())
+        {
+            node_id
+        } else {
+            // this set_type is a placeholder. At this point we know
+            // that we will fail, but we need to set the type to pass
+            // the rest of the run and actually show the diagnostic
+            self.envs.set_type(&d.get_hir_id(), t);
+
+            self.envs
+                .diagnostics
+                .push_error(Diagnostic::new_is_not_a_property_of(
+                    self.hir
+                        .get_hir_spans()
+                        .get(&d.value.get_hir_id())
+                        .unwrap()
+                        .clone()
+                        .into(),
+                    t.clone(),
+                ));
+
+            return None;
+        };
+
+        let hir_id = self.hir.hir_map.get_hir_id(node_id).unwrap();
+
+        let arena_method = self.hir.arena.get(&hir_id).unwrap();
+        let name_hir_id = if let HirNode::FunctionDecl(fdecl) = arena_method {
+            fdecl.name.get_hir_id()
+        } else {
+            panic!("Expected function decl");
+        };
+
+        if let Some(method) = self.hir.struct_methods.get(&name_hir_id) {
+            let method = method.values().next().unwrap();
+
+            self.envs
+                .set_type(&d.value.hir_id, &method.signature.clone().into());
+
+            self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &method.hir_id);
+        } else {
+            // this set_type is a placeholder. At this point we know
+            // that we will fail, but we need to set the type to pass
+            // the rest of the run and actually show the diagnostic
+            self.envs.set_type(&d.get_hir_id(), t);
+
+            self.envs
+                .diagnostics
+                .push_error(Diagnostic::new_is_not_a_property_of(
+                    self.hir
+                        .get_hir_spans()
+                        .get(&d.value.get_hir_id())
+                        .unwrap()
+                        .clone()
+                        .into(),
+                    t.clone(),
+                ));
+
+            return None;
+        }
+
+        Some(())
     }
 }
 
@@ -566,12 +653,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                 self.visit_expression(&d.op);
                 self.visit_identifier(&d.value);
 
-                // println!("envs: {:#?}", self.envs);
                 match &self.envs.get_type(&d.op.get_hir_id()).unwrap().clone() {
                     t @ Type::Struct(struct_t) => {
-                        self.envs.set_type(&d.op.get_hir_id(), t);
-
                         if let Some(field) = struct_t.defs.get(&d.value.name) {
+                            self.envs.set_type(&d.op.get_hir_id(), t);
+
                             self.envs.set_type(&d.get_hir_id(), field);
 
                             if let Type::Func(_ft) = &**struct_t.defs.get(&d.value.name).unwrap() {
@@ -580,38 +666,11 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                 self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
                             }
                         } else {
-                            // check for struct impls
-                            if let Some(method) = self.hir.struct_methods.get(&d.value.name) {
-                                let method = method.values().next().unwrap();
-
-                                self.envs
-                                    .set_type(&method.hir_id, &method.signature.clone().into());
-
-                                let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
-
-                                self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
-                            } else {
-                                panic!("Not a field and not a method ? How did you get here ?");
-                            }
+                            self.resolve_dot_notation(t, d);
                         }
                     }
                     other => {
-                        let value_t = self.envs.get_type(&d.value.get_hir_id()).unwrap().clone();
-
-                        self.envs
-                            .diagnostics
-                            .push_error(Diagnostic::new_type_conflict(
-                                self.envs
-                                    .spans
-                                    .get(&d.value.get_hir_id())
-                                    .unwrap()
-                                    .clone()
-                                    .into(),
-                                value_t.clone(),
-                                other.clone(),
-                                value_t,
-                                other.clone(),
-                            ))
+                        self.resolve_dot_notation(other, d);
                     }
                 }
             }

@@ -12,3 +12,5 @@ impl Num Int64
 impl Num Float64
     + c d = ~FAdd c d
     * c d = ~FMul c d
+
+use Num::(*)

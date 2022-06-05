@@ -2,6 +2,7 @@ mod constraint;
 mod mangle;
 mod monomorphize;
 mod state;
+pub mod trait_solver;
 
 pub use self::state::*;
 

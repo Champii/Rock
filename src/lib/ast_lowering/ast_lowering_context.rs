@@ -15,8 +15,8 @@ pub struct AstLoweringContext {
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
-    trait_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
-    struct_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
+    trait_methods: BTreeMap<String, HashMap<FuncType, hir::FunctionDecl>>,
+    struct_methods: BTreeMap<HirId, HashMap<FuncType, hir::FunctionDecl>>,
     structs: HashMap<String, hir::StructDecl>,
 }
 
@@ -27,8 +27,8 @@ impl AstLoweringContext {
             top_levels: Vec::new(),
             bodies: BTreeMap::new(),
             traits: HashMap::new(),
-            trait_methods: HashMap::new(),
-            struct_methods: HashMap::new(),
+            trait_methods: BTreeMap::new(),
+            struct_methods: BTreeMap::new(),
             structs: HashMap::new(),
             operators_list,
         }
@@ -50,6 +50,7 @@ impl AstLoweringContext {
             struct_methods: self.struct_methods.clone(),
             spans: root.spans.clone(),
             structs: self.structs.clone(),
+            trait_solver: root.trait_solver.clone(),
         };
 
         hir.arena = hir::collect_arena(&hir);
@@ -153,20 +154,22 @@ impl AstLoweringContext {
 
             hir_f.signature = type_sig.clone();
 
-            let fn_decls = if self.traits.get(&i.name).is_some() {
-                self.trait_methods
-                    .entry(hir_f.name.name.clone())
-                    .or_insert_with(HashMap::new)
-            } else {
-                self.struct_methods
-                    .entry(hir_f.name.name.clone())
-                    .or_insert_with(HashMap::new)
-            };
+            let fn_decls = self
+                .struct_methods
+                .entry(hir_f.name.hir_id.clone())
+                .or_insert_with(HashMap::new);
 
             let _hir_id = self.hir_map.next_hir_id(f.node_id);
             hir_f.hir_id = _hir_id;
 
-            (*fn_decls).insert(type_sig, hir_f);
+            (*fn_decls).insert(type_sig.clone(), hir_f.clone());
+
+            if self.traits.get(&i.name).is_some() {
+                self.trait_methods
+                    .entry(hir_f.name.name.clone())
+                    .or_insert_with(HashMap::new)
+                    .insert(type_sig, hir_f);
+            }
         }
     }
 

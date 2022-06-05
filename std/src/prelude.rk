@@ -1,7 +1,7 @@
-use super::show::show
+use super::show::(*)
 use super::print::(*)
 use super::num::(*)
 use super::eq::(*)
 use super::functor::(*)
 use super::clone::(*)
-use super::externs::(*)
+use super::fs::(*)

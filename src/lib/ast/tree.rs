@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     ast::NodeId,
     helpers::*,
+    infer::trait_solver::TraitSolver,
     parser::span2::Span,
     resolver::ResolutionMap,
     ty::{FuncType, Type},
@@ -14,6 +15,7 @@ use super::{ast_print::AstPrintContext, visit::Visitor};
 pub struct Root {
     pub r#mod: Mod,
     pub resolutions: ResolutionMap<NodeId>,
+    pub trait_solver: TraitSolver,
     pub operators_list: HashMap<String, u8>,
     pub unused: Vec<NodeId>,
     pub spans: HashMap<NodeId, Span>,
@@ -27,6 +29,7 @@ impl Root {
             operators_list: HashMap::new(),
             unused: vec![],
             spans: HashMap::new(),
+            trait_solver: TraitSolver::new(),
         }
     }
 

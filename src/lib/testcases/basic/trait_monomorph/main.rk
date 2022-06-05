@@ -2,12 +2,13 @@ trait Toto a
     toto :: a -> String
 
 impl Toto Int64
-    toto a = "1"
+    @toto = "1"
 
 impl Toto Bool
-    toto c = "true"
+    @toto = "true"
 
-print a = toto a
+# print a = a.toto()
+print a = Toto::toto a
 
 main =
     print true

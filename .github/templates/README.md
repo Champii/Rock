@@ -70,80 +70,26 @@ chmod +x rock
 
 You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
 
-You will also want the nightly channel added for Rust.
+Rock has been tested against Rust stable v1.60.0 and nightly
 
-#### Adding Rust Nightly
-
-To check if you already have the nightly channel added for Rust, use:
-
-```sh
-rustup show
-```
-
-This will give you infomation about which build channels you have for rust and which one is active. If you have the nightly, you should see something like this:
-
-```sh
-Default host: x86_64-unknown-linux-gnu
-rustup home:  /home/<username>/.rustup
-
-installed toolchains
---------------------
-
-stable-x86_64-unknown-linux-gnu (default)
-nightly-x86_64-unknown-linux-gnu
-
-active toolchain
-----------------
-
-stable-x86_64-unknown-linux-gnu (default)
-rustc 1.61.0 (fe5b13d68 2022-05-18)
-```
-
-If you don't see the nightly build you can add it using the following command:
-
-```sh
-rustup install nightly
-```
-
-This will add the option to use the nightly build of Rust for this and any other projects.
-Note you don't have to switch to the nightly to be the active toolchain but can use it specific projects, see below.
+[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
 
 #### With Cargo from Git
 
-If your active toolchain is stable:
-
 ```sh
-cargo +nightly install --git https://github.com/Champii/Rock --locked
-rock -V
-```
-
-If your active rust toolchain is nightly:
-
-``` sh
 cargo install --git https://github.com/Champii/Rock --locked
 rock -V
 ```
 
 #### Manual Clone and Build from Git
 
-If your active toolchain is stable:
-
 ```sh
-git clone https://github.com/Champii/Rock.git rock
-cd rock
-cargo +nightly run --<release|debug> -- -V
-```
-
-If your active toolchain is nightly:
-You can pick the release or debug build
-
-``` sh
 git clone https://github.com/Champii/Rock.git rock
 cd rock
 cargo run --<release|debug> -- -V
 ```
 
-Note: If you clone and build manually, make sure to add `path-to-install/rock/target/<release|debug>/` to you `$PATH` so you can run it anywhere on your system.
+Note: If you clone and build manually, make sure to add `/[...]/rock/target/<release|debug>/` to you `$PATH` so you can run it anywhere on your system.
 
 ## Quickstart
 
@@ -161,7 +107,7 @@ fact a =
     then 1
     else a * fact (a - 1)
 
-main = print fact 4
+main = fact(4).print()
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -183,9 +129,9 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 id a = a
 
 main =
-  print id 1
-  print id 2.2
-  print id "Test"
+  id(1).print()
+  id(2.2).print()
+  id("Test").print()
 ```
 
 Prints 
@@ -222,7 +168,7 @@ infix |> 1
 
 f a = a + 2
 
-main = print (4 |> f)
+main = (4 |> f).print()
 ```
 
 ``` sh
@@ -241,18 +187,17 @@ This `trait ToString` is redondant with the `trait Show` implemented in the stdl
 
 ``` haskell
 trait ToString a
-  toString :: a -> String
+  tostring :: a -> String
 
 impl ToString Int64
-  toString x = show x
+  @tostring = self.show()
 
 impl ToString Float64
-  toString x = show x
+  @tostring = self.show()
 
 main =
-  print toString 33
-  print toString 42.42
-
+  (33).tostring().print()
+  (42.42).tostring().print()
 ```
 
 ``` sh
@@ -273,11 +218,11 @@ impl Player
     Player
       level: level
       name: "Default"
-  getlevel player = player.level
+  @getlevel = self.level
 
 main =
   let player = Player::new 1
-  print Player::getlevel player
+  player.getlevel().print()
 ```
 
 ``` sh
@@ -293,15 +238,17 @@ struct Player
   name :: String
 
 impl Show Player
-  show p = show p.name
+  @show = self.name + "(" + self.level.show() + ")"
+
+impl Print Player
+  @print = printl self.show()
 
 main =
-  let player = 
-    Player
-      level: 42
-      name: "MyName"
+  let player = Player
+    level: 42
+    name: "MyName"
 
-  print player
+  player.print()
 ```
 
 ``` sh
@@ -324,7 +271,7 @@ mod foo
 
 use foo::bar
 
-main = print bar 1
+main = bar(1).print()
 ```
 
 ```sh
@@ -335,7 +282,7 @@ $ rock run
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main = print foo::bar 1` 
+`main = foo::bar(1).print()` 
 
 ## REPL
 

@@ -1,35 +1,33 @@
-use super::externs::(*)
+use super::externs::c_read
+use super::externs::c_malloc
+use super::externs::c_close
+use super::externs::c_open
+use super::externs::c_strtol
 
-use super::print::print
-use super::show::show
 use super::num::(*)
 use super::eq::(*)
+use super::show::(*)
+# This is problematic
+use super::show::Show::(*)
 
 struct File
   fd :: Int64
   path :: String
 
 impl Show File
-  show f =
-    "File { fd: " + show f.fd + ", path: " + f.path + " }"
+  @show =
+    "File { fd: " + self.fd.show() + ", path: " + self.path + " }"
+
+impl File
+  new p = 
+    File
+      fd: c_open p, 0, oct_to_dec "0777"
+      path: p
+  @read =
+    let s = c_malloc 100
+    let len = c_read self.fd, s, 100
+    s
+  @close = c_close self.fd
 
 oct_to_dec oct = c_strtol oct, 0, 8
 
-new_file p =
-  let f = c_open p, 0, oct_to_dec "0777"
-  File
-    fd: f
-    path: p
-
-read_file f =
-  let s = c_malloc 100
-  let len = c_read f.fd, s, 100
-  s
-
-close_file f =
-  c_close f.fd
-
-_shut_up_warnings =
-  read_file new_file ""
-  close_file 0
-  _shut_up_warnings()

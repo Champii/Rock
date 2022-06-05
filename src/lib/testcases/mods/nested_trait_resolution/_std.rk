@@ -10,3 +10,5 @@ trait Num a
 
 impl Num Int64
     + a b = ~IAdd a b
+
+use Num::(*)

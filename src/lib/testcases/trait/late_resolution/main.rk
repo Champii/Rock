@@ -6,6 +6,8 @@ trait Num a
 impl Num Int64
     + a b = ~IAdd a b
 
+use Num::(*)
+
 add a b = a + b
 
 main = add 2, 40

@@ -47,6 +47,10 @@ where
         self.scopes.last_mut().unwrap().insert(s, val);
     }
 
+    pub fn extend(&mut self, other: &Scope<K, T>) {
+        self.scopes.last_mut().unwrap().extend(other.clone())
+    }
+
     pub fn push(&mut self) {
         self.scopes.push(Scope::new())
     }
