@@ -384,9 +384,6 @@ impl<'a> ConstraintContext<'a> {
             self.envs
                 .set_type(&d.value.hir_id, &method.signature.clone().into());
 
-            /* self.envs
-            .set_type(&method.hir_id, &method.signature.clone().into()); */
-
             self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &method.hir_id);
         } else {
             // this set_type is a placeholder. At this point we know
@@ -421,7 +418,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
     fn visit_trait(&mut self, _t: &'a Trait) {}
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
-        println!("fndecl {:?}", f.name);
         self.envs.apply_args_type(f);
 
         walk_list!(self, visit_argument_decl, &f.arguments);
@@ -447,7 +443,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
 
         self.add_tmp_resolution_to_current_fn(&f.name.hir_id, &f.hir_id);
-        println!("current fn {:#?}", self.envs.get_current_fn());
     }
 
     fn visit_prototype(&mut self, p: &Prototype) {
