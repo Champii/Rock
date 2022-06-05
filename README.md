@@ -1,6 +1,6 @@
-# Rock v0.2.4-struct-scope-resolution
+# Rock v0.2.4-develop
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=struct_scope_resolution)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -12,7 +12,7 @@ No to be taken seriously (yet)
 
 ## Index
 
-- [Rock v0.2.4-struct-scope-resolution](#rock-v0.2.4-struct-scope-resolution)
+- [Rock v0.2.4-develop](#rock-v0.2.4-develop)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -58,10 +58,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.4-struct-scope-resolution](https://github.com/Champii/Rock/releases/download/v0.2.4-struct-scope-resolution/rock) (Tested on arch, btw)
+[Rock v0.2.4-develop](https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.4-struct-scope-resolution/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock
 chmod +x rock
 ./rock -V
 ```
@@ -304,7 +304,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.4-struct-scope-resolution
+Rock: v0.2.4-develop
 ----
 
 Type ':?' for help
