@@ -154,20 +154,22 @@ impl AstLoweringContext {
 
             hir_f.signature = type_sig.clone();
 
-            let fn_decls = if self.traits.get(&i.name).is_some() {
-                self.trait_methods
-                    .entry(hir_f.name.name.clone())
-                    .or_insert_with(HashMap::new)
-            } else {
-                self.struct_methods
-                    .entry(hir_f.name.hir_id.clone())
-                    .or_insert_with(HashMap::new)
-            };
+            let fn_decls = self
+                .struct_methods
+                .entry(hir_f.name.hir_id.clone())
+                .or_insert_with(HashMap::new);
 
             let _hir_id = self.hir_map.next_hir_id(f.node_id);
             hir_f.hir_id = _hir_id;
 
-            (*fn_decls).insert(type_sig, hir_f);
+            (*fn_decls).insert(type_sig.clone(), hir_f.clone());
+
+            if self.traits.get(&i.name).is_some() {
+                self.trait_methods
+                    .entry(hir_f.name.name.clone())
+                    .or_insert_with(HashMap::new)
+                    .insert(type_sig, hir_f);
+            }
         }
     }
 

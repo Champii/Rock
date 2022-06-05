@@ -4,7 +4,6 @@ use super::show::show
 use super::eq::(*)
 use super::num::(*)
 
-
 print a = c_puts show a
 
 printl a = c_write 1, a, c_strlen a

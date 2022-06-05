@@ -105,16 +105,16 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 }
                 TopLevel::Use(_u) => (),
                 TopLevel::Trait(t) => {
-                    self.trait_solver.add_trait(t);
+                    // self.trait_solver.add_trait(t);
 
                     for proto in &t.defs {
                         self.add_to_current_scope((*proto.name).clone(), proto.node_id);
 
-                        self.add_to_struct_scope(
+                        /* self.add_to_struct_scope(
                             t.name.get_name(),
                             (*proto.name).clone(),
                             proto.node_id,
-                        );
+                        ); */
                     }
                 }
                 TopLevel::Struct(s) => {
