@@ -1,12 +1,26 @@
 use super::externs::c_puts
-use super::externs::c_write
 use super::show::show
 use super::eq::(*)
 use super::num::(*)
 
-print a = c_puts show a
+# there is a bug here if a method exists with the same name in the scope 
+# of the module (like Print::print and print)
+printl a = c_puts show a
 
-printl a = c_write 1, a, c_strlen a
+trait Print a
+  print :: a -> a
+
+impl Print Bool
+  @print = printl show self
+
+impl Print Int64
+  @print = printl show self
+
+impl Print Float64
+  @print = printl show self
+
+impl Print String
+  @print = printl show self
 
 _shut_up_warnings =
   print 0

@@ -37,19 +37,25 @@ impl TraitSolver {
             tr.types[0].get_name()
         };
 
-        self.implemented_fns.entry(effective_type).or_insert(
-            tr.defs
-                .iter()
-                .map(|fundecl| (fundecl.node_id, fundecl.name.name.clone()))
-                .collect(),
-        );
+        self.implemented_fns
+            .entry(effective_type)
+            .or_insert(BTreeMap::new())
+            .extend(
+                tr.defs
+                    .iter()
+                    .map(|fundecl| (fundecl.node_id, fundecl.name.name.clone()))
+                    .collect::<Vec<_>>(),
+            );
 
-        self.trait_methods.entry(tr.name.get_name()).or_insert(
-            tr.defs
-                .iter()
-                .map(|fundecl| (fundecl.node_id, fundecl.name.to_string()))
-                .collect(),
-        );
+        self.trait_methods
+            .entry(tr.name.get_name())
+            .or_insert(BTreeMap::new())
+            .extend(
+                tr.defs
+                    .iter()
+                    .map(|fundecl| (fundecl.node_id, fundecl.name.to_string()))
+                    .collect::<Vec<_>>(),
+            );
     }
 
     pub fn add_implementor(&mut self, implementor_type: Type, trait_type: Type) {
