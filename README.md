@@ -1,6 +1,6 @@
-# Rock v0.2.4-develop
+# Rock v0.2.4-struct-scope-resolution
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=struct_scope_resolution)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -12,7 +12,7 @@ No to be taken seriously (yet)
 
 ## Index
 
-- [Rock v0.2.4-develop](#rock-v0.2.4-develop)
+- [Rock v0.2.4-struct-scope-resolution](#rock-v0.2.4-struct-scope-resolution)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -58,10 +58,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.4-develop](https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock) (Tested on arch, btw)
+[Rock v0.2.4-struct-scope-resolution](https://github.com/Champii/Rock/releases/download/v0.2.4-struct-scope-resolution/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.4-struct-scope-resolution/rock
 chmod +x rock
 ./rock -V
 ```
@@ -70,80 +70,26 @@ chmod +x rock
 
 You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
 
-You will also want the nightly channel added for Rust.
+Rock has been tested against Rust stable v1.60.0 and nightly
 
-#### Adding Rust Nightly
-
-To check if you already have the nightly channel added for Rust, use:
-
-```sh
-rustup show
-```
-
-This will give you infomation about which build channels you have for rust and which one is active. If you have the nightly, you should see something like this:
-
-```sh
-Default host: x86_64-unknown-linux-gnu
-rustup home:  /home/<username>/.rustup
-
-installed toolchains
---------------------
-
-stable-x86_64-unknown-linux-gnu (default)
-nightly-x86_64-unknown-linux-gnu
-
-active toolchain
-----------------
-
-stable-x86_64-unknown-linux-gnu (default)
-rustc 1.61.0 (fe5b13d68 2022-05-18)
-```
-
-If you don't see the nightly build you can add it using the following command:
-
-```sh
-rustup install nightly
-```
-
-This will add the option to use the nightly build of Rust for this and any other projects.
-Note you don't have to switch to the nightly to be the active toolchain but can use it specific projects, see below.
+[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
 
 #### With Cargo from Git
 
-If your active toolchain is stable:
-
 ```sh
-cargo +nightly install --git https://github.com/Champii/Rock --locked
-rock -V
-```
-
-If your active rust toolchain is nightly:
-
-``` sh
 cargo install --git https://github.com/Champii/Rock --locked
 rock -V
 ```
 
 #### Manual Clone and Build from Git
 
-If your active toolchain is stable:
-
 ```sh
-git clone https://github.com/Champii/Rock.git rock
-cd rock
-cargo +nightly run --<release|debug> -- -V
-```
-
-If your active toolchain is nightly:
-You can pick the release or debug build
-
-``` sh
 git clone https://github.com/Champii/Rock.git rock
 cd rock
 cargo run --<release|debug> -- -V
 ```
 
-Note: If you clone and build manually, make sure to add `path-to-install/rock/target/<release|debug>/` to you `$PATH` so you can run it anywhere on your system.
+Note: If you clone and build manually, make sure to add `/[...]/rock/target/<release|debug>/` to you `$PATH` so you can run it anywhere on your system.
 
 ## Quickstart
 
@@ -273,11 +219,11 @@ impl Player
     Player
       level: level
       name: "Default"
-  getlevel player = player.level
+  @getlevel = self.level
 
 main =
   let player = Player::new 1
-  print Player::getlevel player
+  print player.getlevel()
 ```
 
 ``` sh
@@ -357,7 +303,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.4-develop
+Rock: v0.2.4-struct-scope-resolution
 ----
 
 Type ':?' for help
