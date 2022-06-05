@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{
-        tree::{IdentifierPath, Root},
-        visit::*,
-    },
+    ast::tree::{IdentifierPath, Root},
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
     infer::trait_solver::TraitSolver,

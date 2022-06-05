@@ -1,9 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{
-    ast::{Impl, Trait},
-    ty::Type,
-};
+use crate::{ast::Trait, ty::Type};
 
 #[derive(Debug, Default, Clone)]
 pub struct TraitSolver {
@@ -28,16 +25,6 @@ impl TraitSolver {
                 .collect(),
         );
     }
-
-    /* pub fn add_struct(&mut self, imp: Impl) {
-        self.trait_methods.insert(
-            imp.name.get_name(),
-            imp.defs
-                .iter()
-                .map(|fundecl| fundecl.name.to_string())
-                .collect(),
-        );
-    } */
 
     pub fn add_implementor(&mut self, implementor_type: Type, trait_type: Type) {
         self.implemented_trait

@@ -288,7 +288,6 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         match self.scopes.get(&mod_path) {
             Some(scopes) => {
                 if ident.name == "(*)" {
-                    println!("{:#?}", scopes);
                     let scope = scopes.scopes.get(0).unwrap();
 
                     for (k, v) in &scope.clone() {
