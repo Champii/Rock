@@ -15,8 +15,8 @@ pub struct AstLoweringContext {
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
     traits: HashMap<Type, hir::Trait>,
-    trait_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
-    struct_methods: HashMap<String, HashMap<FuncType, hir::FunctionDecl>>,
+    trait_methods: BTreeMap<String, HashMap<FuncType, hir::FunctionDecl>>,
+    struct_methods: BTreeMap<HirId, HashMap<FuncType, hir::FunctionDecl>>,
     structs: HashMap<String, hir::StructDecl>,
 }
 
@@ -27,8 +27,8 @@ impl AstLoweringContext {
             top_levels: Vec::new(),
             bodies: BTreeMap::new(),
             traits: HashMap::new(),
-            trait_methods: HashMap::new(),
-            struct_methods: HashMap::new(),
+            trait_methods: BTreeMap::new(),
+            struct_methods: BTreeMap::new(),
             structs: HashMap::new(),
             operators_list,
         }
@@ -160,7 +160,7 @@ impl AstLoweringContext {
                     .or_insert_with(HashMap::new)
             } else {
                 self.struct_methods
-                    .entry(hir_f.name.name.clone())
+                    .entry(hir_f.name.hir_id.clone())
                     .or_insert_with(HashMap::new)
             };
 

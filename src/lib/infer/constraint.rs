@@ -73,10 +73,20 @@ impl<'a> ConstraintContext<'a> {
             }
         };
 
-        self.hir
-            .arena
-            .get(&node)
-            .or_else(|| panic!("NO ARENA ITEM FOR {:?}", hir))
+        self.hir.arena.get(&node).or_else(|| {
+            // FIXME: Is this right or even justified ?
+            warn!("cannot get arena for {}", hir);
+
+            // println!("{:#?}", self.envs);
+
+            self.envs
+                .diagnostics
+                .push_error(Diagnostic::new_unknown_identifier(
+                    self.hir.get_hir_spans().get(&node).unwrap().clone().into(),
+                ));
+
+            None
+        })
     }
 
     // FIXME: This is ugly
@@ -586,29 +596,63 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                 self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);
                             }
                         } else {
-                            // check for struct impls
-                            if let Some(method) = self.hir.struct_methods.get(&d.value.name) {
-                                let method = method.values().next().unwrap();
-
-                                self.envs
-                                    .set_type(&method.hir_id, &method.signature.clone().into());
-
-                                // let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
-
-                                self.add_tmp_resolution_to_current_fn(
-                                    &d.get_hir_id(),
-                                    &method.hir_id,
-                                );
+                            // FIXME: The amount a machinery needed here to resolve struct
+                            //  impls is too much.
+                            let node_id = if let Some(node_id) = self
+                                .hir
+                                .trait_solver
+                                .node_id_of_fn_implementor(t, d.value.name.clone())
+                            {
+                                node_id
                             } else {
-                                self.envs.set_type(&d.get_hir_id(), t);
                                 self.envs.diagnostics.push_error(
-                                    Diagnostic::new_unknown_identifier(
+                                    Diagnostic::new_is_not_a_property_of(
                                         self.hir
                                             .get_hir_spans()
                                             .get(&d.value.get_hir_id())
                                             .unwrap()
                                             .clone()
                                             .into(),
+                                        t.clone(),
+                                    ),
+                                );
+                                return;
+                            };
+
+                            let hir_id = self.hir.hir_map.get_hir_id(node_id).unwrap();
+
+                            let arena_method = self.hir.arena.get(&hir_id).unwrap();
+                            let name_hir_id = if let HirNode::FunctionDecl(fdecl) = arena_method {
+                                fdecl.name.get_hir_id()
+                            } else {
+                                panic!("Expected function decl");
+                            };
+
+                            if let Some(method) = self.hir.struct_methods.get(&name_hir_id) {
+                                let method = method.values().next().unwrap();
+
+                                self.envs
+                                    .set_type(&method.hir_id, &method.signature.clone().into());
+
+                                self.add_tmp_resolution_to_current_fn(
+                                    &d.get_hir_id(),
+                                    &method.hir_id,
+                                );
+                            } else {
+                                // this set_type is a placeholder. At this point we know
+                                // that we will fail, but we need to set the type to pass
+                                // the rest of the run and actually show the diagnostic
+                                self.envs.set_type(&d.get_hir_id(), t);
+
+                                self.envs.diagnostics.push_error(
+                                    Diagnostic::new_is_not_a_property_of(
+                                        self.hir
+                                            .get_hir_spans()
+                                            .get(&d.value.get_hir_id())
+                                            .unwrap()
+                                            .clone()
+                                            .into(),
+                                        t.clone(),
                                     ),
                                 );
                             }
@@ -630,13 +674,23 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         /* println!("{:#?}", other);
                         println!("{:#?}", self.envs); */
 
-                        println!(
-                            "{:#?}",
-                            self.hir
-                                .trait_solver
-                                .does_impl_fn(&other, d.value.name.clone(),)
-                        );
-                        let tr = self.hir.get_trait_by_method(d.value.name.clone()).unwrap();
+                        let tr =
+                            if let Some(tr) = self.hir.get_trait_by_method(d.value.name.clone()) {
+                                tr
+                            } else {
+                                self.envs.diagnostics.push_error(
+                                    Diagnostic::new_is_not_a_property_of(
+                                        self.hir
+                                            .get_hir_spans()
+                                            .get(&d.value.get_hir_id())
+                                            .unwrap()
+                                            .clone()
+                                            .into(),
+                                        other.clone(),
+                                    ),
+                                );
+                                return;
+                            };
 
                         let method = tr
                             .defs
@@ -654,9 +708,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                         self.envs
                             .set_type(&method.hir_id, &method.signature.clone().into());
 
-                        println!("name {:#?}", d.value.name);
                         let resolved = self.resolve(&d.value.get_hir_id()).unwrap();
-                        println!("resolved {:#?}", resolved);
                         // println!("hir {:#?}", self.hir);
 
                         self.add_tmp_resolution_to_current_fn(&d.get_hir_id(), &resolved);

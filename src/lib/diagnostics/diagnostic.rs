@@ -88,6 +88,10 @@ impl Diagnostic {
         Self::new(Span::new_placeholder(), DiagnosticKind::NoMain)
     }
 
+    pub fn new_is_not_a_property_of(span: Span, t: Type) -> Self {
+        Self::new(span, DiagnosticKind::IsNotAPropertyOf(t))
+    }
+
     pub fn new_type_conflict(span: Span, t1: Type, t2: Type, in1: Type, in2: Type) -> Self {
         Self::new(span, DiagnosticKind::TypeConflict(t1, t2, in1, in2))
     }
@@ -220,6 +224,7 @@ pub enum DiagnosticKind {
     TypeConflict(Type, Type, Type, Type),
     UnresolvedType(Type),
     CodegenError(HirId, String),
+    IsNotAPropertyOf(Type),
     OutOfBounds(u64, u64),
     NoMain,
     NoError, //TODO: remove that
@@ -271,6 +276,9 @@ impl Display for DiagnosticKind {
             DiagnosticKind::UnusedFunction => "UnusedFunction".to_string(),
             DiagnosticKind::NoMain => "NoMain".to_string(),
             DiagnosticKind::NoError => "NoError".to_string(),
+            DiagnosticKind::IsNotAPropertyOf(t) => {
+                format!("Not a property of {:?}", t)
+            }
         };
 
         write!(f, "{}", s)

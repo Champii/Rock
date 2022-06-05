@@ -95,8 +95,11 @@ impl Envs {
         }
     }
 
-    pub fn set_type_eq(&mut self, dest: &HirId, src: &HirId) {
-        let src_t = self.get_type(src).unwrap().clone();
+    pub fn set_type_eq(&mut self, dest: &HirId, src: &HirId) -> Option<()> {
+        // we short-circuit if the type is not found
+        // this is useful only when some diagnostics has been emited
+        // but we want to continue to infer the rest of the types
+        let src_t = self.get_type(src)?.clone();
         let previous = self.set_type_alone(dest, &src_t);
 
         match (src_t.clone(), previous.clone()) {
@@ -124,6 +127,8 @@ impl Envs {
             }
             _ => (),
         }
+
+        Some(())
     }
 
     pub fn get_type(&self, hir_id: &HirId) -> Option<&Type> {

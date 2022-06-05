@@ -129,10 +129,14 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     })
                 }
                 TopLevel::Impl(i) => {
+                    self.trait_solver
+                        .add_implementor(i.name.clone(), i.name.clone());
                     if !i.types.is_empty() {
                         self.trait_solver
                             .add_implementor(i.types.first().unwrap().clone(), i.name.clone());
                     }
+
+                    self.trait_solver.add_impl(i);
 
                     for proto in &i.defs {
                         let mut proto = proto.clone();
