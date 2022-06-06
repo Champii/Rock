@@ -1,6 +1,6 @@
-# Rock v0.2.4-develop
+# Rock v0.2.4-no-arg-call
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=no_arg_call)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -12,7 +12,7 @@ No to be taken seriously (yet)
 
 ## Index
 
-- [Rock v0.2.4-develop](#rock-v0.2.4-develop)
+- [Rock v0.2.4-no-arg-call](#rock-v0.2.4-no-arg-call)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -58,10 +58,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.4-develop](https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock) (Tested on arch, btw)
+[Rock v0.2.4-no-arg-call](https://github.com/Champii/Rock/releases/download/v0.2.4-no-arg-call/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.4-no-arg-call/rock
 chmod +x rock
 ./rock -V
 ```
@@ -107,7 +107,7 @@ fact a =
     then 1
     else a * fact (a - 1)
 
-main = fact(4).print()
+main = fact(4).print!
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -129,9 +129,9 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 id a = a
 
 main =
-  id(1).print()
-  id(2.2).print()
-  id("Test").print()
+  id(1).print!
+  id(2.2).print!
+  id("Test").print!
 ```
 
 Prints 
@@ -168,7 +168,7 @@ infix |> 1
 
 f a = a + 2
 
-main = (4 |> f).print()
+main = (4 |> f).print!
 ```
 
 ``` sh
@@ -190,14 +190,14 @@ trait ToString a
   tostring :: a -> String
 
 impl ToString Int64
-  @tostring = @show()
+  @tostring = @show!
 
 impl ToString Float64
-  @tostring = @show()
+  @tostring = @show!
 
 main =
-  (33).tostring().print()
-  (42.42).tostring().print()
+  (33).tostring!.print!
+  (42.42).tostring!.print!
 ```
 
 ``` sh
@@ -222,7 +222,7 @@ impl Player
 
 main =
   let player = Player::new 1
-  player.getlevel().print()
+  player.getlevel!.print!
 ```
 
 ``` sh
@@ -238,17 +238,17 @@ struct Player
   name :: String
 
 impl Show Player
-  @show = @name + "(" + @level.show() + ")"
+  @show = @name + "(" + @level.show! + ")"
 
 impl Print Player
-  @print = printl self.show()
+  @print = printl self.show!
 
 main =
   let player = Player
     level: 42
     name: "MyName"
 
-  player.print()
+  player.print!
 ```
 
 ``` sh
@@ -258,7 +258,7 @@ MyName
 
 Note that the `printl` method is defined in the stdlib as
 ```haskell
-printl a = c_puts a.show()
+printl a = c_puts a.show!
 ```
 with `c_puts` being the `libc` `puts`
 
@@ -277,7 +277,7 @@ mod foo
 
 use foo::bar
 
-main = bar(1).print()
+main = bar(1).print!
 ```
 
 ```sh
@@ -288,7 +288,7 @@ $ rock run
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main = foo::bar(1).print()` 
+`main = foo::bar(1).print!` 
 
 ## REPL
 
@@ -310,7 +310,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.4-develop
+Rock: v0.2.4-no-arg-call
 ----
 
 Type ':?' for help
