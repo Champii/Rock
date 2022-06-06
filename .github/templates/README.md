@@ -241,7 +241,7 @@ impl Show Player
   @show = @name + "(" + @level.show! + ")"
 
 impl Print Player
-  @print = printl self.show!
+  @print = printl @show!
 
 main =
   let player = Player

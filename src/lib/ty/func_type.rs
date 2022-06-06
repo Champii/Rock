@@ -75,7 +75,7 @@ impl FuncType {
     }
 
     pub fn apply_forall_types(&self, orig: &[Type], dest: &[Type]) -> Self {
-        assert_eq!(orig.len(), dest.len());
+        // assert_eq!(orig.len(), dest.len());
 
         let (dest, orig): (Vec<_>, Vec<_>) = dest
             .iter()

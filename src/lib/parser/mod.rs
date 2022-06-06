@@ -833,14 +833,15 @@ pub fn parse_arguments(input: Parser) -> Res<Parser, Arguments> {
             tuple((
                 space0,
                 separated_list1(tuple((space0, tag(","), space0)), parse_argument),
+                space0,
             )),
-            |(_, args)| args,
+            |(_, args, _)| args,
         ),
     ))(input)
 }
 
 pub fn parse_argument(input: Parser) -> Res<Parser, Argument> {
-    map(parse_unary, Argument::new)(input)
+    map(parse_unary, |arg| Argument::new(arg))(input)
 }
 
 pub fn parse_indice(input: Parser) -> Res<Parser, Box<Expression>> {

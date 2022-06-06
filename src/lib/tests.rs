@@ -74,6 +74,10 @@ fn testcases_basic_extern_main() {
     run("testcases/basic/extern/main.rk", include_str!("testcases/basic/extern/main.rk"), include_str!("testcases/basic/extern/main.rk.out"), include_str!("testcases/basic/extern/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_spaced_dot_main() {
+    run("testcases/basic/spaced_dot/main.rk", include_str!("testcases/basic/spaced_dot/main.rk"), include_str!("testcases/basic/spaced_dot/main.rk.out"), include_str!("testcases/basic/spaced_dot/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_monomorph_in_trait_main() {
     run("testcases/basic/monomorph_in_trait/main.rk", include_str!("testcases/basic/monomorph_in_trait/main.rk"), include_str!("testcases/basic/monomorph_in_trait/main.rk.out"), include_str!("testcases/basic/monomorph_in_trait/main.rk.stdout"));
 }
