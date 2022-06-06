@@ -365,7 +365,7 @@ pub fn parse_impl(input: Parser) -> Res<Parser, Impl> {
             many0(delimited(space1, parse_type, space0)),
             many0(line_ending),
             indent(separated_list1(
-                line_ending,
+                many1(line_ending),
                 preceded(parse_block_indent, alt((parse_self_fn, parse_fn))),
             )),
         )),
