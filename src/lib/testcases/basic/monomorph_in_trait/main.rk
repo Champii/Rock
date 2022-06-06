@@ -4,10 +4,10 @@ trait Foo a
     foo :: a -> a
 
 impl Foo Int64
-    @foo = id self
+    @foo = id @
 
 impl Foo Bool
-    @foo = id self
+    @foo = id @
 
 main =
     true.foo()

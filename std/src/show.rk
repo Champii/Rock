@@ -18,21 +18,21 @@ trait Show a
     show :: a -> String
 
 impl Show Int64
-    @show = itoa self
+    @show = itoa @
 
 impl Show Float64
-    @show = ftoa self
+    @show = ftoa @
 
 impl Show Bool
     @show =
-        if self
+        if @
         then "true"
         else "false"
 
 impl Show String
     @show =
-        let s = c_malloc c_strlen self
-        c_strcpy s, self
+        let s = c_malloc c_strlen @
+        c_strcpy s, @
         s
 
 show_arr a =
@@ -48,14 +48,14 @@ show_arr a =
     s
 
 impl Show [Int64]
-    @show = show_arr self
+    @show = show_arr @
 
 impl Show [Float64]
-    @show = show_arr self
+    @show = show_arr @
 
 impl Show [String]
-    @show = show_arr self
+    @show = show_arr @
 
 impl Show [Bool]
-    @show = show_arr self
+    @show = show_arr @
 
