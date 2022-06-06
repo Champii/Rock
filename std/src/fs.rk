@@ -16,18 +16,18 @@ struct File
 
 impl Show File
   @show =
-    "File { fd: " + self.fd.show() + ", path: " + self.path + " }"
+    "File { fd: " + @fd.show() + ", path: " + @path + " }"
 
 impl File
-  new p = 
+  open p = 
     File
       fd: c_open p, 0, oct_to_dec "0777"
       path: p
   @read =
     let s = c_malloc 100
-    let len = c_read self.fd, s, 100
+    let len = c_read @fd, s, 100
     s
-  @close = c_close self.fd
+  @close = c_close @fd
 
 oct_to_dec oct = c_strtol oct, 0, 8
 

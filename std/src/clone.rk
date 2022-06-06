@@ -6,18 +6,19 @@ trait Clone a
   clone :: a -> a
 
 impl Clone Int64
-  clone a = a
+  @clone = @
 
 impl Clone Float64
-  clone a = a
+  @clone = @
 
 impl Clone String
-  clone a =
-    let s = c_malloc c_strlen a
-    c_strcpy s, a
+  @clone =
+    let s = c_malloc c_strlen @
+    c_strcpy s, @
     s
 
 use super::functor::(*)
 
 impl Clone [Int64]
-  clone a = map clone, a
+  @clone = map clone, @
+

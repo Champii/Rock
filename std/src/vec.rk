@@ -8,7 +8,7 @@ use super::externs::(*)
 use super::show::Show::(*)
 
 impl Show Vec
-  @show = self.len.show()
+  @show = @len.show()
 
 new_vec =
   Vec

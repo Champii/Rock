@@ -190,10 +190,10 @@ trait ToString a
   tostring :: a -> String
 
 impl ToString Int64
-  @tostring = self.show()
+  @tostring = @show()
 
 impl ToString Float64
-  @tostring = self.show()
+  @tostring = @show()
 
 main =
   (33).tostring().print()
@@ -218,7 +218,7 @@ impl Player
     Player
       level: level
       name: "Default"
-  @getlevel = self.level
+  @getlevel = @level
 
 main =
   let player = Player::new 1
@@ -238,7 +238,7 @@ struct Player
   name :: String
 
 impl Show Player
-  @show = self.name + "(" + self.level.show() + ")"
+  @show = @name + "(" + @level.show() + ")"
 
 impl Print Player
   @print = printl self.show()
@@ -255,6 +255,12 @@ main =
 $ rock run
 MyName
 ```
+
+Note that the `printl` method is defined in the stdlib as
+```haskell
+printl a = c_puts a.show()
+```
+with `c_puts` being the `libc` `puts`
 
 ### Modules and code separation
 

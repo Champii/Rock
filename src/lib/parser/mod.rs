@@ -777,10 +777,37 @@ pub fn parse_unary(input: Parser) -> Res<Parser, UnaryExpr> {
 }
 
 pub fn parse_primary(input: Parser) -> Res<Parser, PrimaryExpr> {
-    map(
+    let (input, mut primary) = map(
         tuple((parse_identity, parse_operand, many0(parse_secondary))),
         |(node_id, op, secs)| PrimaryExpr::new(node_id, op, secs),
-    )(input)
+    )(input)?;
+
+    // This is a ugly hack to desugar `@foo` into `self.foo`
+    let input = if let Some(id) = primary.as_identifier() {
+        if id.starts_with("@") {
+            let (input, node_id) = parse_identity(input)?;
+
+            let (new_op, secondary) = primary.op.desugar_self(node_id);
+
+            primary.op = new_op;
+
+            if let Some(secondary) = secondary {
+                if primary.secondaries.is_none() {
+                    primary.secondaries = Some(vec![]);
+                }
+
+                primary.secondaries.as_mut().unwrap().insert(0, secondary);
+            }
+
+            input
+        } else {
+            input
+        }
+    } else {
+        input
+    };
+
+    Ok((input, primary))
 }
 
 pub fn parse_secondary(input: Parser) -> Res<Parser, SecondaryExpr> {
@@ -861,10 +888,23 @@ pub fn parse_identifier_path(input: Parser) -> Res<Parser, IdentifierPath> {
                 }),
                 parse_identifier,
                 parse_capitalized_identifier,
-                // map(parse_type, |t| Identifier::new(t.to_string(), 0)), // fixme: 0
+                parse_self_identifier,
             )),
         ),
         IdentifierPath::new,
+    )(input)
+}
+
+pub fn parse_self_identifier(input: Parser) -> Res<Parser, Identifier> {
+    map(
+        tuple((parse_identity, tag("@"), opt(parse_identifier))),
+        |(node_id, _, identifier_opt)| {
+            if let Some(identifier) = identifier_opt {
+                Identifier::new("@".to_string() + &identifier.name, identifier.node_id)
+            } else {
+                Identifier::new("self".to_string(), node_id)
+            }
+        },
     )(input)
 }
 

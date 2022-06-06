@@ -646,6 +646,18 @@ pub struct PrimaryExpr {
 }
 
 impl PrimaryExpr {
+    pub fn new(node_id: NodeId, op: Operand, secondaries: Vec<SecondaryExpr>) -> PrimaryExpr {
+        PrimaryExpr {
+            op,
+            node_id,
+            secondaries: if secondaries.len() == 0 {
+                None
+            } else {
+                Some(secondaries)
+            },
+        }
+    }
+
     #[allow(dead_code)]
     pub fn has_secondaries(&self) -> bool {
         self.secondaries.is_some()
@@ -664,18 +676,6 @@ impl PrimaryExpr {
             secondaries.iter().any(|secondary| secondary.is_dot())
         } else {
             false
-        }
-    }
-
-    pub fn new(node_id: NodeId, op: Operand, secondaries: Vec<SecondaryExpr>) -> PrimaryExpr {
-        PrimaryExpr {
-            op,
-            node_id,
-            secondaries: if secondaries.len() == 0 {
-                None
-            } else {
-                Some(secondaries)
-            },
         }
     }
 
@@ -725,6 +725,31 @@ impl Operand {
 
     pub fn from_identifier(id: Identifier) -> Operand {
         Operand::new_identifier(id)
+    }
+
+    pub fn desugar_self(&self, self_node_id: NodeId) -> (Operand, Option<SecondaryExpr>) {
+        match self {
+            Operand::Identifier(id) => {
+                if id.path[0].name.len() > 1 && id.path[0].name.chars().nth(0).unwrap() == '@' {
+                    let self_identifier = Identifier {
+                        name: "self".to_string(),
+                        node_id: self_node_id,
+                    };
+
+                    let new_op = Operand::new_identifier(self_identifier);
+
+                    let mut new_id = id.path[0].clone();
+                    new_id.name = new_id.name.replace("@", "");
+
+                    let secondary = SecondaryExpr::Dot(new_id);
+
+                    (new_op, Some(secondary))
+                } else {
+                    (self.clone(), None)
+                }
+            }
+            _ => panic!("Cannot desugar self"),
+        }
     }
 }
 

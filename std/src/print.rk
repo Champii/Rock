@@ -12,16 +12,16 @@ trait Print a
 
 # Here we would need generic impl
 impl Print Bool
-  @print = printl self
+  @print = printl @
 
 impl Print Int64
-  @print = printl self
+  @print = printl @
 
 impl Print Float64
-  @print = printl self
+  @print = printl @
 
 impl Print String
-  @print = printl self
+  @print = printl @
 
 
 use Print::(*)

@@ -14,7 +14,7 @@ print a = puts a.show()
 
 impl Show Bar
   @show =
-    self.toto.show()
+    @toto.show()
 
 main =
   let bar = Bar

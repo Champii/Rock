@@ -1,6 +1,6 @@
-# Rock v0.2.4-develop
+# Rock v0.2.4-self-arg
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=self_arg)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
@@ -12,7 +12,7 @@ No to be taken seriously (yet)
 
 ## Index
 
-- [Rock v0.2.4-develop](#rock-v0.2.4-develop)
+- [Rock v0.2.4-self-arg](#rock-v0.2.4-self-arg)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -58,10 +58,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.4-develop](https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock) (Tested on arch, btw)
+[Rock v0.2.4-self-arg](https://github.com/Champii/Rock/releases/download/v0.2.4-self-arg/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.4-self-arg/rock
 chmod +x rock
 ./rock -V
 ```
@@ -190,10 +190,10 @@ trait ToString a
   tostring :: a -> String
 
 impl ToString Int64
-  @tostring = self.show()
+  @tostring = @show()
 
 impl ToString Float64
-  @tostring = self.show()
+  @tostring = @show()
 
 main =
   (33).tostring().print()
@@ -218,7 +218,7 @@ impl Player
     Player
       level: level
       name: "Default"
-  @getlevel = self.level
+  @getlevel = @level
 
 main =
   let player = Player::new 1
@@ -238,7 +238,7 @@ struct Player
   name :: String
 
 impl Show Player
-  @show = self.name + "(" + self.level.show() + ")"
+  @show = @name + "(" + @level.show() + ")"
 
 impl Print Player
   @print = printl self.show()
@@ -255,6 +255,12 @@ main =
 $ rock run
 MyName
 ```
+
+Note that the `printl` method is defined in the stdlib as
+```haskell
+printl a = c_puts a.show()
+```
+with `c_puts` being the `libc` `puts`
 
 ### Modules and code separation
 
@@ -304,7 +310,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.4-develop
+Rock: v0.2.4-self-arg
 ----
 
 Type ':?' for help

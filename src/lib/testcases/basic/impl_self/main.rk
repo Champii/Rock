@@ -2,11 +2,12 @@ struct Foo
   bar :: Int64
 
 impl Foo
-  @getbar = self.bar
+  @getbar = @bar
+  @me = @
 
 main =
   let foo = Foo
     bar: 42
 
-  foo.getbar()
+  foo.me().getbar()
 
