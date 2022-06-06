@@ -41,7 +41,7 @@ show_arr a =
     let i = 0
     let len = ~Len a a
     while i < len
-        c_strcat s, a[i].show()
+        c_strcat s, a[i].show!
         c_strcat s, ", "
         i = i + 1
     c_strcat s, "]"

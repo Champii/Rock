@@ -16,7 +16,7 @@ struct File
 
 impl Show File
   @show =
-    "File { fd: " + @fd.show() + ", path: " + @path + " }"
+    "File { fd: " + @fd.show! + ", path: " + @path + " }"
 
 impl File
   open p = 

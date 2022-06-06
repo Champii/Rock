@@ -10,7 +10,7 @@ struct Vec
   len :: Int64
 
 impl Show Vec
-  @show = @len.show()
+  @show = @len.show!
 
 impl Vec
   new =
@@ -31,6 +31,6 @@ impl Vec
     d[@len] = item
     @len = @len + 1
     if @len == @cap
-    then @realloc()
+    then @realloc!
     else 0
 
