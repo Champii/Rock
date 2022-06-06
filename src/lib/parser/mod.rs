@@ -820,6 +820,7 @@ pub fn parse_secondary(input: Parser) -> Res<Parser, SecondaryExpr> {
 
 pub fn parse_arguments(input: Parser) -> Res<Parser, Arguments> {
     alt((
+        map(tag("!"), |_| vec![]),
         map(
             tuple((
                 terminated(tag("("), space0),

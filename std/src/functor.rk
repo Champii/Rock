@@ -19,4 +19,4 @@ foreach f arr =
 _shut_up_warnings =
   map 0, 0
   foreach 0, 0
-  _shut_up_warnings()
+  _shut_up_warnings!

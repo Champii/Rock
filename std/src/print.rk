@@ -5,7 +5,7 @@ use super::num::(*)
 
 # there is a bug here if a method exists with the same name in the scope 
 # of the module (like Print::print and print)
-printl a = c_puts a.show()
+printl a = c_puts a.show!
 
 trait Print a
   print :: a -> a

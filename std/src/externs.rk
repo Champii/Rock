@@ -16,7 +16,7 @@ c_strncpy dest src len = strncpy dest, src, len
 _shutup_warnings =
   c_strncpy "a", "b", 1
   c_write 0, "1", 0
-  _shutup_warnings()
+  _shutup_warnings!
 
 extern sprintf :: String -> String -> Int64 -> Int64
 c_sprintf dest format i = sprintf dest, format, i
