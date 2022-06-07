@@ -4,7 +4,7 @@
 
 Little language made with Rust and LLVM.
 
-Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and achieve high native performances thanks to LLVM.
+Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and achieve high native performances thanks to LLVM.  
 Rock is highly inspired from [Livescript](https://livescript.net/), [Haskell](https://www.haskell.org/) and [Rust](https://www.rust-lang.org/)
 
 No to be taken seriously (yet)
@@ -220,7 +220,7 @@ impl Player
   @getlevel = @level
 
 main =
-  Player::new 1 player.getlevel!.print!
+  Player::new 1 .getlevel!.print!
 ```
 
 ``` sh
