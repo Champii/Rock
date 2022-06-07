@@ -129,9 +129,9 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 id a = a
 
 main =
-  id(1).print!
-  id(2.2).print!
-  id("Test").print!
+  id 1 .print!
+  id 2.2 .print!
+  id "Test" .print!
 ```
 
 Prints 
@@ -277,7 +277,7 @@ mod foo
 
 use foo::bar
 
-main = bar(1).print!
+main = bar 1 .print!
 ```
 
 ```sh
@@ -288,7 +288,7 @@ $ rock run
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main = foo::bar(1).print!` 
+`main = foo::bar 1 .print!` 
 
 ## REPL
 
