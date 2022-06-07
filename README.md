@@ -107,7 +107,7 @@ fact a =
     then 1
     else a * fact (a - 1)
 
-main = fact(4).print!
+main = fact 4 .print!
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
