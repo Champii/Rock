@@ -8,7 +8,7 @@ use super::num::(*)
 printl a = c_puts a.show!
 
 trait Print a
-  print :: a -> a
+  print :: a -> Int64
 
 # Here we would need generic impl
 impl Print Bool
@@ -22,6 +22,5 @@ impl Print Float64
 
 impl Print String
   @print = printl @
-
 
 use Print::(*)

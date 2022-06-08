@@ -7,8 +7,7 @@ impl Toto Int64
 impl Toto Bool
     @toto = "true"
 
-# print a = a.toto()
-print a = Toto::toto a
+print a = a.toto()
 
 main =
     print true

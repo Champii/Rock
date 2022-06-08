@@ -53,9 +53,6 @@ impl<'a> Monomorphizer<'a> {
             }
         }
 
-        // The collect here is needed as we NEED the generated_fn_hir_id.insert() side effect
-        // and the for version would be too messy
-        #[allow(clippy::needless_collect)]
         let fresh_top_levels_flat = self
             .get_fn_envs_pairs()
             .into_iter()
@@ -287,7 +284,7 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
             .get(&self.resolve(&old_fc_op).unwrap())
             .unwrap()
         {
-            HirNode::FunctionDecl(_) => {
+            HirNode::FunctionDecl(f) => {
                 if let Some(generated_fn) = self.generated_fn_hir_id.get(&(
                     self.resolve_rec(&old_fc_op).unwrap(),
                     fc.to_func_type(&self.root.node_types),
@@ -295,7 +292,24 @@ impl<'a, 'b> VisitorMut<'a> for Monomorphizer<'b> {
                     self.new_resolutions
                         .insert(fc.op.get_hir_id(), generated_fn.clone());
                 } else {
-                    panic!("BUG: Cannot find function from signature");
+                    // This is a dirty duplicate of the `Prototype` branch below
+                    if let Some(f) = self.root.get_trait_method(
+                        (*f.name).clone(),
+                        &fc.to_func_type(&self.root.node_types),
+                    ) {
+                        if let Some(trans_res) = self.trans_resolutions.get(&f.hir_id) {
+                            self.new_resolutions.insert(fc.op.get_hir_id(), trans_res);
+                        } else {
+                            panic!(
+                                "NO TRANS RES FOR TRAIT {:#?} {:#?} {:#?}",
+                                self.trans_resolutions,
+                                fc.op.get_hir_id(),
+                                f.hir_id,
+                            );
+                        }
+                    } else {
+                    }
+                    // panic!("BUG: Cannot find function from signature");
                 }
 
                 self.trans_resolutions.remove(&old_fc_op);
