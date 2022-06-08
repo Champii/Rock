@@ -1,4 +1,4 @@
-# Rock v0.2.4-develop
+# Rock v0.2.4
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -11,7 +11,7 @@ No to be taken seriously (yet)
 
 ## Index
 
-- [Rock v0.2.4-develop](#rock-v0.2.4-develop)
+- [Rock v0.2.4](#rock-v0.2.4)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -57,10 +57,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.2.4-develop](https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock) (Tested on arch, btw)
+[Rock v0.2.4](https://github.com/Champii/Rock/releases/download/v0.2.4/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.4/rock
 chmod +x rock
 ./rock -V
 ```
@@ -308,7 +308,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.2.4-develop
+Rock: v0.2.4
 ----
 
 Type ':?' for help
