@@ -147,6 +147,7 @@ impl AstLoweringContext {
                     .clone();
 
                 let type_sig = type_sig.apply_forall_types(&r#trait.types, &i.types);
+
                 type_sig
             } else {
                 f.signature.clone()
