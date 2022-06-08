@@ -251,7 +251,7 @@ main =
 
 ``` sh
 $ rock run
-MyName
+MyName(42)
 ```
 
 Note that the `printl` method is defined in the stdlib as
