@@ -193,6 +193,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
         self.pop_scope();
     }
+
     fn visit_impl(&mut self, impl_: &'a Impl) {
         self.push_scope();
         self.import_struct_scope(Identifier::new(impl_.name.get_name(), 0));

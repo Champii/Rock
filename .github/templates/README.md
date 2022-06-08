@@ -1,18 +1,17 @@
-# Rock {version}
+# Rock v0.2.4-develop
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch={branch})](https://github.com/Champii/Rock/actions/workflows/rust.yml)
+[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Little language made with Rust and LLVM.
 
 Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and achieve high native performances thanks to LLVM.  
-Rock is highly inspired from Livescript and Rust, and will also borrow (pun intended) some features from Crystal, from functional languages like Haskell, and even from Rust itself.
+Rock is highly inspired from [Livescript](https://livescript.net/), [Haskell](https://www.haskell.org/) and [Rust](https://www.rust-lang.org/)
 
 No to be taken seriously (yet)
 
-
 ## Index
 
-- [Rock {version}](#rock-{version})
+- [Rock v0.2.4-develop](#rock-v0.2.4-develop)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -58,10 +57,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock {version}](https://github.com/Champii/Rock/releases/download/{version}/rock) (Tested on arch, btw)
+[Rock v0.2.4-develop](https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/{version}/rock
+wget https://github.com/Champii/Rock/releases/download/v0.2.4-develop/rock
 chmod +x rock
 ./rock -V
 ```
@@ -107,7 +106,7 @@ fact a =
     then 1
     else a * fact (a - 1)
 
-main = fact(4).print!
+main = fact 4 .print!
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -129,9 +128,9 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 id a = a
 
 main =
-  id(1).print!
-  id(2.2).print!
-  id("Test").print!
+  id 1 .print!
+  id 2.2 .print!
+  id "Test" .print!
 ```
 
 Prints 
@@ -221,8 +220,7 @@ impl Player
   @getlevel = @level
 
 main =
-  let player = Player::new 1
-  player.getlevel!.print!
+  Player::new 1 .getlevel!.print!
 ```
 
 ``` sh
@@ -253,7 +251,7 @@ main =
 
 ``` sh
 $ rock run
-MyName
+MyName(42)
 ```
 
 Note that the `printl` method is defined in the stdlib as
@@ -277,7 +275,7 @@ mod foo
 
 use foo::bar
 
-main = bar(1).print!
+main = bar 1 .print!
 ```
 
 ```sh
@@ -288,7 +286,7 @@ $ rock run
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main = foo::bar(1).print!` 
+`main = foo::bar 1 .print!` 
 
 ## REPL
 
@@ -310,7 +308,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: {version}
+Rock: v0.2.4-develop
 ----
 
 Type ':?' for help

@@ -5,10 +5,9 @@
 Little language made with Rust and LLVM.
 
 Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and achieve high native performances thanks to LLVM.  
-Rock is highly inspired from Livescript and Rust, and will also borrow (pun intended) some features from Crystal, from functional languages like Haskell, and even from Rust itself.
+Rock is highly inspired from [Livescript](https://livescript.net/), [Haskell](https://www.haskell.org/) and [Rust](https://www.rust-lang.org/)
 
 No to be taken seriously (yet)
-
 
 ## Index
 
@@ -107,7 +106,7 @@ fact a =
     then 1
     else a * fact (a - 1)
 
-main = fact(4).print()
+main = fact 4 .print!
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -129,9 +128,9 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 id a = a
 
 main =
-  id(1).print()
-  id(2.2).print()
-  id("Test").print()
+  id 1 .print!
+  id 2.2 .print!
+  id "Test" .print!
 ```
 
 Prints 
@@ -168,7 +167,7 @@ infix |> 1
 
 f a = a + 2
 
-main = (4 |> f).print()
+main = (4 |> f).print!
 ```
 
 ``` sh
@@ -190,14 +189,14 @@ trait ToString a
   tostring :: a -> String
 
 impl ToString Int64
-  @tostring = @show()
+  @tostring = @show!
 
 impl ToString Float64
-  @tostring = @show()
+  @tostring = @show!
 
 main =
-  (33).tostring().print()
-  (42.42).tostring().print()
+  (33).tostring!.print!
+  (42.42).tostring!.print!
 ```
 
 ``` sh
@@ -221,8 +220,7 @@ impl Player
   @getlevel = @level
 
 main =
-  let player = Player::new 1
-  player.getlevel().print()
+  Player::new 1 .getlevel!.print!
 ```
 
 ``` sh
@@ -238,27 +236,27 @@ struct Player
   name :: String
 
 impl Show Player
-  @show = @name + "(" + @level.show() + ")"
+  @show = @name + "(" + @level.show! + ")"
 
 impl Print Player
-  @print = printl self.show()
+  @print = printl @show!
 
 main =
   let player = Player
     level: 42
     name: "MyName"
 
-  player.print()
+  player.print!
 ```
 
 ``` sh
 $ rock run
-MyName
+MyName(42)
 ```
 
 Note that the `printl` method is defined in the stdlib as
 ```haskell
-printl a = c_puts a.show()
+printl a = c_puts a.show!
 ```
 with `c_puts` being the `libc` `puts`
 
@@ -277,7 +275,7 @@ mod foo
 
 use foo::bar
 
-main = bar(1).print()
+main = bar 1 .print!
 ```
 
 ```sh
@@ -288,7 +286,7 @@ $ rock run
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main = foo::bar(1).print()` 
+`main = foo::bar 1 .print!` 
 
 ## REPL
 
