@@ -100,9 +100,9 @@ rock new factorial && cd factorial
 
 ```haskell
 fact: x ->
-    if x <= 1
-    then 1
-    else x * fact (x - 1)
+  if x <= 1
+  then 1
+  else x * fact (x - 1)
 
 main: -> fact 4 .print!
 ```
