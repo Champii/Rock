@@ -93,10 +93,10 @@ Note: If you clone and build manually, make sure to add `/[...]/rock/target/<rel
 - Lets create a new project folder to compute some factorials
 
 ``` sh
-mkdir -p factorial/src && cd factorial
+rock new factorial && cd factorial
 ```
 
-- Create a `factorial/src/main.rk` file:
+- Edit the `factorial/src/main.rk` file:
 
 ```haskell
 fact: x ->
