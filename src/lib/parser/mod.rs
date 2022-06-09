@@ -378,13 +378,15 @@ pub fn parse_struct_decl(input: Parser) -> Res<Parser, StructDecl> {
         tuple((
             terminated(tag("struct"), space1),
             parse_capitalized_identifier,
-            many0(line_ending),
-            indent(separated_list0(
-                line_ending,
-                preceded(parse_block_indent, parse_prototype),
+            opt(preceded(
+                many0(line_ending),
+                indent(separated_list1(
+                    line_ending,
+                    preceded(parse_block_indent, parse_prototype),
+                )),
             )),
         )),
-        |(_tag, name, _, defs)| StructDecl::new(name, defs),
+        |(_tag, name, defs)| StructDecl::new(name, defs.unwrap_or_else(|| vec![])),
     )(input)?;
 
     let struct_t: StructType = struct_decl.clone().into();

@@ -218,7 +218,11 @@ impl Player
   @getlevel: -> @level
 
 main: ->
-  Player::new 1 .getlevel!.print!
+  # The parenthesis are needed here because of a bug
+  # with the chained dot notation in the parser
+  Player::new(1)
+    .getlevel!
+    .print!
 ```
 
 ``` sh
@@ -287,7 +291,7 @@ $ rock run
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main: -> foo::bar 1 .print!` 
+`main: -> foo::bar 1 .print!`
 
 ## Development notes
 
