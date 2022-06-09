@@ -132,7 +132,7 @@ mod parse_signature {
     #[test]
     fn valid_2_arg() {
         let input = Parser::new_extra(
-            "Int64 -> Int64",
+            "Int64 => Int64",
             ParserCtx::new(PathBuf::new(), Config::default()),
         );
 
@@ -905,7 +905,7 @@ mod parse_trait {
     #[test]
     fn valid_trait() {
         let input = Parser::new_extra(
-            "trait Foo\n  a: Int64 -> Int64\n  b: Float64 -> String",
+            "trait Foo\n  a: Int64 => Int64\n  b: Float64 => String",
             ParserCtx::new(PathBuf::new(), Config::default()),
         );
 

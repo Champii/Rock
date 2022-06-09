@@ -2,8 +2,8 @@ infix + 4
 infix * 5
 
 trait Num a
-  +: a -> a -> a
-  *: a -> a -> a
+  +: a => a => a
+  *: a => a => a
 
 impl Num Int64
   +: a, b -> ~IAdd a b
