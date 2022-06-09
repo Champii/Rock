@@ -142,8 +142,8 @@ Test
 
 The `id` function here is polymorphic by default, as we don't make any constraint on the type that we should take or return.  
 If we did something like this  
-`id x = x + x`  
-We would have constrained `a` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
+`id: x -> x + x`  
+We would have constrained `x` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
 
 Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`(*).  
 
