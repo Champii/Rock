@@ -2,7 +2,7 @@
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
-Little language made with Rust and LLVM.
+Native language made with Rust and LLVM.
 
 Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and achieve high native performances thanks to LLVM.  
 Rock is highly inspired from [Livescript](https://livescript.net/), [Haskell](https://www.haskell.org/) and [Rust](https://www.rust-lang.org/)
@@ -28,7 +28,6 @@ No to be taken seriously (yet)
     - [Struct instance and methods]( #struct-instance-and-methods )
     - [Show implementation]( #show-implementation )
     - [Modules and Code Separation](#modules-and-code-separation)
-  - [REPL](#repl)
   - [Development notes](#development-notes)
 
 ---
@@ -205,7 +204,7 @@ $ rock run
 42.42
 ```
 
-### Struct instance and methods 
+### Struct instance and methods
 
 ``` haskell
 struct Player
@@ -287,43 +286,6 @@ Note that we could have skiped the
 `use foo::bar`
 if we wrote
 `main = foo::bar 1 .print!` 
-
-## REPL
-
-Only supports basic expressions for now.
-Very unstable, very work in progress.
-
-Be warned that for a given session, the whole code is re-executed at each entry.  
-This includes I/O of all sorts (Looking at you, open/read/write in loops)
-
-Note that the REPL expects to be run from the project root, and expects some version of the stdlib
-to be available in the `./src` folder
-
-You can start a REPL session with 
-
-``` sh
-rock -r
-# OR
-rock --repl
-```
-
-``` sh
-Rock: v0.3.1
-----
-
-Type ':?' for help
-
-> add a b = a + b
-> let x = 30
-30
-> let y = 12
-12
-> add x, y
-42
-> :t add
-add: (Int64 -> Int64 -> Int64)
-> _
-```
 
 ## Development notes
 
