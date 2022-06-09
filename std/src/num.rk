@@ -21,16 +21,16 @@ impl Num Float64
     * c d = ~FMul c d
     / c d = ~FDiv c d
 
-use super::externs::c_malloc
-use super::externs::c_strlen
-use super::externs::c_strcpy
-use super::externs::c_strcat
+use super::externs::malloc
+use super::externs::strlen
+use super::externs::strcpy
+use super::externs::strcat
 
 impl Num String
     + a b =
-        let s = c_malloc (c_strlen a + c_strlen b)
-        c_strcpy s, a
-        c_strcat s, b
+        let s = malloc (strlen a + strlen b)
+        strcpy s, a
+        strcat s, b
         s
 
 use Num::(*)

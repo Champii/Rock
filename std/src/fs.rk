@@ -1,14 +1,12 @@
-use super::externs::c_read
-use super::externs::c_malloc
-use super::externs::c_close
-use super::externs::c_open
-use super::externs::c_strtol
+use super::externs::read
+use super::externs::malloc
+use super::externs::close
+use super::externs::open
+use super::externs::strtol
 
 use super::num::(*)
 use super::eq::(*)
 use super::show::(*)
-# This is problematic
-use super::show::Show::(*)
 
 struct File
   fd :: Int64
@@ -19,15 +17,17 @@ impl Show File
     "File { fd: " + @fd.show! + ", path: " + @path + " }"
 
 impl File
-  open p = 
+  open p =
     File
-      fd: c_open p, 0, oct_to_dec "0777"
+      fd: open p, 0, oct_to_dec "0777"
       path: p
-  @read =
-    let s = c_malloc 100
-    let len = c_read @fd, s, 100
-    s
-  @close = c_close @fd
 
-oct_to_dec oct = c_strtol oct, 0, 8
+  @read =
+    let s = malloc 100
+    let len = read @fd, s, 100
+    s
+
+  @close = close @fd
+
+oct_to_dec oct = strtol oct, 0, 8
 

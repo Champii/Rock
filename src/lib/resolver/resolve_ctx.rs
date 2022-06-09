@@ -124,6 +124,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 TopLevel::Impl(i) => {
                     self.trait_solver
                         .add_implementor(i.name.clone(), i.name.clone());
+
                     if !i.types.is_empty() {
                         self.trait_solver
                             .add_implementor(i.types.first().unwrap().clone(), i.name.clone());
@@ -197,6 +198,10 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     fn visit_impl(&mut self, impl_: &'a Impl) {
         self.push_scope();
         self.import_struct_scope(Identifier::new(impl_.name.get_name(), 0));
+
+        if !impl_.types.is_empty() {
+            self.import_struct_scope(Identifier::new(impl_.types.first().unwrap().get_name(), 0));
+        }
 
         walk_impl(self, impl_);
 

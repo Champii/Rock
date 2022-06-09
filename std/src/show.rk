@@ -1,18 +1,19 @@
-use super::externs::c_malloc
-use super::externs::c_sprintf
-use super::externs::c_gcvt
-use super::externs::c_strcpy
-use super::externs::c_strcat
+use super::externs::malloc
+use super::externs::sprintf
+use super::externs::gcvt
+use super::externs::strcpy
+use super::externs::strcat
+use super::externs::strlen
 use super::num::(*)
 use super::eq::(*)
 
 itoa a =
-    let s = c_malloc 10
-    c_sprintf s, "%d", a
+    let s = malloc 10
+    sprintf s, "%d", a
     s
 
 ftoa c =
-    c_gcvt c, 10, (c_malloc 4), (c_malloc 4)
+    gcvt c, 10, (malloc 4), (malloc 4)
 
 trait Show a
     show :: a -> String
@@ -31,20 +32,20 @@ impl Show Bool
 
 impl Show String
     @show =
-        let s = c_malloc c_strlen @
-        c_strcpy s, @
+        let s = malloc strlen @
+        strcpy s, @
         s
 
 show_arr a =
-    let s = c_malloc 100
-    c_strcpy s, "["
+    let s = malloc 100
+    strcpy s, "["
     let i = 0
     let len = ~Len a a
     while i < len
-        c_strcat s, a[i].show!
-        c_strcat s, ", "
+        strcat s, a[i].show!
+        strcat s, ", "
         i = i + 1
-    c_strcat s, "]"
+    strcat s, "]"
     s
 
 impl Show [Int64]

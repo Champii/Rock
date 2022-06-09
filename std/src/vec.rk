@@ -15,15 +15,15 @@ impl Show Vec
 impl Vec
   new =
     Vec
-      data: c_malloc 4
+      data: malloc 4
       cap: 1
       len: 0
 
   @realloc =
     let orig_data = @data
     @cap = @cap * 2
-    @data = c_malloc (@cap * 4)
-    c_memcpy @data, orig_data, @len
+    @data = malloc (@cap * 4)
+    memcpy @data, orig_data, @len
     0
 
   @push item =

@@ -1,6 +1,6 @@
-use super::externs::c_malloc
-use super::externs::c_strcpy
-use super::externs::c_strlen
+use super::externs::malloc
+use super::externs::strcpy
+use super::externs::strlen
 
 trait Clone a
   clone :: a -> a
@@ -13,8 +13,8 @@ impl Clone Float64
 
 impl Clone String
   @clone =
-    let s = c_malloc c_strlen @
-    c_strcpy s, @
+    let s = malloc strlen @
+    strcpy s, @
     s
 
 use super::functor::(*)

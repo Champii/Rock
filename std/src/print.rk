@@ -1,11 +1,11 @@
-use super::externs::c_puts
+use super::externs::puts
 use super::show::(*)
 use super::eq::(*)
 use super::num::(*)
 
 # there is a bug here if a method exists with the same name in the scope 
 # of the module (like Print::print and print)
-printl a = c_puts a.show!
+printl a = puts a.show!
 
 trait Print a
   print :: a -> Int64
@@ -22,5 +22,3 @@ impl Print Float64
 
 impl Print String
   @print = printl @
-
-use Print::(*)

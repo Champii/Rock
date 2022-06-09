@@ -32,9 +32,9 @@ impl Eq Bool
     < i j = ~BEq i j
     > i j = ~BEq i j
 
-use super::externs::c_strcmp
+use super::externs::strcmp
 
 impl Eq String
-    == k l = c_strcmp k, l == 0
+    == k l = strcmp k, l == 0
 
 use Eq::(*)
