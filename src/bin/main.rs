@@ -5,7 +5,12 @@ extern crate rock;
 extern crate log;
 
 use clap::{App, Arg, SubCommand};
-use std::{fs, path::PathBuf, process::Command};
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 pub mod logger;
 
@@ -157,6 +162,15 @@ fn main() {
         )
         .subcommand(SubCommand::with_name("build").about("Build the current project directory"))
         .subcommand(SubCommand::with_name("run").about("Run the current project directory"))
+        .subcommand(
+            SubCommand::with_name("new")
+                .about("Create a new empty project folder")
+                .arg(
+                    Arg::with_name("name")
+                        .required(true)
+                        .help("The name of the new project"),
+                ),
+        )
         .get_matches();
 
     let config = rock::Config {
@@ -179,9 +193,27 @@ fn main() {
         build(&config);
     } else if let Some(_matches) = matches.subcommand_matches("run") {
         run(config);
+    } else if let Some(matches) = matches.subcommand_matches("new") {
+        create_project_folder(matches.value_of("name").unwrap());
     } else if config.repl {
         run(config)
     } else {
         println!("{}", matches.usage());
     }
+}
+
+fn create_project_folder(name: &str) {
+    let path = Path::new(name);
+
+    if path.exists() {
+        println!("Error: {} already exists", name);
+        return;
+    }
+
+    fs::create_dir(path).expect("Failed to create project folder");
+    fs::create_dir(path.join("src")).expect("Failed to create project src folder");
+
+    let mut file = File::create(path.join("src/main.rk")).expect("Failed to create main.rk");
+
+    file.write(b"main: -> \"Hello World !\".print!").unwrap();
 }
