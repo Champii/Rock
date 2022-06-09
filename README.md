@@ -1,4 +1,4 @@
-# Rock v0.3.0
+# Rock v0.3.1
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -11,7 +11,7 @@ No to be taken seriously (yet)
 
 ## Index
 
-- [Rock v0.3.0](#rock-v0.3.0)
+- [Rock v0.3.1](#rock-v0.3.1)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -57,10 +57,10 @@ You will need `clang` somewhere in your $PATH
 
 Linux x86_64 only
 
-[Rock v0.3.0](https://github.com/Champii/Rock/releases/download/v0.3.0/rock) (Tested on arch, btw)
+[Rock v0.3.1](https://github.com/Champii/Rock/releases/download/v0.3.1/rock) (Tested on arch, btw)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.3.0/rock
+wget https://github.com/Champii/Rock/releases/download/v0.3.1/rock
 chmod +x rock
 ./rock -V
 ```
@@ -308,7 +308,7 @@ rock --repl
 ```
 
 ``` sh
-Rock: v0.3.0
+Rock: v0.3.1
 ----
 
 Type ':?' for help
