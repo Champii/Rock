@@ -1,14 +1,14 @@
 trait Toto a
-    toto :: a -> String
+  toto: a -> String
 
 impl Toto Int64
-    @toto = "1"
+  @toto: -> "1"
 
 impl Toto Bool
-    @toto = "true"
+  @toto: -> "true"
 
-print a = a.toto()
+print: a -> a.toto()
 
-main =
-    print true
-    print 4
+main: ->
+  print true
+  print 4

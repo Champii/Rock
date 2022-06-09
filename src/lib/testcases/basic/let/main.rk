@@ -1,6 +1,7 @@
-id d = d
-main =
+id: d -> d
+main: ->
     let a = 41
     let b = 1
     let c = ~IAdd a b
     id c
+

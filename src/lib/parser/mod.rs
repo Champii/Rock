@@ -439,7 +439,7 @@ pub fn parse_prototype(input: Parser) -> Res<Parser, Prototype> {
             parse_identity,
             terminated(
                 parse_identifier_or_operator,
-                delimited(space0, tag("::"), space0),
+                delimited(space0, tag(":"), space0),
             ),
             parse_signature,
         )),
@@ -460,13 +460,14 @@ pub fn parse_self_fn(input: Parser) -> Res<Parser, FunctionDecl> {
             terminated(
                 tuple((
                     parse_identifier_or_operator,
+                    terminated(space0, tag(":")),
                     many0(preceded(space1, parse_identifier)),
                 )),
-                delimited(space0, char('='), space0),
+                delimited(space0, tag("->"), space0),
             ),
             parse_body,
         )),
-        |(node_id, self_node_id, _, (name, arguments), body)| {
+        |(node_id, self_node_id, _, (name, _, arguments), body)| {
             FunctionDecl::new_self(node_id, self_node_id, name, body, arguments)
         },
     )(input)
@@ -479,13 +480,16 @@ pub fn parse_fn(input: Parser) -> Res<Parser, FunctionDecl> {
             terminated(
                 tuple((
                     parse_identifier_or_operator,
-                    many0(preceded(space1, parse_identifier)),
+                    terminated(space0, tag(":")),
+                    space1,
+                    separated_list0(tuple((space0, tag(","), space0)), parse_identifier),
+                    // many0(preceded(space1, parse_identifier)),
                 )),
-                delimited(space0, char('='), space0),
+                delimited(space0, tag("->"), space0),
             ),
             parse_body,
         )),
-        |(node_id, (name, arguments), body)| FunctionDecl {
+        |(node_id, (name, _, _, arguments), body)| FunctionDecl {
             node_id,
             name,
             body,

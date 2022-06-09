@@ -1,5 +1,5 @@
 struct Foo
-  bar :: Int64
-  toto :: String
+  bar: Int64
+  toto: String
 
-main = 42
+main: -> 42

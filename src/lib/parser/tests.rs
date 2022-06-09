@@ -509,7 +509,7 @@ mod parse_fn_decl {
     #[test]
     fn valid_no_args() {
         let input = Parser::new_extra(
-            "toto =\n  2\n",
+            "toto: ->\n  2\n",
             ParserCtx::new(PathBuf::new(), Config::default()),
         );
 
@@ -548,7 +548,7 @@ mod parse_fn_decl {
         let operators = HashMap::from([("+".to_string(), 5)]);
 
         let input = Parser::new_extra(
-            "toto a b =\n  a + b",
+            "toto: a, b ->\n  a + b",
             ParserCtx::new_with_operators(PathBuf::new(), operators, Config::default()),
         );
 
@@ -615,7 +615,7 @@ mod parse_fn_decl {
         let operators = HashMap::from([("+".to_string(), 5)]);
 
         let input = Parser::new_extra(
-            "toto a b =\n  a + b\n  a + b",
+            "toto: a, b ->\n  a + b\n  a + b",
             ParserCtx::new_with_operators(PathBuf::new(), operators, Config::default()),
         );
 
@@ -629,7 +629,7 @@ mod parse_fn_decl {
         let operators = HashMap::from([("+".to_string(), 5)]);
 
         let input = Parser::new_extra(
-            "toto a b = a + b",
+            "toto: a, b -> a + b",
             ParserCtx::new_with_operators(PathBuf::new(), operators, Config::default()),
         );
 
@@ -646,7 +646,7 @@ mod parse_prototype {
     #[test]
     fn valid() {
         let input = Parser::new_extra(
-            "toto :: Int64 -> Int64",
+            "toto: Int64 -> Int64",
             ParserCtx::new(PathBuf::new(), Config::default()),
         );
 
@@ -862,7 +862,7 @@ mod parse_struct_decl {
     #[test]
     fn valid_struct_decl_with_fields() {
         let input = Parser::new_extra(
-            "struct Foo\n  a :: Int64\n  b :: Float64",
+            "struct Foo\n  a: Int64\n  b: Float64",
             ParserCtx::new(PathBuf::new(), Config::default()),
         );
 
@@ -905,7 +905,7 @@ mod parse_trait {
     #[test]
     fn valid_trait() {
         let input = Parser::new_extra(
-            "trait Foo\n  a :: Int64 -> Int64\n  b :: Float64 -> String",
+            "trait Foo\n  a: Int64 -> Int64\n  b: Float64 -> String",
             ParserCtx::new(PathBuf::new(), Config::default()),
         );
 
@@ -922,7 +922,7 @@ mod parse_impl {
     #[test]
     fn valid_impl() {
         let input = Parser::new_extra(
-            "impl Foo\n  a =\n    2\n  b a =\n    a",
+            "impl Foo\n  a: ->\n    2\n  b: a ->\n    a",
             ParserCtx::new(PathBuf::new(), Config::default()),
         );
 

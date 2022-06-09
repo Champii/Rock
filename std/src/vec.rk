@@ -3,28 +3,28 @@ use super::num::(*)
 use super::eq::(*)
 
 struct Vec
-  data :: String
-  cap :: Int64
-  len :: Int64
+  data: String
+  cap: Int64
+  len: Int64
 
 impl Show Vec
-  @show = @len.show!
+  @show: -> @len.show!
 
 impl Vec
-  new =
+  new: ->
     Vec
       data: malloc 4
       cap: 1
       len: 0
 
-  @realloc =
+  @realloc: ->
     let orig_data = @data
     @cap = @cap * 2
     @data = malloc (@cap * 4)
     memcpy @data, orig_data, @len
     0
 
-  @push item =
+  @push: item ->
     let d = @data
     d[@len] = item
     @len = @len + 1

@@ -3,8 +3,8 @@ infix - 4
 infix * 5
 infix / 5
 
-+ a b = ~IAdd a b
-- a b = ~ISub a b
-* a b = ~IMul a b
-/ a b = ~IDiv a b
-main = 3 + 20 / 2 * 2 * 2 - 2 + 1
++: a, b -> ~IAdd a b
+-: a, b -> ~ISub a b
+*: a, b -> ~IMul a b
+/: a, b -> ~IDiv a b
+main: -> 3 + 20 / 2 * 2 * 2 - 2 + 1

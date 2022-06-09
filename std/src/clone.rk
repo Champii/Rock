@@ -3,16 +3,16 @@ use super::externs::strcpy
 use super::externs::strlen
 
 trait Clone a
-  clone :: a -> a
+  clone: a -> a
 
 impl Clone Int64
-  @clone = @
+  @clone: -> @
 
 impl Clone Float64
-  @clone = @
+  @clone: -> @
 
 impl Clone String
-  @clone =
+  @clone: ->
     let s = malloc strlen @
     strcpy s, @
     s
@@ -20,5 +20,5 @@ impl Clone String
 use super::functor::(*)
 
 impl Clone [Int64]
-  @clone = map clone, @
+  @clone: -> map clone, @
 

@@ -1,11 +1,11 @@
 struct Bar
-  mdr :: Int64
+  mdr: Int64
 
 struct Foo
-  toto :: Bar
-  titi :: Float64
+  toto: Bar
+  titi: Float64
 
-main =
+main: ->
   let lol = Foo
     toto: Bar
       mdr: 42

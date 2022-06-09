@@ -1,4 +1,4 @@
-main =
+main: ->
   let a = 21
   a = ~IAdd a a
   a

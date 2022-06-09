@@ -1,13 +1,13 @@
 infix + 4
 
 trait Num a
-    + :: a -> a -> a
+  +: a -> a -> a
 
 impl Num Int64
-    + a b = ~IAdd a b
+  +: a, b -> ~IAdd a b
 
 use Num::(*)
 
-add a b = a + b
+add: a, b -> a + b
 
-main = add 2, 40
+main: -> add 2, 40

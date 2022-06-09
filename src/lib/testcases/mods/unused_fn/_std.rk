@@ -2,6 +2,7 @@ infix + 4
 infix * 5
 infix - 4
 
-+ a b = ~IAdd a b
-* a b = ~IMul a b
-- a b = ~ISub a b
++: a, b -> ~IAdd a b
+*: a, b -> ~IMul a b
+-: a, b -> ~ISub a b
+

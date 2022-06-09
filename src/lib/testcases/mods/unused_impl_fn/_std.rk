@@ -3,18 +3,19 @@ infix * 5
 infix - 4
 
 trait Num a
-    + :: a -> a -> a
-    * :: a -> a -> a
-    - :: a -> a -> a
+  +: a -> a -> a
+  *: a -> a -> a
+  -: a -> a -> a
 
 impl Num Int64
-    + a b = ~IAdd a b
-    * a b = ~IMul a b
-    - a b = ~ISub a b
+  +: a, b -> ~IAdd a b
+  *: a, b -> ~IMul a b
+  -: a, b -> ~ISub a b
 
 impl Num Float64
-    + c d = ~FAdd c d
-    * c d = ~FMul c d
-    - c d = ~FSub c d
+  +: c, d -> ~FAdd c d
+  *: c, d -> ~FMul c d
+  -: c, d -> ~FSub c d
 
 use Num::(*)
+

@@ -1,2 +1,2 @@
-f a = a
-main = f 42
+f: a -> a
+main: -> f 42

@@ -26,7 +26,7 @@ No to be taken seriously (yet)
     - [Custom infix operator](#custom-infix-operator)
     - [Trait Definition](#trait-definition)
     - [Struct instance and methods]( #struct-instance-and-methods )
-    - [Show implementation]( #show-implementation )
+    - [Show and Print implementation]( #show-and-print-implementation )
     - [Modules and Code Separation](#modules-and-code-separation)
   - [Development notes](#development-notes)
 
@@ -99,12 +99,12 @@ mkdir -p factorial/src && cd factorial
 - Create a `factorial/src/main.rk` file:
 
 ```haskell
-fact a =
-    if a <= 1
+fact: x ->
+    if x <= 1
     then 1
-    else a * fact (a - 1)
+    else x * fact (x - 1)
 
-main = fact 4 .print!
+main: -> fact 4 .print!
 ```
 
 Assuming that you built Rock and put its binary in your PATH:
@@ -123,9 +123,9 @@ Note that you currently must be at the project root to run the compiler. (i.e. i
 ### Polymorphic function
 
 ``` haskell
-id a = a
+id: x -> x
 
-main =
+main: ->
   id 1 .print!
   id 2.2 .print!
   id "Test" .print!
@@ -142,7 +142,7 @@ Test
 
 The `id` function here is polymorphic by default, as we don't make any constraint on the type that we should take or return.  
 If we did something like this  
-`id a = a + a`  
+`id x = x + x`  
 We would have constrained `a` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
 
 Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`(*).  
@@ -161,11 +161,11 @@ TestTest
 
 ``` haskell
 infix |> 1
-|> x f = f x
+|>: x, f -> f x
 
-f a = a + 2
+f: x -> x + 2
 
-main = (4 |> f).print!
+main: -> (4 |> f).print!
 ```
 
 ``` sh
@@ -184,15 +184,15 @@ This `trait ToString` is redondant with the `trait Show` implemented in the stdl
 
 ``` haskell
 trait ToString a
-  tostring :: a -> String
+  tostring: a -> String
 
 impl ToString Int64
-  @tostring = @show!
+  @tostring: -> @show!
 
 impl ToString Float64
-  @tostring = @show!
+  @tostring: -> @show!
 
-main =
+main: ->
   (33).tostring!.print!
   (42.42).tostring!.print!
 ```
@@ -207,17 +207,17 @@ $ rock run
 
 ``` haskell
 struct Player
-  level :: Int64
-  name :: String
+  level: Int64
+  name: String
 
 impl Player
-  new level =
+  new: level ->
     Player
       level: level
       name: "Default"
-  @getlevel = @level
+  @getlevel: -> @level
 
-main =
+main: ->
   Player::new 1 .getlevel!.print!
 ```
 
@@ -226,20 +226,23 @@ $ rock run
 1
 ```
 
-### Show implementation
+### Show and Print implementation
 
 ``` haskell
 struct Player
-  level :: Int64
-  name :: String
+  level: Int64
+  name: String
 
 impl Show Player
-  @show = @name + "(" + @level.show! + ")"
+  @show: -> @name + "(" + @level.show! + ")"
 
+use std::print::printl
+
+# This will be generic in the futur
 impl Print Player
-  @print = printl @show!
+  @print: -> printl @
 
-main =
+main: ->
   let player = Player
     level: 42
     name: "MyName"
@@ -254,16 +257,16 @@ MyName(42)
 
 Note that the `printl` method is defined in the stdlib as
 ```haskell
-printl a = c_puts a.show!
+printl: x -> puts x.show!
 ```
-with `c_puts` being the `libc` `puts`
+with `puts` being an external from the `libc`
 
 ### Modules and code separation
 
 - `./myproj/src/foo.rk`
 
 ```haskell
-bar a = a + 1
+bar: x -> x + 1
 ```
 
 - `./myproj/src/main.rk`
@@ -273,7 +276,7 @@ mod foo
 
 use foo::bar
 
-main = bar 1 .print!
+main: -> bar 1 .print!
 ```
 
 ```sh
@@ -284,7 +287,7 @@ $ rock run
 Note that we could have skiped the
 `use foo::bar`
 if we wrote
-`main = foo::bar 1 .print!` 
+`main: -> foo::bar 1 .print!` 
 
 ## Development notes
 

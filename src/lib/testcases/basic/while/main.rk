@@ -1,10 +1,10 @@
 infix + 4
-+ a b = ~IAdd a b
++: a, b -> ~IAdd a b
 
 infix < 3
-< a b = ~Ilt a b
+<: a, b -> ~Ilt a b
 
-main =
+main: ->
   let i = 0
   let x = 42
   while i < x

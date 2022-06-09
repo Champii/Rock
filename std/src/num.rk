@@ -4,22 +4,22 @@ infix * 5
 infix / 5
 
 trait Num a
-    + :: a -> a -> a
-    - :: a -> a -> a
-    * :: a -> a -> a
-    / :: a -> a -> a
+  +: a -> a -> a
+  -: a -> a -> a
+  *: a -> a -> a
+  /: a -> a -> a
 
 impl Num Int64
-    + a b = ~IAdd a b
-    - a b = ~ISub a b
-    * a b = ~IMul a b
-    / a b = ~IDiv a b
+  +: a, b -> ~IAdd a b
+  -: a, b -> ~ISub a b
+  *: a, b -> ~IMul a b
+  /: a, b -> ~IDiv a b
 
 impl Num Float64
-    + c d = ~FAdd c d
-    - c d = ~FSub c d
-    * c d = ~FMul c d
-    / c d = ~FDiv c d
+  +: c, d -> ~FAdd c d
+  -: c, d -> ~FSub c d
+  *: c, d -> ~FMul c d
+  /: c, d -> ~FDiv c d
 
 use super::externs::malloc
 use super::externs::strlen
@@ -27,10 +27,10 @@ use super::externs::strcpy
 use super::externs::strcat
 
 impl Num String
-    + a b =
-        let s = malloc (strlen a + strlen b)
-        strcpy s, a
-        strcat s, b
-        s
+  +: a, b ->
+    let s = malloc (strlen a + strlen b)
+    strcpy s, a
+    strcat s, b
+    s
 
 use Num::(*)
