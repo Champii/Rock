@@ -8,7 +8,7 @@ use super::num::(*)
 printl: a -> puts a.show!
 
 trait Print a
-  print: a -> Int64
+  print: a => Int64
 
 # Here we would need generic impl
 impl Print Bool

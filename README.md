@@ -184,7 +184,7 @@ This `trait ToString` is redondant with the `trait Show` implemented in the stdl
 
 ``` haskell
 trait ToString a
-  tostring: a -> String
+  tostring: a => String
 
 impl ToString Int64
   @tostring: -> @show!

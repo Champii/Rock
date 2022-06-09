@@ -1071,7 +1071,7 @@ pub fn parse_number(input: Parser) -> Res<Parser, Literal> {
 pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {
     let (input, parsed) = tuple((
         parse_type,
-        many0(preceded(delimited(space0, tag("->"), space0), parse_type)),
+        many0(preceded(delimited(space0, tag("=>"), space0), parse_type)),
     ))(input)?;
 
     let mut types = vec![parsed.0];
