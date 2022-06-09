@@ -8,6 +8,6 @@ mod fs
 mod functor
 mod clone
 mod vec
-# mod helpers
+mod helpers
 
 mod prelude

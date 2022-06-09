@@ -1,7 +1,4 @@
-use super::externs::read
 use super::externs::malloc
-use super::externs::close
-use super::externs::open
 use super::externs::strtol
 
 use super::num::(*)
@@ -19,15 +16,15 @@ impl Show File
 impl File
   open p =
     File
-      fd: open p, 0, oct_to_dec "0777"
+      fd: super::externs::open p, 0, oct_to_dec "0777"
       path: p
 
   @read =
     let s = malloc 100
-    let len = read @fd, s, 100
+    let len = super::externs::read @fd, s, 100
     s
 
-  @close = close @fd
+  @close = super::externs::close @fd
 
 oct_to_dec oct = strtol oct, 0, 8
 

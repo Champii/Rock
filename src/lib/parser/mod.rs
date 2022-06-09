@@ -533,6 +533,25 @@ pub fn parse_block_indent(input: Parser) -> Res<Parser, usize> {
     }
 }
 
+pub fn parse_block_indent_plus_one(input: Parser) -> Res<Parser, usize> {
+    let (mut input, indent) = space1(input)?;
+    let indent_len = indent.fragment().len();
+
+    if input.extra.first_indent == None {
+        input.extra.first_indent = Some(indent_len);
+        input.extra.block_indent = indent_len;
+    }
+
+    if indent_len == input.extra.block_indent + input.extra.first_indent.unwrap() {
+        Ok((input, indent_len))
+    } else {
+        Err(nom::Err::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::Tag,
+        )))
+    }
+}
+
 pub fn parse_body(input: Parser) -> Res<Parser, Body> {
     let (input, opt_eol) = opt(line_ending)(input)?; // NOTE: should not fail
 
@@ -858,10 +877,11 @@ pub fn parse_indice(input: Parser) -> Res<Parser, Box<Expression>> {
 pub fn parse_dot(input: Parser) -> Res<Parser, Identifier> {
     map(
         tuple((
+            opt(tuple((line_ending, parse_block_indent_plus_one))),
             terminated(tag("."), space0),
             terminated(parse_identifier, space0),
         )),
-        |(_, ident)| ident,
+        |(_, _, ident)| ident,
     )(input)
 }
 
@@ -980,7 +1000,7 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
             parse_identity,
             terminated(tag("\""), space0),
             recognize(take_while(|c: char| c != '"')),
-            terminated(tag("\""), space0),
+            tag("\""),
         )),
         |(node_id, _, s, _)| Literal::new_string(String::from(*s.fragment()), node_id),
     )(input)

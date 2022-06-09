@@ -199,10 +199,6 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         self.push_scope();
         self.import_struct_scope(Identifier::new(impl_.name.get_name(), 0));
 
-        if !impl_.types.is_empty() {
-            self.import_struct_scope(Identifier::new(impl_.types.first().unwrap().get_name(), 0));
-        }
-
         walk_impl(self, impl_);
 
         self.pop_scope();
@@ -259,7 +255,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
         self.push_scope();
 
-        self.visit_identifier(&f.name);
+        // self.visit_identifier(&f.name);
 
         for arg in &f.arguments {
             self.add_to_current_scope(arg.name.clone(), arg.node_id);

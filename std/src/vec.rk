@@ -1,6 +1,4 @@
 use super::externs::(*)
-# This is problematic
-use super::show::Show::(*)
 use super::num::(*)
 use super::eq::(*)
 
