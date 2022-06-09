@@ -2,6 +2,6 @@ mod _std
 
 use _std::(*)
 
-f a = a + 2
+f: a -> a + 2
 
-main = 40 |> f
+main: -> 40 |> f

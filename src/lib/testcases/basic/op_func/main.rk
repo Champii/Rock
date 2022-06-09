@@ -1,4 +1,4 @@
 infix + 4
-+ a b = ~IAdd a b
-add a b = a + b
-main = add 20, 22
++: a, b -> ~IAdd a b
+add: a, b -> a + b
+main: -> add 20, 22

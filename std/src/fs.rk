@@ -6,25 +6,25 @@ use super::eq::(*)
 use super::show::(*)
 
 struct File
-  fd :: Int64
-  path :: String
+  fd: Int64
+  path: String
 
 impl Show File
-  @show =
+  @show: ->
     "File { fd: " + @fd.show! + ", path: " + @path + " }"
 
 impl File
-  open p =
+  open: p ->
     File
       fd: super::externs::open p, 0, oct_to_dec "0777"
       path: p
 
-  @read =
+  @read: ->
     let s = malloc 100
     let len = super::externs::read @fd, s, 100
     s
 
-  @close = super::externs::close @fd
+  @close: -> super::externs::close @fd
 
-oct_to_dec oct = strtol oct, 0, 8
+oct_to_dec: oct -> strtol oct, 0, 8
 

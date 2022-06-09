@@ -1,24 +1,25 @@
-puts a = a
+puts: a -> a
 
 struct Bar
-  toto :: Int64
-  mdr :: String
+  toto: Int64
+  mdr: String
 
 trait Show a
-  show :: a -> String
+  show: a => String
 
 impl Show Int64
-  @show = "2"
+  @show: -> "2"
 
-print a = puts a.show()
+print: a -> puts a.show()
 
 impl Show Bar
-  @show =
+  @show: ->
     @toto.show()
 
-main =
+main: ->
   let bar = Bar
     toto: 42
     mdr: "haha"
 
   print bar
+

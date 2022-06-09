@@ -1,27 +1,28 @@
-extern malloc :: Int64 -> String
-extern memcpy :: String -> String -> Int64 -> String
+extern malloc: Int64 => String
+extern memcpy: String => String => Int64 => String
 
 # Str
 
-extern strlen :: String -> Int64
-extern strcat :: String -> String -> String
-extern strcpy :: String -> String -> String
-extern strncpy :: String -> String -> Int64 -> String
-extern strcmp :: String -> String -> Int64
-extern strtol :: String -> Int64 -> Int64 -> Int64
+extern strlen: String => Int64
+extern strcat: String => String => String
+extern strcpy: String => String => String
+extern strncpy: String => String => Int64 => String
+extern strcmp: String => String => Int64
+extern strtol: String => Int64 => Int64 => Int64
 
 # Fs
 
-extern open :: String -> Int64 -> Int64 -> Int64
-extern close :: Int64 -> Int64
-extern read :: Int64 -> String -> Int64 -> Int64
-extern write :: Int64 -> String -> Int64 -> Int64
+extern open: String => Int64 => Int64 => Int64
+extern close: Int64 => Int64
+extern read: Int64 => String => Int64 => Int64
+extern write: Int64 => String => Int64 => Int64
 
 # Print
 
-extern sprintf :: String -> String -> Int64 -> Int64
-extern puts :: String -> Int64
+extern sprintf: String => String => Int64 => Int64
+extern puts: String => Int64
 
 # Num
 
-extern gcvt :: Float64 -> Int64 -> String -> String -> String
+extern gcvt: Float64 => Int64 => String => String => String
+

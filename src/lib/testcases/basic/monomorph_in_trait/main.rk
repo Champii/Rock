@@ -1,14 +1,15 @@
-id a = a
+id: a -> a
 
 trait Foo a
-    foo :: a -> a
+  foo: a => a
 
 impl Foo Int64
-    @foo = id @
+  @foo: -> id @
 
 impl Foo Bool
-    @foo = id @
+  @foo: -> id @
 
-main =
-    true.foo()
-    (42).foo()
+main: ->
+  true.foo()
+  (42).foo()
+

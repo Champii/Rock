@@ -1,11 +1,11 @@
 struct Foo
-  bar :: Int64
+  bar: Int64
 
 impl Foo
-  @getbar = @bar
-  @me = @
+  @getbar: -> @bar
+  @me: -> @
 
-main =
+main: ->
   let foo = Foo
     bar: 42
 

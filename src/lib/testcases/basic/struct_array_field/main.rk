@@ -1,8 +1,8 @@
 struct Foo
-  toto :: [Int64]
-  titi :: Float64
+  toto: [Int64]
+  titi: Float64
 
-main =
+main: ->
   let lol = Foo
     titi: 10.2
     toto: [10, 42]

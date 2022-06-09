@@ -1,5 +1,5 @@
-id a = a
+id: a -> a
 
-main =
-    id true
-    id 42
+main: ->
+  id true
+  id 42

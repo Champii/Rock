@@ -7,56 +7,56 @@ use super::externs::strlen
 use super::num::(*)
 use super::eq::(*)
 
-itoa a =
-    let s = malloc 10
-    sprintf s, "%d", a
-    s
+itoa: a ->
+  let s = malloc 10
+  sprintf s, "%d", a
+  s
 
-ftoa c =
-    gcvt c, 10, (malloc 4), (malloc 4)
+ftoa: c ->
+  gcvt c, 10, (malloc 4), (malloc 4)
 
 trait Show a
-    show :: a -> String
+  show: a => String
 
 impl Show Int64
-    @show = itoa @
+  @show: -> itoa @
 
 impl Show Float64
-    @show = ftoa @
+  @show: -> ftoa @
 
 impl Show Bool
-    @show =
-        if @
-        then "true"
-        else "false"
+  @show: ->
+    if @
+    then "true"
+    else "false"
 
 impl Show String
-    @show =
-        let s = malloc strlen @
-        strcpy s, @
-        s
-
-show_arr a =
-    let s = malloc 100
-    strcpy s, "["
-    let i = 0
-    let len = ~Len a a
-    while i < len
-        strcat s, a[i].show!
-        strcat s, ", "
-        i = i + 1
-    strcat s, "]"
+  @show: ->
+    let s = malloc strlen @
+    strcpy s, @
     s
 
+show_arr: a ->
+  let s = malloc 100
+  strcpy s, "["
+  let i = 0
+  let len = ~Len a a
+  while i < len
+    strcat s, a[i].show!
+    strcat s, ", "
+    i = i + 1
+  strcat s, "]"
+  s
+
 impl Show [Int64]
-    @show = show_arr @
+  @show: -> show_arr @
 
 impl Show [Float64]
-    @show = show_arr @
+  @show: -> show_arr @
 
 impl Show [String]
-    @show = show_arr @
+  @show: -> show_arr @
 
 impl Show [Bool]
-    @show = show_arr @
+  @show: -> show_arr @
 

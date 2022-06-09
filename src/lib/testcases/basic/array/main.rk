@@ -1,6 +1,7 @@
-id a = [a, 2]
-duo a b = [a, b]
-main =
-    let a = id 1
-    let b = duo 2.2, 3.3
-    42
+id: a -> [a, 2]
+duo: a, b -> [a, b]
+main: ->
+  let a = id 1
+  let b = duo 2.2, 3.3
+  42
+

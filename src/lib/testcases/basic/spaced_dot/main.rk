@@ -1,11 +1,11 @@
 struct Toto
-  lol :: Int64
+  lol: Int64
 
 impl Toto
-  new x = Toto
+  new: x -> Toto
     lol: x
-  @me = @
-  @get a = @lol
+  @me: -> @
+  @get: a -> @lol
 
-main =
+main: ->
   Toto::new 42 .me!.me!.get 2

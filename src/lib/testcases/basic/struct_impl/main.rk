@@ -1,14 +1,14 @@
 struct Foo
-  bar :: Int64
-  toto :: String
+  bar: Int64
+  toto: String
 
 impl Foo
-  new a =
+  new: a ->
     Foo
       bar: a
       toto: "Default"
-  getbar a = a.bar
+  @getbar: -> @bar
 
-main =
+main: ->
   let foo = Foo::new 42
-  Foo::getbar foo
+  foo.getbar!

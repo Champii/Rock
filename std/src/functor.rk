@@ -1,7 +1,7 @@
 use super::num::(*)
 use super::eq::(*)
 
-map f arr =
+map: f, arr ->
   let i = 0
   let arr2 = arr
   while i < (~Len arr arr)
@@ -9,14 +9,15 @@ map f arr =
     i = i + 1
   arr2
 
-foreach f arr =
+foreach: f arr ->
   let i = 0
   while i < (~Len arr arr)
     f arr[i]
     i = i + 1
   arr
 
-_shut_up_warnings =
+_shut_up_warnings: ->
   map 0, 0
   foreach 0, 0
   _shut_up_warnings!
+

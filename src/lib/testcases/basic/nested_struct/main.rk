@@ -1,13 +1,13 @@
 struct Bar
-  toto :: Int64
+  toto: Int64
 
 struct Foo
-  bar :: Bar
+  bar: Bar
 
 struct Toto
-  foo :: Foo
+  foo: Foo
 
-main =
+main: ->
   let b = Bar
     toto: 42
 

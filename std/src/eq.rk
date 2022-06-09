@@ -5,36 +5,37 @@ infix < 3
 infix > 3
 
 trait Eq a
-    == :: a -> a -> Bool
-    <= :: a -> a -> Bool
-    >= :: a -> a -> Bool
-    < :: a -> a -> Bool
-    > :: a -> a -> Bool
+  ==: a => a => Bool
+  <=: a => a => Bool
+  >=: a => a => Bool
+  <: a => a => Bool
+  >: a => a => Bool
 
 impl Eq Int64
-    ==  e f = ~IEq e f
-    <=  e f = ~Ile e f
-    >=  e f = ~Ige e f
-    < e f = ~Ilt e f
-    > e f = ~Igt e f
+  ==: e, f -> ~IEq e f
+  <=: e, f -> ~Ile e f
+  >=: e, f -> ~Ige e f
+  <: e, f -> ~Ilt e f
+  >: e, f -> ~Igt e f
 
 impl Eq Float64
-    == g h = ~FEq g h
-    <= g h = ~Fle g h
-    >= g h = ~Fge g h
-    < g h = ~Flt g h
-    > g h = ~Fgt g h
+  ==: g, h -> ~FEq g h
+  <=: g, h -> ~Fle g h
+  >=: g, h -> ~Fge g h
+  <: g, h -> ~Flt g h
+  >: g, h -> ~Fgt g h
 
 impl Eq Bool
-    == i j = ~BEq i j
-    <= i j = ~BEq i j
-    >= i j = ~BEq i j
-    < i j = ~BEq i j
-    > i j = ~BEq i j
+  ==: i, j -> ~BEq i j
+  <=: i, j -> ~BEq i j
+  >=: i, j -> ~BEq i j
+  <: i, j -> ~BEq i j
+  >: i, j -> ~BEq i j
 
 use super::externs::strcmp
 
 impl Eq String
-    == k l = strcmp k, l == 0
+  ==: k, l -> strcmp k, l == 0
 
 use Eq::(*)
+

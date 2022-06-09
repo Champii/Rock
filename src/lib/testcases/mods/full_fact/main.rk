@@ -2,9 +2,9 @@ mod std
 
 use std::prelude::(*)
 
-fact a =
-    if a <= 1
-    then 1
-    else a * fact (a - 1)
+fact: a ->
+  if a <= 1
+  then 1
+  else a * fact (a - 1)
 
-main = fact 4
+main: -> fact 4

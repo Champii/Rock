@@ -2,6 +2,7 @@ mod _std
 
 use _std::(*)
 
-test g h i j = g
+test: g, h, i, j -> g
 
-main = test (41 + 1), (2 * 2), (3.3 + 3.3), (4.4 * 4.4)
+main: -> test (41 + 1), (2 * 2), (3.3 + 3.3), (4.4 * 4.4)
+

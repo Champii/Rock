@@ -1,12 +1,13 @@
 infix - 4
-- a b = ~ISub a b
+-: a, b -> ~ISub a b
 
 infix == 4
-== a b = ~IEq a b
+==: a, b -> ~IEq a b
 
-recur a =
-    if a == 0
-    then a
-    else recur (a - 1)
+recur: a ->
+  if a == 0
+  then a
+  else recur (a - 1)
 
-main = recur 2
+main: -> recur 2
+

@@ -1,5 +1,3 @@
-use super::show::(*)
-use super::print::(*)
 use super::num::(*)
 use super::eq::(*)
 use super::functor::(*)

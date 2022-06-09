@@ -5,20 +5,21 @@ use super::num::(*)
 
 # there is a bug here if a method exists with the same name in the scope 
 # of the module (like Print::print and print)
-printl a = puts a.show!
+printl: a -> puts a.show!
 
 trait Print a
-  print :: a -> Int64
+  print: a => Int64
 
 # Here we would need generic impl
 impl Print Bool
-  @print = printl @
+  @print: -> printl @
 
 impl Print Int64
-  @print = printl @
+  @print: -> printl @
 
 impl Print Float64
-  @print = printl @
+  @print: -> printl @
 
 impl Print String
-  @print = printl @
+  @print: -> printl @
+
