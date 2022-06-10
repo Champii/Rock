@@ -263,7 +263,11 @@ pub fn parse_top_level(input: Parser) -> Res<Parser, TopLevel> {
 }
 
 pub fn parse_comment(input: Parser) -> Res<Parser, ()> {
-    let (input, _) = tuple((tag("#"), many0(satisfy(|c: char| c != '\n'))))(input)?;
+    let (input, _) = tuple((
+        opt(parse_block_indent),
+        tag("#"),
+        many0(satisfy(|c: char| c != '\n')),
+    ))(input)?;
 
     Ok((input, ()))
 }
