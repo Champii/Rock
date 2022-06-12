@@ -114,9 +114,17 @@ $ rock run
 24
 ```
 
+Rock should have produced a `./build/` folder, that contains your `a.out` executable.
+You can execute it directly:
+
+```sh
+$ ./build/a.out
+24
+```
+
 Take a look at `rock --help` for a quick tour of its flags and arguments
 
-Note that you currently must be at the project root to run the compiler. (i.e. inside the `./factorial/` folder)
+Note that you currently MUST be at the project root to run the compiler. (i.e. inside the `./factorial/` folder)
 
 ## Showcases
 

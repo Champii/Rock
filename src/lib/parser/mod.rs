@@ -490,7 +490,6 @@ pub fn parse_fn(input: Parser) -> Res<Parser, FunctionDecl> {
                     terminated(space0, tag(":")),
                     space1,
                     separated_list0(tuple((space0, tag(","), space0)), parse_identifier),
-                    // many0(preceded(space1, parse_identifier)),
                 )),
                 delimited(space0, tag("->"), space0),
             ),
@@ -605,7 +604,7 @@ pub fn parse_if(input: Parser) -> Res<Parser, If> {
 }
 
 pub fn parse_then_multi(input: Parser) -> Res<Parser, ()> {
-    // NOTE: This is a tweek for then block that are at indent 0 (i.e. in the test files)
+    // NOTE: This is a tweek for then blocks that are at indent 0 (i.e. in the test files)
     let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
         parse_block_indent(input)?
     } else {
@@ -625,7 +624,7 @@ pub fn parse_then_multi(input: Parser) -> Res<Parser, ()> {
 }
 
 pub fn parse_else(input: Parser) -> Res<Parser, Else> {
-    // NOTE: This is a tweek for else block that are at indent 0 (i.e. in the test files)
+    // NOTE: This is a tweek for else blocks that are at indent 0 (i.e. in the test files)
     let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
         parse_block_indent(input)?
     } else {

@@ -160,10 +160,12 @@ impl<'a> ConstraintContext<'a> {
             .envs
             .set_current_fn((p.hir_id.clone(), p.signature.clone()))
         {
+            error!("cannot set current fn");
             return;
         }
 
         if !self.envs.set_current_fn(old_f) {
+            error!("cannot set current fn");
             return;
         }
 
