@@ -118,6 +118,14 @@ fn testcases_basic_bool_false_main() {
     run("testcases/basic/bool_false/main.rk", include_str!("testcases/basic/bool_false/main.rk"), include_str!("testcases/basic/bool_false/main.rk.out"), include_str!("testcases/basic/bool_false/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_negative_floats_main() {
+    run("testcases/basic/negative_floats/main.rk", include_str!("testcases/basic/negative_floats/main.rk"), include_str!("testcases/basic/negative_floats/main.rk.out"), include_str!("testcases/basic/negative_floats/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_negative_floats_0_arg_fn_main() {
+    run("testcases/basic/negative_floats/0_arg_fn/main.rk", include_str!("testcases/basic/negative_floats/0_arg_fn/main.rk"), include_str!("testcases/basic/negative_floats/0_arg_fn/main.rk.out"), include_str!("testcases/basic/negative_floats/0_arg_fn/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_nested_array_main() {
     run("testcases/basic/nested_array/main.rk", include_str!("testcases/basic/nested_array/main.rk"), include_str!("testcases/basic/nested_array/main.rk.out"), include_str!("testcases/basic/nested_array/main.rk.stdout"));
 }
@@ -188,6 +196,14 @@ fn testcases_basic_array_main() {
 #[test]
 fn testcases_basic_2_arg_fn_main() {
     run("testcases/basic/2_arg_fn/main.rk", include_str!("testcases/basic/2_arg_fn/main.rk"), include_str!("testcases/basic/2_arg_fn/main.rk.out"), include_str!("testcases/basic/2_arg_fn/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_negative_numbers_main() {
+    run("testcases/basic/negative_numbers/main.rk", include_str!("testcases/basic/negative_numbers/main.rk"), include_str!("testcases/basic/negative_numbers/main.rk.out"), include_str!("testcases/basic/negative_numbers/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_negative_numbers_0_arg_fn_main() {
+    run("testcases/basic/negative_numbers/0_arg_fn/main.rk", include_str!("testcases/basic/negative_numbers/0_arg_fn/main.rk"), include_str!("testcases/basic/negative_numbers/0_arg_fn/main.rk.out"), include_str!("testcases/basic/negative_numbers/0_arg_fn/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_dot_assign_main() {

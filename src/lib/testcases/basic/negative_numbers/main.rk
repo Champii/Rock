@@ -1,0 +1,9 @@
+infix + 5
+infix - 5
+infix * 4
++: a, b -> ~IAdd a b
+-: a, b -> ~ISub a b
+*: a, b -> ~IMul a b
+f: -> -42
+main: -> f() * -1 + 1 - 1
+

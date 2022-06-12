@@ -756,10 +756,16 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &lit.kind {
-            LiteralKind::Number(n) => {
+            LiteralKind::Number(mut n) => {
                 let i64_type = self.context.i64_type();
 
-                i64_type.const_int((*n).try_into().unwrap(), false).into()
+                let mut negative = false;
+                if n < 0 {
+                    negative = true;
+                    n = -n;
+                }
+
+                i64_type.const_int((n).try_into().unwrap(), negative).into()
             }
             LiteralKind::Float(n) => {
                 let f64_type = self.context.f64_type();

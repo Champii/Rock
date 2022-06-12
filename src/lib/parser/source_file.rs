@@ -3,6 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use regex::Regex;
+
 use crate::diagnostics::Diagnostic;
 
 use super::span::Span;
@@ -22,9 +24,11 @@ impl SourceFile {
             fs::read_to_string(in_name.clone()).map_err(|_| {
                 Diagnostic::new_file_not_found(Span::new_placeholder(), in_name.clone())
             })?
-            // We manually add a endofline to avoid out of bounds error
-            // as the parser requires a newline at the end of the file
-        } + "\n";
+        };
+
+        let content = Self::filter_content(&content);
+
+        let content = content.replace("^[ \t]*\n", "\n");
 
         let mut mod_path = PathBuf::from(in_name.clone());
 
@@ -42,12 +46,12 @@ impl SourceFile {
 
         mod_path.set_extension("");
 
+        let content = Self::filter_content(&content);
+
         Ok(SourceFile {
             file_path: PathBuf::from(path.clone()),
             mod_path,
-            // We manually add a endofline to avoid out of bounds error
-            // as the parser requires a newline at the end of the file
-            content: content.to_string() + "\n",
+            content,
         })
     }
 
@@ -78,12 +82,12 @@ custom =
             .to_owned()
             + &expr;
 
+        let content = Self::filter_content(&top_levels);
+
         Ok(SourceFile {
             file_path: PathBuf::from("./src/main.rk"),
             mod_path: PathBuf::from("root"),
-            // We manually add a endofline to avoid out of bounds error
-            // as the parser requires a newline at the end of the file
-            content: top_levels + "\n",
+            content,
         })
     }
 
@@ -97,14 +101,25 @@ custom =
         let content = match fs::read_to_string(file_path.to_str().unwrap().to_string()) {
             Ok(content) => content,
             Err(_) => return Err(mod_path.as_path().to_str().unwrap().to_string()),
-            // We manually add a endofline to avoid out of bounds error
-            // as the parser requires a newline at the end of the file
-        } + "\n";
+        };
+
+        let content = Self::filter_content(&content);
 
         Ok(Self {
             file_path,
             mod_path,
             content,
         })
+    }
+
+    // This function replace the lines containing only whitespaces and tabs with a newline
+    // And append a \n at the end of file to avoid out of bounds error as the parser requires
+    // a newline at the end of the file
+    fn filter_content(content: &str) -> String {
+        Regex::new(r"[ \t]+\n")
+            .unwrap()
+            .replace_all(content, "\n\n")
+            .to_string()
+            + "\n"
     }
 }
