@@ -1,0 +1,14 @@
+infix + 5
+infix - 5
+infix * 4
+infix == 3
++: a, b -> ~FAdd a b
+-: a, b -> ~FSub a b
+*: a, b -> ~FMul a b
+==: a, b -> ~FEq a b
+f: -> -42.0
+main: ->
+  if f() * -1.0 + 1.0 - 1.0 == 42.0
+  then 42
+  else 0
+

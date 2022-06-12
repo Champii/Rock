@@ -1046,12 +1046,18 @@ pub fn parse_bool(input: Parser) -> Res<Parser, Literal> {
 }
 
 pub fn parse_float(input: Parser) -> Res<Parser, Literal> {
+    let (input, is_neg) = opt(char('-'))(input)?;
+
     let (input, float_parsed) =
         recognize(tuple((parse_number, char('.'), opt(parse_number))))(input)?;
 
-    let num: f64 = float_parsed
+    let mut num: f64 = float_parsed
         .parse()
         .map_err(|_| Err::Error(make_error(input.clone(), ErrorKind::Digit)))?;
+
+    if is_neg.is_some() {
+        num *= -1.0;
+    }
 
     let (input, node_id) = new_identity(input, &float_parsed);
 
@@ -1059,11 +1065,17 @@ pub fn parse_float(input: Parser) -> Res<Parser, Literal> {
 }
 
 pub fn parse_number(input: Parser) -> Res<Parser, Literal> {
+    let (input, is_neg) = opt(char('-'))(input)?;
+
     let (input, parsed) = take_while(is_digit)(input)?;
 
-    let num: i64 = parsed
+    let mut num: i64 = parsed
         .parse()
         .map_err(|_| Err::Error(make_error(input.clone(), ErrorKind::Digit)))?;
+
+    if is_neg.is_some() {
+        num *= -1;
+    }
 
     let (input, node_id) = new_identity(input, &parsed);
 
