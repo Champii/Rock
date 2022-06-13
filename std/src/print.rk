@@ -23,3 +23,6 @@ impl Print Float64
 impl Print String
   @print: -> printl @
 
+impl Print Char
+  @print: -> printl @
+

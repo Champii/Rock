@@ -21,6 +21,12 @@ impl Num Float64
   *: c, d -> ~FMul c d
   /: c, d -> ~FDiv c d
 
+impl Num Char
+  +: a, b -> ~IAdd a b
+  -: a, b -> ~ISub a b
+  *: a, b -> ~IMul a b
+  /: a, b -> ~IDiv a b
+
 use super::externs::malloc
 use super::externs::strlen
 use super::externs::strcpy

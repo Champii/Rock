@@ -150,6 +150,7 @@ impl Type {
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
+            Self::Primitive(p) => format!("{:?}", p),
             Self::Func(f) => format!("{:?}", f),
             Self::Struct(s) => format!("{:?}", s),
             Self::Trait(t) => format!("Trait {:?}", t),

@@ -1166,6 +1166,7 @@ pub fn parse_type(input: Parser) -> Res<Parser, Type> {
                 map(tag("Int64"), |_| PrimitiveType::Int64),
                 map(tag("Float64"), |_| PrimitiveType::Float64),
                 map(tag("String"), |_| PrimitiveType::String),
+                map(tag("Char"), |_| PrimitiveType::Char),
             )),
             |t| Type::from(t),
         ),
