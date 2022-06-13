@@ -162,6 +162,10 @@ fn testcases_basic_fn_arg_main() {
     run("testcases/basic/fn_arg/main.rk", include_str!("testcases/basic/fn_arg/main.rk"), include_str!("testcases/basic/fn_arg/main.rk.out"), include_str!("testcases/basic/fn_arg/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_multi_style_struct_ctor_main() {
+    run("testcases/basic/multi_style_struct_ctor/main.rk", include_str!("testcases/basic/multi_style_struct_ctor/main.rk"), include_str!("testcases/basic/multi_style_struct_ctor/main.rk.out"), include_str!("testcases/basic/multi_style_struct_ctor/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_fn_arg_array_main() {
     run("testcases/basic/fn_arg_array/main.rk", include_str!("testcases/basic/fn_arg_array/main.rk"), include_str!("testcases/basic/fn_arg_array/main.rk.out"), include_str!("testcases/basic/fn_arg_array/main.rk.stdout"));
 }

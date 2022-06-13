@@ -263,12 +263,7 @@ pub fn parse_top_level(input: Parser) -> Res<Parser, TopLevel> {
 }
 
 pub fn parse_comment(input: Parser) -> Res<Parser, ()> {
-    let (input, _) = tuple((
-        opt(parse_block_indent),
-        space0,
-        tag("#"),
-        many0(satisfy(|c: char| c != '\n')),
-    ))(input)?;
+    let (input, _) = tuple((space0, tag("#"), many0(satisfy(|c: char| c != '\n'))))(input)?;
 
     Ok((input, ()))
 }
@@ -717,7 +712,10 @@ pub fn parse_assign_left_side(input: Parser) -> Res<Parser, AssignLeftSide> {
 
 pub fn parse_expression(input: Parser) -> Res<Parser, Expression> {
     alt((
-        map(parse_struct_ctor, Expression::new_struct_ctor),
+        map(
+            alt((parse_struct_ctor, parse_struct_ctor_one_line)),
+            Expression::new_struct_ctor,
+        ),
         map(
             preceded(terminated(tag("return"), space1), parse_expression),
             Expression::new_return,
@@ -781,23 +779,58 @@ pub fn parse_native_operator(
     )(input.clone())
 }
 
-pub fn parse_struct_ctor(input: Parser) -> Res<Parser, StructCtor> {
+pub fn parse_struct_ctor_one_line(input: Parser) -> Res<Parser, StructCtor> {
     map(
         tuple((
-            // parse_identity,
-            terminated(parse_capitalized_identifier, line_ending),
-            indent(separated_list0(
-                line_ending,
-                preceded(
-                    parse_block_indent,
-                    tuple((
-                        terminated(parse_identifier, delimited(space0, tag(":"), space0)),
-                        parse_expression,
-                    )),
-                ),
-            )),
+            terminated(parse_capitalized_identifier, space1),
+            separated_list0(
+                terminated(tag(","), space0),
+                tuple((
+                    terminated(parse_identifier, delimited(space0, tag(":"), space0)),
+                    parse_expression,
+                )),
+            ),
         )),
         |(name, decls)| StructCtor::new(name, decls.into_iter().collect()),
+    )(input)
+}
+
+pub fn parse_struct_ctor(input: Parser) -> Res<Parser, StructCtor> {
+    alt((
+        map(
+            tuple((
+                line_ending,
+                indent(tuple((
+                    parse_block_indent,
+                    terminated(parse_capitalized_identifier, line_ending),
+                    parse_struct_ctor_decls,
+                ))),
+            )),
+            |(_, (_, name, decls))| StructCtor::new(name, decls.into_iter().collect()),
+        ),
+        map(
+            tuple((
+                terminated(parse_capitalized_identifier, line_ending),
+                parse_struct_ctor_decls,
+            )),
+            |(name, decls)| StructCtor::new(name, decls.into_iter().collect()),
+        ),
+    ))(input)
+}
+
+fn parse_struct_ctor_decls(input: Parser) -> Res<Parser, Vec<(Identifier, Expression)>> {
+    map(
+        indent(separated_list0(
+            line_ending,
+            preceded(
+                parse_block_indent,
+                tuple((
+                    terminated(parse_identifier, delimited(space0, tag(":"), space0)),
+                    parse_expression,
+                )),
+            ),
+        )),
+        |decls| decls.into_iter().collect(),
     )(input)
 }
 
