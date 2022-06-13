@@ -26,7 +26,7 @@ impl SourceFile {
             })?
         };
 
-        let content = Self::filter_content(&content);
+        let content = Self::sanitize_content(&content);
 
         let content = content.replace("^[ \t]*\n", "\n");
 
@@ -46,7 +46,7 @@ impl SourceFile {
 
         mod_path.set_extension("");
 
-        let content = Self::filter_content(&content);
+        let content = Self::sanitize_content(&content);
 
         Ok(SourceFile {
             file_path: PathBuf::from(path.clone()),
@@ -82,7 +82,7 @@ custom =
             .to_owned()
             + &expr;
 
-        let content = Self::filter_content(&top_levels);
+        let content = Self::sanitize_content(&top_levels);
 
         Ok(SourceFile {
             file_path: PathBuf::from("./src/main.rk"),
@@ -103,7 +103,7 @@ custom =
             Err(_) => return Err(mod_path.as_path().to_str().unwrap().to_string()),
         };
 
-        let content = Self::filter_content(&content);
+        let content = Self::sanitize_content(&content);
 
         Ok(Self {
             file_path,
@@ -112,13 +112,16 @@ custom =
         })
     }
 
-    // This function replace the lines containing only whitespaces and tabs with a newline
+    // This function Remove all the comments
+    // Then replace the lines containing only whitespaces and tabs with a newline
     // And append a \n at the end of file to avoid out of bounds error as the parser requires
     // a newline at the end of the file
-    fn filter_content(content: &str) -> String {
+    fn sanitize_content(content: &str) -> String {
+        let without_comments = Regex::new(r#"#.*\n"#).unwrap().replace_all(content, "\n");
+
         Regex::new(r"[ \t]+\n")
             .unwrap()
-            .replace_all(content, "\n\n")
+            .replace_all(&without_comments, "\n\n")
             .to_string()
             + "\n"
     }

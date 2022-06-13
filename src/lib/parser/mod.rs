@@ -238,10 +238,7 @@ pub fn parse_root(input: Parser) -> Res<Parser, Root> {
 
 pub fn parse_mod(input: Parser) -> Res<Parser, Mod> {
     map(
-        many1(terminated(
-            parse_top_level,
-            many1(preceded(opt(parse_comment), line_ending)),
-        )),
+        many1(terminated(parse_top_level, many1(line_ending))),
         Mod::new,
     )(input)
 }
@@ -260,18 +257,6 @@ pub fn parse_top_level(input: Parser) -> Res<Parser, TopLevel> {
         map(parse_fn, TopLevel::new_function),
         map(parse_mod_decl, |(name, mod_)| TopLevel::new_mod(name, mod_)),
     ))(input)
-}
-
-pub fn parse_comment(input: Parser) -> Res<Parser, ()> {
-    let (input, _) = tuple((space0, tag("#"), many0(satisfy(|c: char| c != '\n'))))(input)?;
-
-    Ok((input, ()))
-}
-
-pub fn parse_eol(input: Parser) -> Res<Parser, ()> {
-    let (input, _) = tuple((opt(parse_comment), line_ending))(input)?;
-
-    Ok((input, ()))
 }
 
 pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
@@ -349,7 +334,7 @@ pub fn parse_trait(input: Parser) -> Res<Parser, Trait> {
             many0(delimited(space1, parse_type, space0)),
             many0(line_ending),
             indent(separated_list1(
-                line_ending,
+                many1(line_ending),
                 preceded(parse_block_indent, parse_prototype),
             )),
         )),
@@ -381,7 +366,7 @@ pub fn parse_struct_decl(input: Parser) -> Res<Parser, StructDecl> {
             opt(preceded(
                 many0(line_ending),
                 indent(separated_list1(
-                    line_ending,
+                    many1(line_ending),
                     preceded(parse_block_indent, parse_prototype),
                 )),
             )),
@@ -558,12 +543,12 @@ pub fn parse_block_indent_plus_one(input: Parser) -> Res<Parser, usize> {
 }
 
 pub fn parse_body(input: Parser) -> Res<Parser, Body> {
-    let (input, opt_eol) = opt(line_ending)(input)?; // NOTE: should not fail
+    let (input, opt_eol) = opt(many1(line_ending))(input)?; // NOTE: should not fail
 
     if opt_eol.is_some() {
         indent(map(
             separated_list1(
-                many1(parse_eol),
+                many1(line_ending),
                 preceded(parse_block_indent, parse_statement),
             ),
             Body::new,
