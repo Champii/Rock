@@ -5,11 +5,11 @@ use std::{
 
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while},
+    bytes::complete::{escaped_transform, tag, take_while},
     character::complete::{
-        alphanumeric0, anychar, char, line_ending, one_of, satisfy, space0, space1,
+        alphanumeric0, char, line_ending, none_of, one_of, satisfy, space0, space1,
     },
-    combinator::{eof, map, opt, peek, recognize},
+    combinator::{eof, map, opt, peek, recognize, value},
     error::{make_error, ErrorKind, FromExternalError, ParseError, VerboseError},
     error_position,
     multi::{many0, many1, separated_list0, separated_list1},
@@ -1030,7 +1030,15 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
         tuple((
             parse_identity,
             terminated(tag("\""), space0),
-            recognize(take_while(|c: char| c != '"')),
+            recognize(many0(escaped_transform(
+                none_of("\""),
+                '\\',
+                alt((
+                    value("\\", tag("\\")),
+                    value("\"", tag("\"")),
+                    value("\n", tag("\n")),
+                )),
+            ))),
             tag("\""),
         )),
         |(node_id, _, s, _)| Literal::new_string(String::from(*s.fragment()), node_id),
@@ -1104,17 +1112,22 @@ pub fn parse_number(input: Parser) -> Res<Parser, Literal> {
 }
 
 pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
-    map(
-        tuple((
-            parse_identity,
-            terminated(tag("'"), space0),
-            anychar,
-            tag("'"),
+    let esc = escaped_transform(
+        none_of("\\\'"),
+        '\\',
+        alt((
+            value("\\", tag("\\")),
+            value("\'", tag("\'")),
+            value("\n", tag("n")),
         )),
-        |(node_id, _, s, _)| Literal::new_char(s, node_id),
-    )(input)
-}
+    );
 
+    let res = delimited(tag("'"), esc, tag("'"));
+
+    map(tuple((parse_identity, res)), |(node_id, s)| {
+        Literal::new_char(s.chars().nth(0).unwrap(), node_id)
+    })(input)
+}
 // Types
 
 pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {

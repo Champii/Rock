@@ -20,7 +20,7 @@ bincode = "*"
 colored = "2.0.0"
 paste = "1.0.5"
 rustyline = "9.0.0"
-nom = "7.0.0"
+nom = "7.1.1"
 nom_locate = "4.0.0"
 itertools = "0.10.3"
 

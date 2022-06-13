@@ -107,6 +107,7 @@ impl<'a> CodegenContext<'a> {
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
             Type::Primitive(PrimitiveType::Float64) => self.context.f64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
+            Type::Primitive(PrimitiveType::Char) => self.context.i8_type().into(),
             Type::Primitive(PrimitiveType::String) => self
                 .context
                 .i8_type()
