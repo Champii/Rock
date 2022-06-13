@@ -236,6 +236,7 @@ pub fn walk_literal<'a, V: VisitorMut<'a>>(visitor: &mut V, literal: &'a mut Lit
         LiteralKind::String(s) => visitor.visit_primitive(s),
         LiteralKind::Bool(b) => visitor.visit_primitive(b),
         LiteralKind::Array(arr) => visitor.visit_array(arr),
+        LiteralKind::Char(c) => visitor.visit_primitive(c),
     }
 }
 

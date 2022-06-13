@@ -450,6 +450,7 @@ impl AstLoweringContext {
                 LiteralKind::String(s) => hir::LiteralKind::String(s.clone()),
                 LiteralKind::Bool(b) => hir::LiteralKind::Bool(*b),
                 LiteralKind::Array(arr) => hir::LiteralKind::Array(self.lower_array(arr)),
+                LiteralKind::Char(c) => hir::LiteralKind::Char(*c),
             },
         }
     }

@@ -6,7 +6,9 @@ use std::{
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while},
-    character::complete::{alphanumeric0, char, line_ending, one_of, satisfy, space0, space1},
+    character::complete::{
+        alphanumeric0, anychar, char, line_ending, one_of, satisfy, space0, space1,
+    },
     combinator::{eof, map, opt, peek, recognize},
     error::{make_error, ErrorKind, FromExternalError, ParseError, VerboseError},
     error_position,
@@ -1019,6 +1021,7 @@ pub fn parse_literal(input: Parser) -> Res<Parser, Literal> {
         parse_number,
         parse_array,
         parse_string,
+        parse_char,
     ))(input)
 }
 
@@ -1098,6 +1101,18 @@ pub fn parse_number(input: Parser) -> Res<Parser, Literal> {
     let (input, node_id) = new_identity(input, &parsed);
 
     Ok((input, Literal::new_number(num, node_id)))
+}
+
+pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
+    map(
+        tuple((
+            parse_identity,
+            terminated(tag("'"), space0),
+            anychar,
+            tag("'"),
+        )),
+        |(node_id, _, s, _)| Literal::new_char(s, node_id),
+    )(input)
 }
 
 // Types

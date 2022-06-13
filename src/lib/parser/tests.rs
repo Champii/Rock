@@ -32,6 +32,15 @@ mod parse_literal {
 
         assert!(matches!(num_parsed.kind, LiteralKind::Float(f) if f == 42.42));
     }
+
+    #[test]
+    fn char() {
+        let input = Parser::new_extra("'a'", ParserCtx::new(PathBuf::new(), Config::default()));
+
+        let (_rest, num_parsed) = parse_char(input).finish().unwrap();
+
+        assert!(matches!(num_parsed.kind, LiteralKind::Char(c) if c == 'a'));
+    }
 }
 
 #[cfg(test)]

@@ -829,6 +829,13 @@ impl Literal {
         }
     }
 
+    pub fn new_char(c: char, node_id: NodeId) -> Self {
+        Self {
+            kind: LiteralKind::Char(c),
+            node_id,
+        }
+    }
+
     pub fn as_i64(&self) -> i64 {
         match self.kind {
             LiteralKind::Number(n) => n,
@@ -844,6 +851,7 @@ pub enum LiteralKind {
     Float(f64),
     Array(Array),
     String(String),
+    Char(char),
 }
 
 #[derive(Debug, Clone)]

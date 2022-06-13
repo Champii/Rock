@@ -809,6 +809,11 @@ impl<'a> CodegenContext<'a> {
 
                 ptr.as_basic_value_enum()
             }
+            LiteralKind::Char(c) => {
+                let char_type = self.context.i8_type();
+
+                char_type.const_int(*c as u64, false).into()
+            }
         })
     }
 

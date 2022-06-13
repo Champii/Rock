@@ -695,6 +695,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     arr.values.len(),
                 ))
             }
+            LiteralKind::Char(_c) => Type::Primitive(PrimitiveType::Char),
         };
 
         self.envs.set_type(&lit.hir_id, &t);

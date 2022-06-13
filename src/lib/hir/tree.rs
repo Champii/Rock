@@ -627,6 +627,7 @@ pub enum LiteralKind {
     String(String),
     Bool(bool),
     Array(Array),
+    Char(char),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
