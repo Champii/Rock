@@ -45,17 +45,9 @@ No to be taken seriously (yet)
 
 ## Install
 
-Warning: This project has only been tested on Linux x86_64.
-
-How to install and run the compiler:
-
 ### Using Released Binary 
 
-You will need `clang` somewhere in your $PATH
-
-Linux x86_64 only
-
-[Rock v0.4.1](https://github.com/Champii/Rock/releases/download/v0.4.1/rock) (Tested on arch, btw)
+[Rock v0.4.1](https://github.com/Champii/Rock/releases/download/v0.4.1/rock)
 
 ``` sh
 wget https://github.com/Champii/Rock/releases/download/v0.4.1/rock
@@ -63,13 +55,9 @@ chmod +x rock
 ./rock -V
 ```
 
+You will need `clang` somewhere in your $PATH
+
 ### From source
-
-You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
-
-Rock has been tested against Rust stable v1.60.0 and nightly
-
-[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
 
 #### With Cargo from Git
 
@@ -83,10 +71,18 @@ rock -V
 ```sh
 git clone https://github.com/Champii/Rock.git rock
 cd rock
-cargo run --<release|debug> -- -V
+cargo run --release -- -V
 ```
 
-Note: If you clone and build manually, make sure to add `/[...]/rock/target/<release|debug>/` to you `$PATH` so you can run it anywhere on your system.
+Note: If you clone and build manually, make sure to add `rock/target/release/` to you `$PATH` so you can run it anywhere on your system.
+
+---
+
+You will also need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
+
+Rock has been tested against Rust stable v1.60.0 and nightly
+
+[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
 
 ## Quickstart
 
