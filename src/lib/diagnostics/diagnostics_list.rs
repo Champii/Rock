@@ -43,7 +43,6 @@ impl Diagnostics {
     }
 
     pub fn print(&self, files: &HashMap<PathBuf, SourceFile>) {
-        println!("WESH {:#?}", self.list);
         for (i, diag) in self.list.iter().enumerate() {
             let input = match files.get(&diag.span.file_path) {
                 Some(input) => input,

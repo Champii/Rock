@@ -1279,7 +1279,6 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
             Ok(ast)
         }
         Err(e) => {
-            println!("ERROOOOOR: {:#?}", e);
             parsing_ctx
                 .files
                 .extend(e.errors.get(0).unwrap().clone().0.extra.files());

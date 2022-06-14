@@ -298,7 +298,6 @@ impl<'a> From<Parser<'a>> for Diagnostic {
 
 impl<'a> From<VerboseError<Parser<'a>>> for Diagnostic {
     fn from(err: VerboseError<Parser<'a>>) -> Self {
-        println!("VERBOSE {:#?}", err);
         let (input, _kind) = err.errors.iter().next().unwrap().clone();
 
         let span2 = Span2::from(input);
