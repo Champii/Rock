@@ -132,7 +132,7 @@ impl<'a> CodegenContext<'a> {
                 let mut args_ret = vec![];
 
                 for arg in args {
-                    args_ret.push(arg?);
+                    args_ret.push(arg?.into());
                 }
 
                 let args = args_ret;
@@ -186,7 +186,7 @@ impl<'a> CodegenContext<'a> {
             let mut args = vec![];
 
             for arg in &p.signature.arguments {
-                args.push(self.lower_type(arg, builder)?);
+                args.push(self.lower_type(arg, builder)?.into());
             }
 
             let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
@@ -242,7 +242,7 @@ impl<'a> CodegenContext<'a> {
 
             let mut args_ret = vec![];
             for arg in args {
-                args_ret.push(arg?);
+                args_ret.push(arg?.into());
             }
             let args = args_ret;
 
@@ -664,7 +664,7 @@ impl<'a> CodegenContext<'a> {
         let mut arguments = vec![];
 
         for arg in &fc.args {
-            arguments.push(self.lower_expression(arg, builder)?);
+            arguments.push(self.lower_expression(arg, builder)?.into());
         }
 
         Ok(builder
@@ -687,7 +687,7 @@ impl<'a> CodegenContext<'a> {
             .lower_expression(&indice.op, builder)?
             .into_pointer_value();
 
-        let indice = self
+        let idx = self
             .lower_expression(&indice.value, builder)?
             .into_int_value();
 
@@ -695,8 +695,16 @@ impl<'a> CodegenContext<'a> {
 
         let const_0 = i64_type.const_zero();
 
-        // FIXME: This segfaults if the operand is a String (#115)
-        let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "index") };
+        let indexes = match self.hir.node_types.get(&indice.op.get_hir_id()) {
+            Some(t) => match t {
+                Type::Primitive(PrimitiveType::Array(_, _)) => [const_0, idx].to_vec(),
+                Type::Primitive(PrimitiveType::String) => [idx].to_vec(),
+                _ => panic!("indice on non-array"),
+            },
+            None => panic!("indice on non-type"),
+        };
+
+        let ptr = unsafe { builder.build_gep(op, &indexes, "index") };
 
         Ok(ptr.as_basic_value_enum())
     }

@@ -638,7 +638,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     }
                     Type::Primitive(PrimitiveType::String) => {
                         self.envs
-                            .set_type(&i.get_hir_id(), &Type::Primitive(PrimitiveType::Int8));
+                            .set_type(&i.get_hir_id(), &Type::Primitive(PrimitiveType::Char));
 
                         match self.envs.get_type(&i.value.get_hir_id()).unwrap().clone() {
                             Type::Primitive(PrimitiveType::Int64) => {
