@@ -12,13 +12,13 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: arch-latest
 
     steps:
     - name: Apt Update
       run: |
-        sudo apt update
-        sudo apt install llvm clang
+        sudo pacman -Sy
+        sudo pacman -S llvm13 clang
 
     - name: Rust Cache
       uses: Swatinem/rust-cache@v1.3.0
