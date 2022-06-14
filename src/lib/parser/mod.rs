@@ -522,7 +522,7 @@ pub fn parse_block_indent(input: Parser) -> Res<Parser, usize> {
     } else {
         Err(nom::Err::Error(ParseError::from_error_kind(
             input,
-            ErrorKind::Tag,
+            ErrorKind::IsA,
         )))
     }
 }
@@ -1279,6 +1279,7 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
             Ok(ast)
         }
         Err(e) => {
+            println!("ERROOOOOR: {:#?}", e);
             parsing_ctx
                 .files
                 .extend(e.errors.get(0).unwrap().clone().0.extra.files());
