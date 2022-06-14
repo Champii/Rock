@@ -17,6 +17,8 @@ use nom::{
     Err, IResult,
 };
 
+use snailquote::unescape;
+
 use nom_locate::{position, LocatedSpan};
 
 use crate::{
@@ -1031,17 +1033,24 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
             parse_identity,
             terminated(tag("\""), space0),
             recognize(many0(escaped_transform(
-                none_of("\""),
+                none_of("\\\'\"\n\r"),
                 '\\',
                 alt((
                     value("\\", tag("\\")),
+                    value("\'", tag("\'")),
                     value("\"", tag("\"")),
-                    value("\n", tag("\n")),
+                    value("\n", tag("n")),
+                    value("\r", tag("r")),
                 )),
             ))),
             tag("\""),
         )),
-        |(node_id, _, s, _)| Literal::new_string(String::from(*s.fragment()), node_id),
+        |(node_id, _, s, _)| {
+            Literal::new_string(
+                String::from(unescape(&("\"".to_owned() + *s.fragment() + "\"")).unwrap()),
+                node_id,
+            )
+        },
     )(input)
 }
 

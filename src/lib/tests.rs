@@ -66,6 +66,10 @@ fn testcases_basic_1_arg_fn_main() {
     run("testcases/basic/1_arg_fn/main.rk", include_str!("testcases/basic/1_arg_fn/main.rk"), include_str!("testcases/basic/1_arg_fn/main.rk.out"), include_str!("testcases/basic/1_arg_fn/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_simple_char_main() {
+    run("testcases/basic/simple_char/main.rk", include_str!("testcases/basic/simple_char/main.rk"), include_str!("testcases/basic/simple_char/main.rk.out"), include_str!("testcases/basic/simple_char/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_indice_assign_main() {
     run("testcases/basic/indice_assign/main.rk", include_str!("testcases/basic/indice_assign/main.rk"), include_str!("testcases/basic/indice_assign/main.rk.out"), include_str!("testcases/basic/indice_assign/main.rk.stdout"));
 }
@@ -88,6 +92,10 @@ fn testcases_basic_multiline_struct_const_main() {
 #[test]
 fn testcases_basic_nested_struct_dect_multiline_main() {
     run("testcases/basic/nested_struct_dect_multiline/main.rk", include_str!("testcases/basic/nested_struct_dect_multiline/main.rk"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.out"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_escaped_string_main() {
+    run("testcases/basic/escaped_string/main.rk", include_str!("testcases/basic/escaped_string/main.rk"), include_str!("testcases/basic/escaped_string/main.rk.out"), include_str!("testcases/basic/escaped_string/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_let_main() {

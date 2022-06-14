@@ -695,6 +695,7 @@ impl<'a> CodegenContext<'a> {
 
         let const_0 = i64_type.const_zero();
 
+        // FIXME: This segfaults if the operand is a String (#115)
         let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "index") };
 
         Ok(ptr.as_basic_value_enum())

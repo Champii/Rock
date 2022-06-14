@@ -23,6 +23,7 @@ rustyline = "9.0.0"
 nom = "7.1.1"
 nom_locate = "4.0.0"
 itertools = "0.10.3"
+snailquote = "0.3.1"
 
 [build-dependencies]
 walkdir = "2"

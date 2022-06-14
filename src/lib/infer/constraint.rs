@@ -512,6 +512,8 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         self.visit_expression(&assign.value);
         self.visit_assign_left_side(&assign.name);
 
+        // FIXME: This is problematic, the value's type should not dictate the type of the
+        //        operand's index. This makes the string indexing think a character is an Int64. Spooky
         self.envs
             .set_type_eq(&assign.name.get_hir_id(), &assign.value.get_hir_id());
     }
@@ -615,6 +617,47 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                                         // )
                                     }
                                 }
+                            }
+                            other => {
+                                self.envs
+                                    .diagnostics
+                                    .push_error(Diagnostic::new_type_conflict(
+                                        self.envs
+                                            .spans
+                                            .get(&i.value.get_hir_id())
+                                            .unwrap()
+                                            .clone()
+                                            .into(),
+                                        Type::Primitive(PrimitiveType::Int64),
+                                        other.clone(),
+                                        Type::Primitive(PrimitiveType::Int64),
+                                        other,
+                                    ))
+                            }
+                        }
+                    }
+                    Type::Primitive(PrimitiveType::String) => {
+                        self.envs
+                            .set_type(&i.get_hir_id(), &Type::Primitive(PrimitiveType::Int8));
+
+                        match self.envs.get_type(&i.value.get_hir_id()).unwrap().clone() {
+                            Type::Primitive(PrimitiveType::Int64) => {
+                                // if let ExpressionKind::Lit(literal) = &*i.value.kind {
+                                // if literal.as_number() >= size as i64 {
+                                // Deactivated for now
+                                // self.envs.diagnostics.push_error(
+                                //     Diagnostic::new_out_of_bounds(
+                                //         self.envs
+                                //             .spans
+                                //             .get(&i.value.get_hir_id())
+                                //             .unwrap()
+                                //             .clone(),
+                                //         i.value.as_literal().as_number() as u64,
+                                //         size as u64,
+                                //     ),
+                                // )
+                                // }
+                                // }
                             }
                             other => {
                                 self.envs
