@@ -59,6 +59,8 @@ You will need `clang` somewhere in your $PATH
 
 ### From source
 
+You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
+
 #### With Cargo from Git
 
 ```sh
@@ -75,10 +77,6 @@ cargo run --release -- -V
 ```
 
 Note: If you clone and build manually, make sure to add `rock/target/release/` to you `$PATH` so you can run it anywhere on your system.
-
----
-
-You will also need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
 
 Rock has been tested against Rust stable v1.60.0 and nightly
 
