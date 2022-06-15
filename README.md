@@ -58,7 +58,7 @@ You will need `clang` somewhere in your $PATH
 
 ### From source
 
-You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
+You will need `llvm-13` and `clang-13` somewhere in your $PATH
 
 #### With Cargo from Git
 
