@@ -1,4 +1,4 @@
-# Rock v0.4.1
+# Rock v0.4.2
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -11,7 +11,7 @@ No to be taken seriously (yet)
 
 ## Index
 
-- [Rock v0.4.1](#rock-v0.4.1)
+- [Rock v0.4.2](#rock-v0.4.2)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -46,10 +46,10 @@ No to be taken seriously (yet)
 
 ### Using Released Binary 
 
-[Rock v0.4.1](https://github.com/Champii/Rock/releases/download/v0.4.1/rock)
+[Rock v0.4.2](https://github.com/Champii/Rock/releases/download/v0.4.2/rock)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.4.1/rock
+wget https://github.com/Champii/Rock/releases/download/v0.4.2/rock
 chmod +x rock
 ./rock -V
 ```
