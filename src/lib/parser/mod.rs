@@ -448,17 +448,22 @@ pub fn parse_self_fn(input: Parser) -> Res<Parser, FunctionDecl> {
             parse_identity,
             parse_identity,
             tag("@"),
-            terminated(
-                tuple((
-                    parse_identifier_or_operator,
-                    terminated(space0, tag(":")),
-                    many0(preceded(space1, parse_identifier)),
+            tuple((
+                parse_identifier_or_operator,
+                terminated(space0, tag(":")),
+                many0(preceded(space1, parse_identifier)),
+                alt((
+                    delimited(space0, tuple((parse_identity, tag("->"))), space0),
+                    delimited(space0, tuple((parse_identity, tag("@->"))), space0),
                 )),
-                delimited(space0, tag("->"), space0),
-            ),
+            )),
             parse_body,
         )),
-        |(node_id, self_node_id, _, (name, _, arguments), body)| {
+        |(node_id, self_node_id, _, (name, _, arguments, (end_self_node_id, tag)), mut body)| {
+            if *tag.fragment() == "@->" {
+                body.with_return_self(end_self_node_id);
+            }
+
             FunctionDecl::new_self(node_id, self_node_id, name, body, arguments)
         },
     )(input)

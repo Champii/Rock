@@ -1,4 +1,6 @@
 use super::externs::puts
+use super::externs::printf
+use super::externs::fflush
 use super::show::(*)
 use super::eq::(*)
 use super::num::(*)
@@ -6,6 +8,13 @@ use super::num::(*)
 # there is a bug here if a method exists with the same name in the scope 
 # of the module (like Print::print and print)
 printl: a -> puts a.show!
+print_: a ->
+  printf "%s", a.show!
+  fflush 0
+
+_ignore_warnings: ->
+  print_ ""
+  _ignore_warnings!
 
 trait Print a
   print: a => Int64

@@ -196,6 +196,7 @@ impl FunctionDecl {
             node_id,
         }
     }
+
     pub fn mangle(&mut self, prefixes: &[String]) {
         if prefixes.is_empty() {
             return;
@@ -339,6 +340,18 @@ pub struct Body {
 impl Body {
     pub fn new(stmts: Vec<Statement>) -> Self {
         Self { stmts }
+    }
+
+    pub fn with_return_self(&mut self, self_node_id: NodeId) {
+        let identifier = Identifier::new("self".to_string(), self_node_id);
+        let operand = Operand::new_identifier(identifier);
+        // FIXME: should have a valid node_id ?
+        let primary = PrimaryExpr::new(0, operand, vec![]);
+        let unary = UnaryExpr::PrimaryExpr(primary);
+        let expr = Expression::new_unary(unary);
+        let stmt = Statement::new_expression(expr);
+
+        self.stmts.push(stmt);
     }
 }
 
@@ -489,6 +502,15 @@ impl Else {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Expression {
+    BinopExpr(UnaryExpr, Operator, Box<Expression>),
+    UnaryExpr(UnaryExpr),
+    NativeOperation(NativeOperator, Identifier, Identifier),
+    StructCtor(StructCtor),
+    Return(Box<Expression>), // NOTE: Shouldn't that be a statement?
+}
+
 impl Expression {
     #[allow(dead_code)]
     pub fn is_literal(&self) -> bool {
@@ -565,15 +587,6 @@ impl Expression {
             _ => None,
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum Expression {
-    BinopExpr(UnaryExpr, Operator, Box<Expression>),
-    UnaryExpr(UnaryExpr),
-    NativeOperation(NativeOperator, Identifier, Identifier),
-    StructCtor(StructCtor),
-    Return(Box<Expression>), // NOTE: Shouldn't that be a statement?
 }
 
 #[derive(Debug, Clone)]

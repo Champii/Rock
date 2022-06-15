@@ -20,7 +20,9 @@ extern write: Int64 => String => Int64 => Int64
 # Print
 
 extern sprintf: String => String => Int64 => Int64
+extern printf: String => String => Int64
 extern puts: String => Int64
+extern fflush: Int64 => Int64
 
 # Num
 
