@@ -17,7 +17,7 @@ impl Counter
     @value = @value + 1
 
 main: ->
-  Foo::new(42)
+  Foo::new(41)
     .increment!
     .value
     .print!
@@ -48,7 +48,7 @@ This is the implementation of the structure `Counter`. The first method `new` is
 it takes a single argument `x` and returns a new instance of `Counter` with the `value` set to `x` and the `name` set to `"Counter"`.
 
 The second method is an instance method, it takes no arguments and returns itself  
-The `@->` operator automatically return `@` aka `self`). It increments the value of `value` by one.
+The `@->` operator automatically return `@` aka `self`). This method increments the `value` by one.
 
 We could have written something more compact
 
@@ -57,14 +57,14 @@ impl Counter
   new: x -> Foo value: x, name: "Counter"
   @increment: @-> @value = @value + 1
 
-main: -> Foo::new 42 .increment!.value.print!
+main: -> Foo::new 41 .increment!.value.print!
 ```
 
-This is the main function, it creates a new instance of `Counter` with the `value` set to `42` and then calls the method `increment` on it, and finally prints the value of the `value` field
+The main function creates a new instance of `Counter` with the `value` set to `41` and then calls the method `increment` on it, and finally prints the `value` field
 
 This program outputs
 
 ```sh
-43
+42
 ```
 
