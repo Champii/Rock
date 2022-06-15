@@ -9,7 +9,7 @@ struct Counter
 
 impl Counter
   new: x ->
-    Foo 
+    Counter 
       value: x
       name: "Counter"
 
@@ -17,7 +17,7 @@ impl Counter
     @value = @value + 1
 
 main: ->
-  Foo::new(41)
+  Counter::new(41)
     .increment!
     .value
     .print!
@@ -36,7 +36,7 @@ This is the declaration of a structure called `Counter` with two fields, `value`
 ```haskell
 impl Counter
   new: x ->
-    Foo 
+    Counter 
       value: x
       name: "Counter"
 
@@ -54,10 +54,10 @@ We could have written something more compact
 
 ```haskell
 impl Counter
-  new: x -> Foo value: x, name: "Counter"
+  new: x -> Counter value: x, name: "Counter"
   @increment: @-> @value = @value + 1
 
-main: -> Foo::new 41 .increment!.value.print!
+main: -> Counter::new 41 .increment!.value.print!
 ```
 
 The main function creates a new instance of `Counter` with the `value` set to `41` and then calls the method `increment` on it, and finally prints the `value` field
