@@ -5,15 +5,19 @@ use std::{
 
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while},
-    character::complete::{alphanumeric0, char, line_ending, one_of, satisfy, space0, space1},
-    combinator::{eof, map, opt, peek, recognize},
+    bytes::complete::{escaped_transform, tag, take_while},
+    character::complete::{
+        alphanumeric0, char, line_ending, none_of, one_of, satisfy, space0, space1,
+    },
+    combinator::{eof, map, opt, peek, recognize, value},
     error::{make_error, ErrorKind, FromExternalError, ParseError, VerboseError},
     error_position,
     multi::{many0, many1, separated_list0, separated_list1},
     sequence::{delimited, preceded, terminated, tuple},
     Err, IResult,
 };
+
+use snailquote::unescape;
 
 use nom_locate::{position, LocatedSpan};
 
@@ -238,10 +242,7 @@ pub fn parse_root(input: Parser) -> Res<Parser, Root> {
 
 pub fn parse_mod(input: Parser) -> Res<Parser, Mod> {
     map(
-        many1(terminated(
-            parse_top_level,
-            many1(preceded(opt(parse_comment), line_ending)),
-        )),
+        many1(terminated(parse_top_level, many1(line_ending))),
         Mod::new,
     )(input)
 }
@@ -260,18 +261,6 @@ pub fn parse_top_level(input: Parser) -> Res<Parser, TopLevel> {
         map(parse_fn, TopLevel::new_function),
         map(parse_mod_decl, |(name, mod_)| TopLevel::new_mod(name, mod_)),
     ))(input)
-}
-
-pub fn parse_comment(input: Parser) -> Res<Parser, ()> {
-    let (input, _) = tuple((tag("#"), many0(satisfy(|c: char| c != '\n'))))(input)?;
-
-    Ok((input, ()))
-}
-
-pub fn parse_eol(input: Parser) -> Res<Parser, ()> {
-    let (input, _) = tuple((opt(parse_comment), line_ending))(input)?;
-
-    Ok((input, ()))
 }
 
 pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
@@ -349,7 +338,7 @@ pub fn parse_trait(input: Parser) -> Res<Parser, Trait> {
             many0(delimited(space1, parse_type, space0)),
             many0(line_ending),
             indent(separated_list1(
-                line_ending,
+                many1(line_ending),
                 preceded(parse_block_indent, parse_prototype),
             )),
         )),
@@ -381,7 +370,7 @@ pub fn parse_struct_decl(input: Parser) -> Res<Parser, StructDecl> {
             opt(preceded(
                 many0(line_ending),
                 indent(separated_list1(
-                    line_ending,
+                    many1(line_ending),
                     preceded(parse_block_indent, parse_prototype),
                 )),
             )),
@@ -485,7 +474,6 @@ pub fn parse_fn(input: Parser) -> Res<Parser, FunctionDecl> {
                     terminated(space0, tag(":")),
                     space1,
                     separated_list0(tuple((space0, tag(","), space0)), parse_identifier),
-                    // many0(preceded(space1, parse_identifier)),
                 )),
                 delimited(space0, tag("->"), space0),
             ),
@@ -534,7 +522,7 @@ pub fn parse_block_indent(input: Parser) -> Res<Parser, usize> {
     } else {
         Err(nom::Err::Error(ParseError::from_error_kind(
             input,
-            ErrorKind::Tag,
+            ErrorKind::IsA,
         )))
     }
 }
@@ -559,12 +547,12 @@ pub fn parse_block_indent_plus_one(input: Parser) -> Res<Parser, usize> {
 }
 
 pub fn parse_body(input: Parser) -> Res<Parser, Body> {
-    let (input, opt_eol) = opt(line_ending)(input)?; // NOTE: should not fail
+    let (input, opt_eol) = opt(many1(line_ending))(input)?; // NOTE: should not fail
 
     if opt_eol.is_some() {
         indent(map(
             separated_list1(
-                many1(parse_eol),
+                many1(line_ending),
                 preceded(parse_block_indent, parse_statement),
             ),
             Body::new,
@@ -600,7 +588,7 @@ pub fn parse_if(input: Parser) -> Res<Parser, If> {
 }
 
 pub fn parse_then_multi(input: Parser) -> Res<Parser, ()> {
-    // NOTE: This is a tweek for then block that are at indent 0 (i.e. in the test files)
+    // NOTE: This is a tweek for then blocks that are at indent 0 (i.e. in the test files)
     let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
         parse_block_indent(input)?
     } else {
@@ -620,7 +608,7 @@ pub fn parse_then_multi(input: Parser) -> Res<Parser, ()> {
 }
 
 pub fn parse_else(input: Parser) -> Res<Parser, Else> {
-    // NOTE: This is a tweek for else block that are at indent 0 (i.e. in the test files)
+    // NOTE: This is a tweek for else blocks that are at indent 0 (i.e. in the test files)
     let (input, indent) = if input.extra.first_indent.is_some() && input.extra.block_indent > 0 {
         parse_block_indent(input)?
     } else {
@@ -713,7 +701,10 @@ pub fn parse_assign_left_side(input: Parser) -> Res<Parser, AssignLeftSide> {
 
 pub fn parse_expression(input: Parser) -> Res<Parser, Expression> {
     alt((
-        map(parse_struct_ctor, Expression::new_struct_ctor),
+        map(
+            alt((parse_struct_ctor, parse_struct_ctor_one_line)),
+            Expression::new_struct_ctor,
+        ),
         map(
             preceded(terminated(tag("return"), space1), parse_expression),
             Expression::new_return,
@@ -777,23 +768,58 @@ pub fn parse_native_operator(
     )(input.clone())
 }
 
-pub fn parse_struct_ctor(input: Parser) -> Res<Parser, StructCtor> {
+pub fn parse_struct_ctor_one_line(input: Parser) -> Res<Parser, StructCtor> {
     map(
         tuple((
-            // parse_identity,
-            terminated(parse_capitalized_identifier, line_ending),
-            indent(separated_list0(
-                line_ending,
-                preceded(
-                    parse_block_indent,
-                    tuple((
-                        terminated(parse_identifier, delimited(space0, tag(":"), space0)),
-                        parse_expression,
-                    )),
-                ),
-            )),
+            terminated(parse_capitalized_identifier, space1),
+            separated_list0(
+                terminated(tag(","), space0),
+                tuple((
+                    terminated(parse_identifier, delimited(space0, tag(":"), space0)),
+                    parse_expression,
+                )),
+            ),
         )),
         |(name, decls)| StructCtor::new(name, decls.into_iter().collect()),
+    )(input)
+}
+
+pub fn parse_struct_ctor(input: Parser) -> Res<Parser, StructCtor> {
+    alt((
+        map(
+            tuple((
+                line_ending,
+                indent(tuple((
+                    parse_block_indent,
+                    terminated(parse_capitalized_identifier, line_ending),
+                    parse_struct_ctor_decls,
+                ))),
+            )),
+            |(_, (_, name, decls))| StructCtor::new(name, decls.into_iter().collect()),
+        ),
+        map(
+            tuple((
+                terminated(parse_capitalized_identifier, line_ending),
+                parse_struct_ctor_decls,
+            )),
+            |(name, decls)| StructCtor::new(name, decls.into_iter().collect()),
+        ),
+    ))(input)
+}
+
+fn parse_struct_ctor_decls(input: Parser) -> Res<Parser, Vec<(Identifier, Expression)>> {
+    map(
+        indent(separated_list0(
+            line_ending,
+            preceded(
+                parse_block_indent,
+                tuple((
+                    terminated(parse_identifier, delimited(space0, tag(":"), space0)),
+                    parse_expression,
+                )),
+            ),
+        )),
+        |decls| decls.into_iter().collect(),
     )(input)
 }
 
@@ -997,6 +1023,7 @@ pub fn parse_literal(input: Parser) -> Res<Parser, Literal> {
         parse_number,
         parse_array,
         parse_string,
+        parse_char,
     ))(input)
 }
 
@@ -1005,10 +1032,25 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
         tuple((
             parse_identity,
             terminated(tag("\""), space0),
-            recognize(take_while(|c: char| c != '"')),
+            recognize(many0(escaped_transform(
+                none_of("\\\'\"\n\r"),
+                '\\',
+                alt((
+                    value("\\", tag("\\")),
+                    value("\'", tag("\'")),
+                    value("\"", tag("\"")),
+                    value("\n", tag("n")),
+                    value("\r", tag("r")),
+                )),
+            ))),
             tag("\""),
         )),
-        |(node_id, _, s, _)| Literal::new_string(String::from(*s.fragment()), node_id),
+        |(node_id, _, s, _)| {
+            Literal::new_string(
+                String::from(unescape(&("\"".to_owned() + *s.fragment() + "\"")).unwrap()),
+                node_id,
+            )
+        },
     )(input)
 }
 
@@ -1042,12 +1084,18 @@ pub fn parse_bool(input: Parser) -> Res<Parser, Literal> {
 }
 
 pub fn parse_float(input: Parser) -> Res<Parser, Literal> {
+    let (input, is_neg) = opt(char('-'))(input)?;
+
     let (input, float_parsed) =
         recognize(tuple((parse_number, char('.'), opt(parse_number))))(input)?;
 
-    let num: f64 = float_parsed
+    let mut num: f64 = float_parsed
         .parse()
         .map_err(|_| Err::Error(make_error(input.clone(), ErrorKind::Digit)))?;
+
+    if is_neg.is_some() {
+        num *= -1.0;
+    }
 
     let (input, node_id) = new_identity(input, &float_parsed);
 
@@ -1055,17 +1103,40 @@ pub fn parse_float(input: Parser) -> Res<Parser, Literal> {
 }
 
 pub fn parse_number(input: Parser) -> Res<Parser, Literal> {
+    let (input, is_neg) = opt(char('-'))(input)?;
+
     let (input, parsed) = take_while(is_digit)(input)?;
 
-    let num: i64 = parsed
+    let mut num: i64 = parsed
         .parse()
         .map_err(|_| Err::Error(make_error(input.clone(), ErrorKind::Digit)))?;
+
+    if is_neg.is_some() {
+        num *= -1;
+    }
 
     let (input, node_id) = new_identity(input, &parsed);
 
     Ok((input, Literal::new_number(num, node_id)))
 }
 
+pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
+    let esc = escaped_transform(
+        none_of("\\\'"),
+        '\\',
+        alt((
+            value("\\", tag("\\")),
+            value("\'", tag("\'")),
+            value("\n", tag("n")),
+        )),
+    );
+
+    let res = delimited(tag("'"), esc, tag("'"));
+
+    map(tuple((parse_identity, res)), |(node_id, s)| {
+        Literal::new_char(s.chars().nth(0).unwrap(), node_id)
+    })(input)
+}
 // Types
 
 pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {
@@ -1104,6 +1175,7 @@ pub fn parse_type(input: Parser) -> Res<Parser, Type> {
                 map(tag("Int64"), |_| PrimitiveType::Int64),
                 map(tag("Float64"), |_| PrimitiveType::Float64),
                 map(tag("String"), |_| PrimitiveType::String),
+                map(tag("Char"), |_| PrimitiveType::Char),
             )),
             |t| Type::from(t),
         ),

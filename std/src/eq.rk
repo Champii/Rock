@@ -32,6 +32,13 @@ impl Eq Bool
   <: i, j -> ~BEq i j
   >: i, j -> ~BEq i j
 
+impl Eq Char
+  ==: e, f -> ~IEq e f
+  <=: e, f -> ~Ile e f
+  >=: e, f -> ~Ige e f
+  <: e, f -> ~Ilt e f
+  >: e, f -> ~Igt e f
+
 use super::externs::strcmp
 
 impl Eq String

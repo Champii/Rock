@@ -89,7 +89,7 @@ fn run(config: Config) {
 fn main() {
     let matches = App::new("Rock")
         .version(env!("CARGO_PKG_VERSION"))
-        .about("Simple toy language")
+        .about("A compiler for the Rock programming language")
         .arg(
             Arg::with_name("verbose")
                 .takes_value(false)

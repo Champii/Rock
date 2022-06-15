@@ -39,7 +39,7 @@ impl fmt::Debug for FuncType {
             .map(|arg| format!("{:?}", arg))
             .chain(vec![format!("{:?}", self.ret)].into_iter())
             .collect::<Vec<_>>()
-            .join(&" -> ".magenta().to_string());
+            .join(&" => ".magenta().to_string());
 
         write!(f, "{}{}{}", "(".green(), s, ")".green(),)
     }

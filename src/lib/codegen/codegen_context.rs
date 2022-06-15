@@ -107,6 +107,7 @@ impl<'a> CodegenContext<'a> {
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
             Type::Primitive(PrimitiveType::Float64) => self.context.f64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
+            Type::Primitive(PrimitiveType::Char) => self.context.i8_type().into(),
             Type::Primitive(PrimitiveType::String) => self
                 .context
                 .i8_type()
@@ -131,7 +132,7 @@ impl<'a> CodegenContext<'a> {
                 let mut args_ret = vec![];
 
                 for arg in args {
-                    args_ret.push(arg?);
+                    args_ret.push(arg?.into());
                 }
 
                 let args = args_ret;
@@ -185,7 +186,7 @@ impl<'a> CodegenContext<'a> {
             let mut args = vec![];
 
             for arg in &p.signature.arguments {
-                args.push(self.lower_type(arg, builder)?);
+                args.push(self.lower_type(arg, builder)?.into());
             }
 
             let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
@@ -241,7 +242,7 @@ impl<'a> CodegenContext<'a> {
 
             let mut args_ret = vec![];
             for arg in args {
-                args_ret.push(arg?);
+                args_ret.push(arg?.into());
             }
             let args = args_ret;
 
@@ -543,7 +544,6 @@ impl<'a> CodegenContext<'a> {
 
             builder.position_at_end(*block_a);
 
-
             builder.build_unconditional_branch(exit_block);
 
             phi.add_incoming(&[(value_a, *block_a)]);
@@ -664,7 +664,7 @@ impl<'a> CodegenContext<'a> {
         let mut arguments = vec![];
 
         for arg in &fc.args {
-            arguments.push(self.lower_expression(arg, builder)?);
+            arguments.push(self.lower_expression(arg, builder)?.into());
         }
 
         Ok(builder
@@ -687,7 +687,7 @@ impl<'a> CodegenContext<'a> {
             .lower_expression(&indice.op, builder)?
             .into_pointer_value();
 
-        let indice = self
+        let idx = self
             .lower_expression(&indice.value, builder)?
             .into_int_value();
 
@@ -695,7 +695,16 @@ impl<'a> CodegenContext<'a> {
 
         let const_0 = i64_type.const_zero();
 
-        let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "index") };
+        let indexes = match self.hir.node_types.get(&indice.op.get_hir_id()) {
+            Some(t) => match t {
+                Type::Primitive(PrimitiveType::Array(_, _)) => [const_0, idx].to_vec(),
+                Type::Primitive(PrimitiveType::String) => [idx].to_vec(),
+                _ => panic!("indice on non-array"),
+            },
+            None => panic!("indice on non-type"),
+        };
+
+        let ptr = unsafe { builder.build_gep(op, &indexes, "index") };
 
         Ok(ptr.as_basic_value_enum())
     }
@@ -757,10 +766,16 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &lit.kind {
-            LiteralKind::Number(n) => {
+            LiteralKind::Number(mut n) => {
                 let i64_type = self.context.i64_type();
 
-                i64_type.const_int((*n).try_into().unwrap(), false).into()
+                let mut negative = false;
+                if n < 0 {
+                    negative = true;
+                    n = -n;
+                }
+
+                i64_type.const_int((n).try_into().unwrap(), negative).into()
             }
             LiteralKind::Float(n) => {
                 let f64_type = self.context.f64_type();
@@ -803,6 +818,11 @@ impl<'a> CodegenContext<'a> {
                 });
 
                 ptr.as_basic_value_enum()
+            }
+            LiteralKind::Char(c) => {
+                let char_type = self.context.i8_type();
+
+                char_type.const_int(*c as u64, false).into()
             }
         })
     }

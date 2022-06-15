@@ -1,0 +1,14 @@
+struct Foo
+  bar: Int64
+  bar2: String
+main: ->
+  let foo = Foo bar: 42, bar2: "hello"
+  let foo2 =
+    Foo
+      bar: 3
+      bar2: "world"
+  let foo3 = Foo
+    bar: 4
+    bar2: "world2"
+  foo.bar
+

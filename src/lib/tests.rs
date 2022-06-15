@@ -66,6 +66,10 @@ fn testcases_basic_1_arg_fn_main() {
     run("testcases/basic/1_arg_fn/main.rk", include_str!("testcases/basic/1_arg_fn/main.rk"), include_str!("testcases/basic/1_arg_fn/main.rk.out"), include_str!("testcases/basic/1_arg_fn/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_simple_char_main() {
+    run("testcases/basic/simple_char/main.rk", include_str!("testcases/basic/simple_char/main.rk"), include_str!("testcases/basic/simple_char/main.rk.out"), include_str!("testcases/basic/simple_char/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_indice_assign_main() {
     run("testcases/basic/indice_assign/main.rk", include_str!("testcases/basic/indice_assign/main.rk"), include_str!("testcases/basic/indice_assign/main.rk.out"), include_str!("testcases/basic/indice_assign/main.rk.stdout"));
 }
@@ -88,6 +92,10 @@ fn testcases_basic_multiline_struct_const_main() {
 #[test]
 fn testcases_basic_nested_struct_dect_multiline_main() {
     run("testcases/basic/nested_struct_dect_multiline/main.rk", include_str!("testcases/basic/nested_struct_dect_multiline/main.rk"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.out"), include_str!("testcases/basic/nested_struct_dect_multiline/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_escaped_string_main() {
+    run("testcases/basic/escaped_string/main.rk", include_str!("testcases/basic/escaped_string/main.rk"), include_str!("testcases/basic/escaped_string/main.rk.out"), include_str!("testcases/basic/escaped_string/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_let_main() {
@@ -116,6 +124,14 @@ fn testcases_basic_early_return_main() {
 #[test]
 fn testcases_basic_bool_false_main() {
     run("testcases/basic/bool_false/main.rk", include_str!("testcases/basic/bool_false/main.rk"), include_str!("testcases/basic/bool_false/main.rk.out"), include_str!("testcases/basic/bool_false/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_negative_floats_main() {
+    run("testcases/basic/negative_floats/main.rk", include_str!("testcases/basic/negative_floats/main.rk"), include_str!("testcases/basic/negative_floats/main.rk.out"), include_str!("testcases/basic/negative_floats/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_negative_floats_0_arg_fn_main() {
+    run("testcases/basic/negative_floats/0_arg_fn/main.rk", include_str!("testcases/basic/negative_floats/0_arg_fn/main.rk"), include_str!("testcases/basic/negative_floats/0_arg_fn/main.rk.out"), include_str!("testcases/basic/negative_floats/0_arg_fn/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_nested_array_main() {
@@ -154,6 +170,10 @@ fn testcases_basic_fn_arg_main() {
     run("testcases/basic/fn_arg/main.rk", include_str!("testcases/basic/fn_arg/main.rk"), include_str!("testcases/basic/fn_arg/main.rk.out"), include_str!("testcases/basic/fn_arg/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_multi_style_struct_ctor_main() {
+    run("testcases/basic/multi_style_struct_ctor/main.rk", include_str!("testcases/basic/multi_style_struct_ctor/main.rk"), include_str!("testcases/basic/multi_style_struct_ctor/main.rk.out"), include_str!("testcases/basic/multi_style_struct_ctor/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_fn_arg_array_main() {
     run("testcases/basic/fn_arg_array/main.rk", include_str!("testcases/basic/fn_arg_array/main.rk"), include_str!("testcases/basic/fn_arg_array/main.rk.out"), include_str!("testcases/basic/fn_arg_array/main.rk.stdout"));
 }
@@ -190,6 +210,14 @@ fn testcases_basic_2_arg_fn_main() {
     run("testcases/basic/2_arg_fn/main.rk", include_str!("testcases/basic/2_arg_fn/main.rk"), include_str!("testcases/basic/2_arg_fn/main.rk.out"), include_str!("testcases/basic/2_arg_fn/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_negative_numbers_main() {
+    run("testcases/basic/negative_numbers/main.rk", include_str!("testcases/basic/negative_numbers/main.rk"), include_str!("testcases/basic/negative_numbers/main.rk.out"), include_str!("testcases/basic/negative_numbers/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_negative_numbers_0_arg_fn_main() {
+    run("testcases/basic/negative_numbers/0_arg_fn/main.rk", include_str!("testcases/basic/negative_numbers/0_arg_fn/main.rk"), include_str!("testcases/basic/negative_numbers/0_arg_fn/main.rk.out"), include_str!("testcases/basic/negative_numbers/0_arg_fn/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_dot_assign_main() {
     run("testcases/basic/dot_assign/main.rk", include_str!("testcases/basic/dot_assign/main.rk"), include_str!("testcases/basic/dot_assign/main.rk.out"), include_str!("testcases/basic/dot_assign/main.rk.stdout"));
 }
@@ -204,6 +232,10 @@ fn testcases_basic_recur_main() {
 #[test]
 fn testcases_basic_no_newline_end_main() {
     run("testcases/basic/no_newline_end/main.rk", include_str!("testcases/basic/no_newline_end/main.rk"), include_str!("testcases/basic/no_newline_end/main.rk.out"), include_str!("testcases/basic/no_newline_end/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_string_index_main() {
+    run("testcases/basic/string_index/main.rk", include_str!("testcases/basic/string_index/main.rk"), include_str!("testcases/basic/string_index/main.rk.out"), include_str!("testcases/basic/string_index/main.rk.stdout"));
 }
 #[test]
 fn testcases_trait_multi_resolution_main() {

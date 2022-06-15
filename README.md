@@ -1,4 +1,4 @@
-# Rock v0.4.0
+# Rock v0.4.1
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
@@ -11,13 +11,12 @@ No to be taken seriously (yet)
 
 ## Index
 
-- [Rock v0.4.0](#rock-v0.4.0)
+- [Rock v0.4.1](#rock-v0.4.1)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
     - [Using Released Binary](#using-released-binary)
     - [From source](#from-source)
-      - [Adding Rust Nightly](#adding-rust-nightly)
       - [With Cargo from Git](#with-cargo-from-git)
       - [Manual Clone and Build from Git](#manual-clone-and-build-from-git)
   - [Quickstart](#quickstart)
@@ -45,31 +44,21 @@ No to be taken seriously (yet)
 
 ## Install
 
-Warning: This project has only been tested on Linux x86_64.
-
-How to install and run the compiler:
-
 ### Using Released Binary 
 
-You will need `clang` somewhere in your $PATH
-
-Linux x86_64 only
-
-[Rock v0.4.0](https://github.com/Champii/Rock/releases/download/v0.4.0/rock) (Tested on arch, btw)
+[Rock v0.4.1](https://github.com/Champii/Rock/releases/download/v0.4.1/rock)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.4.0/rock
+wget https://github.com/Champii/Rock/releases/download/v0.4.1/rock
 chmod +x rock
 ./rock -V
 ```
 
+You will need `clang` somewhere in your $PATH
+
 ### From source
 
 You will need `llvm-12.0.1` and `clang-12.0.1` somewhere in your $PATH
-
-Rock has been tested against Rust stable v1.60.0 and nightly
-
-[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
 
 #### With Cargo from Git
 
@@ -83,10 +72,16 @@ rock -V
 ```sh
 git clone https://github.com/Champii/Rock.git rock
 cd rock
-cargo run --<release|debug> -- -V
+cargo run --release -- -V
 ```
 
-Note: If you clone and build manually, make sure to add `/[...]/rock/target/<release|debug>/` to you `$PATH` so you can run it anywhere on your system.
+Note: If you clone and build manually, make sure to add `rock/target/release/` to you `$PATH` so you can run it anywhere on your system.
+
+Rock has been tested against Rust stable v1.60.0 and nightly
+
+[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
+
+---
 
 ## Quickstart
 
@@ -114,9 +109,19 @@ $ rock run
 24
 ```
 
+Rock should have produced a `./build/` folder, that contains your `a.out` executable.
+You can execute it directly:
+
+```sh
+$ ./build/a.out
+24
+```
+
 Take a look at `rock --help` for a quick tour of its flags and arguments
 
-Note that you currently must be at the project root to run the compiler. (i.e. inside the `./factorial/` folder)
+Note that you currently MUST be at the project root to run the compiler. (i.e. inside the `./factorial/` folder)
+
+---
 
 ## Showcases
 
@@ -292,6 +297,8 @@ Note that we could have skiped the
 `use foo::bar`
 if we wrote
 `main: -> foo::bar 1 .print!`
+
+---
 
 ## Development notes
 

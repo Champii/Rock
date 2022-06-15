@@ -289,25 +289,29 @@ impl AstLoweringContext {
             }
             AssignLeftSide::Indice(indice) => {
                 let expr_hir = self.lower_expression(indice);
-                let indice = match &*expr_hir.kind {
-                    hir::ExpressionKind::Indice(indice) => indice,
+                let res = match &*expr_hir.kind {
+                    hir::ExpressionKind::Dot(dot) => hir::AssignLeftSide::Dot(dot.clone()),
+                    hir::ExpressionKind::Indice(indice) => {
+                        hir::AssignLeftSide::Indice(indice.clone())
+                    }
                     _ => unimplemented!(
-                        "Assign left hand side can be Identifiers, Indices or dot notation"
+                        "Assign left hand side can be Identifiers, Indices or dot notation, found {:#?}", expr_hir
                     ),
                 };
 
-                hir::AssignLeftSide::Indice(indice.clone())
+                res
             }
             AssignLeftSide::Dot(dot) => {
                 let expr_hir = self.lower_expression(dot);
-                let dot = match &*expr_hir.kind {
-                    hir::ExpressionKind::Dot(dot) => dot,
+                let res = match &*expr_hir.kind {
+                    hir::ExpressionKind::Dot(dot) => hir::AssignLeftSide::Dot(dot.clone()),
+                    hir::ExpressionKind::Indice(indice) => hir::AssignLeftSide::Indice(indice.clone()),
                     _ => unimplemented!(
-                        "Assign left hand side can be Identifiers, Indices or dot notation"
+                        "Assign left hand side can be Identifiers, Indices or dot notation, found {:#?}", expr_hir
                     ),
                 };
 
-                hir::AssignLeftSide::Dot(dot.clone())
+                res
             }
         }
     }
@@ -446,6 +450,7 @@ impl AstLoweringContext {
                 LiteralKind::String(s) => hir::LiteralKind::String(s.clone()),
                 LiteralKind::Bool(b) => hir::LiteralKind::Bool(*b),
                 LiteralKind::Array(arr) => hir::LiteralKind::Array(self.lower_array(arr)),
+                LiteralKind::Char(c) => hir::LiteralKind::Char(*c),
             },
         }
     }

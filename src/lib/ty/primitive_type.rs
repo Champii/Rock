@@ -11,6 +11,7 @@ pub enum PrimitiveType {
     Float64,
     String,
     Array(Box<Type>, usize),
+    Char,
 }
 
 impl PrimitiveType {
@@ -33,6 +34,7 @@ impl PrimitiveType {
             Self::Float64 => "Float64".to_string(),
             Self::String => "String".to_string(),
             Self::Array(t, _size) => format!("[{}]", t.get_name()),
+            Self::Char => "Char".to_string(),
         }
     }
 
@@ -46,6 +48,7 @@ impl PrimitiveType {
             "Int64" => Some(Self::Int64),
             "Float64" => Some(Self::Float64),
             "String" => Some(Self::String),
+            "Char" => Some(Self::Char),
             _ => None,
         }
     }
@@ -80,6 +83,10 @@ impl PrimitiveType {
 
     pub fn is_array(&self) -> bool {
         matches!(self, PrimitiveType::Array(_, _))
+    }
+
+    pub fn is_char(&self) -> bool {
+        matches!(self, PrimitiveType::Char)
     }
 
     pub fn try_as_array(&self) -> Option<(Type, usize)> {

@@ -298,12 +298,12 @@ impl<'a> From<Parser<'a>> for Diagnostic {
 
 impl<'a> From<VerboseError<Parser<'a>>> for Diagnostic {
     fn from(err: VerboseError<Parser<'a>>) -> Self {
-        let (input, _kind) = err.errors.into_iter().next().unwrap();
+        let (input, _kind) = err.errors.iter().next().unwrap().clone();
 
         let span2 = Span2::from(input);
         let span = Span::from(span2);
 
-        let msg = "Syntax error".to_string();
+        let msg = err.to_string();
 
         Diagnostic::new_syntax_error(span, msg)
     }

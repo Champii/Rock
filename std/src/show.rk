@@ -36,6 +36,12 @@ impl Show String
     strcpy s, @
     s
 
+impl Show Char
+  @show: ->
+    let s = malloc 2
+    s[0] = @
+    s
+
 show_arr: a ->
   let s = malloc 100
   strcpy s, "["
