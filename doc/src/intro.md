@@ -35,7 +35,7 @@ Rock syntax is entierly based on indentation, like Livescript.
 Each whitespace count, and tabulations `\t` are prohibited.  
 
 The number of whitespace to make one level of indentation is taken from the first indent level.  
-If your first indentation has two whitespaces, the rest of the file must have the same number of whitespace per level (two)
+If your first indentation has two whitespaces, the rest of the file must have the same number of whitespace per level (here two)
 
 We generally use two as a default, but you can use any number you want. Here is the same example with four whitespaces:
 
