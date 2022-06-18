@@ -1068,11 +1068,13 @@ pub fn parse_escaped_char(input: Parser) -> Res<Parser, char> {
 }
 
 pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
-    let res = delimited(tag("'"), parse_escaped_char, tag("'"));
-
-    map(tuple((parse_identity, res)), |(node_id, c)| {
-        Literal::new_char(c, node_id)
-    })(input)
+    map(
+        tuple((
+            parse_identity,
+            delimited(tag("'"), parse_escaped_char, tag("'")),
+        )),
+        |(node_id, c)| Literal::new_char(c, node_id),
+    )(input)
 }
 
 pub fn parse_array(input: Parser) -> Res<Parser, Literal> {
