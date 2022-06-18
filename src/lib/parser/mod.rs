@@ -1037,17 +1037,7 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
         tuple((
             parse_identity,
             terminated(tag("\""), space0),
-            recognize(many0(escaped_transform(
-                none_of("\\\'\"\n\r"),
-                '\\',
-                alt((
-                    value("\\", tag("\\")),
-                    value("\'", tag("\'")),
-                    value("\"", tag("\"")),
-                    value("\n", tag("n")),
-                    value("\r", tag("r")),
-                )),
-            ))),
+            recognize(many0(parse_escaped_char)),
             tag("\""),
         )),
         |(node_id, _, s, _)| {
@@ -1057,6 +1047,32 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
             )
         },
     )(input)
+}
+
+pub fn parse_escaped_char(input: Parser) -> Res<Parser, char> {
+    map(
+        escaped_transform(
+            none_of("\\\'\"\n\r\0"),
+            '\\',
+            alt((
+                value("\\", tag("\\")),
+                value("\'", tag("\'")),
+                value("\"", tag("\"")),
+                value("\n", tag("n")),
+                value("\r", tag("r")),
+                value("\0", tag("0")),
+            )),
+        ),
+        |c| unescape(&c).unwrap().chars().next().unwrap(),
+    )(input)
+}
+
+pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
+    let res = delimited(tag("'"), parse_escaped_char, tag("'"));
+
+    map(tuple((parse_identity, res)), |(node_id, c)| {
+        Literal::new_char(c, node_id)
+    })(input)
 }
 
 pub fn parse_array(input: Parser) -> Res<Parser, Literal> {
@@ -1125,23 +1141,6 @@ pub fn parse_number(input: Parser) -> Res<Parser, Literal> {
     Ok((input, Literal::new_number(num, node_id)))
 }
 
-pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
-    let esc = escaped_transform(
-        none_of("\\\'"),
-        '\\',
-        alt((
-            value("\\", tag("\\")),
-            value("\'", tag("\'")),
-            value("\n", tag("n")),
-        )),
-    );
-
-    let res = delimited(tag("'"), esc, tag("'"));
-
-    map(tuple((parse_identity, res)), |(node_id, s)| {
-        Literal::new_char(s.chars().nth(0).unwrap(), node_id)
-    })(input)
-}
 // Types
 
 pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {
