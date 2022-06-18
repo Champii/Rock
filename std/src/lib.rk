@@ -9,5 +9,6 @@ mod functor
 mod clone
 mod vec
 mod helpers
+mod socket
 
 mod prelude

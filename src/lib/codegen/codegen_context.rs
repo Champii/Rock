@@ -104,7 +104,10 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_type(&mut self, t: &Type, builder: &'a Builder) -> Result<BasicTypeEnum<'a>, ()> {
         Ok(match t {
             Type::Primitive(PrimitiveType::Int8) => self.context.i8_type().into(),
+            Type::Primitive(PrimitiveType::Int16) => self.context.i16_type().into(),
+            Type::Primitive(PrimitiveType::Int32) => self.context.i32_type().into(),
             Type::Primitive(PrimitiveType::Int64) => self.context.i64_type().into(),
+            Type::Primitive(PrimitiveType::Int) => self.context.i64_type().into(),
             Type::Primitive(PrimitiveType::Float64) => self.context.f64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
             Type::Primitive(PrimitiveType::Char) => self.context.i8_type().into(),
@@ -767,7 +770,8 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         Ok(match &lit.kind {
             LiteralKind::Number(mut n) => {
-                let i64_type = self.context.i64_type();
+                let ty = self.hir.node_types.get(&lit.get_hir_id()).unwrap();
+                let ty = self.lower_type(ty, builder)?.into_int_type();
 
                 let mut negative = false;
                 if n < 0 {
@@ -775,7 +779,7 @@ impl<'a> CodegenContext<'a> {
                     n = -n;
                 }
 
-                i64_type.const_int((n).try_into().unwrap(), negative).into()
+                ty.const_int((n).try_into().unwrap(), negative).into()
             }
             LiteralKind::Float(n) => {
                 let f64_type = self.context.f64_type();

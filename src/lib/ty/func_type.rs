@@ -133,7 +133,7 @@ impl FuncType {
             .unzip();
 
         if !ret.is_forall() {
-            warn!("Trying to apply type to a not forall");
+            warn!("Trying to apply type to a not forall: {:#?}", ret);
         }
 
         // FIXME: must remplace all occurences of ret
@@ -154,7 +154,7 @@ impl FuncType {
             .enumerate()
             .filter_map(|(i, arg_t)| -> Option<(Type, Type)> {
                 if !arg_t.is_forall() {
-                    warn!("Trying to apply type to a not forall");
+                    warn!("Trying to apply type to a not forall: {:#?}", arg_t);
 
                     return None;
                 }
@@ -168,7 +168,7 @@ impl FuncType {
 
         if let Some(t) = ret {
             if !t.is_forall() {
-                warn!("Trying to apply type to a not forall");
+                warn!("Trying to apply type to a not forall: {:#?}", t);
             }
 
             // FIXME: must remplace all occurences of ret

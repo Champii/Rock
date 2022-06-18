@@ -241,7 +241,7 @@ impl Display for DiagnosticKind {
             Self::TypeConflict(t1, t2, _in1, _in2) => {
                 format!(
                     "Type conflict:\n{:<8}Expected {:?}\n{:<8}But got  {:?}",
-                    "", t1, "", t2
+                    "", t2, "", t1
                 )
             }
             Self::UnresolvedType(t) => {

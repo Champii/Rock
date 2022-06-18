@@ -313,6 +313,7 @@ impl<'a> ConstraintContext<'a> {
 
         // Fix the current sig if some types were still unknown
         self.envs.amend_current_sig(&new_f_sig);
+        println!("NEW F SIG {:#?}", new_f_sig);
 
         // We restore the scope here
         if !self.envs.set_current_fn(old_f) {
@@ -421,6 +422,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
     fn visit_function_decl(&mut self, f: &'a FunctionDecl) {
         self.envs.apply_args_type(f);
+        println!("VISITING FUNCTION DECL {:#?}", f);
 
         walk_list!(self, visit_argument_decl, &f.arguments);
 
@@ -441,6 +443,8 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     .unwrap(),
             )),
         );
+
+        println!("FN DECL {:#?}", self.envs.get_type(&f.hir_id));
 
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
 
@@ -724,7 +728,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
     fn visit_literal(&mut self, lit: &Literal) {
         let t = match &lit.kind {
-            LiteralKind::Number(_n) => Type::Primitive(PrimitiveType::Int64),
+            LiteralKind::Number(_n) => Type::Primitive(PrimitiveType::Int), // not a real type
             LiteralKind::Float(_f) => Type::Primitive(PrimitiveType::Float64),
             LiteralKind::String(_s) => Type::Primitive(PrimitiveType::String),
             LiteralKind::Bool(_b) => Type::Primitive(PrimitiveType::Bool),

@@ -108,6 +108,10 @@ lazy_static! {
             "/std/src/vec.rk".into(),
             include_str!("../../../std/src/vec.rk"),
         );
+        m.insert(
+            "/std/src/socket.rk".into(),
+            include_str!("../../../std/src/socket.rk"),
+        );
         m
     };
 }
@@ -242,7 +246,7 @@ pub fn parse_root(input: Parser) -> Res<Parser, Root> {
 
 pub fn parse_mod(input: Parser) -> Res<Parser, Mod> {
     map(
-        many1(terminated(parse_top_level, many1(line_ending))),
+        terminated(many1(terminated(parse_top_level, many1(line_ending))), eof),
         Mod::new,
     )(input)
 }
@@ -289,7 +293,9 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
         .files
         .insert(new_ctx.current_file_path().clone(), file.clone());
 
-    let new_parser = Parser::new_extra(&file.content, new_ctx);
+    let content = file.content.clone();
+
+    let new_parser = Parser::new_extra(&content, new_ctx);
 
     use nom::Finish;
 
@@ -304,6 +310,8 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
                 .append(Diagnostics::from(err.clone()));
             input.extra.identities.extend(new_parser.extra.identities);
             input.extra.files.extend(new_parser.extra.files);
+
+            println!("ERROR: {:#?}", err);
 
             return Err(nom::Err::Error(VerboseError::from_external_error(
                 input,
@@ -1178,6 +1186,9 @@ pub fn parse_type(input: Parser) -> Res<Parser, Type> {
             alt((
                 map(tag("Bool"), |_| PrimitiveType::Bool),
                 map(tag("Int64"), |_| PrimitiveType::Int64),
+                map(tag("Int32"), |_| PrimitiveType::Int32),
+                map(tag("Int16"), |_| PrimitiveType::Int16),
+                map(tag("Int8"), |_| PrimitiveType::Int8),
                 map(tag("Float64"), |_| PrimitiveType::Float64),
                 map(tag("String"), |_| PrimitiveType::String),
                 map(tag("Char"), |_| PrimitiveType::Char),

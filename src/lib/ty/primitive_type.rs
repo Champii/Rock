@@ -8,6 +8,7 @@ pub enum PrimitiveType {
     Int16,
     Int32,
     Int64,
+    Int, // not a real type, default to Int64
     Float64,
     String,
     Array(Box<Type>, usize),
@@ -31,6 +32,7 @@ impl PrimitiveType {
             Self::Int16 => "Int16".to_string(),
             Self::Int32 => "Int32".to_string(),
             Self::Int64 => "Int64".to_string(),
+            Self::Int => "Int64".to_string(),
             Self::Float64 => "Float64".to_string(),
             Self::String => "String".to_string(),
             Self::Array(t, _size) => format!("[{}]", t.get_name()),
@@ -46,6 +48,7 @@ impl PrimitiveType {
             "Int16" => Some(Self::Int16),
             "Int32" => Some(Self::Int32),
             "Int64" => Some(Self::Int64),
+            "Int" => Some(Self::Int64),
             "Float64" => Some(Self::Float64),
             "String" => Some(Self::String),
             "Char" => Some(Self::Char),
@@ -71,6 +74,14 @@ impl PrimitiveType {
 
     pub fn is_int64(&self) -> bool {
         matches!(self, PrimitiveType::Int64)
+    }
+
+    pub fn is_int(&self) -> bool {
+        matches!(self, PrimitiveType::Int)
+    }
+
+    pub fn is_concrete_int(&self) -> bool {
+        self.is_int8() || self.is_int16() || self.is_int32() || self.is_int64()
     }
 
     pub fn is_float64(&self) -> bool {

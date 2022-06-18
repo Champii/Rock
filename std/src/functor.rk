@@ -9,7 +9,7 @@ map: f, arr ->
     i = i + 1
   arr2
 
-foreach: f arr ->
+foreach: f, arr ->
   let i = 0
   while i < (~Len arr arr)
     f arr[i]

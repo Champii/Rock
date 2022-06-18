@@ -80,6 +80,15 @@ impl Envs {
                     ));
                 }
             }
+            // generic Int subtyping
+            (Type::Primitive(src_prim), Some(Type::Primitive(PrimitiveType::Int)))
+                if src_prim.is_concrete_int() =>
+            {
+                error!(
+                    "Replacing hir_id {:?} type {:?} with {:?}",
+                    dest, previous, src
+                );
+            }
             (src, Some(previous)) if !src.eq(&previous) => {
                 if previous.is_solved() && src.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
@@ -107,33 +116,8 @@ impl Envs {
         }
 
         let src_t = src_t_opt?.clone();
-        let previous = self.set_type_alone(dest, &src_t);
 
-        match (src_t.clone(), previous.clone()) {
-            (Type::Func(src_f), Some(Type::Func(prev_f))) if !src_f.eq(&prev_f) => {
-                if prev_f.is_solved() && src_f.is_solved() {
-                    self.diagnostics.push_error(Diagnostic::new_type_conflict(
-                        self.spans.get(src).unwrap().clone().into(),
-                        previous.clone().unwrap(),
-                        src_t.clone(),
-                        previous.unwrap(),
-                        src_t.clone(),
-                    ));
-                }
-            }
-            (src_t, Some(previous)) if !src_t.eq(&previous) => {
-                if previous.is_solved() && src_t.is_solved() {
-                    self.diagnostics.push_error(Diagnostic::new_type_conflict(
-                        self.spans.get(src).unwrap().clone().into(),
-                        previous.clone(),
-                        src_t.clone(),
-                        previous,
-                        src_t,
-                    ));
-                }
-            }
-            _ => (),
-        }
+        self.set_type(dest, &src_t);
 
         Some(())
     }
