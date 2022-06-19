@@ -12,26 +12,28 @@ print_: a ->
   printf "%s", a.show!
   fflush 0
 
-_ignore_warnings: ->
-  print_ ""
-  _ignore_warnings!
-
 trait Print a
   print: a => Int64
+  putstr: a => Int64
 
-# Here we would need generic impl
+# Here we would need generic impl and/or default impl
 impl Print Bool
   @print: -> printl @
+  @putstr: -> print_ @
 
 impl Print Int64
   @print: -> printl @
+  @putstr: -> print_ @
 
 impl Print Float64
   @print: -> printl @
+  @putstr: -> print_ @
 
 impl Print String
   @print: -> printl @
+  @putstr: -> print_ @
 
 impl Print Char
   @print: -> printl @
+  @putstr: -> print_ @
 
