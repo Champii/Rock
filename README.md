@@ -155,7 +155,8 @@ If we did something like this
 `id: x -> x + x`  
 We would have constrained `x` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
 
-Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`*.  
+Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`.  
+`String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
 
 The output would be:
 
@@ -164,8 +165,6 @@ The output would be:
 4.4
 TestTest
 ```
-
-* `String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
 
 ### Custom infix operator
 
