@@ -1050,7 +1050,7 @@ pub fn parse_escaped_char(input: Parser) -> Res<Parser, char> {
             none_of("\\\'\"\n\r\0"),
             '\\',
             alt((
-                value("\\", tag("\\")),
+                value("\\\\", tag("\\")),
                 value("\'", tag("\'")),
                 value("\"", tag("\"")),
                 value("\n", tag("n")),

@@ -1,4 +1,4 @@
 main: ->
-  let str = "Hell\no, W\\or\"ld!n"
+  let str = "He\rl\'l\no, W\\or\"ld\0!n"
   42
 
