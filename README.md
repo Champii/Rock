@@ -45,8 +45,6 @@ Feel free to discuss any new feature or change you may like in an issue! We welc
 
 ## Install
 
-You will need `clang` somewhere in your $PATH
-
 ### From source
 
 You will need `llvm-13` and `clang-13` somewhere in your $PATH

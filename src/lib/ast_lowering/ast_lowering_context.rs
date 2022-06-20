@@ -138,17 +138,23 @@ impl AstLoweringContext {
             body.mangle(&types);
 
             let type_sig = if let Some(r#trait) = self.traits.get(&i.name) {
-                let type_sig = r#trait
-                    .defs
-                    .iter()
-                    .find(|proto| *proto.name == *hir_f.name)
-                    .unwrap()
-                    .signature
-                    .clone();
+                // In the case of a default impl, the method should not appear in the trait.defs
+                // collection.
+                if !r#trait.defs.iter().any(|d| d.name.name == f.name.name) {
+                    f.signature.clone()
+                } else {
+                    let type_sig = r#trait
+                        .defs
+                        .iter()
+                        .find(|proto| *proto.name == *hir_f.name)
+                        .unwrap()
+                        .signature
+                        .clone();
 
-                let type_sig = type_sig.apply_forall_types(&r#trait.types, &i.types);
+                    let type_sig = type_sig.apply_forall_types(&r#trait.types, &i.types);
 
-                type_sig
+                    type_sig
+                }
             } else {
                 f.signature.clone()
             };

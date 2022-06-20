@@ -5,33 +5,15 @@ use super::show::(*)
 use super::eq::(*)
 use super::num::(*)
 
-# there is a bug here if a method exists with the same name in the scope 
-# of the module (like Print::print and print)
-printl: a -> puts a.show!
-print_: a ->
-  printf "%s", a.show!
-  fflush 0
-
-_ignore_warnings: ->
-  print_ ""
-  _ignore_warnings!
-
 trait Print a
-  print: a => Int64
+  @print: -> puts @show!
+  @putstr: ->
+    printf "%s", @show!
+    fflush 0
 
 # Here we would need generic impl
 impl Print Bool
-  @print: -> printl @
-
 impl Print Int64
-  @print: -> printl @
-
 impl Print Float64
-  @print: -> printl @
-
 impl Print String
-  @print: -> printl @
-
 impl Print Char
-  @print: -> printl @
-
