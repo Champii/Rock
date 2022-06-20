@@ -367,8 +367,9 @@ pub fn parse_trait(input: Parser) -> Res<Parser, Trait> {
                     )),
                 ),
             )),
+            many0(line_ending),
         )),
-        |(_, name, types, _, defs_or_fns)| {
+        |(_, name, types, _, defs_or_fns, _)| {
             let (defs, fns) = partition_defs_or_fns(defs_or_fns);
             Trait::new(name, types, defs, fns)
         },
@@ -383,7 +384,7 @@ pub fn parse_impl(input: Parser) -> Res<Parser, Impl> {
             many0(delimited(space1, parse_type, space0)),
             line_ending,
             indent(separated_list0(
-                many0(line_ending),
+                many1(line_ending),
                 preceded(parse_block_indent, alt((parse_self_fn, parse_fn))),
             )),
         )),
@@ -459,7 +460,7 @@ pub fn parse_prototype(input: Parser) -> Res<Parser, Prototype> {
             parse_identity,
             terminated(
                 parse_identifier_or_operator,
-                delimited(space0, tag(":>"), space0),
+                delimited(space0, tag(":"), space0),
             ),
             parse_signature,
         )),
