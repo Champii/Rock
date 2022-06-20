@@ -13,12 +13,8 @@ trait Print a
 
 # Here we would need generic impl
 impl Print Bool
-
 impl Print Int64
-
 impl Print Float64
-
 impl Print String
-
 impl Print Char
 

@@ -243,7 +243,7 @@ pub fn parse_root(input: Parser) -> Res<Parser, Root> {
 
 pub fn parse_mod(input: Parser) -> Res<Parser, Mod> {
     map(
-        many1(terminated(parse_top_level, many1(line_ending))),
+        many1(terminated(parse_top_level, many0(line_ending))),
         Mod::new,
     )(input)
 }
@@ -383,7 +383,7 @@ pub fn parse_impl(input: Parser) -> Res<Parser, Impl> {
             many0(delimited(space1, parse_type, space0)),
             line_ending,
             indent(separated_list0(
-                many1(line_ending),
+                many0(line_ending),
                 preceded(parse_block_indent, alt((parse_self_fn, parse_fn))),
             )),
         )),
