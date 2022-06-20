@@ -4,10 +4,11 @@
 
 Native language made with Rust and LLVM.
 
-Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and achieve high native performances thanks to LLVM.  
-Rock is highly inspired from [Livescript](https://livescript.net/), [Haskell](https://www.haskell.org/) and [Rust](https://www.rust-lang.org/)
+Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and to achieve high native performances thanks to LLVM.  
+Rock is highly inspired from [Livescript](https://livescript.net/), [Haskell](https://www.haskell.org/) and [Rust](https://www.rust-lang.org/).
 
-No to be taken seriously (yet)
+No to be taken seriously (yet). Rock is still in its early conception phase, and everything can change and/or break at any time.  
+Feel free to discuss any new feature or change you may like in an issue! We welcome and value every contribution.
 
 ## Index
 
@@ -15,10 +16,10 @@ No to be taken seriously (yet)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
-    - [Using Released Binary](#using-released-binary)
     - [From source](#from-source)
-      - [With Cargo from Git](#with-cargo-from-git)
+      - [With Cargo from Git (Recommanded)](#with-cargo-from-git-recommanded)
       - [Manual Clone and Build from Git](#manual-clone-and-build-from-git)
+    - [Using Released Binary](#using-released-binary)
   - [Quickstart](#quickstart)
   - [Showcases](#showcases)
     - [Polymorphic function](#polymorphic-function)
@@ -44,7 +45,35 @@ No to be taken seriously (yet)
 
 ## Install
 
-### Using Released Binary 
+You will need `clang` somewhere in your $PATH
+
+### From source
+
+You will need `llvm-13` and `clang-13` somewhere in your $PATH
+
+#### With Cargo from Git (Recommanded)
+
+```sh
+cargo install --locked --git https://github.com/Champii/Rock --tag v0.4.2
+rock -V
+```
+
+#### Manual Clone and Build from Git
+
+```sh
+git clone https://github.com/Champii/Rock.git
+cd Rock
+cargo run --release -- -V
+```
+
+Note: If you clone and build manually, make sure to add `Rock/target/release/` to you `$PATH` so you can run it anywhere on your system.  
+This method uses the `master` branch of Rock, that is not stable. You can checkout the latest version tag.
+
+Rock has been tested against Rust stable v1.60.0 and nightly
+
+[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
+
+### Using Released Binary
 
 [Rock v0.4.2](https://github.com/Champii/Rock/releases/download/v0.4.2/rock)
 
@@ -54,32 +83,8 @@ chmod +x rock
 ./rock -V
 ```
 
-You will need `clang` somewhere in your $PATH
-
-### From source
-
-You will need `llvm-13` and `clang-13` somewhere in your $PATH
-
-#### With Cargo from Git
-
-```sh
-cargo install --git https://github.com/Champii/Rock --locked
-rock -V
-```
-
-#### Manual Clone and Build from Git
-
-```sh
-git clone https://github.com/Champii/Rock.git rock
-cd rock
-cargo run --release -- -V
-```
-
-Note: If you clone and build manually, make sure to add `rock/target/release/` to you `$PATH` so you can run it anywhere on your system.
-
-Rock has been tested against Rust stable v1.60.0 and nightly
-
-[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
+This install method is not well tested yet, and might not work for your environment.
+It requires a x86_64 architecture and GLIBC 2.34. (Don't try to upgrade your GLIBC if you don't know what you are doing)
 
 ---
 
@@ -150,7 +155,8 @@ If we did something like this
 `id: x -> x + x`  
 We would have constrained `x` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
 
-Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`(*).  
+Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`.  
+`String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
 
 The output would be:
 
@@ -159,8 +165,6 @@ The output would be:
 4.4
 TestTest
 ```
-
-(*) `String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
 
 ### Custom infix operator
 
