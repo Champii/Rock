@@ -1040,7 +1040,12 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
             recognize(many0(parse_escaped_char)),
             tag("\""),
         )),
-        |(node_id, _, s, _)| Literal::new_string(String::from(*s.fragment()), node_id),
+        |(node_id, _, s, _)| {
+            Literal::new_string(
+                unescape(&("\"".to_owned() + *s.fragment() + "\"")).unwrap(),
+                node_id,
+            )
+        },
     )(input)
 }
 
@@ -1050,7 +1055,7 @@ pub fn parse_escaped_char(input: Parser) -> Res<Parser, char> {
             none_of("\\\'\"\n\r\0"),
             '\\',
             alt((
-                value("\\\\", tag("\\")),
+                value("\\", tag("\\")),
                 value("\'", tag("\'")),
                 value("\"", tag("\"")),
                 value("\n", tag("n")),
@@ -1058,13 +1063,7 @@ pub fn parse_escaped_char(input: Parser) -> Res<Parser, char> {
                 value("\0", tag("0")),
             )),
         ),
-        |s| {
-            unescape(&("\"".to_owned() + &s + "\""))
-                .unwrap()
-                .chars()
-                .next()
-                .unwrap()
-        },
+        |s| s.chars().next().unwrap(),
     )(input)
 }
 
