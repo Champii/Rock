@@ -1041,10 +1041,11 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
             tag("\""),
         )),
         |(node_id, _, s, _)| {
-            Literal::new_string(
-                unescape(&("\"".to_owned() + *s.fragment() + "\"")).unwrap(),
-                node_id,
-            )
+            // The unescape function does not accept `\\0` as escapable pattern, so we treat it
+            // beforehand
+            let s = s.replace("\\0", "\0");
+
+            Literal::new_string(unescape(&("\"".to_owned() + &s + "\"")).unwrap(), node_id)
         },
     )(input)
 }
