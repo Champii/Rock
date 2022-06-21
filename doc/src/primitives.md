@@ -55,6 +55,9 @@ second_char: -> "Hello"[1]
 
 Strings are 0-indexed
 
+Both Strings and Chars accept some escaped characters:
+`\\ \' \" \n \r \0`
+
 In the future there will be a distinction between native `Str` and on-the-heap `String` like in Rust
 
 ## Array
