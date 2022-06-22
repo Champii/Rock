@@ -253,3 +253,7 @@ fn testcases_trait_default_method_main() {
 fn testcases_trait_late_resolution_main() {
     run("testcases/trait/late_resolution/main.rk", include_str!("testcases/trait/late_resolution/main.rk"), include_str!("testcases/trait/late_resolution/main.rk.out"), include_str!("testcases/trait/late_resolution/main.rk.stdout"));
 }
+#[test]
+fn testcases_trait_default_method_override_main() {
+    run("testcases/trait/default_method_override/main.rk", include_str!("testcases/trait/default_method_override/main.rk"), include_str!("testcases/trait/default_method_override/main.rk.out"), include_str!("testcases/trait/default_method_override/main.rk.stdout"));
+}
