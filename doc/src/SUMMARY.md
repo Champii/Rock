@@ -8,3 +8,4 @@
   - [Function signature](./function_signature.md)
   - [Struct](./struct.md)
   - [Trait](./trait.md)
+  - [Self](./self.md)
