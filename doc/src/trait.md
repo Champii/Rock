@@ -48,3 +48,17 @@ impl CanDouble Int64
 main: -> (2).double_me!.print!
 ```
 
+### Overriding
+
+You can override a default implementation
+
+```haskell
+trait CanDouble a
+  @double_me: -> @ + @
+
+impl CanDouble Int64
+  @double_me: -> @ * 2
+
+main: -> (2).double_me!.print!
+```
+
