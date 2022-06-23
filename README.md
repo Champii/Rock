@@ -25,6 +25,7 @@ Feel free to discuss any new feature or change you may like in an issue! We welc
     - [Polymorphic function](#polymorphic-function)
     - [Custom infix operator](#custom-infix-operator)
     - [Trait Definition](#trait-definition)
+    - [Trait default method](#trait-default-method)
     - [Struct instance and methods]( #struct-instance-and-methods )
     - [Show and Print implementation]( #show-and-print-implementation )
     - [Modules and Code Separation](#modules-and-code-separation)
@@ -44,8 +45,6 @@ Feel free to discuss any new feature or change you may like in an issue! We welc
 ---
 
 ## Install
-
-You will need `clang` somewhere in your $PATH
 
 ### From source
 
@@ -212,6 +211,26 @@ $ rock run
 42.42
 ```
 
+### Trait default method
+
+``` haskell
+trait ToString a
+  @tostring: -> @show!
+
+impl ToString Int64
+impl ToString Float64
+
+main: ->
+  (33).tostring!.print!
+  (42.42).tostring!.print!
+```
+
+``` sh
+$ rock run
+33
+42.42
+```
+
 ### Struct instance and methods
 
 ``` haskell
@@ -249,11 +268,8 @@ struct Player
 impl Show Player
   @show: -> @name + "(" + @level.show! + ")"
 
-use std::print::printl
-
-# This will be generic in the futur
+# This will be automatic in the future
 impl Print Player
-  @print: -> printl @
 
 main: ->
   let player = Player

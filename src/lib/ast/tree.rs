@@ -124,11 +124,22 @@ pub struct Trait {
     pub name: Type,
     pub types: Vec<Type>,
     pub defs: Vec<Prototype>,
+    pub default_impl: Vec<FunctionDecl>,
 }
 
 impl Trait {
-    pub fn new(name: Type, types: Vec<Type>, defs: Vec<Prototype>) -> Self {
-        Self { name, types, defs }
+    pub fn new(
+        name: Type,
+        types: Vec<Type>,
+        defs: Vec<Prototype>,
+        default_impl: Vec<FunctionDecl>,
+    ) -> Self {
+        Self {
+            name,
+            types,
+            defs,
+            default_impl,
+        }
     }
 }
 

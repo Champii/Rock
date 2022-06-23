@@ -1,5 +1,7 @@
 # Trait
 
+## Declaration
+
 The trait feature is very similar to what Rust have  
 You can define some 'interfaces' that has some methods, you can then implement them for your types.
 
@@ -10,13 +12,15 @@ trait CanDouble a
   double_me: a => a
 ```
 
-We define a trait `CanDouble` that takes a generic type `a`, and declare a method `double_me` that takes a generic type `a` and return a value of the same type.
+We define a trait `CanDouble` that takes a generic type `a` that is the `Self` type referring to the implementation, and declare a method `double_me` that takes the generic type `a` and return a value of the same type.
+
+## Implementation
 
 We can now implement the trait for any type we want, like `Int64`
 
 ```haskell
 impl CanDouble Int64
-  double_me: self -> self + self
+  @double_me: -> @ + @
 ```
 
 We can then call this method:
@@ -30,39 +34,31 @@ This output
 4
 ```
 
-The `self` here have been desugared for lisibility but you could have written
+## Default method
+
+You can define trait methods that have a default implementation.  
+That means you don't have to reimplement it for each type, but you can override the default implementation with your own if you need it.
 
 ```haskell
-impl CanDouble Int64
-  double_me: @ -> @ + @
-```
-
-Those are strictly equivalent, as `@` desugar to `self`
-
-You could also have used the following notation to automatically inject the `self` parameter
-
-```haskell
-impl CanDouble Int64
+trait CanDouble a
   @double_me: -> @ + @
+
+impl CanDouble Int64
+
+main: -> (2).double_me!.print!
 ```
 
-And if you wanted to mutate the `self`, as well as returning `self` for chainable capababilities:
+### Overriding
+
+You can override a default implementation
 
 ```haskell
+trait CanDouble a
+  @double_me: -> @ + @
+
 impl CanDouble Int64
-  @double_me: @->
-    @ = @ + @
+  @double_me: -> @ * 2
 
-main: ->
-  let x = 2
-  x.double_me!.double_me!.double_me!
-  x.print!
+main: -> (2).double_me!.print!
 ```
-Outputs
-```
-16
-```
-
-The `@->` automatically inject the `@` as last returned statement of the function's body.
-This operator is only available when using the `@method_name:` notation
 

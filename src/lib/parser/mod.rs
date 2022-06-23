@@ -35,6 +35,7 @@ pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
 
 type Res<T, U> = IResult<T, U, VerboseError<T>>;
 
+pub mod default_impl_populator;
 pub mod parsing_context;
 pub mod source_file;
 pub mod span;
@@ -242,7 +243,7 @@ pub fn parse_root(input: Parser) -> Res<Parser, Root> {
 
 pub fn parse_mod(input: Parser) -> Res<Parser, Mod> {
     map(
-        many1(terminated(parse_top_level, many1(line_ending))),
+        many1(terminated(parse_top_level, many0(line_ending))),
         Mod::new,
     )(input)
 }
@@ -330,6 +331,25 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     Ok((input, (mod_name, mod_)))
 }
 
+enum ProtoOrFn {
+    Proto(Prototype),
+    Fn(FunctionDecl),
+}
+
+fn partition_defs_or_fns(input: Vec<ProtoOrFn>) -> (Vec<Prototype>, Vec<FunctionDecl>) {
+    let mut protos = Vec::new();
+    let mut fns = Vec::new();
+
+    for item in input {
+        match item {
+            ProtoOrFn::Proto(proto) => protos.push(proto),
+            ProtoOrFn::Fn(fn_) => fns.push(fn_),
+        }
+    }
+
+    (protos, fns)
+}
+
 pub fn parse_trait(input: Parser) -> Res<Parser, Trait> {
     map(
         tuple((
@@ -339,10 +359,20 @@ pub fn parse_trait(input: Parser) -> Res<Parser, Trait> {
             many0(line_ending),
             indent(separated_list1(
                 many1(line_ending),
-                preceded(parse_block_indent, parse_prototype),
+                preceded(
+                    parse_block_indent,
+                    alt((
+                        map(parse_prototype, ProtoOrFn::Proto),
+                        map(alt((parse_self_fn, parse_fn)), ProtoOrFn::Fn),
+                    )),
+                ),
             )),
+            many0(line_ending),
         )),
-        |(_, name, types, _, defs)| Trait::new(name, types, defs),
+        |(_, name, types, _, defs_or_fns, _)| {
+            let (defs, fns) = partition_defs_or_fns(defs_or_fns);
+            Trait::new(name, types, defs, fns)
+        },
     )(input)
 }
 
@@ -352,8 +382,8 @@ pub fn parse_impl(input: Parser) -> Res<Parser, Impl> {
             terminated(tag("impl"), space1),
             parse_type,
             many0(delimited(space1, parse_type, space0)),
-            many0(line_ending),
-            indent(separated_list1(
+            line_ending,
+            indent(separated_list0(
                 many1(line_ending),
                 preceded(parse_block_indent, alt((parse_self_fn, parse_fn))),
             )),
@@ -1272,6 +1302,8 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
 
     let ast = match ast {
         Ok((ctx, mut ast)) => {
+            default_impl_populator::populate_default_impl(&mut ast);
+
             parsing_ctx.identities = ctx.extra.identities();
             parsing_ctx.files.extend(ctx.extra.files());
 

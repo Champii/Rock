@@ -1,12 +1,25 @@
-# Struct
+# Structure
 
-Here is the idiomatic way to declare and instantiate a structure
+## Declaration:
+
+Here is the idiomatic way to declare a structure
 
 ```haskell
 struct Counter
   value: Int64
   name: String
+```
 
+This structure has two fields `value` and `name` with their types respectively `Int64` and `String`
+
+## Implementation
+
+You can attach some methods to the structure, for example here a class-method `new`
+that takes a `x` and is used as a constructor
+
+The `increment` method is an instance-method that takes nothing, increments the `value` field by `1` and returns `@`
+
+```haskell
 impl Counter
   new: x ->
     Counter 
@@ -15,7 +28,11 @@ impl Counter
 
   @increment: @->
     @value = @value + 1
+```
 
+You can learn more about the `@` parameter here: [Self](./self.md)
+
+```haskell
 main: ->
   Counter::new(41)
     .increment!
@@ -23,34 +40,11 @@ main: ->
     .print!
 ```
 
-There is a lot going on here, lets split this chunk of code in something more easy to understand
+This prints `42`
 
-```haskell
-struct Counter
-  value: Int64
-  name: String
-```
+---
 
-This is the declaration of a structure called `Counter` with two fields, `value` and `name`.
-
-```haskell
-impl Counter
-  new: x ->
-    Counter 
-      value: x
-      name: "Counter"
-
-  @increment: @->
-    @value = @value + 1
-```
-
-This is the implementation of the structure `Counter`. The first method `new` is the constructor,
-it takes a single argument `x` and returns a new instance of `Counter` with the `value` set to `x` and the `name` set to `"Counter"`.
-
-The second method is an instance method, it takes no arguments and returns itself  
-The `@->` operator automatically return `@` aka `self`). This method increments the `value` by one.
-
-We could have written something more compact
+*Note: We could have written something more compact, but less readable
 
 ```haskell
 impl Counter
@@ -60,11 +54,4 @@ impl Counter
 main: -> Counter::new 41 .increment!.value.print!
 ```
 
-The main function creates a new instance of `Counter` with the `value` set to `41` and then calls the method `increment` on it, and finally prints the `value` field
-
-This program outputs
-
-```sh
-42
-```
 
