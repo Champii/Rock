@@ -243,7 +243,7 @@ pub fn parse_root(input: Parser) -> Res<Parser, Root> {
 
 pub fn parse_mod(input: Parser) -> Res<Parser, Mod> {
     map(
-        many1(terminated(parse_top_level, many0(line_ending))),
+        terminated(many1(terminated(parse_top_level, many0(line_ending))), eof),
         Mod::new,
     )(input)
 }
@@ -278,7 +278,6 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     let file_path = new_ctx.current_file_path().to_str().unwrap().to_string();
 
     let mut file = SourceFile::from_file(file_path.clone()).unwrap(); // FIXME: ERRORS ARE swallowed HERE
-                                                                      //
 
     if config.std {
         if STDLIB_FILES.get(&file_path).is_none() {
@@ -294,7 +293,9 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
 
     use nom::Finish;
 
-    let parsed_mod_opt = parse_mod(new_parser.clone()).finish();
+    let parsed_mod_opt = parse_mod(new_parser.clone())
+        .map_err(|e| e.to_owned())
+        .finish();
 
     let (input2, mod_) = match parsed_mod_opt {
         Ok((input2, mod_)) => (input2, mod_),
@@ -303,6 +304,7 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
                 .extra
                 .diagnostics
                 .append(Diagnostics::from(err.clone()));
+
             input.extra.identities.extend(new_parser.extra.identities);
             input.extra.files.extend(new_parser.extra.files);
 
