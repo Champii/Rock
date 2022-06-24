@@ -607,7 +607,6 @@ impl<'a> CodegenContext<'a> {
         let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
         let llvm_struct_t = llvm_struct_t_ptr.get_element_type().into_struct_type();
 
-        // FIXME: types should be ordered already
         let defs = struct_t
             .ordered_defs()
             .iter()
