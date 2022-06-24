@@ -163,6 +163,11 @@ impl StructDecl {
     pub fn to_type(&self) -> Type {
         Type::Struct(StructType {
             name: self.name.name.clone(),
+            fields_order: self
+                .defs
+                .iter()
+                .map(|proto| proto.name.name.clone())
+                .collect(),
             defs: self
                 .defs
                 .iter()
