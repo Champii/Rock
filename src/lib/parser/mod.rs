@@ -9,7 +9,7 @@ use nom::{
     character::complete::{
         alphanumeric0, char, line_ending, none_of, one_of, satisfy, space0, space1,
     },
-    combinator::{eof, map, opt, peek, recognize, value},
+    combinator::{cond, eof, map, opt, peek, recognize, value},
     error::{make_error, ErrorKind, FromExternalError, ParseError, VerboseError},
     error_position,
     multi::{many0, many1, separated_list0, separated_list1},
@@ -125,6 +125,7 @@ pub struct ParserCtx {
     next_node_id: NodeId,
     structs: HashMap<String, Type>,
     pub config: Config,
+    allow_newline_dot: Vec<()>,
 }
 
 impl ParserCtx {
@@ -140,6 +141,7 @@ impl ParserCtx {
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
             config,
+            allow_newline_dot: vec![],
         }
     }
 
@@ -160,6 +162,7 @@ impl ParserCtx {
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
             config,
+            allow_newline_dot: vec![],
         }
     }
 
@@ -179,6 +182,7 @@ impl ParserCtx {
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(), // FIXME
             config,
+            allow_newline_dot: vec![],
         }
     }
 
@@ -194,6 +198,7 @@ impl ParserCtx {
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
             config,
+            allow_newline_dot: vec![],
         }
     }
 
@@ -918,16 +923,24 @@ pub fn parse_arguments(input: Parser) -> Res<Parser, Arguments> {
         map(
             tuple((
                 space0,
-                separated_list1(tuple((space0, tag(","), space0)), parse_argument),
-                space0,
+                terminated(
+                    separated_list1(tuple((space0, tag(","), space0)), parse_argument),
+                    space0,
+                ),
             )),
-            |(_, args, _)| args,
+            |(_, args)| args,
         ),
     ))(input)
 }
 
-pub fn parse_argument(input: Parser) -> Res<Parser, Argument> {
-    map(parse_unary, |arg| Argument::new(arg))(input)
+pub fn parse_argument(mut input: Parser) -> Res<Parser, Argument> {
+    input.extra.allow_newline_dot.push(());
+
+    let (mut input, arg) = parse_unary(input)?;
+
+    input.extra.allow_newline_dot.pop();
+
+    Ok((input, Argument::new(arg)))
 }
 
 pub fn parse_indice(input: Parser) -> Res<Parser, Box<Expression>> {
@@ -944,7 +957,10 @@ pub fn parse_indice(input: Parser) -> Res<Parser, Box<Expression>> {
 pub fn parse_dot(input: Parser) -> Res<Parser, Identifier> {
     map(
         tuple((
-            opt(tuple((line_ending, parse_block_indent_plus_one))),
+            cond(
+                input.extra.allow_newline_dot.is_empty(),
+                opt(tuple((line_ending, parse_block_indent_plus_one))),
+            ),
             terminated(tag("."), space0),
             terminated(parse_identifier, space0),
         )),
