@@ -246,9 +246,7 @@ impl Player
   @getlevel: -> @level
 
 main: ->
-  # The parenthesis are needed here because of a bug
-  # with the chained dot notation in the parser
-  Player::new(1)
+  Player::new 1
     .getlevel!
     .print!
 ```
