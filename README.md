@@ -282,12 +282,6 @@ $ rock run
 MyName(42)
 ```
 
-Note that the `printl` method is defined in the stdlib as
-```haskell
-printl: x -> puts x.show!
-```
-with `puts` being an external from the `libc`
-
 ### Modules and code separation
 
 - `./myproj/src/foo.rk`
