@@ -1,5 +1,7 @@
 # Rock v0.4.2
 
+[Documentation](https://champii.github.io/Rock)
+
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 
 Native language made with Rust and LLVM.
