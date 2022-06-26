@@ -308,7 +308,7 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
             input.extra.identities.extend(new_parser.extra.identities);
             input.extra.files.extend(new_parser.extra.files);
 
-            return Err(nom::Err::Error(VerboseError::from_external_error(
+            return Err(nom::Err::Failure(VerboseError::from_external_error(
                 input,
                 ErrorKind::Fail,
                 err.to_owned(),
