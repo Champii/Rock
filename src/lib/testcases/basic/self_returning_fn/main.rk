@@ -1,0 +1,13 @@
+infix + 4
++: a, b -> ~IAdd a b
+
+struct Foo
+  bar: Int64
+
+impl Foo
+  new: -> Foo bar: 40
+  @inc: @-> @bar = @bar + 1
+
+main: ->
+  Foo::new!.inc!.inc!.bar
+

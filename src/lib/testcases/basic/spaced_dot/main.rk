@@ -9,3 +9,7 @@ impl Toto
 
 main: ->
   Toto::new 42 .me!.me!.get 2
+  Toto::new 42
+    .me!
+    .me!
+    .get 2

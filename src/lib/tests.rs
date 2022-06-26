@@ -114,6 +114,10 @@ fn testcases_basic_while_main() {
     run("testcases/basic/while/main.rk", include_str!("testcases/basic/while/main.rk"), include_str!("testcases/basic/while/main.rk.out"), include_str!("testcases/basic/while/main.rk.stdout"));
 }
 #[test]
+fn testcases_basic_self_returning_fn_main() {
+    run("testcases/basic/self_returning_fn/main.rk", include_str!("testcases/basic/self_returning_fn/main.rk"), include_str!("testcases/basic/self_returning_fn/main.rk.out"), include_str!("testcases/basic/self_returning_fn/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_simple_struct_main() {
     run("testcases/basic/simple_struct/main.rk", include_str!("testcases/basic/simple_struct/main.rk"), include_str!("testcases/basic/simple_struct/main.rk.out"), include_str!("testcases/basic/simple_struct/main.rk.stdout"));
 }
@@ -242,6 +246,14 @@ fn testcases_trait_multi_resolution_main() {
     run("testcases/trait/multi_resolution/main.rk", include_str!("testcases/trait/multi_resolution/main.rk"), include_str!("testcases/trait/multi_resolution/main.rk.out"), include_str!("testcases/trait/multi_resolution/main.rk.stdout"));
 }
 #[test]
+fn testcases_trait_default_method_main() {
+    run("testcases/trait/default_method/main.rk", include_str!("testcases/trait/default_method/main.rk"), include_str!("testcases/trait/default_method/main.rk.out"), include_str!("testcases/trait/default_method/main.rk.stdout"));
+}
+#[test]
 fn testcases_trait_late_resolution_main() {
     run("testcases/trait/late_resolution/main.rk", include_str!("testcases/trait/late_resolution/main.rk"), include_str!("testcases/trait/late_resolution/main.rk.out"), include_str!("testcases/trait/late_resolution/main.rk.stdout"));
+}
+#[test]
+fn testcases_trait_default_method_override_main() {
+    run("testcases/trait/default_method_override/main.rk", include_str!("testcases/trait/default_method_override/main.rk"), include_str!("testcases/trait/default_method_override/main.rk.out"), include_str!("testcases/trait/default_method_override/main.rk.stdout"));
 }

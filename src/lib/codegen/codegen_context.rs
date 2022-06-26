@@ -149,7 +149,7 @@ impl<'a> CodegenContext<'a> {
             Type::Struct(s) => self
                 .context
                 .struct_type(
-                    s.defs
+                    s.ordered_defs()
                         .iter()
                         .map(|(_k, b)| self.lower_type(&(*b), builder).unwrap())
                         .collect::<Vec<_>>()
@@ -607,9 +607,8 @@ impl<'a> CodegenContext<'a> {
         let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
         let llvm_struct_t = llvm_struct_t_ptr.get_element_type().into_struct_type();
 
-        // FIXME: types should be ordered already
         let defs = struct_t
-            .defs
+            .ordered_defs()
             .iter()
             .map(|(k, _b)| {
                 let def = s
@@ -733,7 +732,7 @@ impl<'a> CodegenContext<'a> {
         let struct_t = t.as_struct_type();
 
         let indice = struct_t
-            .defs
+            .ordered_defs()
             .iter()
             .enumerate()
             .find(|(_i, (k, _v))| **k == dot.value.name)

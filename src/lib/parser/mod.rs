@@ -9,7 +9,7 @@ use nom::{
     character::complete::{
         alphanumeric0, char, line_ending, none_of, one_of, satisfy, space0, space1,
     },
-    combinator::{eof, map, opt, peek, recognize, value},
+    combinator::{cond, eof, map, opt, peek, recognize, value},
     error::{make_error, ErrorKind, FromExternalError, ParseError, VerboseError},
     error_position,
     multi::{many0, many1, separated_list0, separated_list1},
@@ -35,6 +35,7 @@ pub type Parser<'a> = LocatedSpan<&'a str, ParserCtx>;
 
 type Res<T, U> = IResult<T, U, VerboseError<T>>;
 
+pub mod default_impl_populator;
 pub mod parsing_context;
 pub mod source_file;
 pub mod span;
@@ -124,6 +125,7 @@ pub struct ParserCtx {
     next_node_id: NodeId,
     structs: HashMap<String, Type>,
     pub config: Config,
+    allow_newline_dot: Vec<()>,
 }
 
 impl ParserCtx {
@@ -139,6 +141,7 @@ impl ParserCtx {
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
             config,
+            allow_newline_dot: vec![],
         }
     }
 
@@ -159,6 +162,7 @@ impl ParserCtx {
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
             config,
+            allow_newline_dot: vec![],
         }
     }
 
@@ -178,6 +182,7 @@ impl ParserCtx {
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(), // FIXME
             config,
+            allow_newline_dot: vec![],
         }
     }
 
@@ -193,6 +198,7 @@ impl ParserCtx {
             structs: HashMap::new(),
             diagnostics: Diagnostics::default(),
             config,
+            allow_newline_dot: vec![],
         }
     }
 
@@ -242,7 +248,7 @@ pub fn parse_root(input: Parser) -> Res<Parser, Root> {
 
 pub fn parse_mod(input: Parser) -> Res<Parser, Mod> {
     map(
-        many1(terminated(parse_top_level, many1(line_ending))),
+        terminated(many1(terminated(parse_top_level, many0(line_ending))), eof),
         Mod::new,
     )(input)
 }
@@ -277,7 +283,6 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     let file_path = new_ctx.current_file_path().to_str().unwrap().to_string();
 
     let mut file = SourceFile::from_file(file_path.clone()).unwrap(); // FIXME: ERRORS ARE swallowed HERE
-                                                                      //
 
     if config.std {
         if STDLIB_FILES.get(&file_path).is_none() {
@@ -289,11 +294,16 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
         .files
         .insert(new_ctx.current_file_path().clone(), file.clone());
 
-    let new_parser = Parser::new_extra(&file.content, new_ctx);
+    input
+        .extra
+        .files
+        .insert(new_ctx.current_file_path().clone(), file.clone());
+
+    let new_parser = Parser::new_extra(&file.content, new_ctx.clone());
 
     use nom::Finish;
 
-    let parsed_mod_opt = parse_mod(new_parser.clone()).finish();
+    let parsed_mod_opt = parse_mod(new_parser).map_err(|e| e.to_owned()).finish();
 
     let (input2, mod_) = match parsed_mod_opt {
         Ok((input2, mod_)) => (input2, mod_),
@@ -302,10 +312,13 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
                 .extra
                 .diagnostics
                 .append(Diagnostics::from(err.clone()));
-            input.extra.identities.extend(new_parser.extra.identities);
-            input.extra.files.extend(new_parser.extra.files);
 
-            return Err(nom::Err::Error(VerboseError::from_external_error(
+            input
+                .extra
+                .files
+                .extend(err.errors.get(0).unwrap().0.extra.files.clone());
+
+            return Err(nom::Err::Failure(VerboseError::from_external_error(
                 input,
                 ErrorKind::Fail,
                 err.to_owned(),
@@ -330,6 +343,25 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
     Ok((input, (mod_name, mod_)))
 }
 
+enum ProtoOrFn {
+    Proto(Prototype),
+    Fn(FunctionDecl),
+}
+
+fn partition_defs_or_fns(input: Vec<ProtoOrFn>) -> (Vec<Prototype>, Vec<FunctionDecl>) {
+    let mut protos = Vec::new();
+    let mut fns = Vec::new();
+
+    for item in input {
+        match item {
+            ProtoOrFn::Proto(proto) => protos.push(proto),
+            ProtoOrFn::Fn(fn_) => fns.push(fn_),
+        }
+    }
+
+    (protos, fns)
+}
+
 pub fn parse_trait(input: Parser) -> Res<Parser, Trait> {
     map(
         tuple((
@@ -339,10 +371,20 @@ pub fn parse_trait(input: Parser) -> Res<Parser, Trait> {
             many0(line_ending),
             indent(separated_list1(
                 many1(line_ending),
-                preceded(parse_block_indent, parse_prototype),
+                preceded(
+                    parse_block_indent,
+                    alt((
+                        map(parse_prototype, ProtoOrFn::Proto),
+                        map(alt((parse_self_fn, parse_fn)), ProtoOrFn::Fn),
+                    )),
+                ),
             )),
+            many0(line_ending),
         )),
-        |(_, name, types, _, defs)| Trait::new(name, types, defs),
+        |(_, name, types, _, defs_or_fns, _)| {
+            let (defs, fns) = partition_defs_or_fns(defs_or_fns);
+            Trait::new(name, types, defs, fns)
+        },
     )(input)
 }
 
@@ -352,8 +394,8 @@ pub fn parse_impl(input: Parser) -> Res<Parser, Impl> {
             terminated(tag("impl"), space1),
             parse_type,
             many0(delimited(space1, parse_type, space0)),
-            many0(line_ending),
-            indent(separated_list1(
+            line_ending,
+            indent(separated_list0(
                 many1(line_ending),
                 preceded(parse_block_indent, alt((parse_self_fn, parse_fn))),
             )),
@@ -448,17 +490,22 @@ pub fn parse_self_fn(input: Parser) -> Res<Parser, FunctionDecl> {
             parse_identity,
             parse_identity,
             tag("@"),
-            terminated(
-                tuple((
-                    parse_identifier_or_operator,
-                    terminated(space0, tag(":")),
-                    many0(preceded(space1, parse_identifier)),
+            tuple((
+                parse_identifier_or_operator,
+                terminated(space0, tag(":")),
+                many0(preceded(space1, parse_identifier)),
+                alt((
+                    delimited(space0, tuple((parse_identity, tag("->"))), space0),
+                    delimited(space0, tuple((parse_identity, tag("@->"))), space0),
                 )),
-                delimited(space0, tag("->"), space0),
-            ),
+            )),
             parse_body,
         )),
-        |(node_id, self_node_id, _, (name, _, arguments), body)| {
+        |(node_id, self_node_id, _, (name, _, arguments, (end_self_node_id, tag)), mut body)| {
+            if *tag.fragment() == "@->" {
+                body.with_return_self(end_self_node_id);
+            }
+
             FunctionDecl::new_self(node_id, self_node_id, name, body, arguments)
         },
     )(input)
@@ -883,16 +930,24 @@ pub fn parse_arguments(input: Parser) -> Res<Parser, Arguments> {
         map(
             tuple((
                 space0,
-                separated_list1(tuple((space0, tag(","), space0)), parse_argument),
-                space0,
+                terminated(
+                    separated_list1(tuple((space0, tag(","), space0)), parse_argument),
+                    space0,
+                ),
             )),
-            |(_, args, _)| args,
+            |(_, args)| args,
         ),
     ))(input)
 }
 
-pub fn parse_argument(input: Parser) -> Res<Parser, Argument> {
-    map(parse_unary, |arg| Argument::new(arg))(input)
+pub fn parse_argument(mut input: Parser) -> Res<Parser, Argument> {
+    input.extra.allow_newline_dot.push(());
+
+    let (mut input, arg) = parse_unary(input)?;
+
+    input.extra.allow_newline_dot.pop();
+
+    Ok((input, Argument::new(arg)))
 }
 
 pub fn parse_indice(input: Parser) -> Res<Parser, Box<Expression>> {
@@ -909,7 +964,10 @@ pub fn parse_indice(input: Parser) -> Res<Parser, Box<Expression>> {
 pub fn parse_dot(input: Parser) -> Res<Parser, Identifier> {
     map(
         tuple((
-            opt(tuple((line_ending, parse_block_indent_plus_one))),
+            cond(
+                input.extra.allow_newline_dot.is_empty(),
+                opt(tuple((line_ending, parse_block_indent_plus_one))),
+            ),
             terminated(tag("."), space0),
             terminated(parse_identifier, space0),
         )),
@@ -1032,25 +1090,44 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
         tuple((
             parse_identity,
             terminated(tag("\""), space0),
-            recognize(many0(escaped_transform(
-                none_of("\\\'\"\n\r"),
-                '\\',
-                alt((
-                    value("\\", tag("\\")),
-                    value("\'", tag("\'")),
-                    value("\"", tag("\"")),
-                    value("\n", tag("n")),
-                    value("\r", tag("r")),
-                )),
-            ))),
+            recognize(many0(parse_escaped_char)),
             tag("\""),
         )),
         |(node_id, _, s, _)| {
-            Literal::new_string(
-                String::from(unescape(&("\"".to_owned() + *s.fragment() + "\"")).unwrap()),
-                node_id,
-            )
+            // The unescape function does not accept `\\0` as escapable pattern, so we treat it
+            // beforehand
+            let s = s.replace("\\0", "\0");
+
+            Literal::new_string(unescape(&("\"".to_owned() + &s + "\"")).unwrap(), node_id)
         },
+    )(input)
+}
+
+pub fn parse_escaped_char(input: Parser) -> Res<Parser, char> {
+    map(
+        escaped_transform(
+            none_of("\\\'\"\n\r\0"),
+            '\\',
+            alt((
+                value("\\", tag("\\")),
+                value("\'", tag("\'")),
+                value("\"", tag("\"")),
+                value("\n", tag("n")),
+                value("\r", tag("r")),
+                value("\0", tag("0")),
+            )),
+        ),
+        |s| s.chars().next().unwrap(),
+    )(input)
+}
+
+pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
+    map(
+        tuple((
+            parse_identity,
+            delimited(tag("'"), parse_escaped_char, tag("'")),
+        )),
+        |(node_id, c)| Literal::new_char(c, node_id),
     )(input)
 }
 
@@ -1120,23 +1197,6 @@ pub fn parse_number(input: Parser) -> Res<Parser, Literal> {
     Ok((input, Literal::new_number(num, node_id)))
 }
 
-pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
-    let esc = escaped_transform(
-        none_of("\\\'"),
-        '\\',
-        alt((
-            value("\\", tag("\\")),
-            value("\'", tag("\'")),
-            value("\n", tag("n")),
-        )),
-    );
-
-    let res = delimited(tag("'"), esc, tag("'"));
-
-    map(tuple((parse_identity, res)), |(node_id, s)| {
-        Literal::new_char(s.chars().nth(0).unwrap(), node_id)
-    })(input)
-}
 // Types
 
 pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {
@@ -1265,6 +1325,8 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
 
     let ast = match ast {
         Ok((ctx, mut ast)) => {
+            default_impl_populator::populate_default_impl(&mut ast);
+
             parsing_ctx.identities = ctx.extra.identities();
             parsing_ctx.files.extend(ctx.extra.files());
 

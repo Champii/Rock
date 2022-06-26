@@ -2,9 +2,9 @@ infix >> 2
 infix << 2
 infix |> 1
 
->>: x y -> y
-<<: x y -> x
-|>: k l -> l k
+>>: x, y -> y
+<<: x, y -> x
+|>: k, l -> l k
 
 _shutup_warnings: x ->
   1 >> 1
