@@ -289,13 +289,16 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
         .files
         .insert(new_ctx.current_file_path().clone(), file.clone());
 
-    let new_parser = Parser::new_extra(&file.content, new_ctx);
+    input
+        .extra
+        .files
+        .insert(new_ctx.current_file_path().clone(), file.clone());
+
+    let new_parser = Parser::new_extra(&file.content, new_ctx.clone());
 
     use nom::Finish;
 
-    let parsed_mod_opt = parse_mod(new_parser.clone())
-        .map_err(|e| e.to_owned())
-        .finish();
+    let parsed_mod_opt = parse_mod(new_parser).map_err(|e| e.to_owned()).finish();
 
     let (input2, mod_) = match parsed_mod_opt {
         Ok((input2, mod_)) => (input2, mod_),
@@ -305,8 +308,10 @@ pub fn parse_mod_decl(input: Parser) -> Res<Parser, (Identifier, Mod)> {
                 .diagnostics
                 .append(Diagnostics::from(err.clone()));
 
-            input.extra.identities.extend(new_parser.extra.identities);
-            input.extra.files.extend(new_parser.extra.files);
+            input
+                .extra
+                .files
+                .extend(err.errors.get(0).unwrap().0.extra.files.clone());
 
             return Err(nom::Err::Failure(VerboseError::from_external_error(
                 input,
