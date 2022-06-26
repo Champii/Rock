@@ -8,10 +8,11 @@
 
 Native language made with Rust and LLVM.
 
-Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and to achieve high native performances thanks to LLVM.  
+Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and to achieve high native performances thanks to LLVM.
 Rock is highly inspired from [Livescript](https://livescript.net/), [Haskell](https://www.haskell.org/) and [Rust](https://www.rust-lang.org/).
 
-No to be taken seriously (yet). Rock is still in its early conception phase, and everything can change and/or break at any time.  
+No to be taken seriously (yet).  
+Rock is still in its early conception phase, and everything can change and/or break at any time.  
 Feel free to discuss any new feature or change you may like in an issue! We welcome and value every contribution.
 
 ## Index
