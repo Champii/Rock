@@ -14,6 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - run: cd ./doc
+
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
@@ -27,4 +29,4 @@ jobs:
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./doc
+          publish_dir: ./book
