@@ -1,6 +1,5 @@
 # Rock v0.4.3
 
-
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 [![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
 
@@ -17,7 +16,7 @@ Feel free to discuss any new feature or change you may like in an issue! We welc
 
 ## Index
 
-- [Rock v0.4.3](#rock-v0.4.3)
+- [Rock v0.4.3](#rock-v043)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -29,11 +28,11 @@ Feel free to discuss any new feature or change you may like in an issue! We welc
   - [Showcases](#showcases)
     - [Polymorphic function](#polymorphic-function)
     - [Custom infix operator](#custom-infix-operator)
-    - [Trait Definition](#trait-definition)
+    - [Trait definition](#trait-definition)
     - [Trait default method](#trait-default-method)
-    - [Struct instance and methods]( #struct-instance-and-methods )
-    - [Show and Print implementation]( #show-and-print-implementation )
-    - [Modules and Code Separation](#modules-and-code-separation)
+    - [Struct instance and methods](#struct-instance-and-methods)
+    - [Show and Print implementation](#show-and-print-implementation)
+    - [Modules and code separation](#modules-and-code-separation)
   - [Development notes](#development-notes)
 
 ---
