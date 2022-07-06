@@ -1357,7 +1357,5 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
 
     parsing_ctx.return_if_error()?;
 
-    println!("ast {:#?}", ast);
-
     Ok(ast)
 }

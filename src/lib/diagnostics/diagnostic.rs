@@ -1,3 +1,4 @@
+use ariadne::{Color, Label, Report, ReportKind, Source};
 use std::fmt::Display;
 
 use crate::parser::Parser;
@@ -7,7 +8,6 @@ use crate::{
     parser::SourceFile,
     ty::{FuncType, Type},
 };
-use colored::*;
 use nom::error::{VerboseError, VerboseErrorKind};
 
 #[derive(Clone, Debug)]
@@ -100,104 +100,26 @@ impl Diagnostic {
         let input: Vec<char> = file.content.chars().collect();
 
         let line = input[..self.span.start].split(|c| *c == '\n').count();
+        let filename = file.file_path.to_str().unwrap();
 
-        let lines: Vec<_> = input.split(|c| *c == '\n').collect();
-
-        let count: usize = lines.clone()[..line - 1].iter().map(|v| v.len()).sum();
-
-        let count = count + line;
-
-        let line_start = if count > self.span.start {
-            0
-        } else {
-            self.span.start - count
+        let (error_ty, color) = match diag_type {
+            DiagnosticType::Error => (ReportKind::Error, Color::Red),
+            DiagnosticType::Warning => (ReportKind::Warning, Color::Yellow),
         };
 
-        let line_ind = format!(
-            " -> {}({}:{})",
-            file.file_path.to_str().unwrap(),
-            line,
-            line_start
-        );
-
-        let mut arrow = String::new();
-
-        let mut i = 0;
-
-        while line_start > 0 && i <= line_start {
-            arrow.push(' ');
-
-            i += 1;
-        }
-
-        arrow.push('^');
-
-        // FIXME: some span don't have txt
-        if self.span.end - self.span.start > 0 {
-            let mut i = 0;
-
-            while i < self.span.end - self.span.start - 1 {
-                arrow.push('~');
-
-                i += 1;
-            }
-        }
-
-        let diag_type_str = match diag_type {
-            DiagnosticType::Error => "Error".red(),
-            DiagnosticType::Warning => "Warning".yellow(),
-        };
-
-        let color = |x: String| match diag_type {
-            DiagnosticType::Error => x.red(),
-            DiagnosticType::Warning => x.yellow(),
-        };
-
-        let color_bright = |x: String| match diag_type {
-            DiagnosticType::Error => x.bright_red(),
-            DiagnosticType::Warning => x.bright_yellow(),
-        };
-
-        let diag_type_str = format!(
-            "{}{}{} {}{}",
-            "[".bright_black(),
-            diag_type_str,
-            "]".bright_black(),
-            color(self.kind.to_string()).bold(),
-            ":".bright_black(),
-        );
-
-        let line_span_start = line_start;
-        let mut line_span_stop = line_start + (self.span.end - self.span.start);
-
-        let line_colored = lines[line - 1].iter().cloned().collect::<String>();
-        if line_span_stop > line_colored.len() {
-            line_span_stop = line_colored.len() - 1;
-        }
-
-        let first_part = &line_colored[..line_span_start];
-        let colored_part = color(line_colored[line_span_start..=line_span_stop].to_string());
-        let last_part = if line_span_stop + 1 >= line_colored.len() {
-            String::new()
-        } else {
-            line_colored[line_span_stop + 1..].to_owned()
-        };
-
-        let line_colored = format!("{}{}{}", first_part, colored_part, last_part,);
-
-        println!(
-            "{}\n{}\n{:>4} {}\n{:>4} {} {}\n{:>4} {} {}",
-            diag_type_str,
-            line_ind.bright_black(),
-            "",
-            "|".bright_black(),
-            color_bright(line.to_string()),
-            "|".bright_black(),
-            line_colored,
-            "",
-            "|".bright_black(),
-            color_bright(arrow),
-        );
+        Report::build(error_ty, filename, line)
+            .with_message(format!("{}", self.kind))
+            .with_label(
+                Label::new((
+                    self.span.file_path.to_str().unwrap(),
+                    self.span.start..self.span.end,
+                ))
+                .with_message(format!("{}", self.kind))
+                .with_color(color),
+            )
+            .finish()
+            .print((filename, Source::from(file.content.clone())))
+            .unwrap();
     }
 
     pub fn get_kind(&self) -> DiagnosticKind {

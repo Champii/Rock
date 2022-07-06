@@ -10,7 +10,6 @@ lazy_static = "1.2.0"
 regex = "1.5.6"
 env_logger = "0.5.12"
 log = "0.4"
-bitflags = "1.2.1"
 inkwell =  { version = "0.1.0-beta.4", features = ["llvm13-0"] }
 either = "1.5"
 serde = "*"
@@ -23,6 +22,7 @@ nom = "7.1.1"
 nom_locate = "4.0.0"
 itertools = "0.10.3"
 snailquote = "0.3.1"
+ariadne = "0.1.5"
 
 [build-dependencies]
 walkdir = "2"
