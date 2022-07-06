@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     diagnostics::{Diagnostic, Diagnostics},
     hir::*,
-    parser::span2::Span,
+    parser::span::Span,
     ty::*,
 };
 

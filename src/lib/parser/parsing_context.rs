@@ -8,7 +8,7 @@ use colored::*;
 use crate::{
     ast::{Identifier, NodeId},
     diagnostics::{Diagnostic, DiagnosticType, Diagnostics},
-    parser::span2::Span,
+    parser::span::Span,
     Config,
 };
 
@@ -127,11 +127,11 @@ impl ParsingCtx {
         Ok(())
     }
 
-    pub fn new_span(&self, start: usize, _end: usize) -> Span {
+    pub fn new_span(&self, start: usize, end: usize) -> Span {
         Span {
             file_path: self.get_current_file().file_path,
-            offset: start,
-            ..Default::default()
+            start,
+            end,
         }
     }
 
@@ -143,7 +143,8 @@ impl ParsingCtx {
             Diagnostic::new_module_not_found(
                 Span {
                     file_path: current_file.file_path.clone(),
-                    ..Default::default()
+                    start: 0,
+                    end: 0,
                 }
                 .into(),
                 m,
