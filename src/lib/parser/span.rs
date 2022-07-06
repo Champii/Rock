@@ -25,16 +25,6 @@ impl Span {
         }
     }
 }
-/*
-impl From<Span2> for Span {
-    fn from(span: Span2) -> Self {
-        Self {
-            start: span.offset,
-            end: span.txt.len() + span.offset,
-            file_path: span.file_path,
-        }
-    }
-} */
 
 impl<'a> From<Parser<'a>> for Span {
     fn from(source: Parser<'a>) -> Self {

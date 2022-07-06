@@ -5,7 +5,7 @@ use crate::{
     diagnostics::Diagnostic,
     helpers::scopes::*,
     infer::trait_solver::TraitSolver,
-    parser::span::Span as Span2,
+    parser::span::Span,
     parser::ParsingCtx,
     resolver::ResolutionMap,
 };
@@ -87,7 +87,7 @@ impl<'a> ResolveCtx<'a> {
         }
     }
 
-    pub fn get_span2(&self, node_id: NodeId) -> Span2 {
+    pub fn get_span2(&self, node_id: NodeId) -> Span {
         self.parsing_ctx.identities.get(&node_id).unwrap().clone()
     }
 }
