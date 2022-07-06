@@ -2,7 +2,7 @@
 name = "rock"
 version = "0.4.3"
 authors = ["champii <contact@champii>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 clap = "2.32.0"

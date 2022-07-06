@@ -97,9 +97,6 @@ impl Diagnostic {
     }
 
     pub fn print(&self, file: &SourceFile, diag_type: &DiagnosticType) {
-        let input: Vec<char> = file.content.chars().collect();
-
-        let line = input[..self.span.start].split(|c| *c == '\n').count();
         let filename = file.file_path.to_str().unwrap();
 
         let (error_ty, color) = match diag_type {
@@ -107,7 +104,7 @@ impl Diagnostic {
             DiagnosticType::Warning => (ReportKind::Warning, Color::Yellow),
         };
 
-        Report::build(error_ty, filename, line)
+        Report::build(error_ty, filename, self.span.start)
             .with_message(format!("{}", self.kind))
             .with_label(
                 Label::new((
