@@ -39,12 +39,12 @@ pub mod default_impl_populator;
 pub mod parsing_context;
 pub mod source_file;
 pub mod span;
-pub mod span2;
+// pub mod span2;
 
 pub use parsing_context::ParsingCtx;
 pub use source_file::SourceFile;
-pub use span::Span as OldSpan;
-pub use span2::Span;
+pub use span::Span;
+// pub use span2::Span;
 
 #[cfg(test)]
 mod tests;
@@ -1358,6 +1358,8 @@ pub fn parse(parsing_ctx: &mut ParsingCtx) -> Result<tree::Root, Diagnostic> {
     }?;
 
     parsing_ctx.return_if_error()?;
+
+    println!("ast {:#?}", ast);
 
     Ok(ast)
 }

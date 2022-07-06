@@ -114,7 +114,7 @@ impl<'a> ConstraintContext<'a> {
                                         self.envs
                                             .spans
                                             .get(&call_hir_id.clone())
-                                            .unwrap_or(&Span::default())
+                                            .unwrap()
                                             .clone()
                                             .into(),
                                         call_hir_id.clone(),
@@ -187,7 +187,7 @@ impl<'a> ConstraintContext<'a> {
                     self.envs
                         .spans
                         .get(&fc.op.get_hir_id())
-                        .unwrap_or(&Span::default())
+                        .unwrap()
                         .clone()
                         .into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),

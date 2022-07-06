@@ -4,7 +4,7 @@ use crate::{
     ast::NodeId,
     helpers::*,
     infer::trait_solver::TraitSolver,
-    parser::span2::Span,
+    parser::span::Span,
     resolver::ResolutionMap,
     ty::{FuncType, Type},
 };

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::parser::Parser;
-use crate::{diagnostics::DiagnosticType, parser::span::Span, parser::span2::Span as Span2};
+use crate::{diagnostics::DiagnosticType, parser::span::Span};
 use crate::{
     hir::HirId,
     parser::SourceFile,
@@ -287,8 +287,7 @@ impl Display for DiagnosticKind {
 
 impl<'a> From<Parser<'a>> for Diagnostic {
     fn from(err: Parser<'a>) -> Self {
-        let span2 = Span2::from(err);
-        let span = Span::from(span2);
+        let span = Span::from(err);
 
         let msg = "Syntax error".to_string();
 
@@ -300,8 +299,7 @@ impl<'a> From<VerboseError<Parser<'a>>> for Diagnostic {
     fn from(err: VerboseError<Parser<'a>>) -> Self {
         let (input, _kind) = err.errors.iter().next().unwrap().clone();
 
-        let span2 = Span2::from(input);
-        let span = Span::from(span2);
+        let span = Span::from(input);
 
         let msg = err.to_string();
 
@@ -311,11 +309,10 @@ impl<'a> From<VerboseError<Parser<'a>>> for Diagnostic {
 
 impl<I> From<(I, VerboseErrorKind)> for Diagnostic
 where
-    Span2: From<I>,
+    Span: From<I>,
 {
     fn from((input, _kind): (I, VerboseErrorKind)) -> Self {
-        let span2 = Span2::from(input);
-        let span = Span::from(span2);
+        let span = Span::from(input);
 
         let msg = "Syntax error".to_string();
 

@@ -5,7 +5,7 @@ use crate::{
     diagnostics::Diagnostic,
     helpers::scopes::*,
     infer::trait_solver::TraitSolver,
-    parser::span2::Span as Span2,
+    parser::span::Span as Span2,
     parser::ParsingCtx,
     resolver::ResolutionMap,
 };

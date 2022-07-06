@@ -5,7 +5,7 @@ use crate::{
     ast_lowering::HirMap,
     hir::hir_id::*,
     infer::{trait_solver::TraitSolver, Envs},
-    parser::span2::Span,
+    parser::span::Span,
     resolver::ResolutionMap,
     ty::{FuncType, StructType, Type},
 };
