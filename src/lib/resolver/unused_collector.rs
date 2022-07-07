@@ -25,7 +25,8 @@ impl UnusedCollector {
         (
             self.fn_list
                 .into_iter()
-                .filter_map(|(id, used)| if !used { Some(id) } else { None })
+                .filter_map(|(id, used)| if !used { Some(id + 1) } else { None }) // +1 to get the
+                // fn identifier's node_id, as it always follows the fn node_id
                 .collect(),
             self.method_list
                 .into_iter()

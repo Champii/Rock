@@ -1046,22 +1046,21 @@ pub fn parse_identifier(input: Parser) -> Res<Parser, Identifier> {
 }
 
 pub fn parse_operator(input: Parser) -> Res<Parser, Operator> {
-    let (input, parsed_op) = recognize(many1(one_of(LocatedSpan::new(
-        // We parse any accepted operators chars here, and then check if it is a valid operator later
-        crate::parser::accepted_operator_chars()
-            .iter()
-            .cloned()
-            .collect::<String>()
-            .as_str(),
-    ))))(input)?;
+    let (input, (node_id, parsed_op)) = tuple((
+        parse_identity,
+        recognize(many1(one_of(LocatedSpan::new(
+            // We parse any accepted operators chars here, and then check if it is a valid operator later
+            crate::parser::accepted_operator_chars()
+                .iter()
+                .cloned()
+                .collect::<String>()
+                .as_str(),
+        )))),
+    ))(input)?;
 
     if parsed_op.to_string() == "=" {
         return Err(Err::Error(error_position!(input, ErrorKind::Eof)));
     }
-
-    let (input, pos) = position(input)?;
-
-    let (input, node_id) = new_identity(input, &pos);
 
     Ok((
         input,

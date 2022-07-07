@@ -145,6 +145,11 @@ impl DiagnosticKind {
         };
         let builder = Report::build(error_ty, filename, span.start);
 
+        let mut span = span.clone();
+        if span.start == span.end {
+            span.end += 1;
+        }
+
         match self {
             DiagnosticKind::FileNotFound(path) => builder
                 .with_message(format!("File not found: {}", path))
