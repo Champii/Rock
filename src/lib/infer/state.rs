@@ -84,10 +84,10 @@ impl Envs {
                 if previous.is_solved() && src.is_solved() {
                     self.diagnostics.push_error(Diagnostic::new_type_conflict(
                         self.spans.get(dest).unwrap().clone().into(),
+                        src.clone(),
                         previous.clone(),
                         src.clone(),
                         previous,
-                        src.clone(),
                     ));
                 }
             }

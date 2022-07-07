@@ -866,6 +866,13 @@ impl Literal {
             _ => panic!("Not a Number"),
         }
     }
+
+    pub fn as_str(&self) -> &str {
+        match self.kind {
+            LiteralKind::String(ref s) => s,
+            _ => panic!("Not a String"),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

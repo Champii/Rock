@@ -1046,6 +1046,10 @@ pub fn parse_identifier(input: Parser) -> Res<Parser, Identifier> {
 }
 
 pub fn parse_operator(input: Parser) -> Res<Parser, Operator> {
+    /* let (input, pos) = position(input)?;
+
+    let (input, node_id) = new_identity(input, &pos); */
+
     let (input, (node_id, parsed_op)) = tuple((
         parse_identity,
         recognize(many1(one_of(LocatedSpan::new(
@@ -1083,7 +1087,7 @@ pub fn parse_literal(input: Parser) -> Res<Parser, Literal> {
 }
 
 pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
-    map(
+    let (mut input, string) = map(
         tuple((
             parse_identity,
             terminated(tag("\""), space0),
@@ -1097,7 +1101,14 @@ pub fn parse_string(input: Parser) -> Res<Parser, Literal> {
 
             Literal::new_string(unescape(&("\"".to_owned() + &s + "\"")).unwrap(), node_id)
         },
-    )(input)
+    )(input)?;
+
+    // Fix the span to have the correct length
+    let span = input.extra.identities.get_mut(&string.node_id).unwrap();
+
+    span.end = span.start + string.as_str().len() + 2;
+
+    Ok((input, string))
 }
 
 pub fn parse_escaped_char(input: Parser) -> Res<Parser, char> {
@@ -1119,13 +1130,20 @@ pub fn parse_escaped_char(input: Parser) -> Res<Parser, char> {
 }
 
 pub fn parse_char(input: Parser) -> Res<Parser, Literal> {
-    map(
+    let (mut input, c) = map(
         tuple((
             parse_identity,
             delimited(tag("'"), parse_escaped_char, tag("'")),
         )),
         |(node_id, c)| Literal::new_char(c, node_id),
-    )(input)
+    )(input)?;
+
+    // Fix the span to have the correct length
+    let span = input.extra.identities.get_mut(&c.node_id).unwrap();
+
+    span.end = span.start + 3;
+
+    Ok((input, c))
 }
 
 pub fn parse_array(input: Parser) -> Res<Parser, Literal> {

@@ -92,8 +92,8 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::IsNotAPropertyOf(t, span2))
     }
 
-    pub fn new_type_conflict(span: Span, t1: Type, t2: Type, in1: Type, in2: Type) -> Self {
-        Self::new(span, DiagnosticKind::TypeConflict(t1, t2, in1, in2))
+    pub fn new_type_conflict(span: Span, expected: Type, got: Type, in1: Type, in2: Type) -> Self {
+        Self::new(span, DiagnosticKind::TypeConflict(expected, got, in1, in2))
     }
 
     pub fn print(&self, file: &SourceFile, diag_type: &DiagnosticType) {
@@ -121,7 +121,7 @@ pub enum DiagnosticKind {
     },
     UnusedFunction,
     DuplicatedOperator,
-    TypeConflict(Type, Type, Type, Type),
+    TypeConflict(Type, Type, Type, Type), // expected -> got
     UnresolvedType(Type),
     CodegenError(HirId, String),
     IsNotAPropertyOf(Type, Span),
@@ -243,7 +243,7 @@ impl DiagnosticKind {
                 .with_label(
                     Label::new((span2.file_path.to_str().unwrap(), span2.start..span2.end))
                         .with_message(format!("This is of type {}", t.get_name()))
-                        .with_color(color),
+                        .with_color(Color::Blue),
                 )
                 .with_label(
                     Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
@@ -252,7 +252,7 @@ impl DiagnosticKind {
                 ),
             DiagnosticKind::TypeConflict(_t1, _t2, _in1, _in2) => {
                 // add spans here
-                builder.with_message(format!("{}", self)).with_label(
+                builder.with_message("Type conflict").with_label(
                     Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
                         .with_message(format!("{}", self))
                         .with_color(color),
@@ -306,10 +306,10 @@ impl Display for DiagnosticKind {
             Self::UnknownIdentifier => "UnknownIdentifier".to_string(),
             Self::ModuleNotFound(path) => format!("Module not found: {}", path),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
-            Self::TypeConflict(t1, t2, _in1, _in2) => {
+            Self::TypeConflict(expected, got, _in1, _in2) => {
                 format!(
-                    "Type conflict:\n{:<8}Expected {:?}\n{:<8}But got  {:?}",
-                    "", t1, "", t2
+                    "Type conflict:\n{:<19}Expected {:?}\n{:<19}But got  {:?}",
+                    "", expected, "", got
                 )
             }
             Self::UnresolvedType(t) => {

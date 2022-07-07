@@ -189,10 +189,10 @@ impl<'a> ConstraintContext<'a> {
                         .unwrap()
                         .clone()
                         .into(),
-                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                     f.signature.clone().into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                     f.signature.clone().into(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                 ));
 
             return;
@@ -246,10 +246,10 @@ impl<'a> ConstraintContext<'a> {
                         .unwrap()
                         .clone()
                         .into(),
-                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                     sig.clone().into(),
                     fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                     sig.clone().into(),
+                    fc.to_func_type(self.envs.get_current_env().unwrap()).into(),
                 ));
 
             return;
