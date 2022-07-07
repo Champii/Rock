@@ -147,14 +147,16 @@ impl Type {
 
 impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use colored::Colorize;
+
         let s = match self {
-            Self::Primitive(p) => format!("{:?}", p),
+            // Self::Primitive(p) => format!("{:?}", p),
             Self::Func(f) => format!("{:?}", f),
             Self::Struct(s) => format!("{:?}", s),
             Self::Trait(t) => format!("Trait {:?}", t),
-            Self::ForAll(t) => format!("forall. {:?}", t),
+            Self::ForAll(t) => format!("forall. {:?}", t).yellow().to_string(),
             Self::Undefined(t) => format!("UNDEFINED {:?}", t),
-            // _ => self.get_name().cyan().to_string(),
+            _ => self.get_name().cyan().to_string(),
         };
 
         write!(f, "{}", s)

@@ -208,19 +208,26 @@ impl DiagnosticKind {
                 let msg = format!("Unresolved trait call: {:?}", given_sig,);
 
                 let note = &format!(
-                    "Existing implementations: {}",
+                    "Existing implementations ({}): {}{}",
+                    existing_impls.len(),
                     existing_impls
                         .iter()
+                        .take(3)
                         .map(|t| format!("\n            - {:?}", t))
                         .collect::<Vec<String>>()
-                        .join(", ")
+                        .join(", "),
+                    if existing_impls.len() > 3 {
+                        "\n            - ..."
+                    } else {
+                        ""
+                    },
                 );
                 builder
                     .with_message(msg.clone())
                     .with_note(note)
                     .with_label(
                         Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
-                            .with_message(format!("{}", msg))
+                            .with_message("Unresolved trait call")
                             .with_color(color),
                     )
             }
@@ -242,7 +249,7 @@ impl DiagnosticKind {
                 .with_message(format!("{}", self,))
                 .with_label(
                     Label::new((span2.file_path.to_str().unwrap(), span2.start..span2.end))
-                        .with_message(format!("This is of type {}", t.get_name()))
+                        .with_message(format!("This is of type {:?}", t))
                         .with_color(Color::Blue),
                 )
                 .with_label(
@@ -323,17 +330,23 @@ impl Display for DiagnosticKind {
             }
             Self::UnresolvedTraitCall {
                 call_hir_id: _,
-                given_sig,
+                given_sig: _,
                 existing_impls,
             } => {
                 format!(
-                    "Unresolved trait call {:?}\n{}",
-                    given_sig,
+                    "Existing implementations ({}): {}{}",
+                    existing_impls.len(),
                     existing_impls
                         .iter()
-                        .map(|sig| format!("        Found impl: {:?}", sig))
-                        .collect::<Vec<_>>()
-                        .join("\n")
+                        .take(3)
+                        .map(|t| format!("\n            - {:?}", t))
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    if existing_impls.len() > 3 {
+                        "\n            - ..."
+                    } else {
+                        ""
+                    },
                 )
             }
             Self::FileNotFound(path) => format!("FileNotFound {}", path),

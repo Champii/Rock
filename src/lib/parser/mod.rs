@@ -1046,11 +1046,7 @@ pub fn parse_identifier(input: Parser) -> Res<Parser, Identifier> {
 }
 
 pub fn parse_operator(input: Parser) -> Res<Parser, Operator> {
-    /* let (input, pos) = position(input)?;
-
-    let (input, node_id) = new_identity(input, &pos); */
-
-    let (input, (node_id, parsed_op)) = tuple((
+    let (mut input, (node_id, parsed_op)) = tuple((
         parse_identity,
         recognize(many1(one_of(LocatedSpan::new(
             // We parse any accepted operators chars here, and then check if it is a valid operator later
@@ -1065,6 +1061,11 @@ pub fn parse_operator(input: Parser) -> Res<Parser, Operator> {
     if parsed_op.to_string() == "=" {
         return Err(Err::Error(error_position!(input, ErrorKind::Eof)));
     }
+
+    // Fix the span length
+    let span = input.extra.identities.get_mut(&node_id).unwrap();
+
+    span.end = span.start + parsed_op.len();
 
     Ok((
         input,
