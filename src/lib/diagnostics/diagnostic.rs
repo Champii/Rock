@@ -307,9 +307,12 @@ impl Display for DiagnosticKind {
             Self::ModuleNotFound(path) => format!("Module not found: {}", path),
             Self::DuplicatedOperator => "DuplicatedOperator".to_string(),
             Self::TypeConflict(expected, got, _in1, _in2) => {
+                use colored::*;
                 format!(
-                    "Type conflict:\n{:<19}Expected {:?}\n{:<19}But got  {:?}",
-                    "", expected, "", got
+                    "Expected {}\n{:<18}But got  {}",
+                    format!("{}", expected).blue(),
+                    "",
+                    format!("{}", got).red(),
                 )
             }
             Self::UnresolvedType(t) => {
