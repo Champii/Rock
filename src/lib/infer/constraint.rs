@@ -355,6 +355,13 @@ impl<'a> ConstraintContext<'a> {
             // the rest of the run and actually show the diagnostic
             self.envs.set_type(&d.get_hir_id(), t);
 
+            let op_span = self
+                .hir
+                .get_hir_spans()
+                .get(&d.op.get_op_terminal_hir_id())
+                .unwrap()
+                .clone();
+
             self.envs
                 .diagnostics
                 .push_error(Diagnostic::new_is_not_a_property_of(
@@ -364,6 +371,7 @@ impl<'a> ConstraintContext<'a> {
                         .unwrap()
                         .clone()
                         .into(),
+                    op_span,
                     t.clone(),
                 ));
 
@@ -392,6 +400,8 @@ impl<'a> ConstraintContext<'a> {
             // the rest of the run and actually show the diagnostic
             self.envs.set_type(&d.get_hir_id(), t);
 
+            let op_span = self.envs.spans.get(&d.op.get_hir_id()).unwrap().clone();
+
             self.envs
                 .diagnostics
                 .push_error(Diagnostic::new_is_not_a_property_of(
@@ -401,6 +411,7 @@ impl<'a> ConstraintContext<'a> {
                         .unwrap()
                         .clone()
                         .into(),
+                    op_span,
                     t.clone(),
                 ));
 

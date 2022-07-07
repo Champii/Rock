@@ -509,6 +509,19 @@ impl Expression {
         }
     }
 
+    pub fn get_op_terminal_hir_id(&self) -> HirId {
+        match &*self.kind {
+            ExpressionKind::Lit(l) => l.get_hir_id(),
+            ExpressionKind::Identifier(i) => i.get_hir_id(),
+            ExpressionKind::FunctionCall(fc) => fc.get_hir_id(),
+            ExpressionKind::StructCtor(s) => s.get_hir_id(),
+            ExpressionKind::Indice(i) => i.get_hir_id(),
+            ExpressionKind::Dot(d) => d.get_op_terminal_hir_id(),
+            ExpressionKind::NativeOperation(op, _left, _right) => op.get_hir_id(),
+            ExpressionKind::Return(expr) => expr.get_hir_id(),
+        }
+    }
+
     pub fn as_identifier(&self) -> Identifier {
         if let ExpressionKind::Identifier(i) = &*self.kind {
             i.last_segment()
@@ -562,6 +575,15 @@ pub struct Dot {
     pub hir_id: HirId,
     pub op: Expression,
     pub value: Identifier,
+}
+
+impl Dot {
+    pub fn get_op_terminal_hir_id(&self) -> HirId {
+        match &*self.op.kind {
+            ExpressionKind::Dot(d) => d.get_op_terminal_hir_id(),
+            _ => self.value.get_hir_id(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

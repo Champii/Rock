@@ -88,8 +88,8 @@ impl Diagnostic {
         Self::new(Span::new_placeholder(), DiagnosticKind::NoMain)
     }
 
-    pub fn new_is_not_a_property_of(span: Span, t: Type) -> Self {
-        Self::new(span, DiagnosticKind::IsNotAPropertyOf(t))
+    pub fn new_is_not_a_property_of(span: Span, span2: Span, t: Type) -> Self {
+        Self::new(span, DiagnosticKind::IsNotAPropertyOf(t, span2))
     }
 
     pub fn new_type_conflict(span: Span, t1: Type, t2: Type, in1: Type, in2: Type) -> Self {
@@ -97,26 +97,7 @@ impl Diagnostic {
     }
 
     pub fn print(&self, file: &SourceFile, diag_type: &DiagnosticType) {
-        let filename = file.file_path.to_str().unwrap();
-
-        let (error_ty, color) = match diag_type {
-            DiagnosticType::Error => (ReportKind::Error, Color::Red),
-            DiagnosticType::Warning => (ReportKind::Warning, Color::Yellow),
-        };
-
-        Report::build(error_ty, filename, self.span.start)
-            .with_message(format!("{}", self.kind))
-            .with_label(
-                Label::new((
-                    self.span.file_path.to_str().unwrap(),
-                    self.span.start..self.span.end,
-                ))
-                .with_message(format!("{}", self.kind))
-                .with_color(color),
-            )
-            .finish()
-            .print((filename, Source::from(file.content.clone())))
-            .unwrap();
+        self.kind.report_builder(file, &self.span, diag_type);
     }
 
     pub fn get_kind(&self) -> DiagnosticKind {
@@ -143,10 +124,173 @@ pub enum DiagnosticKind {
     TypeConflict(Type, Type, Type, Type),
     UnresolvedType(Type),
     CodegenError(HirId, String),
-    IsNotAPropertyOf(Type),
+    IsNotAPropertyOf(Type, Span),
     OutOfBounds(u64, u64),
     NoMain,
     NoError, //TODO: remove that
+}
+
+impl DiagnosticKind {
+    pub fn report_builder<'a>(
+        &self,
+        file: &SourceFile,
+        span: &'a Span,
+        diag_type: &DiagnosticType,
+    ) {
+        let filename = file.file_path.to_str().unwrap();
+
+        let (error_ty, color) = match diag_type {
+            DiagnosticType::Error => (ReportKind::Error, Color::Red),
+            DiagnosticType::Warning => (ReportKind::Warning, Color::Yellow),
+        };
+        let builder = Report::build(error_ty, filename, span.start);
+
+        match self {
+            DiagnosticKind::FileNotFound(path) => builder
+                .with_message(format!("File not found: {}", path))
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::UnexpectedToken => builder
+                .with_message("Unexpected token".to_string())
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::SyntaxError(msg) => builder
+                .with_message(format!("Syntax error: {}", msg))
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::UnknownIdentifier => builder
+                .with_message("Unknown identifier".to_string())
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::ModuleNotFound(path) => builder
+                .with_message(format!("Module not found: {}", path))
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::UnusedFunction => builder
+                .with_message("Unused function".to_string())
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::UnusedParameter => builder
+                .with_message("Unused parameter".to_string())
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::UnresolvedTraitCall {
+                call_hir_id: _,
+                given_sig,
+                existing_impls,
+            } => {
+                let msg = format!("Unresolved trait call: {:?}", given_sig,);
+
+                let note = &format!(
+                    "Existing implementations: {}",
+                    existing_impls
+                        .iter()
+                        .map(|t| format!("\n            - {:?}", t))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                );
+                builder
+                    .with_message(msg.clone())
+                    .with_note(note)
+                    .with_label(
+                        Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                            .with_message(format!("{}", msg))
+                            .with_color(color),
+                    )
+            }
+            DiagnosticKind::UnresolvedType(t) => builder
+                .with_message(format!("Unresolved type: {}", t.to_string()))
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::CodegenError(_hir_id, msg) => builder
+                .with_message(format!("Codegen error: {}", msg))
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::IsNotAPropertyOf(t, span2) => builder
+                .with_message(format!("{}", self,))
+                .with_label(
+                    Label::new((span2.file_path.to_str().unwrap(), span2.start..span2.end))
+                        .with_message(format!("This is of type {}", t.get_name()))
+                        .with_color(color),
+                )
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::TypeConflict(_t1, _t2, _in1, _in2) => {
+                // add spans here
+                builder.with_message(format!("{}", self)).with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                )
+            }
+            DiagnosticKind::OutOfBounds(got, expected) => builder
+                .with_message(format!("Out of bounds: got {}, expected {}", got, expected))
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::NoMain => builder
+                .with_message("No main function".to_string())
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::NoError => builder.with_message("No error".to_string()).with_label(
+                Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                    .with_message(format!("{}", self))
+                    .with_color(color),
+            ),
+            DiagnosticKind::DuplicatedOperator => builder
+                .with_message("Duplicated operator".to_string())
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+            DiagnosticKind::NotAFunction => builder
+                .with_message("Not a function".to_string())
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
+        }
+        .finish()
+        .print((filename, Source::from(file.content.clone())))
+        .unwrap();
+    }
 }
 
 impl Display for DiagnosticKind {
@@ -195,7 +339,7 @@ impl Display for DiagnosticKind {
             DiagnosticKind::UnusedFunction => "UnusedFunction".to_string(),
             DiagnosticKind::NoMain => "NoMain".to_string(),
             DiagnosticKind::NoError => "NoError".to_string(),
-            DiagnosticKind::IsNotAPropertyOf(t) => {
+            DiagnosticKind::IsNotAPropertyOf(t, _span2) => {
                 format!("Not a property of {:?}", t)
             }
         };
