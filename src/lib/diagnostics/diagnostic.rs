@@ -202,11 +202,9 @@ impl DiagnosticKind {
                 ),
             DiagnosticKind::UnresolvedTraitCall {
                 call_hir_id: _,
-                given_sig,
+                given_sig: _,
                 existing_impls,
             } => {
-                let msg = format!("Unresolved trait call: {:?}", given_sig,);
-
                 let note = &format!(
                     "Existing implementations ({}): {}{}",
                     existing_impls.len(),
@@ -223,7 +221,7 @@ impl DiagnosticKind {
                     },
                 );
                 builder
-                    .with_message(msg.clone())
+                    .with_message(format!("{}", self))
                     .with_note(note)
                     .with_label(
                         Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
@@ -330,24 +328,10 @@ impl Display for DiagnosticKind {
             }
             Self::UnresolvedTraitCall {
                 call_hir_id: _,
-                given_sig: _,
-                existing_impls,
+                given_sig,
+                existing_impls: _,
             } => {
-                format!(
-                    "Existing implementations ({}): {}{}",
-                    existing_impls.len(),
-                    existing_impls
-                        .iter()
-                        .take(3)
-                        .map(|t| format!("\n            - {:?}", t))
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                    if existing_impls.len() > 3 {
-                        "\n            - ..."
-                    } else {
-                        ""
-                    },
-                )
+                format!("Unresolved trait call: {:?}", given_sig,)
             }
             Self::FileNotFound(path) => format!("FileNotFound {}", path),
             Self::CodegenError(hir_id, msg) => format!("CodegenError: {} {:?}", msg, hir_id),
