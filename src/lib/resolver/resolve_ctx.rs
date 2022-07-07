@@ -87,7 +87,7 @@ impl<'a> ResolveCtx<'a> {
         }
     }
 
-    pub fn get_span2(&self, node_id: NodeId) -> Span {
+    pub fn get_span(&self, node_id: NodeId) -> Span {
         self.parsing_ctx.identities.get(&node_id).unwrap().clone()
     }
 }
@@ -243,7 +243,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .parsing_ctx
                 .diagnostics
                 .push_error(Diagnostic::new_unknown_identifier(
-                    self.get_span2(s.name.node_id).into(),
+                    self.get_span(s.name.node_id).into(),
                 )),
         };
 
@@ -310,9 +310,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                             self.add_to_current_scope((*ident).name.clone(), pointed);
                         }
                         None => self.parsing_ctx.diagnostics.push_error(
-                            Diagnostic::new_unknown_identifier(
-                                self.get_span2(ident.node_id).into(),
-                            ),
+                            Diagnostic::new_unknown_identifier(self.get_span(ident.node_id).into()),
                         ),
                     };
                 }
@@ -322,7 +320,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .parsing_ctx
                 .diagnostics
                 .push_error(Diagnostic::new_module_not_found(
-                    self.get_span2(ident.node_id).into(),
+                    self.get_span(ident.node_id).into(),
                     mod_path
                         .path
                         .iter()
@@ -353,7 +351,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     self.parsing_ctx
                         .diagnostics
                         .push_error(Diagnostic::new_unknown_identifier(
-                            self.get_span2(ident.node_id).into(),
+                            self.get_span(ident.node_id).into(),
                         ))
                 }
             },
@@ -363,7 +361,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .parsing_ctx
                 .diagnostics
                 .push_error(Diagnostic::new_module_not_found(
-                    self.get_span2(ident.node_id).into(),
+                    self.get_span(ident.node_id).into(),
                     mod_path
                         .path
                         .iter()
@@ -381,7 +379,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 .parsing_ctx
                 .diagnostics
                 .push_error(Diagnostic::new_unknown_identifier(
-                    self.get_span2(id.node_id).into(),
+                    self.get_span(id.node_id).into(),
                 )),
         };
     }

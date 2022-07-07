@@ -5,7 +5,7 @@ use crate::{
     diagnostics::Diagnostic,
     helpers::scopes::Scopes,
     infer::trait_solver::TraitSolver,
-    parser::{span::Span as OldSpan, ParsingCtx},
+    parser::ParsingCtx,
 };
 
 mod resolution_map;
@@ -44,7 +44,7 @@ pub fn resolve(root: &mut Root, parsing_ctx: &mut ParsingCtx) -> Result<(), Diag
 
         parsing_ctx
             .diagnostics
-            .push_warning(Diagnostic::new_unused_function(OldSpan::from(span.clone())));
+            .push_warning(Diagnostic::new_unused_function(span.clone()));
     }
 
     unused_fns.extend(unused_methods);

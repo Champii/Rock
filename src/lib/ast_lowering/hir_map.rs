@@ -55,7 +55,7 @@ impl HirMap {
         self.map.get(hir_id).cloned()
     }
 
-    fn add_hir_mapping(&mut self, hir_id: HirId, node_id: NodeId) {
+    pub fn add_hir_mapping(&mut self, hir_id: HirId, node_id: NodeId) {
         self.map.insert(hir_id.clone(), node_id);
 
         self.rev_map.insert(node_id, hir_id);
