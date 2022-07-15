@@ -98,13 +98,6 @@ fn main() {
                 .help("Verbose level"),
         )
         .arg(
-            Arg::with_name("tokens")
-                .short("t")
-                .long("tokens")
-                .takes_value(false)
-                .help("Show tokens"),
-        )
-        .arg(
             Arg::with_name("ast")
                 .short("a")
                 .long("ast")
@@ -119,6 +112,13 @@ fn main() {
                 .help("Show hir"),
         )
         .arg(
+            Arg::with_name("thir")
+                .short("t")
+                .long("thir")
+                .takes_value(false)
+                .help("Show typed hir after monomorphization"),
+        )
+        .arg(
             Arg::with_name("no-optimize")
                 .short("N")
                 .long("no-optimize")
@@ -126,25 +126,11 @@ fn main() {
                 .help("Disable LLVM optimization passes"),
         )
         .arg(
-            Arg::with_name("repl")
-                .short("r")
-                .long("repl")
-                .takes_value(false)
-                .help("Run a REPL interpreter (ALPHA)"),
-        )
-        .arg(
             Arg::with_name("ir")
                 .short("i")
                 .long("ir")
                 .takes_value(false)
                 .help("Show the generated IR"),
-        )
-        .arg(
-            Arg::with_name("state")
-                .short("s")
-                .long("state")
-                .takes_value(false)
-                .help("Show the InferContext state before solve (DEPRECATED)"),
         )
         .arg(
             Arg::with_name("nostd")
@@ -175,12 +161,10 @@ fn main() {
 
     let config = rock::Config {
         verbose: matches.is_present("verbose"),
-        show_tokens: matches.is_present("tokens"),
         show_ast: matches.is_present("ast"),
         show_hir: matches.is_present("hir"),
+        show_thir: matches.is_present("thir"),
         show_ir: matches.is_present("ir"),
-        show_state: matches.is_present("state"),
-        repl: matches.is_present("repl"),
         no_optimize: matches.is_present("no-optimize"),
         build_folder: PathBuf::from(matches.value_of("output-folder").unwrap()),
         std: !matches.is_present("nostd"),
@@ -195,8 +179,8 @@ fn main() {
         run(config);
     } else if let Some(matches) = matches.subcommand_matches("new") {
         create_project_folder(matches.value_of("name").unwrap());
-    } else if config.repl {
-        run(config)
+    /* } else if config.repl {
+    run(config) */
     } else {
         println!("{}", matches.usage());
     }

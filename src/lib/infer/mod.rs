@@ -13,6 +13,10 @@ pub fn infer(
     parsing_ctx: &mut ParsingCtx,
     config: &Config,
 ) -> Result<crate::hir::Root, Diagnostic> {
+    if config.show_hir {
+        super::hir::hir_printer::print(root);
+    }
+
     let (tmp_resolutions, diags) = constraint::solve(root);
 
     parsing_ctx.diagnostics.append(diags);
@@ -23,7 +27,7 @@ pub fn infer(
 
     mangle::mangle(&mut new_root);
 
-    if config.show_hir {
+    if config.show_thir {
         super::hir::hir_printer::print(&new_root);
     }
 

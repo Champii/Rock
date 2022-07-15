@@ -24,14 +24,12 @@ pub struct ProjectConfig {
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub project_config: ProjectConfig,
-    pub show_tokens: bool,
     pub show_ast: bool,
     pub show_hir: bool,
+    pub show_thir: bool,
     pub show_ir: bool,
-    pub show_state: bool,
     pub verbose: bool,
     pub build_folder: PathBuf,
     pub no_optimize: bool,
-    pub repl: bool,
     pub std: bool,
 }

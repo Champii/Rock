@@ -1,5 +1,5 @@
 mod codegen_context;
-mod interpreter;
+// mod interpreter;
 
 use codegen_context::*;
 use inkwell::context::Context;
@@ -47,7 +47,8 @@ pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
     Ok(())
 }
 
-pub fn interpret(hir: Root, config: &Config) -> Result<(), Diagnostic> {
+// Deactivated for now
+/* pub fn interpret(hir: Root, config: &Config) -> Result<(), Diagnostic> {
     let context = Context::create();
     let builder = context.create_builder();
 
@@ -76,4 +77,4 @@ pub fn interpret(hir: Root, config: &Config) -> Result<(), Diagnostic> {
     // }
 
     Ok(())
-}
+} */
