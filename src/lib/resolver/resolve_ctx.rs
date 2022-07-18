@@ -24,6 +24,7 @@ impl<'a> ResolveCtx<'a> {
         self.visit_root(root);
     }
 
+    /// TODO: GitHub Issue #150
     pub fn add_to_current_scope(&mut self, name: String, node_id: NodeId) {
         if let Some(ref mut scopes) = self.scopes.get_mut(&self.cur_scope) {
             scopes.add(name, node_id);
