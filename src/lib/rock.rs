@@ -29,8 +29,6 @@ mod resolver;
 mod tests;
 mod ty;
 
-// Deactivated for now
-// use codegen::interpret;
 use diagnostics::Diagnostic;
 pub use helpers::config::Config;
 use parser::{ParsingCtx, SourceFile};
@@ -54,17 +52,11 @@ pub fn compile_str(input: &SourceFile, config: &Config) -> Result<(), Diagnostic
 
     let hir = parse_str(&mut parsing_ctx, config)?;
 
-    // Deactivated for now
-    //
-    // if config.repl {
-    // interpret(hir, config)
-    // } else {
     generate_ir(hir, config)?;
 
     parsing_ctx.print_success_diagnostics();
 
     Ok(())
-    // }
 }
 
 pub fn parse_str(parsing_ctx: &mut ParsingCtx, config: &Config) -> Result<hir::Root, Diagnostic> {

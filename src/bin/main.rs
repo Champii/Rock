@@ -179,8 +179,6 @@ fn main() {
         run(config);
     } else if let Some(matches) = matches.subcommand_matches("new") {
         create_project_folder(matches.value_of("name").unwrap());
-    /* } else if config.repl {
-    run(config) */
     } else {
         println!("{}", matches.usage());
     }

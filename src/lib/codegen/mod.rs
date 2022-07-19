@@ -1,5 +1,4 @@
 mod codegen_context;
-// mod interpreter;
 
 use codegen_context::*;
 use inkwell::context::Context;
@@ -46,35 +45,3 @@ pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
 
     Ok(())
 }
-
-// Deactivated for now
-/* pub fn interpret(hir: Root, config: &Config) -> Result<(), Diagnostic> {
-    let context = Context::create();
-    let builder = context.create_builder();
-
-    let mut codegen_ctx = CodegenContext::new(&context, &hir);
-
-    if codegen_ctx.lower_hir(&hir, &builder).is_err() {
-        // FIXME: have a movable `Diagnostics`
-        // codegen_ctx.parsing_ctx.return_if_error()?;
-    }
-
-    match codegen_ctx.module.verify() {
-        Ok(_) => (),
-        Err(e) => {
-            codegen_ctx.module.print_to_stderr();
-
-            println!("Error: Bug in the generated IR:\n\n{}", e.to_string());
-
-            return Err(Diagnostic::new_empty());
-        }
-    }
-
-    interpreter::interpret(&mut codegen_ctx, &builder, config);
-
-    // if config.show_ir {
-    //     codegen_ctx.module.print_to_stderr();
-    // }
-
-    Ok(())
-} */
