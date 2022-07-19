@@ -43,18 +43,25 @@ where
         None
     }
 
-    pub fn add(&mut self, s: K, val: T) {
-        self.scopes.last_mut().unwrap().insert(s, val);
+    /// Note: Does not check for existing key, replaces old value
+    pub fn add(&mut self, s: K, val: T) -> std::result::Result<(), &str> {
+        match self.scopes.last_mut().unwrap().insert(s, val) {
+            Some(prev) => { Err("Key '{prev}', already exists!") },
+            None => { Ok(()) },
+        }
     }
 
     pub fn extend(&mut self, other: &Scope<K, T>) {
         self.scopes.last_mut().unwrap().extend(other.clone())
     }
 
+    /// `push` should take a scope object
     pub fn push(&mut self) {
         self.scopes.push(Scope::new())
     }
 
+    /// `pop` should return the popped value 
+    /// in a `Option<V>` or a `Result<V, E>`
     pub fn pop(&mut self) {
         self.scopes.pop();
     }
@@ -68,23 +75,26 @@ mod tests {
     fn basic_scope() {
         let mut scopes = Scopes::default();
 
-        scopes.add("a", 1);
-        scopes.add("b", 2);
+        assert_eq!(scopes.add("a", 1), Ok(()) );
+        assert_eq!(scopes.add("b", 2), Ok(()) );
 
         assert_eq!(scopes.get("a").unwrap(), 1);
         assert_eq!(scopes.get("b").unwrap(), 2);
 
+        /// Push new scope
         scopes.push();
 
-        scopes.add("b", 4);
+        assert_eq!(scopes.add("b", 4), Ok(()) );
 
         assert_eq!(scopes.get("a").unwrap(), 1);
         assert_eq!(scopes.get("b").unwrap(), 4);
 
-        scopes.add("a", 3);
+        assert_eq!(scopes.add("a", 3), Ok(()) );
 
-        assert_eq!(scopes.get("a").unwrap(), 3);
-        assert_eq!(scopes.get("b").unwrap(), 4);
+        assert_eq!(scopes.get("a").unwrap(), 1);
+        assert_eq!(scopes.get("b").unwrap(), 2);
+
+        assert_eq!(scopes.add("a", 4), Err("Key 'a', already exists!"));
 
         scopes.pop();
 

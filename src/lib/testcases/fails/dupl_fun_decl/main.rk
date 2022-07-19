@@ -1,0 +1,4 @@
+foo: a, b = a + b
+foo: a = a + 2
+
+main: -> foo 2, 5

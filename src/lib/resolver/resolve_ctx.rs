@@ -25,9 +25,14 @@ impl<'a> ResolveCtx<'a> {
     }
 
     /// TODO: GitHub Issue #150
+    /// Could use #![feature(map_try_insert)]
+    /// <<: Ensures unique entry into the map.
     pub fn add_to_current_scope(&mut self, name: String, node_id: NodeId) {
         if let Some(ref mut scopes) = self.scopes.get_mut(&self.cur_scope) {
-            scopes.add(name, node_id);
+            match scopes.add(name, node_id) {
+                Ok(_) => { },
+                Err(_err) => { unimplemented!{} },
+            }
         }
     }
 
@@ -36,9 +41,13 @@ impl<'a> ResolveCtx<'a> {
         struct_scope_name.path.push(Identifier::new(struct_name, 0));
 
         if let Some(ref mut scopes) = self.scopes.get_mut(&struct_scope_name) {
-            scopes.add(name.clone(), node_id);
+            match scopes.add(name.clone(), node_id) {
+                Ok(_) => { },
+                Err(_err) => { unimplemented!{} }, 
+            }
         }
     }
+
 
     pub fn new_struct(&mut self, name: Identifier) {
         let mut struct_scope_name = self.cur_scope.clone();
