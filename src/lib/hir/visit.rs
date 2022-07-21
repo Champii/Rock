@@ -80,7 +80,7 @@ pub fn walk_root<'a, V: Visitor<'a>>(visitor: &mut V, root: &'a Root) {
 
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level.kind {
-        TopLevelKind::Prototype(p) => visitor.visit_prototype(p),
+        TopLevelKind::Extern(p) => visitor.visit_prototype(p),
         TopLevelKind::Function(f) => visitor.visit_function_decl(f),
     };
 }

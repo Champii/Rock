@@ -210,7 +210,7 @@ pub struct TopLevel {
 impl TopLevel {
     pub fn get_terminal_hir_id(&self) -> HirId {
         match &self.kind {
-            TopLevelKind::Prototype(p) => p.hir_id.clone(),
+            TopLevelKind::Extern(p) => p.hir_id.clone(),
             TopLevelKind::Function(f) => f.hir_id.clone(),
         }
     }
@@ -219,7 +219,7 @@ impl TopLevel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TopLevelKind {
     Function(FunctionDecl),
-    Prototype(Prototype),
+    Extern(Prototype),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

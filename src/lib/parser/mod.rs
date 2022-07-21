@@ -255,7 +255,7 @@ pub fn parse_top_level(input: Parser) -> Res<Parser, TopLevel> {
     alt((
         preceded(
             terminated(tag("extern"), space1),
-            map(parse_prototype, TopLevel::new_prototype),
+            map(parse_prototype, TopLevel::new_extern),
         ),
         parse_infix,
         map(parse_use, TopLevel::new_use),

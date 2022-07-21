@@ -67,9 +67,9 @@ impl AstLoweringContext {
 
     pub fn lower_top_level(&mut self, top_level: &TopLevel) {
         match &top_level {
-            TopLevel::Prototype(p) => {
+            TopLevel::Extern(p) => {
                 let top_level = hir::TopLevel {
-                    kind: hir::TopLevelKind::Prototype(self.lower_prototype(p)),
+                    kind: hir::TopLevelKind::Extern(self.lower_prototype(p)),
                 };
 
                 self.top_levels.push(top_level);

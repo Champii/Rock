@@ -97,7 +97,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
         // We add every top level first
         for top in &m.top_levels {
             match &top {
-                TopLevel::Prototype(p) => {
+                TopLevel::Extern(p) => {
                     self.add_to_current_scope((*p.name).clone(), p.node_id);
                 }
                 TopLevel::Use(_u) => (),
@@ -206,7 +206,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top {
-            TopLevel::Prototype(p) => self.visit_prototype(p),
+            TopLevel::Extern(p) => self.visit_prototype(p),
             TopLevel::Use(u) => {
                 self.visit_use(u);
             }
