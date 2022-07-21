@@ -52,6 +52,7 @@ impl Mod {
 #[derive(Debug, Clone)]
 pub enum TopLevel {
     Extern(Prototype),
+    FnSignature(Prototype),
     Function(FunctionDecl),
     Trait(Trait),
     Impl(Impl),
@@ -72,6 +73,10 @@ impl TopLevel {
 
     pub fn new_extern(proto: Prototype) -> Self {
         Self::Extern(proto)
+    }
+
+    pub fn new_fn_signature(proto: Prototype) -> Self {
+        Self::FnSignature(proto)
     }
 
     pub fn new_use(u: Use) -> Self {

@@ -73,6 +73,7 @@ pub fn walk_mod<'a, V: Visitor<'a>>(visitor: &mut V, _mod: &'a Mod) {
 pub fn walk_top_level<'a, V: Visitor<'a>>(visitor: &mut V, top_level: &'a TopLevel) {
     match &top_level {
         TopLevel::Extern(p) => visitor.visit_prototype(p),
+        TopLevel::FnSignature(p) => visitor.visit_prototype(p),
         TopLevel::Use(u) => visitor.visit_use(u),
         TopLevel::Trait(t) => visitor.visit_trait(t),
         TopLevel::Impl(i) => visitor.visit_impl(i),

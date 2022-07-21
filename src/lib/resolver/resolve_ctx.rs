@@ -100,6 +100,14 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 TopLevel::Extern(p) => {
                     self.add_to_current_scope((*p.name).clone(), p.node_id);
                 }
+                TopLevel::FnSignature(_p) => {
+                    // What to do about #150 ?
+                    //
+                    // We must allow for fn signatures but this issue will forbid
+                    // entries that share the same name in the same scope.
+                    //
+                    // We must ensure that a fn decl exists for every fn signature
+                }
                 TopLevel::Use(_u) => (),
                 TopLevel::Trait(t) => {
                     self.new_struct(Identifier::new(t.name.get_name(), 0));
@@ -207,6 +215,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top {
             TopLevel::Extern(p) => self.visit_prototype(p),
+            TopLevel::FnSignature(_p) => (), // TODO
             TopLevel::Use(u) => {
                 self.visit_use(u);
             }

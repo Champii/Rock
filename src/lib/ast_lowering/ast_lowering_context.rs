@@ -74,6 +74,9 @@ impl AstLoweringContext {
 
                 self.top_levels.push(top_level);
             }
+            TopLevel::FnSignature(_p) => {
+                // TODO: gather existing signatures like this to have a pre-typecheck
+            }
             TopLevel::Function(f) => {
                 let top_level = hir::TopLevel {
                     kind: hir::TopLevelKind::Function(self.lower_function_decl(f)),

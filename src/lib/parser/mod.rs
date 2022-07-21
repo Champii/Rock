@@ -263,6 +263,7 @@ pub fn parse_top_level(input: Parser) -> Res<Parser, TopLevel> {
         map(parse_trait, TopLevel::new_trait),
         map(parse_impl, TopLevel::new_impl),
         map(parse_fn, TopLevel::new_function),
+        map(parse_prototype, TopLevel::new_fn_signature),
         map(parse_mod_decl, |(name, mod_)| TopLevel::new_mod(name, mod_)),
     ))(input)
 }
