@@ -1,4 +1,4 @@
-# Rock v0.4.3
+# Rock v0.4.2
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 [![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
@@ -16,7 +16,7 @@ Feel free to discuss any new feature or change you may like in an issue! We welc
 
 ## Index
 
-- [Rock v0.4.3](#rock-v043)
+- [Rock v0.4.2](#rock-v042)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
