@@ -80,7 +80,7 @@ impl<'a> ResolveCtx<'a> {
 
     pub fn push_scope(&mut self) {
         if let Some(ref mut scopes) = self.scopes.get_mut(&self.cur_scope) {
-            scopes.push();
+            scopes.push_new();
         }
     }
 

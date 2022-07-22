@@ -55,15 +55,12 @@ where
         self.scopes.last_mut().unwrap().extend(other.clone())
     }
 
-    /// `push` should take a scope object
-    pub fn push(&mut self) {
+    pub fn push_new(&mut self) {
         self.scopes.push(Scope::new())
     }
 
-    /// `pop` should return the popped value 
-    /// in a `Option<V>` or a `Result<V, E>`
-    pub fn pop(&mut self) {
-        self.scopes.pop();
+    pub fn pop(&mut self) -> Option<HashMap<K, T>> {
+        self.scopes.pop()
     }
 }
 
