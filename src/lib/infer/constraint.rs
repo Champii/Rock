@@ -160,11 +160,13 @@ impl<'a> ConstraintContext<'a> {
             .set_current_fn((p.hir_id.clone(), p.signature.clone()))
         {
             error!("cannot set current fn");
+
             return;
         }
 
         if !self.envs.set_current_fn(old_f) {
             error!("cannot set current fn");
+
             return;
         }
 
@@ -276,6 +278,7 @@ impl<'a> ConstraintContext<'a> {
         // We change scope here
         if !self.envs.set_current_fn((f.hir_id.clone(), sig.clone())) {
             error!("Could not set current function");
+
             return;
         }
 
@@ -316,6 +319,7 @@ impl<'a> ConstraintContext<'a> {
         // We restore the scope here
         if !self.envs.set_current_fn(old_f) {
             error!("Could not set current function");
+
             return;
         }
 
@@ -423,6 +427,8 @@ impl<'a> ConstraintContext<'a> {
 }
 
 impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
+    // The tree is visited like a Control-Flow Graph (CFG), we override visit_root and
+    // visit_top_level so that we can't visit it from top to down.
     fn visit_root(&mut self, _r: &'a Root) {}
 
     fn visit_top_level(&mut self, _t: &'a TopLevel) {}

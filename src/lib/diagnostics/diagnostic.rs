@@ -84,6 +84,10 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::DuplicatedOperator)
     }
 
+    pub fn new_orphane_signature(span: Span, name: String) -> Self {
+        Self::new(span, DiagnosticKind::OrphaneSignature(name))
+    }
+
     pub fn new_no_main() -> Self {
         Self::new(Span::new_placeholder(), DiagnosticKind::NoMain)
     }
@@ -126,6 +130,7 @@ pub enum DiagnosticKind {
     CodegenError(HirId, String),
     IsNotAPropertyOf(Type, Span),
     OutOfBounds(u64, u64),
+    OrphaneSignature(String),
     NoMain,
     NoError, //TODO: remove that
 }
@@ -270,6 +275,13 @@ impl DiagnosticKind {
                         .with_message(format!("{}", self))
                         .with_color(color),
                 ),
+            DiagnosticKind::OrphaneSignature(name) => builder
+                .with_message(format!("Orpheline signature: {}", name))
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
             DiagnosticKind::NoMain => builder
                 .with_message("No main function".to_string())
                 .with_label(
@@ -342,6 +354,7 @@ impl Display for DiagnosticKind {
             DiagnosticKind::NotAFunction => "NotAFunction".to_string(),
             DiagnosticKind::UnusedParameter => "UnusedParameter".to_string(),
             DiagnosticKind::UnusedFunction => "UnusedFunction".to_string(),
+            DiagnosticKind::OrphaneSignature(_name) => "OrphelineSignature".to_string(),
             DiagnosticKind::NoMain => "NoMain".to_string(),
             DiagnosticKind::NoError => "NoError".to_string(),
             DiagnosticKind::IsNotAPropertyOf(t, _span2) => {
