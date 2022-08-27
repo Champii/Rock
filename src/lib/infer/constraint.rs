@@ -442,27 +442,57 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         self.visit_fn_body(self.hir.get_body(&f.body_id).unwrap());
 
-        self.envs.set_type(
-            &f.hir_id,
-            &Type::Func(FuncType::new(
-                f.arguments
-                    .iter()
-                    .map(|arg| self.envs.get_type(&arg.get_hir_id()).unwrap())
-                    .cloned()
-                    .collect(),
-                self.envs
-                    .get_type(&self.hir.get_body(&f.body_id).unwrap().get_hir_id())
-                    .cloned()
-                    .or_else(|| Some(Type::forall("z")))
-                    .unwrap(),
-            )),
+        let fn_type = FuncType::new(
+            f.arguments
+                .iter()
+                .map(|arg| self.envs.get_type(&arg.get_hir_id()).unwrap())
+                .cloned()
+                .collect(),
+            self.envs
+                .get_type(&self.hir.get_body(&f.body_id).unwrap().get_hir_id())
+                .cloned()
+                .or_else(|| Some(Type::forall("z")))
+                .unwrap(),
         );
+
+        if let Some(proto_hir_id) = self.hir.signatures.get(&f.hir_id) {
+            let proto = self.hir.arena.get(&proto_hir_id).unwrap();
+
+            let proto = if let HirNode::Prototype(p) = proto {
+                p
+            } else {
+                panic!("Expected prototype");
+            };
+
+            let sig = proto.signature.clone();
+
+            let sig = sig.merge_partial_with(&fn_type);
+
+            println!("SIGNATURE: {:?}", sig);
+
+            if sig != fn_type {
+                self.envs
+                    .diagnostics
+                    .push_error(Diagnostic::new_signature_mismatch(
+                        self.hir.get_hir_spans().get(&f.hir_id).unwrap().clone(),
+                        proto.name.name.clone(),
+                        fn_type.clone(),
+                        proto.signature.clone(),
+                    ));
+            }
+        }
+
+        self.envs.set_type(&f.hir_id, &Type::Func(fn_type));
 
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
 
         self.add_tmp_resolution_to_current_fn(&f.name.hir_id, &f.hir_id);
     }
 
+    // TODO: FnSignature
+    //       We have to store every declared fn signature and force them into the env state
+    //       That way we can enforce a specific type for a function, double-checked by the
+    //       inference process
     fn visit_prototype(&mut self, p: &Prototype) {
         if p.signature.is_solved() {
             self.envs.set_type(&p.hir_id, &p.signature.clone().into());

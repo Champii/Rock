@@ -88,6 +88,15 @@ impl Diagnostic {
         Self::new(span, DiagnosticKind::OrphaneSignature(name))
     }
 
+    pub fn new_signature_mismatch(
+        span: Span,
+        name: String,
+        got: FuncType,
+        expected: FuncType,
+    ) -> Self {
+        Self::new(span, DiagnosticKind::SignatureMismatch(name, got, expected))
+    }
+
     pub fn new_no_main() -> Self {
         Self::new(Span::new_placeholder(), DiagnosticKind::NoMain)
     }
@@ -131,6 +140,7 @@ pub enum DiagnosticKind {
     IsNotAPropertyOf(Type, Span),
     OutOfBounds(u64, u64),
     OrphaneSignature(String),
+    SignatureMismatch(String, FuncType, FuncType),
     NoMain,
     NoError, //TODO: remove that
 }
@@ -282,6 +292,13 @@ impl DiagnosticKind {
                         .with_message(format!("{}", self))
                         .with_color(color),
                 ),
+            DiagnosticKind::SignatureMismatch(name, _got, _expected) => builder
+                .with_message(format!("Signature mismatch: {}", name,))
+                .with_label(
+                    Label::new((span.file_path.to_str().unwrap(), span.start..span.end))
+                        .with_message(format!("{}", self))
+                        .with_color(color),
+                ),
             DiagnosticKind::NoMain => builder
                 .with_message("No main function".to_string())
                 .with_label(
@@ -355,6 +372,15 @@ impl Display for DiagnosticKind {
             DiagnosticKind::UnusedParameter => "UnusedParameter".to_string(),
             DiagnosticKind::UnusedFunction => "UnusedFunction".to_string(),
             DiagnosticKind::OrphaneSignature(_name) => "OrphelineSignature".to_string(),
+            DiagnosticKind::SignatureMismatch(_name, got, expected) => {
+                use colored::*;
+                format!(
+                    "Expected {}\n{:<9}But got  {}",
+                    format!("{:?}", expected).blue(),
+                    "",
+                    format!("{:?}", got).red(),
+                )
+            }
             DiagnosticKind::NoMain => "NoMain".to_string(),
             DiagnosticKind::NoError => "NoError".to_string(),
             DiagnosticKind::IsNotAPropertyOf(t, _span2) => {

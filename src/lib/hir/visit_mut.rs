@@ -93,6 +93,7 @@ pub fn walk_struct_ctor<'a, V: VisitorMut<'a>>(visitor: &mut V, s: &'a mut Struc
 pub fn walk_top_level<'a, V: VisitorMut<'a>>(visitor: &mut V, top_level: &'a mut TopLevel) {
     match &mut top_level.kind {
         TopLevelKind::Extern(p) => visitor.visit_prototype(p),
+        TopLevelKind::Signature(p) => visitor.visit_prototype(p),
         TopLevelKind::Function(f) => visitor.visit_function_decl(f),
     };
 }

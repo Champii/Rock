@@ -103,14 +103,9 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                     self.add_to_current_scope((*p.name).clone(), p.node_id);
                 }
                 TopLevel::FnSignature(p) => {
-                    // What to do about #150 ?
-                    //
-                    // We must allow for fn signatures but this issue will forbid
-                    // entries that share the same name in the same scope.
-                    //
-                    // We must ensure that a fn decl exists for every fn signature
-                    //
-                    sig_names.insert((*p.name).clone(), self.get_span(p.node_id));
+                    // TODO: #150
+                    //       Disallow duplicated signatures
+                    sig_names.insert((*p.name).clone(), p.node_id);
                 }
                 TopLevel::Use(_u) => (),
                 TopLevel::Trait(t) => {
@@ -159,18 +154,20 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 TopLevel::Mod(_, _m) => (),
                 TopLevel::Infix(_, _) => (),
                 TopLevel::Function(f) => {
-                    sig_names.remove(&f.name.name);
+                    if let Some(sig_id) = sig_names.remove(&f.name.name) {
+                        self.resolutions.insert(sig_id, f.node_id);
+                    }
 
                     self.add_to_current_scope((*f.name).clone(), f.node_id);
                 }
             }
         }
 
-        sig_names.iter().for_each(|(name, span)| {
+        sig_names.iter().for_each(|(name, sig_id)| {
             self.parsing_ctx
                 .diagnostics
                 .push_error(Diagnostic::new_orphane_signature(
-                    span.clone(),
+                    self.get_span(*sig_id),
                     name.to_string(),
                 ))
         });

@@ -10,7 +10,7 @@ use crate::{
     ty::{FuncType, StructType, Type},
 };
 
-use super::{arena::Arena, hir_printer, HasHirId};
+use super::{arena::Arena, hir_printer, HasHirId, HirNode};
 
 #[derive(Debug, Default)]
 pub struct Root {
@@ -27,6 +27,7 @@ pub struct Root {
     pub bodies: BTreeMap<FnBodyId, FnBody>,
     pub spans: HashMap<NodeId, Span>,
     pub structs: HashMap<String, StructDecl>,
+    pub signatures: HashMap<HirId, HirId>, // FnHirId -> SignatureHirId
 }
 
 impl Root {
@@ -78,6 +79,20 @@ impl Root {
                 TopLevelKind::Function(f) => f.clone(),
                 _ => unimplemented!(),
             })
+    }
+
+    pub fn get_function_signature_by_name(&self, name: &str) -> Option<FuncType> {
+        let fn_decl = self.get_function_by_name(name)?;
+
+        let sig_hir_id = self.signatures.get(&fn_decl.hir_id)?;
+
+        let arena_node = self.arena.get(sig_hir_id)?;
+
+        if let HirNode::Prototype(p) = arena_node {
+            Some(p.signature.clone())
+        } else {
+            None
+        }
     }
 
     #[allow(dead_code)]
@@ -212,6 +227,7 @@ impl TopLevel {
         match &self.kind {
             TopLevelKind::Extern(p) => p.hir_id.clone(),
             TopLevelKind::Function(f) => f.hir_id.clone(),
+            TopLevelKind::Signature(s) => s.hir_id.clone(),
         }
     }
 }
@@ -220,6 +236,7 @@ impl TopLevel {
 pub enum TopLevelKind {
     Function(FunctionDecl),
     Extern(Prototype),
+    Signature(Prototype),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

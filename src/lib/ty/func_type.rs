@@ -125,7 +125,7 @@ impl FuncType {
                 if !arg_t.is_forall() {
                     warn!("Trying to apply type to a not forall: {:#?}", arg_t);
 
-                    return None;
+                    // return None;
                 }
 
                 arguments.get(i).map(|t| (arg_t.clone(), t.clone()))
@@ -156,7 +156,7 @@ impl FuncType {
                 if !arg_t.is_forall() {
                     warn!("Trying to apply type to a not forall");
 
-                    return None;
+                    // return None;
                 }
 
                 arguments
@@ -218,7 +218,7 @@ impl FuncType {
                 if let Type::Func(f_t) = arg {
                     let inner = arguments.get(i).unwrap().as_ref().unwrap().as_func_type();
 
-                    f_t.merge_with(&inner).into()
+                    f_t.merge_partial_with(&inner).into()
                 } else {
                     arg.clone()
                 }
@@ -226,7 +226,10 @@ impl FuncType {
             .collect::<Vec<_>>();
 
         resolved.ret = if let Type::Func(f_t) = &*self.ret {
-            Box::new(f_t.merge_with(&ret.as_ref().unwrap().as_func_type()).into())
+            Box::new(
+                f_t.merge_partial_with(&ret.as_ref().unwrap().as_func_type())
+                    .into(),
+            )
         } else {
             self.ret.clone()
         };
@@ -266,9 +269,27 @@ impl FuncType {
     }
 
     pub fn merge_with(&self, other: &Self) -> Self {
-        self.apply_types(
-            other.arguments.iter().map(|b| (*b).clone()).collect(),
-            *other.ret.clone(),
+        self.apply_types(other.arguments.clone(), *other.ret.clone())
+    }
+
+    pub fn merge_partial_with(&self, other: &Self) -> Self {
+        self.apply_partial_types(
+            &other
+                .arguments
+                .iter()
+                .map(|t| {
+                    if let Type::ForAll(_) = t {
+                        Some(t.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>(),
+            if let Type::ForAll(_) = *other.ret {
+                Some(*other.ret.clone())
+            } else {
+                None
+            },
         )
     }
 }
@@ -326,6 +347,38 @@ mod tests {
         let res = sig.apply_forall_types(&[Type::forall("a")], &[Type::int64()]);
 
         assert_eq!(res.arguments[0], Type::int64());
+        assert_eq!(*res.ret, Type::int64());
+    }
+
+    #[test]
+    fn apply_to_same_forall_2() {
+        let sig = FuncType::new(vec![Type::forall("a")], Type::float64());
+
+        let res = sig.apply_forall_types(&[Type::forall("a")], &[Type::int64()]);
+
+        assert_eq!(res.arguments[0], Type::int64());
+        assert_eq!(*res.ret, Type::float64());
+    }
+
+    #[test]
+    fn merge_with() {
+        let sig = FuncType::from_args_nb(2).with_ret(Type::int64());
+        let other = FuncType::from_args_nb(2).with_ret(Type::float64());
+        let res = sig.merge_with(&other);
+
+        assert_eq!(res.arguments[0], Type::forall("a"));
+        assert_eq!(res.arguments[1], Type::forall("b"));
+        assert_eq!(*res.ret, Type::float64());
+    }
+
+    #[test]
+    fn merge_partial_with() {
+        let sig = FuncType::from_args_nb(2).with_ret(Type::int64());
+        let other = FuncType::from_args_nb(2).with_ret(Type::float64());
+        let res = sig.merge_partial_with(&other);
+
+        assert_eq!(res.arguments[0], Type::forall("a"));
+        assert_eq!(res.arguments[1], Type::forall("b"));
         assert_eq!(*res.ret, Type::int64());
     }
 }

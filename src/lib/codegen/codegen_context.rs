@@ -166,6 +166,7 @@ impl<'a> CodegenContext<'a> {
         for item in &root.top_levels {
             match &item.kind {
                 TopLevelKind::Extern(p) => self.lower_prototype(p, builder)?,
+                TopLevelKind::Signature(_p) => (),
                 TopLevelKind::Function(f) => self.lower_function_decl(f, builder)?,
             }
         }
@@ -646,9 +647,8 @@ impl<'a> CodegenContext<'a> {
 
         let callable_value = match self.hir.get_top_level(f_id) {
             Some(top) => CallableValue::try_from(match &top.kind {
-                TopLevelKind::Extern(p) => {
-                    self.module.get_function(&p.name.to_string()).unwrap()
-                }
+                TopLevelKind::Extern(p) => self.module.get_function(&p.name.to_string()).unwrap(),
+                TopLevelKind::Signature(_p) => unimplemented!(),
                 TopLevelKind::Function(f) => {
                     self.module.get_function(&f.get_name().to_string()).unwrap()
                 }
