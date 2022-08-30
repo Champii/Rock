@@ -62,6 +62,10 @@ fn testcases_fails_basic_fn_bad_arg_main() {
     run("testcases/fails/basic/fn_bad_arg/main.rk", include_str!("testcases/fails/basic/fn_bad_arg/main.rk"), include_str!("testcases/fails/basic/fn_bad_arg/main.rk.out"), include_str!("testcases/fails/basic/fn_bad_arg/main.rk.stdout"));
 }
 #[test]
+fn testcases_fails_basic_fn_orpheline_sig_main() {
+    run("testcases/fails/basic/fn_orpheline_sig/main.rk", include_str!("testcases/fails/basic/fn_orpheline_sig/main.rk"), include_str!("testcases/fails/basic/fn_orpheline_sig/main.rk.out"), include_str!("testcases/fails/basic/fn_orpheline_sig/main.rk.stdout"));
+}
+#[test]
 fn testcases_basic_if_else_main() {
     run("testcases/basic/if_else/main.rk", include_str!("testcases/basic/if_else/main.rk"), include_str!("testcases/basic/if_else/main.rk.out"), include_str!("testcases/basic/if_else/main.rk.stdout"));
 }
@@ -88,6 +92,10 @@ fn testcases_basic_spaced_dot_main() {
 #[test]
 fn testcases_basic_monomorph_in_trait_main() {
     run("testcases/basic/monomorph_in_trait/main.rk", include_str!("testcases/basic/monomorph_in_trait/main.rk"), include_str!("testcases/basic/monomorph_in_trait/main.rk.out"), include_str!("testcases/basic/monomorph_in_trait/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_fn_generic_sig_main() {
+    run("testcases/basic/fn_generic_sig/main.rk", include_str!("testcases/basic/fn_generic_sig/main.rk"), include_str!("testcases/basic/fn_generic_sig/main.rk.out"), include_str!("testcases/basic/fn_generic_sig/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_multiline_struct_const_main() {
