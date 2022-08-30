@@ -86,7 +86,6 @@ impl AstLoweringContext {
                 self.top_levels.push(top_level);
             }
             TopLevel::FnSignature(p) => {
-                // TODO: gather existing signatures like this to have a pre-typecheck
                 let fn_node_id = self.resolutions.get(&p.node_id).unwrap();
 
                 let proto = self.lower_prototype(p);

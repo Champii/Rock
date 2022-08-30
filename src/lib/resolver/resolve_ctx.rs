@@ -227,7 +227,7 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top {
             TopLevel::Extern(p) => self.visit_prototype(p),
-            TopLevel::FnSignature(_p) => (), // TODO
+            TopLevel::FnSignature(_p) => (),
             TopLevel::Use(u) => {
                 self.visit_use(u);
             }

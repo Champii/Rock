@@ -487,10 +487,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
         self.add_tmp_resolution_to_current_fn(&f.name.hir_id, &f.hir_id);
     }
 
-    // TODO: FnSignature
-    //       We have to store every declared fn signature and force them into the env state
-    //       That way we can enforce a specific type for a function, double-checked by the
-    //       inference process
     fn visit_prototype(&mut self, p: &Prototype) {
         if p.signature.is_solved() {
             self.envs.set_type(&p.hir_id, &p.signature.clone().into());
