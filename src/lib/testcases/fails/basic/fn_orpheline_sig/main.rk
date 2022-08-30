@@ -1,0 +1,6 @@
+d: a => a
+
+f: Int64 => Float64
+f: a -> a
+
+main: -> f 2.2
