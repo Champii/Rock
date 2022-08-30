@@ -183,16 +183,14 @@ impl FuncType {
                     let inner = arguments.get(i).unwrap().as_ref().unwrap().as_func_type();
 
                     f_t.merge_partial_with(&inner).into()
-                } else {
-                    if let Type::ForAll(_) = arg {
-                        if let Some(t) = arguments.get(i).unwrap() {
-                            t.clone()
-                        } else {
-                            arg.clone()
-                        }
+                } else if let Type::ForAll(_) = arg {
+                    if let Some(t) = arguments.get(i).unwrap() {
+                        t.clone()
                     } else {
                         arg.clone()
                     }
+                } else {
+                    arg.clone()
                 }
             })
             .collect::<Vec<_>>();

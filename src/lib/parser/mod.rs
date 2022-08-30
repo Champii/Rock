@@ -1233,10 +1233,13 @@ pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {
 
 pub fn parse_type(input: Parser) -> Res<Parser, Type> {
     let (input, ty) = alt((
+        map(delimited(tag("("), parse_signature, tag(")")), |t| {
+            Type::Func(t)
+        }),
         map(
             terminated(
                 one_of("abcdefghijklmnopqrstuvwxyz"),
-                peek(alt((space1, line_ending, eof))),
+                peek(alt((space1, line_ending, eof, tag(")")))),
             ),
             |c| Type::ForAll(String::from(c)),
         ),
