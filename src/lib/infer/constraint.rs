@@ -468,8 +468,6 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
             let sig = sig.merge_partial_with(&fn_type);
 
-            println!("SIGNATURE: {:?}", sig);
-
             if sig != fn_type {
                 self.envs
                     .diagnostics

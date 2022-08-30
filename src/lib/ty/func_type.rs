@@ -143,42 +143,6 @@ impl FuncType {
         (orig, dest)
     }
 
-    fn collect_partial_forall_types(
-        &self,
-        arguments: &[Option<Type>],
-        ret: Option<Type>,
-    ) -> (Vec<Type>, Vec<Type>) {
-        let (mut orig, mut dest): (Vec<_>, Vec<_>) = self
-            .arguments
-            .iter()
-            .enumerate()
-            .filter_map(|(i, arg_t)| -> Option<(Type, Type)> {
-                if !arg_t.is_forall() {
-                    warn!("Trying to apply type to a not forall");
-
-                    // return None;
-                }
-
-                arguments
-                    .get(i)?
-                    .as_ref()
-                    .map(|t| (arg_t.clone(), t.clone()))
-            })
-            .unzip();
-
-        if let Some(t) = ret {
-            if !t.is_forall() {
-                warn!("Trying to apply type to a not forall");
-            }
-
-            // FIXME: must remplace all occurences of ret
-            orig.push(*self.ret.clone());
-            dest.push(t);
-        }
-
-        (orig, dest)
-    }
-
     pub fn apply_types(&self, arguments: Vec<Type>, ret: Type) -> Self {
         let mut resolved = self.clone();
 
@@ -220,7 +184,15 @@ impl FuncType {
 
                     f_t.merge_partial_with(&inner).into()
                 } else {
-                    arg.clone()
+                    if let Type::ForAll(_) = arg {
+                        if let Some(t) = arguments.get(i).unwrap() {
+                            t.clone()
+                        } else {
+                            arg.clone()
+                        }
+                    } else {
+                        arg.clone()
+                    }
                 }
             })
             .collect::<Vec<_>>();
@@ -231,12 +203,18 @@ impl FuncType {
                     .into(),
             )
         } else {
-            self.ret.clone()
+            if let Type::ForAll(_) = *self.ret {
+                if let Some(t) = &ret {
+                    Box::new(t.clone())
+                } else {
+                    self.ret.clone()
+                }
+            } else {
+                self.ret.clone()
+            }
         };
 
-        let (orig, dest) = resolved.collect_partial_forall_types(arguments, ret);
-
-        resolved.apply_forall_types(&orig, &dest)
+        resolved
     }
 
     pub fn from_args_nb(nb: usize) -> Self {
@@ -279,16 +257,16 @@ impl FuncType {
                 .iter()
                 .map(|t| {
                     if let Type::ForAll(_) = t {
-                        Some(t.clone())
-                    } else {
                         None
+                    } else {
+                        Some(t.clone())
                     }
                 })
                 .collect::<Vec<_>>(),
             if let Type::ForAll(_) = *other.ret {
-                Some(*other.ret.clone())
-            } else {
                 None
+            } else {
+                Some(*other.ret.clone())
             },
         )
     }
