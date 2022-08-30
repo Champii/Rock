@@ -1,0 +1,4 @@
+f: Int64 => Int64 => Int64
+f: x, y -> x
+main: -> f 42, 42
+

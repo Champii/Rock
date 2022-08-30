@@ -50,6 +50,10 @@ fn testcases_fails_basic_struct_bad_field_type_main() {
     run("testcases/fails/basic/struct_bad_field_type/main.rk", include_str!("testcases/fails/basic/struct_bad_field_type/main.rk"), include_str!("testcases/fails/basic/struct_bad_field_type/main.rk.out"), include_str!("testcases/fails/basic/struct_bad_field_type/main.rk.stdout"));
 }
 #[test]
+fn testcases_fails_basic_fn_sig_main() {
+    run("testcases/fails/basic/fn_sig/main.rk", include_str!("testcases/fails/basic/fn_sig/main.rk"), include_str!("testcases/fails/basic/fn_sig/main.rk.out"), include_str!("testcases/fails/basic/fn_sig/main.rk.stdout"));
+}
+#[test]
 fn testcases_fails_basic_fn_bad_arg_nb_main() {
     run("testcases/fails/basic/fn_bad_arg_nb/main.rk", include_str!("testcases/fails/basic/fn_bad_arg_nb/main.rk"), include_str!("testcases/fails/basic/fn_bad_arg_nb/main.rk.out"), include_str!("testcases/fails/basic/fn_bad_arg_nb/main.rk.stdout"));
 }
@@ -164,6 +168,10 @@ fn testcases_basic_op_func_main() {
 #[test]
 fn testcases_basic_struct_index_main() {
     run("testcases/basic/struct_index/main.rk", include_str!("testcases/basic/struct_index/main.rk"), include_str!("testcases/basic/struct_index/main.rk.out"), include_str!("testcases/basic/struct_index/main.rk.stdout"));
+}
+#[test]
+fn testcases_basic_fn_sig_main() {
+    run("testcases/basic/fn_sig/main.rk", include_str!("testcases/basic/fn_sig/main.rk"), include_str!("testcases/basic/fn_sig/main.rk.out"), include_str!("testcases/basic/fn_sig/main.rk.stdout"));
 }
 #[test]
 fn testcases_basic_0_arg_fn_main() {
