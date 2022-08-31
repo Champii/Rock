@@ -1,4 +1,4 @@
-# Rock v0.4.3
+# Rock v0.4.4
 
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 [![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
@@ -16,7 +16,7 @@ Feel free to discuss any new feature or change you may like in an issue! We welc
 
 ## Index
 
-- [Rock v0.4.3](#rock-v0.4.3)
+- [Rock v0.4.4](#rock-v0.4.4)
   - [Index](#index)
   - [Features](#features)
   - [Install](#install)
@@ -57,7 +57,7 @@ You will need `llvm-13` and `clang-13` somewhere in your $PATH
 #### With Cargo from Git (Recommanded)
 
 ```sh
-cargo install --locked --git https://github.com/Champii/Rock --tag v0.4.3
+cargo install --locked --git https://github.com/Champii/Rock --tag v0.4.4
 rock -V
 ```
 
@@ -78,10 +78,10 @@ Rock has been tested against Rust stable v1.60.0 and nightly
 
 ### Using Released Binary
 
-[Rock v0.4.3](https://github.com/Champii/Rock/releases/download/v0.4.3/rock)
+[Rock v0.4.4](https://github.com/Champii/Rock/releases/download/v0.4.4/rock)
 
 ``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.4.3/rock
+wget https://github.com/Champii/Rock/releases/download/v0.4.4/rock
 chmod +x rock
 ./rock -V
 ```
