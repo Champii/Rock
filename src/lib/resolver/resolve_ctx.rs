@@ -94,11 +94,18 @@ impl<'a> ResolveCtx<'a> {
 
 impl<'a> Visitor<'a> for ResolveCtx<'a> {
     fn visit_mod(&mut self, m: &'a Mod) {
+        let mut sig_names = HashMap::new();
+
         // We add every top level first
         for top in &m.top_levels {
             match &top {
-                TopLevel::Prototype(p) => {
+                TopLevel::Extern(p) => {
                     self.add_to_current_scope((*p.name).clone(), p.node_id);
+                }
+                TopLevel::FnSignature(p) => {
+                    // TODO: #150
+                    //       Disallow duplicated signatures
+                    sig_names.insert((*p.name).clone(), p.node_id);
                 }
                 TopLevel::Use(_u) => (),
                 TopLevel::Trait(t) => {
@@ -147,10 +154,23 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
                 TopLevel::Mod(_, _m) => (),
                 TopLevel::Infix(_, _) => (),
                 TopLevel::Function(f) => {
+                    if let Some(sig_id) = sig_names.remove(&f.name.name) {
+                        self.resolutions.insert(sig_id, f.node_id);
+                    }
+
                     self.add_to_current_scope((*f.name).clone(), f.node_id);
                 }
             }
         }
+
+        sig_names.iter().for_each(|(name, sig_id)| {
+            self.parsing_ctx
+                .diagnostics
+                .push_error(Diagnostic::new_orphane_signature(
+                    self.get_span(*sig_id),
+                    name.to_string(),
+                ))
+        });
 
         walk_list!(self, visit_top_level, &m.top_levels);
     }
@@ -206,7 +226,8 @@ impl<'a> Visitor<'a> for ResolveCtx<'a> {
 
     fn visit_top_level(&mut self, top: &'a TopLevel) {
         match &top {
-            TopLevel::Prototype(p) => self.visit_prototype(p),
+            TopLevel::Extern(p) => self.visit_prototype(p),
+            TopLevel::FnSignature(_p) => (),
             TopLevel::Use(u) => {
                 self.visit_use(u);
             }

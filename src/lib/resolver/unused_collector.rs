@@ -42,7 +42,8 @@ impl<'a> Visitor<'a> for UnusedCollector {
 
         for top in &m.top_levels {
             match &top {
-                TopLevel::Prototype(_p) => {}
+                TopLevel::Extern(_p) => {}
+                TopLevel::FnSignature(_p) => {}
                 TopLevel::Use(_u) => (),
                 TopLevel::Trait(t) => {
                     for f in &t.defs {
@@ -68,7 +69,8 @@ impl<'a> Visitor<'a> for UnusedCollector {
 
     fn visit_top_level(&mut self, top_level: &'a TopLevel) {
         match &top_level {
-            TopLevel::Prototype(p) => self.visit_prototype(p),
+            TopLevel::Extern(p) => self.visit_prototype(p),
+            TopLevel::FnSignature(p) => self.visit_prototype(p),
             TopLevel::Use(_u) => (),
             TopLevel::Trait(t) => self.visit_trait(t),
             TopLevel::Impl(i) => self.visit_impl(i),

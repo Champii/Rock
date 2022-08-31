@@ -103,7 +103,7 @@ impl<'a> ConstraintContext<'a> {
                     .and_then(|existing_impls| {
                         let new_sig = fc
                             .to_func_type(self.envs.get_current_env().unwrap())
-                            .merge_with(&p.signature);
+                            .merge_partial_with(&p.signature);
 
                         self.hir
                             .get_trait_method(p.name.name.clone(), &new_sig)
@@ -160,11 +160,13 @@ impl<'a> ConstraintContext<'a> {
             .set_current_fn((p.hir_id.clone(), p.signature.clone()))
         {
             error!("cannot set current fn");
+
             return;
         }
 
         if !self.envs.set_current_fn(old_f) {
             error!("cannot set current fn");
+
             return;
         }
 
@@ -178,7 +180,6 @@ impl<'a> ConstraintContext<'a> {
 
     // FIXME: This is ugly as well
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
-        // println!("Setup call {:?}, {:?}", fc.op, f.name);
         if f.signature.arguments.len() != fc.args.len() {
             self.envs
                 .diagnostics
@@ -220,9 +221,9 @@ impl<'a> ConstraintContext<'a> {
                                 .or_insert_with(ResolutionMap::default)
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
 
-                            self.envs.set_type(arg_id, &f.signature.clone().into());
+                            self.envs.set_type(arg_id, &f2.signature.clone().into());
 
-                            Some(f.signature.clone().into())
+                            Some(f2.signature.clone().into())
                         } else {
                             None
                         }
@@ -276,6 +277,7 @@ impl<'a> ConstraintContext<'a> {
         // We change scope here
         if !self.envs.set_current_fn((f.hir_id.clone(), sig.clone())) {
             error!("Could not set current function");
+
             return;
         }
 
@@ -316,6 +318,7 @@ impl<'a> ConstraintContext<'a> {
         // We restore the scope here
         if !self.envs.set_current_fn(old_f) {
             error!("Could not set current function");
+
             return;
         }
 
@@ -423,6 +426,8 @@ impl<'a> ConstraintContext<'a> {
 }
 
 impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
+    // The tree is visited like a Control-Flow Graph (CFG), we override visit_root and
+    // visit_top_level so that we can't visit it from top to down.
     fn visit_root(&mut self, _r: &'a Root) {}
 
     fn visit_top_level(&mut self, _t: &'a TopLevel) {}
@@ -436,21 +441,45 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
 
         self.visit_fn_body(self.hir.get_body(&f.body_id).unwrap());
 
-        self.envs.set_type(
-            &f.hir_id,
-            &Type::Func(FuncType::new(
-                f.arguments
-                    .iter()
-                    .map(|arg| self.envs.get_type(&arg.get_hir_id()).unwrap())
-                    .cloned()
-                    .collect(),
-                self.envs
-                    .get_type(&self.hir.get_body(&f.body_id).unwrap().get_hir_id())
-                    .cloned()
-                    .or_else(|| Some(Type::forall("z")))
-                    .unwrap(),
-            )),
+        let fn_type = FuncType::new(
+            f.arguments
+                .iter()
+                .map(|arg| self.envs.get_type(&arg.get_hir_id()).unwrap())
+                .cloned()
+                .collect(),
+            self.envs
+                .get_type(&self.hir.get_body(&f.body_id).unwrap().get_hir_id())
+                .cloned()
+                .or_else(|| Some(Type::forall("z")))
+                .unwrap(),
         );
+
+        if let Some(proto_hir_id) = self.hir.signatures.get(&f.hir_id) {
+            let proto = self.hir.arena.get(&proto_hir_id).unwrap();
+
+            let proto = if let HirNode::Prototype(p) = proto {
+                p
+            } else {
+                panic!("Expected prototype");
+            };
+
+            let sig = proto.signature.clone();
+
+            let sig = sig.merge_partial_with(&fn_type);
+
+            if sig != fn_type {
+                self.envs
+                    .diagnostics
+                    .push_error(Diagnostic::new_signature_mismatch(
+                        self.hir.get_hir_spans().get(&f.hir_id).unwrap().clone(),
+                        proto.name.name.clone(),
+                        fn_type.clone(),
+                        proto.signature.clone(),
+                    ));
+            }
+        }
+
+        self.envs.set_type(&f.hir_id, &Type::Func(fn_type));
 
         self.envs.set_type_eq(&f.name.hir_id, &f.hir_id);
 

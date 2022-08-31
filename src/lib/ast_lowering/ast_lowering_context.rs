@@ -4,6 +4,7 @@ use crate::{
     ast::{tree::*, NodeId},
     hir::{self, Arena, FnBodyId, HirId},
     infer::Envs,
+    resolver::ResolutionMap,
     ty::*,
 };
 
@@ -11,6 +12,7 @@ use super::{hir_map::HirMap, InfixDesugar};
 
 pub struct AstLoweringContext {
     hir_map: HirMap,
+    resolutions: ResolutionMap<NodeId>,
     top_levels: Vec<hir::TopLevel>,
     bodies: BTreeMap<FnBodyId, hir::FnBody>,
     operators_list: HashMap<String, u8>,
@@ -18,23 +20,27 @@ pub struct AstLoweringContext {
     trait_methods: BTreeMap<String, HashMap<FuncType, hir::FunctionDecl>>,
     struct_methods: BTreeMap<HirId, HashMap<FuncType, hir::FunctionDecl>>,
     structs: HashMap<String, hir::StructDecl>,
+    signatures: ResolutionMap<NodeId>, // FnHirId -> SignatureHirId
 }
 
 impl AstLoweringContext {
     pub fn new(operators_list: HashMap<String, u8>) -> Self {
         Self {
             hir_map: HirMap::new(),
+            resolutions: ResolutionMap::new(),
             top_levels: Vec::new(),
             bodies: BTreeMap::new(),
             traits: HashMap::new(),
             trait_methods: BTreeMap::new(),
             struct_methods: BTreeMap::new(),
             structs: HashMap::new(),
+            signatures: ResolutionMap::new(),
             operators_list,
         }
     }
 
     pub fn lower_root(&mut self, root: &Root) -> hir::Root {
+        self.resolutions = root.resolutions.clone();
         self.lower_mod(&root.r#mod);
 
         let mut hir = hir::Root {
@@ -51,6 +57,11 @@ impl AstLoweringContext {
             spans: root.spans.clone(),
             structs: self.structs.clone(),
             trait_solver: root.trait_solver.clone(),
+            signatures: self
+                .signatures
+                .lower_resolution_map(&self.hir_map)
+                .inner()
+                .clone(),
         };
 
         hir.arena = hir::collect_arena(&hir);
@@ -67,12 +78,25 @@ impl AstLoweringContext {
 
     pub fn lower_top_level(&mut self, top_level: &TopLevel) {
         match &top_level {
-            TopLevel::Prototype(p) => {
+            TopLevel::Extern(p) => {
                 let top_level = hir::TopLevel {
-                    kind: hir::TopLevelKind::Prototype(self.lower_prototype(p)),
+                    kind: hir::TopLevelKind::Extern(self.lower_prototype(p)),
                 };
 
                 self.top_levels.push(top_level);
+            }
+            TopLevel::FnSignature(p) => {
+                let fn_node_id = self.resolutions.get(&p.node_id).unwrap();
+
+                let proto = self.lower_prototype(p);
+
+                let top_level = hir::TopLevel {
+                    kind: hir::TopLevelKind::Signature(proto),
+                };
+
+                self.top_levels.push(top_level);
+
+                self.signatures.insert(fn_node_id, p.node_id);
             }
             TopLevel::Function(f) => {
                 let top_level = hir::TopLevel {

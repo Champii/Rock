@@ -36,14 +36,14 @@ impl<'a> Monomorphizer<'a> {
             .top_levels
             .iter()
             .filter(|top| match &top.kind {
-                TopLevelKind::Prototype(p) => p.signature.is_solved(),
+                TopLevelKind::Extern(p) => p.signature.is_solved(),
                 _ => false,
             })
             .cloned()
             .collect::<Vec<_>>();
 
         for top in &prototypes {
-            if let TopLevelKind::Prototype(p) = &top.kind {
+            if let TopLevelKind::Extern(p) = &top.kind {
                 let f_type: Type = p.signature.clone().into();
 
                 self.root

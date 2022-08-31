@@ -8,6 +8,10 @@ where
     T: Eq + Clone + std::hash::Hash + Default;
 
 impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
+    pub fn new() -> Self {
+        ResolutionMap(HashMap::new())
+    }
+
     pub fn insert(&mut self, pointer_id: T, pointee_id: T) {
         if self.0.insert(pointer_id, pointee_id).is_some() {
             debug!("Overriding resolution");
@@ -45,6 +49,10 @@ impl<T: Eq + Clone + std::hash::Hash + Default> ResolutionMap<T> {
 
     pub fn extend(&mut self, other: Self) {
         self.0.extend(other.0);
+    }
+
+    pub fn inner(&self) -> &HashMap<T, T> {
+        &self.0
     }
 }
 

@@ -49,6 +49,10 @@ impl Type {
         Self::Primitive(PrimitiveType::Int64)
     }
 
+    pub fn float64() -> Self {
+        Self::Primitive(PrimitiveType::Float64)
+    }
+
     pub fn forall(t: &str) -> Self {
         Self::ForAll(String::from(t))
     }
