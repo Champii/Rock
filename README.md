@@ -196,8 +196,8 @@ There is a `--nostd` option to allow you to use your own custom implementation.
 This `trait ToString` is redondant with the `trait Show` implemented in the stdlib, and serves as a demonstration only
 
 ``` haskell
-trait ToString a
-  tostring: a => String
+trait ToString
+  @tostring: String
 
 impl ToString Int64
   @tostring: -> @show!
@@ -219,7 +219,7 @@ $ rock run
 ### Trait default method
 
 ``` haskell
-trait ToString a
+trait ToString
   @tostring: -> @show!
 
 impl ToString Int64
