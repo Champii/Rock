@@ -1,5 +1,5 @@
-trait Toto a
-  toto: a => String
+trait Toto
+  @toto: String
 
 impl Toto Int64
   @toto: -> "1"

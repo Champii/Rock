@@ -2,8 +2,8 @@ extern puts: String => Int64
 
 infix == 3
 
-trait Eq a
-  ==: a => a => Bool
+trait Eq
+  ==: @ => @ => Bool
 
 impl Eq Int64
   ==: e, f -> ~IEq e f
@@ -13,8 +13,8 @@ impl Eq Bool
 
 use Eq::(*)
 
-trait Print a
-  print: a => Int64
+trait Print
+  @print: Int64
 
 impl Print Bool
   @print: ->

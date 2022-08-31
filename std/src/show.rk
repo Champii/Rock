@@ -15,8 +15,8 @@ itoa: a ->
 ftoa: c ->
   gcvt c, 10, (malloc 4), (malloc 4)
 
-trait Show a
-  show: a => String
+trait Show
+  @show: String
 
 impl Show Int64
   @show: -> itoa @
