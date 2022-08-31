@@ -103,7 +103,7 @@ impl<'a> ConstraintContext<'a> {
                     .and_then(|existing_impls| {
                         let new_sig = fc
                             .to_func_type(self.envs.get_current_env().unwrap())
-                            .merge_with(&p.signature);
+                            .merge_partial_with(&p.signature);
 
                         self.hir
                             .get_trait_method(p.name.name.clone(), &new_sig)
@@ -180,7 +180,6 @@ impl<'a> ConstraintContext<'a> {
 
     // FIXME: This is ugly as well
     pub fn setup_function_call(&mut self, fc: &FunctionCall, f: &FunctionDecl) {
-        // println!("Setup call {:?}, {:?}", fc.op, f.name);
         if f.signature.arguments.len() != fc.args.len() {
             self.envs
                 .diagnostics
@@ -222,9 +221,9 @@ impl<'a> ConstraintContext<'a> {
                                 .or_insert_with(ResolutionMap::default)
                                 .insert(arg.get_hir_id(), f2.hir_id.clone());
 
-                            self.envs.set_type(arg_id, &f.signature.clone().into());
+                            self.envs.set_type(arg_id, &f2.signature.clone().into());
 
-                            Some(f.signature.clone().into())
+                            Some(f2.signature.clone().into())
                         } else {
                             None
                         }
