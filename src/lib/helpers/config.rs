@@ -29,6 +29,7 @@ pub struct Config {
     pub show_thir: bool,
     pub show_ir: bool,
     pub verbose: bool,
+    pub quiet: bool,
     pub build_folder: PathBuf,
     pub no_optimize: bool,
     pub std: bool,

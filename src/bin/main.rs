@@ -98,6 +98,13 @@ fn main() {
                 .help("Verbose level"),
         )
         .arg(
+            Arg::with_name("quiet")
+                .takes_value(false)
+                .short("q")
+                .long("quiet")
+                .help("Silence all outputs"),
+        )
+        .arg(
             Arg::with_name("ast")
                 .short("a")
                 .long("ast")
@@ -161,6 +168,7 @@ fn main() {
 
     let config = rock::Config {
         verbose: matches.is_present("verbose"),
+        quiet: matches.is_present("quiet"),
         show_ast: matches.is_present("ast"),
         show_hir: matches.is_present("hir"),
         show_thir: matches.is_present("thir"),
