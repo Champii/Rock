@@ -139,10 +139,10 @@
 <p>The trait feature is very similar to what Rust have<br />
 You can define some 'interfaces' that has some methods, you can then implement them for your types.</p>
 <p>For example, we will implement a trait that double itself with the <code>+</code> operator</p>
-<pre><code class="language-haskell">trait CanDouble a
-  double_me: a =&gt; a
+<pre><code class="language-haskell">trait CanDouble
+  @double_me: @
 </code></pre>
-<p>We define a trait <code>CanDouble</code> that takes a generic type <code>a</code> that is the <code>Self</code> type referring to the implementation, and declare a method <code>double_me</code> that takes the generic type <code>a</code> and return a value of the same type.</p>
+<p>We define a trait <code>CanDouble</code> and declare a method <code>double_me</code> that returns the generic self type <code>@</code>.</p>
 <h2 id="implementation"><a class="header" href="#implementation">Implementation</a></h2>
 <p>We can now implement the trait for any type we want, like <code>Int64</code></p>
 <pre><code class="language-haskell">impl CanDouble Int64
@@ -157,7 +157,7 @@ You can define some 'interfaces' that has some methods, you can then implement t
 <h2 id="default-method"><a class="header" href="#default-method">Default method</a></h2>
 <p>You can define trait methods that have a default implementation.<br />
 That means you don't have to reimplement it for each type, but you can override the default implementation with your own if you need it.</p>
-<pre><code class="language-haskell">trait CanDouble a
+<pre><code class="language-haskell">trait CanDouble
   @double_me: -&gt; @ + @
 
 impl CanDouble Int64
@@ -166,7 +166,7 @@ main: -&gt; (2).double_me!.print!
 </code></pre>
 <h3 id="overriding"><a class="header" href="#overriding">Overriding</a></h3>
 <p>You can override a default implementation</p>
-<pre><code class="language-haskell">trait CanDouble a
+<pre><code class="language-haskell">trait CanDouble
   @double_me: -&gt; @ + @
 
 impl CanDouble Int64

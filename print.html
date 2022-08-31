@@ -280,28 +280,25 @@ Multiple calls with different types will generate each corresponding function, j
 <p>the previous main would still work if all of the types implemented the <code>Num</code> trait from the stdlib, that provide implementation of <code>+</code> for the basic types</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="function-signature"><a class="header" href="#function-signature">Function signature</a></h1>
 <h2 id="syntax-1"><a class="header" href="#syntax-1">Syntax</a></h2>
-<pre><code class="language-haskell">trait MyTrait a
-  my_func: a =&gt; Int64 =&gt; String
+<pre><code class="language-haskell">foo: a =&gt; Int64 =&gt; String
+foo: x, y -&gt; &quot;bar&quot;
 </code></pre>
-<p>Here, the <code>my_func</code> method takes 2 arguments of type <code>a</code> (generic) and <code>Int64</code>, and returns a <code>String</code></p>
+<p>Here, the <code>foo</code> function takes 2 arguments, of type <code>a</code> (generic) and <code>Int64</code>, and returns a <code>String</code>
+The implementation ignore the two arguments and returns &quot;bar&quot;</p>
 <p>A signature is always formed of at least one type.<br />
 The last (or only) type is the return type</p>
 <p>Functions can take functions as parameter, and must be representable in a signature:</p>
-<pre><code class="language-haskell">trait MyTrait a
-  my_func: a =&gt; (a =&gt; b) =&gt; b
-</code></pre>
-<p>Here the first argument of the method <code>my_func</code> is the <code>self</code>, the second is a function that take the generic type <code>a</code> taken from the trait definition and returns a type <code>b</code>, and the whole method returns a type <code>b</code></p>
-<p>An implementation of this trait would be:</p>
-<pre><code class="language-haskell">impl MyTrait Int64
-  my_func: f -&gt; f @
+<pre><code class="language-haskell">my_func: a =&gt; (a =&gt; b) =&gt; b
+my_func: x, f -&gt; f x
 
-# A function of type (a =&gt; b)
+# A function of type (a =&gt; b) that resolves to (Int64 =&gt; String)
 handler: x -&gt; x.show!
 
-main: -&gt; (2).my_func handler .print!
+main: -&gt; my_func 42, handler .print!
 </code></pre>
+<p>Here the second argument of the function <code>my_func</code> is a function that take a generic type <code>a</code> and returns a type <code>b</code>, and the whole method returns a type <code>b</code></p>
 <p>This outputs:</p>
-<pre><code>2
+<pre><code>42
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="structure"><a class="header" href="#structure">Structure</a></h1>
 <h2 id="declaration"><a class="header" href="#declaration">Declaration:</a></h2>
@@ -345,10 +342,10 @@ main: -&gt; Counter::new 41 .increment!.value.print!
 <p>The trait feature is very similar to what Rust have<br />
 You can define some 'interfaces' that has some methods, you can then implement them for your types.</p>
 <p>For example, we will implement a trait that double itself with the <code>+</code> operator</p>
-<pre><code class="language-haskell">trait CanDouble a
-  double_me: a =&gt; a
+<pre><code class="language-haskell">trait CanDouble
+  @double_me: @
 </code></pre>
-<p>We define a trait <code>CanDouble</code> that takes a generic type <code>a</code> that is the <code>Self</code> type referring to the implementation, and declare a method <code>double_me</code> that takes the generic type <code>a</code> and return a value of the same type.</p>
+<p>We define a trait <code>CanDouble</code> and declare a method <code>double_me</code> that returns the generic self type <code>@</code>.</p>
 <h2 id="implementation-1"><a class="header" href="#implementation-1">Implementation</a></h2>
 <p>We can now implement the trait for any type we want, like <code>Int64</code></p>
 <pre><code class="language-haskell">impl CanDouble Int64
@@ -363,7 +360,7 @@ You can define some 'interfaces' that has some methods, you can then implement t
 <h2 id="default-method"><a class="header" href="#default-method">Default method</a></h2>
 <p>You can define trait methods that have a default implementation.<br />
 That means you don't have to reimplement it for each type, but you can override the default implementation with your own if you need it.</p>
-<pre><code class="language-haskell">trait CanDouble a
+<pre><code class="language-haskell">trait CanDouble
   @double_me: -&gt; @ + @
 
 impl CanDouble Int64
@@ -372,7 +369,7 @@ main: -&gt; (2).double_me!.print!
 </code></pre>
 <h3 id="overriding"><a class="header" href="#overriding">Overriding</a></h3>
 <p>You can override a default implementation</p>
-<pre><code class="language-haskell">trait CanDouble a
+<pre><code class="language-haskell">trait CanDouble
   @double_me: -&gt; @ + @
 
 impl CanDouble Int64

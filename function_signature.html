@@ -136,28 +136,25 @@
                     <main>
                         <h1 id="function-signature"><a class="header" href="#function-signature">Function signature</a></h1>
 <h2 id="syntax"><a class="header" href="#syntax">Syntax</a></h2>
-<pre><code class="language-haskell">trait MyTrait a
-  my_func: a =&gt; Int64 =&gt; String
+<pre><code class="language-haskell">foo: a =&gt; Int64 =&gt; String
+foo: x, y -&gt; &quot;bar&quot;
 </code></pre>
-<p>Here, the <code>my_func</code> method takes 2 arguments of type <code>a</code> (generic) and <code>Int64</code>, and returns a <code>String</code></p>
+<p>Here, the <code>foo</code> function takes 2 arguments, of type <code>a</code> (generic) and <code>Int64</code>, and returns a <code>String</code>
+The implementation ignore the two arguments and returns &quot;bar&quot;</p>
 <p>A signature is always formed of at least one type.<br />
 The last (or only) type is the return type</p>
 <p>Functions can take functions as parameter, and must be representable in a signature:</p>
-<pre><code class="language-haskell">trait MyTrait a
-  my_func: a =&gt; (a =&gt; b) =&gt; b
-</code></pre>
-<p>Here the first argument of the method <code>my_func</code> is the <code>self</code>, the second is a function that take the generic type <code>a</code> taken from the trait definition and returns a type <code>b</code>, and the whole method returns a type <code>b</code></p>
-<p>An implementation of this trait would be:</p>
-<pre><code class="language-haskell">impl MyTrait Int64
-  my_func: f -&gt; f @
+<pre><code class="language-haskell">my_func: a =&gt; (a =&gt; b) =&gt; b
+my_func: x, f -&gt; f x
 
-# A function of type (a =&gt; b)
+# A function of type (a =&gt; b) that resolves to (Int64 =&gt; String)
 handler: x -&gt; x.show!
 
-main: -&gt; (2).my_func handler .print!
+main: -&gt; my_func 42, handler .print!
 </code></pre>
+<p>Here the second argument of the function <code>my_func</code> is a function that take a generic type <code>a</code> and returns a type <code>b</code>, and the whole method returns a type <code>b</code></p>
 <p>This outputs:</p>
-<pre><code>2
+<pre><code>42
 </code></pre>
 
                     </main>
