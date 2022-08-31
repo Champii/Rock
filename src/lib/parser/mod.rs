@@ -366,23 +366,26 @@ pub fn parse_trait(input: Parser) -> Res<Parser, Trait> {
         tuple((
             terminated(tag("trait"), space1),
             parse_type,
-            many0(delimited(space1, parse_type, space0)),
             many0(line_ending),
             indent(separated_list1(
                 many1(line_ending),
                 preceded(
                     parse_block_indent,
                     alt((
-                        map(parse_prototype, ProtoOrFn::Proto),
+                        map(
+                            alt((parse_self_prototype, parse_prototype)),
+                            ProtoOrFn::Proto,
+                        ),
                         map(alt((parse_self_fn, parse_fn)), ProtoOrFn::Fn),
                     )),
                 ),
             )),
             many0(line_ending),
         )),
-        |(_, name, types, _, defs_or_fns, _)| {
+        |(_, name, _, defs_or_fns, _)| {
             let (defs, fns) = partition_defs_or_fns(defs_or_fns);
-            Trait::new(name, types, defs, fns)
+
+            Trait::new(name, vec![Type::ForAll("@".to_string())], defs, fns)
         },
     )(input)
 }
@@ -463,6 +466,21 @@ pub fn parse_infix(input: Parser) -> Res<Parser, TopLevel> {
 
 pub fn parse_identifier_or_operator(input: Parser) -> Res<Parser, Identifier> {
     alt((parse_identifier, map(parse_operator, |op| op.0)))(input)
+}
+
+pub fn parse_self_prototype(input: Parser) -> Res<Parser, Prototype> {
+    map(
+        tuple((
+            parse_identity,
+            tag("@"),
+            terminated(
+                parse_identifier_or_operator,
+                delimited(space0, tag(":"), space0),
+            ),
+            parse_signature,
+        )),
+        |(node_id, _, name, signature)| Prototype::new_self(node_id, name, signature),
+    )(input)
 }
 
 pub fn parse_prototype(input: Parser) -> Res<Parser, Prototype> {
@@ -1233,6 +1251,7 @@ pub fn parse_signature(input: Parser) -> Res<Parser, FuncType> {
 
 pub fn parse_type(input: Parser) -> Res<Parser, Type> {
     let (input, ty) = alt((
+        map(tag("@"), |_| Type::ForAll("@".to_string())),
         map(delimited(tag("("), parse_signature, tag(")")), |t| {
             Type::Func(t)
         }),
