@@ -5,6 +5,7 @@ use std::path::PathBuf;
             let mut config = super::Config::default();
 
             config.project_config.entry_point = PathBuf::from(path);
+            config.quiet = true;
 
             let expected_ret = expected_ret.parse::<i64>().unwrap();
 

@@ -46,10 +46,18 @@ impl ParsingCtx {
     }
 
     pub fn print_diagnostics(&self) {
+        if self.config.quiet {
+            return;
+        }
+
         self.diagnostics.print(&self.files);
     }
 
     pub fn print_success_diagnostics(&self) {
+        if self.config.quiet {
+            return;
+        }
+
         self.print_diagnostics();
 
         if !self.diagnostics.list.is_empty() {
@@ -108,18 +116,20 @@ impl ParsingCtx {
                 "]".bright_black(),
             );
 
-            println!(
-                "{} {} {} {} {} {} {} {} {}",
-                diag_type_str,
-                "Compilation".bright_black(),
-                "stopped".bright_red(),
-                "with".bright_black(),
-                errors.len().to_string().red(),
-                "errors".bright_red(),
-                "and".bright_black(),
-                warnings.len().to_string().yellow(),
-                "warnings".bright_yellow(),
-            );
+            if !self.config.quiet {
+                println!(
+                    "{} {} {} {} {} {} {} {} {}",
+                    diag_type_str,
+                    "Compilation".bright_black(),
+                    "stopped".bright_red(),
+                    "with".bright_black(),
+                    errors.len().to_string().red(),
+                    "errors".bright_red(),
+                    "and".bright_black(),
+                    warnings.len().to_string().yellow(),
+                    "warnings".bright_yellow(),
+                );
+            }
 
             return Err(Diagnostic::new_empty());
         }
