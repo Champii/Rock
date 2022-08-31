@@ -1,6 +1,5 @@
 # Rock v0.4.3
 
-
 [![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
 [![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
 
