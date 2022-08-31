@@ -4,8 +4,8 @@ struct Bar
   toto: Int64
   mdr: String
 
-trait Show a
-  show: a => String
+trait Show
+  @show: String
 
 impl Show Int64
   @show: -> "2"

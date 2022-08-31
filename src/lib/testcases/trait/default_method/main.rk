@@ -1,4 +1,4 @@
-trait Test a
+trait Test
   @test: -> @
 
 impl Test Int64

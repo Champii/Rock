@@ -1,5 +1,5 @@
-trait MyTrait a
-  my_func: a => (a => b) => b
+trait MyTrait
+  @my_func: (@ => a) => a
 
 impl MyTrait Int64
   @my_func: f -> f @

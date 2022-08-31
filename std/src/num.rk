@@ -3,11 +3,11 @@ infix - 4
 infix * 5
 infix / 5
 
-trait Num a
-  + : a => a => a
-  - : a => a => a
-  * : a => a => a
-  / : a => a => a
+trait Num
+  + : @ => @ => @
+  - : @ => @ => @
+  * : @ => @ => @
+  / : @ => @ => @
 
 impl Num Int64
   +: a, b -> ~IAdd a b

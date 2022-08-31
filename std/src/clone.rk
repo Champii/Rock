@@ -2,8 +2,8 @@ use super::externs::malloc
 use super::externs::strcpy
 use super::externs::strlen
 
-trait Clone a
-  clone: a => a
+trait Clone
+  @clone: @
 
 impl Clone Int64
   @clone: -> @

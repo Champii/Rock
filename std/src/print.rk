@@ -5,7 +5,7 @@ use super::show::(*)
 use super::eq::(*)
 use super::num::(*)
 
-trait Print a
+trait Print
   @print: -> puts @show!
   @putstr: ->
     printf "%s", @show!

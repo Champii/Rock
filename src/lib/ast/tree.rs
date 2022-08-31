@@ -169,6 +169,16 @@ pub struct Prototype {
 }
 
 impl Prototype {
+    pub fn new_self(node_id: NodeId, name: Identifier, mut signature: FuncType) -> Self {
+        signature.arguments.insert(0, Type::ForAll("@".to_string()));
+
+        Self {
+            name,
+            signature,
+            node_id,
+        }
+    }
+
     pub fn mangle(&mut self, prefix: String) {
         self.name.name = prefix + "_" + &self.name.name;
     }

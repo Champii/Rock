@@ -4,12 +4,12 @@ infix >= 3
 infix < 3
 infix > 3
 
-trait Eq a
-  == : a => a => Bool
-  <= : a => a => Bool
-  >= : a => a => Bool
-  <  : a => a => Bool
-  >  : a => a => Bool
+trait Eq
+  == : @ => @ => Bool
+  <= : @ => @ => Bool
+  >= : @ => @ => Bool
+  <  : @ => @ => Bool
+  >  : @ => @ => Bool
 
 impl Eq Int64
   ==: e, f -> ~IEq e f

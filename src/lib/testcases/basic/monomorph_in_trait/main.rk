@@ -1,7 +1,7 @@
 id: a -> a
 
-trait Foo a
-  foo: a => a
+trait Foo
+  @foo: @
 
 impl Foo Int64
   @foo: -> id @

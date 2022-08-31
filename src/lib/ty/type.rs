@@ -22,7 +22,15 @@ impl std::hash::Hash for Type {
 
 impl PartialEq for Type {
     fn eq(&self, other: &Type) -> bool {
-        self.get_name() == other.get_name()
+        match self {
+            Self::Func(func_type) => match other {
+                Self::Func(other_func_type) => {
+                    func_type.arguments.len() == other_func_type.arguments.len()
+                }
+                _ => panic!("Expected func type"),
+            },
+            _ => self.get_name() == other.get_name(),
+        }
     }
 }
 

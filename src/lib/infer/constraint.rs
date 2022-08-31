@@ -243,7 +243,7 @@ impl<'a> ConstraintContext<'a> {
                 .push_error(Diagnostic::new_type_conflict(
                     self.envs
                         .spans
-                        .get(&fc.op.get_hir_id())
+                        .get(&self.resolve(&fc.op.get_hir_id()).unwrap())
                         .unwrap()
                         .clone()
                         .into(),
