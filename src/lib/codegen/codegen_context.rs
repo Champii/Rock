@@ -903,6 +903,14 @@ impl<'a> CodegenContext<'a> {
                     .as_basic_value_enum()
             }
 
+            NativeOperatorKind::IMod => {
+                let left = self.lower_identifier(left, builder)?.into_int_value();
+                let right = self.lower_identifier(right, builder)?.into_int_value();
+
+                builder
+                    .build_int_signed_rem(left, right, "imod")
+                    .as_basic_value_enum()
+            }
             // float
             NativeOperatorKind::FAdd => {
                 let left = self.lower_identifier(left, builder)?.into_float_value();
@@ -934,6 +942,14 @@ impl<'a> CodegenContext<'a> {
 
                 builder
                     .build_float_div(left, right, "fdiv")
+                    .as_basic_value_enum()
+            }
+            NativeOperatorKind::FMod => {
+                let left = self.lower_identifier(left, builder)?.into_float_value();
+                let right = self.lower_identifier(right, builder)?.into_float_value();
+
+                builder
+                    .build_float_rem(left, right, "fmod")
                     .as_basic_value_enum()
             }
             NativeOperatorKind::IEq => {

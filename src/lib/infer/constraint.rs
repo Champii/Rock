@@ -599,6 +599,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     | NativeOperatorKind::IAdd
                     | NativeOperatorKind::ISub
                     | NativeOperatorKind::IDiv
+                    | NativeOperatorKind::IMod
                     | NativeOperatorKind::IMul => PrimitiveType::Int64,
                     NativeOperatorKind::FEq
                     | NativeOperatorKind::Fgt
@@ -608,6 +609,7 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
                     | NativeOperatorKind::FAdd
                     | NativeOperatorKind::FSub
                     | NativeOperatorKind::FDiv
+                    | NativeOperatorKind::FMod
                     | NativeOperatorKind::FMul => PrimitiveType::Float64,
                     NativeOperatorKind::BEq => PrimitiveType::Bool,
                     NativeOperatorKind::Len => PrimitiveType::Void, // ignored
@@ -851,10 +853,12 @@ impl<'a, 'ar> Visitor<'a> for ConstraintContext<'ar> {
             NativeOperatorKind::IAdd
             | NativeOperatorKind::ISub
             | NativeOperatorKind::IDiv
+            | NativeOperatorKind::IMod
             | NativeOperatorKind::IMul => PrimitiveType::Int64,
             NativeOperatorKind::FAdd
             | NativeOperatorKind::FDiv
             | NativeOperatorKind::FMul
+            | NativeOperatorKind::FMod
             | NativeOperatorKind::FSub => PrimitiveType::Float64,
             NativeOperatorKind::Len => PrimitiveType::Int64,
         };
