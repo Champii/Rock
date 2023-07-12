@@ -10,7 +10,7 @@ use inkwell::{
     passes::{PassManager, PassManagerBuilder},
     targets::{InitializationConfig, Target},
     types::{BasicType, BasicTypeEnum},
-    values::{BasicValue, BasicValueEnum, CallableValue, FunctionValue},
+    values::{BasicValue, BasicValueEnum, CallSiteValue, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
     OptimizationLevel::Aggressive,
 };
@@ -55,7 +55,8 @@ impl<'a> CodegenContext<'a> {
 
         pass_manager.add_promote_memory_to_register_pass();
         // pass_manager.add_demote_memory_to_register_pass();
-        pass_manager.add_argument_promotion_pass();
+        // disabled until llvm15
+        // pass_manager.add_argument_promotion_pass();
         pass_manager.add_always_inliner_pass();
         pass_manager.add_gvn_pass();
         pass_manager.add_new_gvn_pass();
@@ -86,7 +87,8 @@ impl<'a> CodegenContext<'a> {
         pass_manager.add_licm_pass();
         pass_manager.add_ind_var_simplify_pass();
         pass_manager.add_loop_vectorize_pass();
-        pass_manager.add_loop_unswitch_pass();
+        // disabled until llvm15
+        // pass_manager.add_loop_unswitch_pass();
         pass_manager.add_loop_idiom_pass();
         pass_manager.add_loop_rotate_pass();
         pass_manager.add_loop_unroll_and_jam_pass();
@@ -111,13 +113,13 @@ impl<'a> CodegenContext<'a> {
             Type::Primitive(PrimitiveType::String) => self
                 .context
                 .i8_type()
-                .ptr_type(AddressSpace::Generic)
+                .ptr_type(AddressSpace::from(0))
                 .into(),
             Type::Primitive(PrimitiveType::Array(inner, size)) => {
                 // assuming all types are equals
                 self.lower_type(inner, builder)?
                     .array_type(*size as u32)
-                    .ptr_type(AddressSpace::Generic)
+                    .ptr_type(AddressSpace::from(0))
                     .into()
             }
             Type::Func(f) => {
@@ -144,7 +146,7 @@ impl<'a> CodegenContext<'a> {
                         .fn_type(args.as_slice(), false)
                 };
 
-                fn_type.ptr_type(AddressSpace::Generic).into()
+                fn_type.ptr_type(AddressSpace::from(0)).into()
             }
             Type::Struct(s) => self
                 .context
@@ -156,7 +158,7 @@ impl<'a> CodegenContext<'a> {
                         .as_slice(),
                     false,
                 )
-                .ptr_type(AddressSpace::Generic)
+                .ptr_type(AddressSpace::from(0))
                 .into(),
             _ => unimplemented!("Codegen: Cannot lower type {:#?}", t),
         })
@@ -605,8 +607,12 @@ impl<'a> CodegenContext<'a> {
         let t = self.hir.node_types.get(&s.get_hir_id()).unwrap();
         let struct_t = t.as_struct_type();
 
-        let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
-        let llvm_struct_t = llvm_struct_t_ptr.get_element_type().into_struct_type();
+        let llvm_struct_t = self.lower_type(t, builder).unwrap();
+        /* let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
+        let llvm_struct_t = llvm_struct_t_ptr
+            .()
+            .get_element_type()
+            .into_struct_type(); */
 
         let defs = struct_t
             .ordered_defs()
@@ -624,10 +630,11 @@ impl<'a> CodegenContext<'a> {
             .collect::<Vec<_>>();
 
         let ptr = builder.build_alloca(llvm_struct_t, "struct_ptr");
+        let ptr_type = ptr.get_type();
 
         for (i, def) in defs.iter().enumerate() {
             let inner_ptr = builder
-                .build_struct_gep(ptr, i as u32, "struct_inner")
+                .build_struct_gep(ptr_type, ptr, i as u32, "struct_inner")
                 .unwrap();
 
             builder.build_store(inner_ptr, *def);
@@ -646,18 +653,17 @@ impl<'a> CodegenContext<'a> {
         let f_id = self.hir.resolutions.get(&terminal_hir_id).unwrap();
 
         let callable_value = match self.hir.get_top_level(f_id) {
-            Some(top) => CallableValue::try_from(match &top.kind {
+            Some(top) => match &top.kind {
                 TopLevelKind::Extern(p) => self.module.get_function(&p.name.to_string()).unwrap(),
                 TopLevelKind::Signature(_p) => unimplemented!(),
                 TopLevelKind::Function(f) => {
                     self.module.get_function(&f.get_name().to_string()).unwrap()
                 }
-            })
-            .unwrap(),
-            None => CallableValue::try_from(
-                self.lower_expression(&fc.op, builder)?.into_pointer_value(),
-            )
-            .unwrap(),
+            },
+            None => {
+                panic!("Function not found, temporary compiler error until full llvm15 integration")
+            }
+            // None => FunctionValue::try_from(self.lower_expression(&fc.op, builder)?).unwrap(),
         };
 
         let mut arguments = vec![];
@@ -703,7 +709,7 @@ impl<'a> CodegenContext<'a> {
             None => panic!("indice on non-type"),
         };
 
-        let ptr = unsafe { builder.build_gep(op, &indexes, "index") };
+        let ptr = unsafe { builder.build_gep(op.get_type(), op, &indexes, "index") };
 
         Ok(ptr.as_basic_value_enum())
     }
@@ -715,7 +721,7 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
 
-        Ok(builder.build_load(ptr, "load_indice"))
+        Ok(builder.build_load(ptr.get_type(), ptr, "load_indice"))
     }
 
     pub fn lower_dot_ptr(
@@ -744,7 +750,8 @@ impl<'a> CodegenContext<'a> {
         let const_0 = i32_type.const_zero();
         let indice = i32_type.const_int(indice as u64, false);
 
-        let ptr = unsafe { builder.build_gep(op, &[const_0, indice], "struct_index") };
+        let ptr =
+            unsafe { builder.build_gep(op.get_type(), op, &[const_0, indice], "struct_index") };
 
         Ok(ptr.as_basic_value_enum())
     }
@@ -756,7 +763,7 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
 
-        Ok(builder.build_load(ptr, "load_dot"))
+        Ok(builder.build_load(ptr.get_type(), ptr, "load_dot"))
     }
 
     pub fn lower_literal(
@@ -796,8 +803,7 @@ impl<'a> CodegenContext<'a> {
                     .lower_type(self.hir.node_types.get(&lit.hir_id).unwrap(), builder)
                     .unwrap()
                     .into_pointer_type()
-                    .get_element_type()
-                    .into_array_type();
+                    .array_type(0);
 
                 let ptr = builder.build_alloca(arr_type, "array");
 
@@ -810,7 +816,12 @@ impl<'a> CodegenContext<'a> {
                     let const_0 = i64_type.const_zero();
 
                     let inner_ptr = unsafe {
-                        builder.build_gep(ptr, &[const_0, const_i], format!("elem_{}", i).as_str())
+                        builder.build_gep(
+                            ptr.get_type(),
+                            ptr,
+                            &[const_0, const_i],
+                            format!("elem_{}", i).as_str(),
+                        )
                     };
 
                     builder.build_store(inner_ptr, expr);
@@ -854,7 +865,11 @@ impl<'a> CodegenContext<'a> {
         // Dereference primitives only
         // FIXME: get Array and String out of PrimitveType
         let val = if val.is_pointer_value() && t.is_primitive() && !t.is_array() && !t.is_string() {
-            builder.build_load(val.into_pointer_value(), &id.name.to_string())
+            builder.build_load(
+                val.get_type().into_pointer_type(),
+                val.into_pointer_value(),
+                &id.name.to_string(),
+            )
         } else {
             val
         };
