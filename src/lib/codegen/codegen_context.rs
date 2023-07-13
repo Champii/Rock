@@ -799,8 +799,10 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
+        let t = self.hir.node_types.get(&indice.get_hir_id()).unwrap();
+        let real_t = self.lower_type_real(t, builder).unwrap();
 
-        Ok(builder.build_load(ptr.get_type(), ptr, "load_indice"))
+        Ok(builder.build_load(real_t, ptr, "load_indice"))
     }
 
     pub fn lower_dot_ptr(
@@ -841,8 +843,10 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
+        let t = self.hir.node_types.get(&dot.get_hir_id()).unwrap();
+        let real_t = self.lower_type_real(t, builder).unwrap();
 
-        Ok(builder.build_load(ptr.get_type(), ptr, "load_dot"))
+        Ok(builder.build_load(real_t, ptr, "load_dot"))
     }
 
     pub fn lower_literal(
@@ -885,7 +889,6 @@ impl<'a> CodegenContext<'a> {
                     .into_pointer_type()
                     .array_type(arr.values.len() as u32);
 
-                // hir_type.as_primitive_type().try_as_array().unwrap()
                 let real_arr_type = self.lower_type_real(hir_type, builder).unwrap();
 
                 let ptr = builder.build_alloca(arr_type, "array");
@@ -900,7 +903,6 @@ impl<'a> CodegenContext<'a> {
 
                     let inner_ptr = unsafe {
                         builder.build_gep(
-                            // ptr.get_type(),
                             real_arr_type,
                             ptr,
                             &[const_0, const_i],
@@ -949,7 +951,7 @@ impl<'a> CodegenContext<'a> {
         // Dereference primitives only
         // FIXME: get Array and String out of PrimitveType
         let val = if val.is_pointer_value() && t.is_primitive() && !t.is_array() && !t.is_string() {
-            let ty = self.lower_type(t, builder).unwrap();
+            let ty = self.lower_type_real(t, builder).unwrap();
 
             builder.build_load(ty, val.into_pointer_value(), &id.name.to_string())
         } else {
