@@ -10,7 +10,7 @@ use inkwell::{
     passes::{PassManager, PassManagerBuilder},
     targets::{InitializationConfig, Target},
     types::{BasicType, BasicTypeEnum},
-    values::{BasicValue, BasicValueEnum, CallSiteValue, FunctionValue},
+    values::{AnyValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
     OptimizationLevel::Aggressive,
 };
@@ -113,13 +113,13 @@ impl<'a> CodegenContext<'a> {
             Type::Primitive(PrimitiveType::String) => self
                 .context
                 .i8_type()
-                .ptr_type(AddressSpace::from(0))
+                .ptr_type(AddressSpace::default())
                 .into(),
             Type::Primitive(PrimitiveType::Array(inner, size)) => {
                 // assuming all types are equals
                 self.lower_type(inner, builder)?
                     .array_type(*size as u32)
-                    .ptr_type(AddressSpace::from(0))
+                    .ptr_type(AddressSpace::default())
                     .into()
             }
             Type::Func(f) => {
@@ -146,7 +146,7 @@ impl<'a> CodegenContext<'a> {
                         .fn_type(args.as_slice(), false)
                 };
 
-                fn_type.ptr_type(AddressSpace::from(0)).into()
+                fn_type.ptr_type(AddressSpace::default()).into()
             }
             Type::Struct(s) => self
                 .context
@@ -158,7 +158,7 @@ impl<'a> CodegenContext<'a> {
                         .as_slice(),
                     false,
                 )
-                .ptr_type(AddressSpace::from(0))
+                .ptr_type(AddressSpace::default())
                 .into(),
             _ => unimplemented!("Codegen: Cannot lower type {:#?}", t),
         })
@@ -608,6 +608,9 @@ impl<'a> CodegenContext<'a> {
         let struct_t = t.as_struct_type();
 
         let llvm_struct_t = self.lower_type(t, builder).unwrap();
+
+        // let llvm_struct_t = llvm_struct_t_ptr.
+
         /* let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
         let llvm_struct_t = llvm_struct_t_ptr
             .()
@@ -634,7 +637,7 @@ impl<'a> CodegenContext<'a> {
 
         for (i, def) in defs.iter().enumerate() {
             let inner_ptr = builder
-                .build_struct_gep(ptr_type, ptr, i as u32, "struct_inner")
+                .build_struct_gep(def.get_type(), ptr, i as u32, "struct_inner")
                 .unwrap();
 
             builder.build_store(inner_ptr, *def);
@@ -661,9 +664,10 @@ impl<'a> CodegenContext<'a> {
                 }
             },
             None => {
-                panic!("Function not found, temporary compiler error until full llvm15 integration")
-            }
-            // None => FunctionValue::try_from(self.lower_expression(&fc.op, builder)?).unwrap(),
+                FunctionValue::try_from(AnyValueEnum::from(self.lower_expression(&fc.op, builder)?))
+                    .unwrap()
+                // panic!("Function not found, temporary compiler error until full llvm15 integration")
+            } // None => FunctionValue::try_from(self.lower_expression(&fc.op, builder)?).unwrap(),
         };
 
         let mut arguments = vec![];
@@ -803,7 +807,7 @@ impl<'a> CodegenContext<'a> {
                     .lower_type(self.hir.node_types.get(&lit.hir_id).unwrap(), builder)
                     .unwrap()
                     .into_pointer_type()
-                    .array_type(0);
+                    .array_type(arr.values.len() as u32);
 
                 let ptr = builder.build_alloca(arr_type, "array");
 
@@ -865,11 +869,9 @@ impl<'a> CodegenContext<'a> {
         // Dereference primitives only
         // FIXME: get Array and String out of PrimitveType
         let val = if val.is_pointer_value() && t.is_primitive() && !t.is_array() && !t.is_string() {
-            builder.build_load(
-                val.get_type().into_pointer_type(),
-                val.into_pointer_value(),
-                &id.name.to_string(),
-            )
+            let ty = self.lower_type(t, builder).unwrap();
+
+            builder.build_load(ty, val.into_pointer_value(), &id.name.to_string())
         } else {
             val
         };
