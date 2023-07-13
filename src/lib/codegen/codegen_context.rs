@@ -878,11 +878,15 @@ impl<'a> CodegenContext<'a> {
                 global_str.as_basic_value_enum()
             }
             LiteralKind::Array(arr) => {
+                let hir_type = self.hir.node_types.get(&lit.hir_id).unwrap();
                 let arr_type = self
-                    .lower_type(self.hir.node_types.get(&lit.hir_id).unwrap(), builder)
+                    .lower_type(hir_type, builder)
                     .unwrap()
                     .into_pointer_type()
                     .array_type(arr.values.len() as u32);
+
+                // hir_type.as_primitive_type().try_as_array().unwrap()
+                let real_arr_type = self.lower_type_real(hir_type, builder).unwrap();
 
                 let ptr = builder.build_alloca(arr_type, "array");
 
@@ -896,7 +900,8 @@ impl<'a> CodegenContext<'a> {
 
                     let inner_ptr = unsafe {
                         builder.build_gep(
-                            ptr.get_type(),
+                            // ptr.get_type(),
+                            real_arr_type,
                             ptr,
                             &[const_0, const_i],
                             format!("elem_{}", i).as_str(),
