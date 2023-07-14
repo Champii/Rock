@@ -9,7 +9,7 @@ use inkwell::{
     module::Module,
     passes::{PassManager, PassManagerBuilder},
     targets::{InitializationConfig, Target},
-    types::{BasicType, BasicTypeEnum},
+    types::{AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType},
     values::{AnyValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
     OptimizationLevel::Aggressive,
@@ -103,6 +103,43 @@ impl<'a> CodegenContext<'a> {
         pass_manager_builder.populate_module_pass_manager(&pass_manager);
     }
 
+    pub fn lower_fn_type_real(
+        &mut self,
+        f: &Type,
+        builder: &'a Builder,
+    ) -> Result<FunctionType<'a>, ()> {
+        let f = if let Type::Func(f) = f {
+            f
+        } else {
+            return Err(());
+        };
+
+        let ret_t = f.ret.clone();
+
+        let args = f
+            .arguments
+            .iter()
+            .map(|arg| self.lower_type(arg, builder))
+            .collect::<Vec<_>>();
+
+        let mut args_ret = vec![];
+
+        for arg in args {
+            args_ret.push(arg?.into());
+        }
+
+        let args = args_ret;
+
+        let fn_type = if let Type::Primitive(PrimitiveType::Void) = *ret_t {
+            self.context.void_type().fn_type(args.as_slice(), false)
+        } else {
+            self.lower_type(&ret_t, builder)?
+                .fn_type(args.as_slice(), false)
+        };
+
+        Ok(fn_type)
+    }
+
     pub fn lower_type_real(
         &mut self,
         t: &Type,
@@ -125,6 +162,7 @@ impl<'a> CodegenContext<'a> {
                     .array_type(*size as u32)
                     .into()
             }
+            // TODO: remove this
             Type::Func(f) => {
                 let ret_t = f.ret.clone();
 
@@ -709,35 +747,54 @@ impl<'a> CodegenContext<'a> {
 
         let f_id = self.hir.resolutions.get(&terminal_hir_id).unwrap();
 
-        let callable_value = match self.hir.get_top_level(f_id) {
-            Some(top) => match &top.kind {
-                TopLevelKind::Extern(p) => self.module.get_function(&p.name.to_string()).unwrap(),
-                TopLevelKind::Signature(_p) => unimplemented!(),
-                TopLevelKind::Function(f) => {
-                    self.module.get_function(&f.get_name().to_string()).unwrap()
-                }
-            },
-            None => {
-                FunctionValue::try_from(AnyValueEnum::from(self.lower_expression(&fc.op, builder)?))
-                    .unwrap()
-            }
-        };
-
         let mut arguments = vec![];
 
         for arg in &fc.args {
             arguments.push(self.lower_expression(arg, builder)?.into());
         }
 
-        Ok(builder
-            .build_call(
-                callable_value,
-                arguments.as_slice(),
-                format!("call_{}", fc.op.as_identifier().name).as_str(),
-            )
-            .try_as_basic_value()
-            .left()
-            .unwrap())
+        match self.hir.get_top_level(f_id) {
+            Some(top) => {
+                let callable_value = match &top.kind {
+                    TopLevelKind::Extern(p) => {
+                        self.module.get_function(&p.name.to_string()).unwrap()
+                    }
+                    TopLevelKind::Signature(_p) => unimplemented!(),
+                    TopLevelKind::Function(f) => {
+                        self.module.get_function(&f.get_name().to_string()).unwrap()
+                    }
+                };
+
+                Ok(builder
+                    .build_direct_call(
+                        callable_value,
+                        arguments.as_slice(),
+                        format!("call_{}", fc.op.as_identifier().name).as_str(),
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap())
+            }
+            None => {
+                let callable_value = self.lower_expression(&fc.op, builder)?;
+                let fn_type = self.lower_fn_type_real(
+                    self.hir.node_types.get(&fc.op.get_hir_id()).unwrap(),
+                    builder,
+                )?;
+                println!("fn_type: {:?}", fn_type);
+
+                Ok(builder
+                    .build_indirect_call(
+                        fn_type,
+                        callable_value.into_pointer_value(),
+                        arguments.as_slice(),
+                        format!("call_{}", fc.op.as_identifier().name).as_str(),
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap())
+            }
+        }
     }
 
     pub fn lower_indice_ptr(
