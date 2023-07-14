@@ -151,11 +151,7 @@ impl<'a> CodegenContext<'a> {
             Type::Primitive(PrimitiveType::Float64) => self.context.f64_type().into(),
             Type::Primitive(PrimitiveType::Bool) => self.context.bool_type().into(),
             Type::Primitive(PrimitiveType::Char) => self.context.i8_type().into(),
-            Type::Primitive(PrimitiveType::String) => self
-                .context
-                .i8_type()
-                .ptr_type(AddressSpace::default())
-                .into(),
+            Type::Primitive(PrimitiveType::String) => self.context.i8_type().into(),
             Type::Primitive(PrimitiveType::Array(inner, size)) => {
                 // assuming all types are equals
                 self.lower_type(inner, builder)?
@@ -847,7 +843,18 @@ impl<'a> CodegenContext<'a> {
 
         let op_t = self.lower_type(&op_t, builder).unwrap();
 
-        Ok(builder.build_load(op_t, ptr, "load_indice"))
+        let t = self.hir.node_types.get(&indice.get_hir_id()).unwrap();
+        let real_t = self.lower_type_real(t, builder).unwrap();
+        let real_t = match real_t {
+            BasicTypeEnum::StructType(_) | BasicTypeEnum::ArrayType(_) => real_t
+                .ptr_type(AddressSpace::default())
+                .as_basic_type_enum(),
+            // Assuming this is a string
+            BasicTypeEnum::PointerType(_) => self.context.i8_type().as_basic_type_enum(),
+            _ => real_t,
+        };
+
+        Ok(builder.build_load(real_t, ptr, "load_indice"))
     }
 
     pub fn lower_dot_ptr(
