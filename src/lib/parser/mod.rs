@@ -982,7 +982,7 @@ pub fn parse_indice(input: Parser) -> Res<Parser, Box<Expression>> {
         tuple((
             terminated(tag("["), space0),
             terminated(parse_expression, space0),
-            terminated(tag("]"), space0),
+            preceded(space0, tag("]")),
         )),
         |(_, index, _)| Box::new(index),
     )(input)
@@ -1185,7 +1185,7 @@ pub fn parse_array(input: Parser) -> Res<Parser, Literal> {
                 tuple((space0, terminated(tag(","), space0), space0)),
                 parse_expression,
             ),
-            terminated(tag("]"), space0),
+            preceded(space0, tag("]")),
         )),
         |(node_id, _, elements, _)| {
             Literal::new_array(Array::new(elements.into_iter().collect()), node_id)

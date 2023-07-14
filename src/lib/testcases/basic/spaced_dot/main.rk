@@ -1,9 +1,11 @@
 struct Toto
   lol: Int64
+  arr: [Int64]
 
 impl Toto
   new: x -> Toto
     lol: x
+    arr: [999]
   @me: -> @
   @get: a -> @lol
 
