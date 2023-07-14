@@ -547,7 +547,6 @@ impl Expression {
         } else if let ExpressionKind::FunctionCall(f) = &*self.kind {
             f.op.as_identifier()
         } else {
-            println!("{:#?}", self);
             panic!("Not an identifier");
         }
     }

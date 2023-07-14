@@ -1,4 +1,4 @@
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 
 use itertools::Itertools;
 
@@ -9,8 +9,8 @@ use inkwell::{
     module::Module,
     passes::{PassManager, PassManagerBuilder},
     targets::{InitializationConfig, Target},
-    types::{AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::{AnyValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FunctionValue},
+    types::{BasicType, BasicTypeEnum, FunctionType},
+    values::{BasicValue, BasicValueEnum, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
     OptimizationLevel::Aggressive,
 };
@@ -834,15 +834,6 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<BasicValueEnum<'a>, ()> {
         let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
 
-        let op_t = self.hir.node_types.get(&indice.op.get_hir_id()).unwrap();
-        let op_t = match op_t {
-            Type::Primitive(PrimitiveType::Array(t, _)) => t.as_ref().clone(),
-            Type::Primitive(PrimitiveType::String) => Type::int8(),
-            _ => panic!("indice op is not an array or string"),
-        };
-
-        let op_t = self.lower_type(&op_t, builder).unwrap();
-
         let t = self.hir.node_types.get(&indice.get_hir_id()).unwrap();
         let real_t = self.lower_type_real(t, builder).unwrap();
         let real_t = match real_t {
@@ -880,7 +871,7 @@ impl<'a> CodegenContext<'a> {
 
         let name = format!("{}.{}", dot.op.as_identifier().name, dot.value.name);
 
-        let ptr = unsafe { builder.build_struct_gep(t, op, indice as u32, name.as_str())? };
+        let ptr = builder.build_struct_gep(t, op, indice as u32, name.as_str())?;
 
         Ok(ptr.as_basic_value_enum())
     }
