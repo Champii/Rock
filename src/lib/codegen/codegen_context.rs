@@ -855,14 +855,13 @@ impl<'a> CodegenContext<'a> {
         dot: &'a Dot,
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
-        let op = self
-            .lower_expression(&dot.op, builder)?
-            .into_pointer_value();
+        let op = self.lower_expression(&dot.op, builder)?;
+        let op = op.into_pointer_value();
 
         let t = self.hir.node_types.get(&dot.op.get_hir_id()).unwrap();
-        let real_t = self.lower_type_real(t, builder).unwrap();
 
         let struct_t = t.as_struct_type();
+        let t = self.lower_type_real(t, builder).unwrap();
 
         let indice = struct_t
             .ordered_defs()
@@ -872,12 +871,9 @@ impl<'a> CodegenContext<'a> {
             .map(|(i, _)| i)
             .unwrap();
 
-        let i32_type = self.context.i32_type();
+        let name = format!("{}.{}", dot.op.as_identifier().name, dot.value.name);
 
-        let const_0 = i32_type.const_zero();
-        let indice = i32_type.const_int(indice as u64, false);
-
-        let ptr = unsafe { builder.build_gep(real_t, op, &[const_0, indice], "struct_index") };
+        let ptr = unsafe { builder.build_struct_gep(t, op, indice as u32, name.as_str())? };
 
         Ok(ptr.as_basic_value_enum())
     }
@@ -891,8 +887,16 @@ impl<'a> CodegenContext<'a> {
 
         let t = self.hir.node_types.get(&dot.get_hir_id()).unwrap();
         let real_t = self.lower_type_real(t, builder).unwrap();
+        let real_t = match real_t {
+            BasicTypeEnum::StructType(_) => real_t
+                .ptr_type(AddressSpace::default())
+                .as_basic_type_enum(),
+            _ => real_t,
+        };
 
-        Ok(builder.build_load(real_t, ptr, "load_dot"))
+        let load = builder.build_load(real_t, ptr, "load_dot");
+
+        Ok(load)
     }
 
     pub fn lower_literal(
@@ -998,6 +1002,7 @@ impl<'a> CodegenContext<'a> {
         } else {
             val
         };
+        println!("VAL {:#?} {:#?}", id, val);
 
         Ok(val)
     }

@@ -11,10 +11,11 @@ pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
 
     let mut codegen_ctx = CodegenContext::new(&context, &hir);
 
-    if codegen_ctx.lower_hir(&hir, &builder).is_err() {
+    if let Err(e) = codegen_ctx.lower_hir(&hir, &builder) {
         // FIXME: have a movable `Diagnostics`
         // codegen_ctx.parsing_ctx.return_if_error()?;
-        panic!("GEN ERROR");
+        codegen_ctx.module.print_to_stderr();
+        panic!("GEN ERROR {:#?}", e);
     }
 
     match codegen_ctx.module.verify() {
