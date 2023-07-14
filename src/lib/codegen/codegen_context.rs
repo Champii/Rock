@@ -123,7 +123,6 @@ impl<'a> CodegenContext<'a> {
                 // assuming all types are equals
                 self.lower_type(inner, builder)?
                     .array_type(*size as u32)
-                    // .ptr_type(AddressSpace::default())
                     .into()
             }
             Type::Func(f) => {
@@ -162,7 +161,6 @@ impl<'a> CodegenContext<'a> {
                         .as_slice(),
                     false,
                 )
-                // .ptr_type(AddressSpace::default())
                 .into(),
             _ => unimplemented!("Codegen: Cannot lower type {:#?}", t),
         })
@@ -672,16 +670,7 @@ impl<'a> CodegenContext<'a> {
         let t = self.hir.node_types.get(&s.get_hir_id()).unwrap();
         let struct_t = t.as_struct_type();
 
-        let llvm_struct_t = self.lower_type(t, builder).unwrap();
         let llvm_struct_t_real = self.lower_type_real(t, builder).unwrap();
-
-        // let llvm_struct_t = llvm_struct_t_ptr.
-
-        /* let llvm_struct_t_ptr = self.lower_type(t, builder).unwrap().into_pointer_type();
-        let llvm_struct_t = llvm_struct_t_ptr
-            .()
-            .get_element_type()
-            .into_struct_type(); */
 
         let defs = struct_t
             .ordered_defs()
@@ -731,8 +720,7 @@ impl<'a> CodegenContext<'a> {
             None => {
                 FunctionValue::try_from(AnyValueEnum::from(self.lower_expression(&fc.op, builder)?))
                     .unwrap()
-                // panic!("Function not found, temporary compiler error until full llvm15 integration")
-            } // None => FunctionValue::try_from(self.lower_expression(&fc.op, builder)?).unwrap(),
+            }
         };
 
         let mut arguments = vec![];
@@ -758,18 +746,8 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         let op_t = self.hir.node_types.get(&indice.op.get_hir_id()).unwrap();
-        let op_t = match op_t {
-            Type::Primitive(PrimitiveType::Array(t, _)) => t.as_ref().clone(),
-            Type::Primitive(PrimitiveType::String) => Type::int8(),
-            _ => panic!("indice op is not an array or string"),
-        };
-        // let op_arr_t = op_t.as_primitive_type();
-        let ret_t = self.hir.node_types.get(&indice.op.get_hir_id()).unwrap();
-        let ret_t = self.lower_type_real(ret_t, builder).unwrap();
-        let op_t = self.lower_type_real(&op_t, builder).unwrap();
-        println!("ret_t: {:?}", ret_t);
-        println!("op_t: {:?}", op_t);
-        // let item_t = op_t
+        let op_t = self.lower_type_real(op_t, builder).unwrap();
+
         let op = self
             .lower_expression(&indice.op, builder)?
             .into_pointer_value();
@@ -791,7 +769,7 @@ impl<'a> CodegenContext<'a> {
             None => panic!("indice on non-type"),
         };
 
-        let ptr = unsafe { builder.build_gep(ret_t, op, &indexes, "index") };
+        let ptr = unsafe { builder.build_gep(op_t, op, &indexes, "index") };
 
         Ok(ptr.as_basic_value_enum())
     }
@@ -802,8 +780,6 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         let ptr = self.lower_indice_ptr(indice, builder)?.into_pointer_value();
-        let t = self.hir.node_types.get(&indice.get_hir_id()).unwrap();
-        let real_t = self.lower_type_real(t, builder).unwrap();
 
         let op_t = self.hir.node_types.get(&indice.op.get_hir_id()).unwrap();
         let op_t = match op_t {
@@ -813,6 +789,7 @@ impl<'a> CodegenContext<'a> {
         };
 
         let op_t = self.lower_type(&op_t, builder).unwrap();
+
         Ok(builder.build_load(op_t, ptr, "load_indice"))
     }
 
@@ -854,6 +831,7 @@ impl<'a> CodegenContext<'a> {
         builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
         let ptr = self.lower_dot_ptr(dot, builder)?.into_pointer_value();
+
         let t = self.hir.node_types.get(&dot.get_hir_id()).unwrap();
         let real_t = self.lower_type_real(t, builder).unwrap();
 
@@ -894,11 +872,6 @@ impl<'a> CodegenContext<'a> {
             }
             LiteralKind::Array(arr) => {
                 let hir_type = self.hir.node_types.get(&lit.hir_id).unwrap();
-                let arr_type = self
-                    .lower_type(hir_type, builder)
-                    .unwrap()
-                    .into_pointer_type()
-                    .array_type(arr.values.len() as u32);
 
                 let real_arr_type = self.lower_type_real(hir_type, builder).unwrap();
 
