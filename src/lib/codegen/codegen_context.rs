@@ -504,8 +504,8 @@ impl<'a> CodegenContext<'a> {
                     .or_else(|| {
                         self.hir.node_types.get(&assign.get_hir_id()).and_then(|t| {
                             (t.is_primitive() && !t.is_array() && !t.is_string()).then(|| {
-                                let ptr =
-                                    builder.build_alloca(value.get_type(), &id.name.to_string());
+                                let real_t = self.lower_type_real(t, builder).unwrap();
+                                let ptr = builder.build_alloca(real_t, &id.name.to_string());
 
                                 self.scopes.add(id.get_hir_id(), ptr.as_basic_value_enum());
 
@@ -764,7 +764,10 @@ impl<'a> CodegenContext<'a> {
             _ => panic!("indice op is not an array or string"),
         };
         // let op_arr_t = op_t.as_primitive_type();
+        let ret_t = self.hir.node_types.get(&indice.op.get_hir_id()).unwrap();
+        let ret_t = self.lower_type_real(ret_t, builder).unwrap();
         let op_t = self.lower_type_real(&op_t, builder).unwrap();
+        println!("ret_t: {:?}", ret_t);
         println!("op_t: {:?}", op_t);
         // let item_t = op_t
         let op = self
@@ -788,7 +791,7 @@ impl<'a> CodegenContext<'a> {
             None => panic!("indice on non-type"),
         };
 
-        let ptr = unsafe { builder.build_gep(op_t, op, &indexes, "index") };
+        let ptr = unsafe { builder.build_gep(ret_t, op, &indexes, "index") };
 
         Ok(ptr.as_basic_value_enum())
     }
@@ -802,7 +805,15 @@ impl<'a> CodegenContext<'a> {
         let t = self.hir.node_types.get(&indice.get_hir_id()).unwrap();
         let real_t = self.lower_type_real(t, builder).unwrap();
 
-        Ok(builder.build_load(real_t, ptr, "load_indice"))
+        let op_t = self.hir.node_types.get(&indice.op.get_hir_id()).unwrap();
+        let op_t = match op_t {
+            Type::Primitive(PrimitiveType::Array(t, _)) => t.as_ref().clone(),
+            Type::Primitive(PrimitiveType::String) => Type::int8(),
+            _ => panic!("indice op is not an array or string"),
+        };
+
+        let op_t = self.lower_type(&op_t, builder).unwrap();
+        Ok(builder.build_load(op_t, ptr, "load_indice"))
     }
 
     pub fn lower_dot_ptr(
@@ -891,7 +902,7 @@ impl<'a> CodegenContext<'a> {
 
                 let real_arr_type = self.lower_type_real(hir_type, builder).unwrap();
 
-                let ptr = builder.build_alloca(arr_type, "array");
+                let ptr = builder.build_alloca(real_arr_type, "array");
 
                 arr.values.iter().enumerate().for_each(|(i, expr)| {
                     let expr = self.lower_expression(expr, builder).unwrap();
