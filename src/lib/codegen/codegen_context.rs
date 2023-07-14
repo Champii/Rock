@@ -895,13 +895,15 @@ impl<'a> CodegenContext<'a> {
         let t = self.hir.node_types.get(&dot.get_hir_id()).unwrap();
         let real_t = self.lower_type_real(t, builder).unwrap();
         let real_t = match real_t {
-            BasicTypeEnum::StructType(_) => real_t
+            BasicTypeEnum::StructType(_) | BasicTypeEnum::ArrayType(_) => real_t
                 .ptr_type(AddressSpace::default())
                 .as_basic_type_enum(),
             _ => real_t,
         };
 
-        let load = builder.build_load(real_t, ptr, "load_dot");
+        let name = format!("{}", dot.value.name);
+
+        let load = builder.build_load(real_t, ptr, name.as_str());
 
         Ok(load)
     }
@@ -978,9 +980,9 @@ impl<'a> CodegenContext<'a> {
     pub fn lower_identifier_path(
         &mut self,
         id: &IdentifierPath,
-        _builder: &'a Builder,
+        builder: &'a Builder,
     ) -> Result<BasicValueEnum<'a>, ()> {
-        self.lower_identifier(id.path.iter().last().unwrap(), _builder)
+        self.lower_identifier(id.path.iter().last().unwrap(), builder)
     }
 
     pub fn lower_identifier(
@@ -993,7 +995,7 @@ impl<'a> CodegenContext<'a> {
         let val = match self.scopes.get(reso.clone()) {
             None => {
                 self.module.print_to_stderr();
-                println!("GEN : NO REO {:#?} {:#?}", id, reso);
+                println!("GEN : NO RESO {:#?} {:#?}", id, reso);
                 return Err(());
             }
             Some(val) => val,
@@ -1009,7 +1011,6 @@ impl<'a> CodegenContext<'a> {
         } else {
             val
         };
-        println!("VAL {:#?} {:#?}", id, val);
 
         Ok(val)
     }

@@ -9,6 +9,15 @@ use std::path::PathBuf;
 
             let expected_ret = expected_ret.parse::<i64>().unwrap();
 
+            let (ret_code, stdout) = super::helpers::test_utils::run(path, input.to_string(), config.clone());
+
+            assert_eq!(expected_ret, ret_code);
+            assert_eq!(expected_output, stdout);
+
+            // Test again with optimization disabled
+
+            config.no_optimize = true;
+            
             let (ret_code, stdout) = super::helpers::test_utils::run(path, input.to_string(), config);
 
             assert_eq!(expected_ret, ret_code);

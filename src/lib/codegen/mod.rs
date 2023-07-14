@@ -18,6 +18,8 @@ pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
         panic!("GEN ERROR {:#?}", e);
     }
 
+    // codegen_ctx.module.print_to_stderr();
+
     match codegen_ctx.module.verify() {
         Ok(_) => (),
         Err(e) => {
