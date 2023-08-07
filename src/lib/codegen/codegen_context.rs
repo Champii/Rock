@@ -55,7 +55,7 @@ impl<'a> CodegenContext<'a> {
 
         pass_manager.add_promote_memory_to_register_pass();
         // pass_manager.add_demote_memory_to_register_pass();
-        // disabled until llvm15
+        // disabled since llvm15
         // pass_manager.add_argument_promotion_pass();
         pass_manager.add_always_inliner_pass();
         pass_manager.add_gvn_pass();
@@ -87,7 +87,7 @@ impl<'a> CodegenContext<'a> {
         pass_manager.add_licm_pass();
         pass_manager.add_ind_var_simplify_pass();
         pass_manager.add_loop_vectorize_pass();
-        // disabled until llvm15
+        // disabled since llvm15
         // pass_manager.add_loop_unswitch_pass();
         pass_manager.add_loop_idiom_pass();
         pass_manager.add_loop_rotate_pass();

@@ -87,15 +87,6 @@ mod parse_float {
     }
 
     #[test]
-    fn valid_no_last_part() {
-        let input = Parser::new_extra("42.", ParserCtx::new(PathBuf::new(), Config::default()));
-
-        let (_rest, parsed) = parse_float(input).finish().unwrap();
-
-        assert!(matches!(parsed.kind, LiteralKind::Float(f) if f == 42.0));
-    }
-
-    #[test]
     fn invalid() {
         let input = Parser::new_extra("a42.", ParserCtx::new(PathBuf::new(), Config::default()));
 

@@ -1208,8 +1208,7 @@ pub fn parse_bool(input: Parser) -> Res<Parser, Literal> {
 pub fn parse_float(input: Parser) -> Res<Parser, Literal> {
     let (input, is_neg) = opt(char('-'))(input)?;
 
-    let (input, float_parsed) =
-        recognize(tuple((parse_number, char('.'), opt(parse_number))))(input)?;
+    let (input, float_parsed) = recognize(tuple((parse_number, char('.'), parse_number)))(input)?;
 
     let mut num: f64 = float_parsed
         .parse()

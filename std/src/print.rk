@@ -6,10 +6,13 @@ use super::eq::(*)
 use super::num::(*)
 
 trait Print
-  @print: -> puts @show!
+  @print: ->
+    puts @show!
+    @
   @putstr: ->
     printf "%s", @show!
     fflush 0
+    @
 
 # Here we would need generic impl
 impl Print Bool
@@ -18,3 +21,4 @@ impl Print Float64
 impl Print String
 impl Print Char
 
+impl Print [Int64]

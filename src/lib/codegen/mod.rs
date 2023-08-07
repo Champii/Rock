@@ -33,6 +33,9 @@ pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
 
     if !config.no_optimize {
         codegen_ctx.optimize();
+        // optimize further
+        // FIXME: find a way to organize the pass-manager better to avoid the double pass
+        codegen_ctx.optimize();
     }
 
     if config.show_ir {
