@@ -982,7 +982,7 @@ pub fn parse_indice(input: Parser) -> Res<Parser, Box<Expression>> {
         tuple((
             terminated(tag("["), space0),
             terminated(parse_expression, space0),
-            terminated(tag("]"), space0),
+            preceded(space0, tag("]")),
         )),
         |(_, index, _)| Box::new(index),
     )(input)
@@ -1185,7 +1185,7 @@ pub fn parse_array(input: Parser) -> Res<Parser, Literal> {
                 tuple((space0, terminated(tag(","), space0), space0)),
                 parse_expression,
             ),
-            terminated(tag("]"), space0),
+            preceded(space0, tag("]")),
         )),
         |(node_id, _, elements, _)| {
             Literal::new_array(Array::new(elements.into_iter().collect()), node_id)
@@ -1208,8 +1208,7 @@ pub fn parse_bool(input: Parser) -> Res<Parser, Literal> {
 pub fn parse_float(input: Parser) -> Res<Parser, Literal> {
     let (input, is_neg) = opt(char('-'))(input)?;
 
-    let (input, float_parsed) =
-        recognize(tuple((parse_number, char('.'), opt(parse_number))))(input)?;
+    let (input, float_parsed) = recognize(tuple((parse_number, char('.'), parse_number)))(input)?;
 
     let mut num: f64 = float_parsed
         .parse()

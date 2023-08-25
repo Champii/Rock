@@ -544,6 +544,8 @@ impl Expression {
             i.last_segment()
         } else if let ExpressionKind::Dot(d) = &*self.kind {
             d.value.clone()
+        } else if let ExpressionKind::FunctionCall(f) = &*self.kind {
+            f.op.as_identifier()
         } else {
             panic!("Not an identifier");
         }

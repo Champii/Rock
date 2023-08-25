@@ -53,6 +53,10 @@ macro_rules! generate_primitive_checks {
 }
 
 impl Type {
+    pub fn int8() -> Self {
+        Self::Primitive(PrimitiveType::Int8)
+    }
+
     pub fn int64() -> Self {
         Self::Primitive(PrimitiveType::Int64)
     }

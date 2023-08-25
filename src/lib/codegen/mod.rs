@@ -11,11 +11,14 @@ pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
 
     let mut codegen_ctx = CodegenContext::new(&context, &hir);
 
-    if codegen_ctx.lower_hir(&hir, &builder).is_err() {
+    if let Err(e) = codegen_ctx.lower_hir(&hir, &builder) {
         // FIXME: have a movable `Diagnostics`
         // codegen_ctx.parsing_ctx.return_if_error()?;
-        panic!("GEN ERROR");
+        codegen_ctx.module.print_to_stderr();
+        panic!("GEN ERROR {:#?}", e);
     }
+
+    // codegen_ctx.module.print_to_stderr();
 
     match codegen_ctx.module.verify() {
         Ok(_) => (),
@@ -29,6 +32,9 @@ pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
     }
 
     if !config.no_optimize {
+        codegen_ctx.optimize();
+        // optimize further
+        // FIXME: find a way to organize the pass-manager better to avoid the double pass
         codegen_ctx.optimize();
     }
 

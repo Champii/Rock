@@ -1,9 +1,14 @@
 struct Toto
   lol: Int64
+  arr: [Int64]
 
 impl Toto
   new: x -> Toto
     lol: x
+    arr: [999]
+  new_arr: arr -> Toto
+    lol: 42
+    arr: arr
   @me: -> @
   @get: a -> @lol
 
@@ -13,3 +18,7 @@ main: ->
     .me!
     .me!
     .get 2
+  Toto::new_arr [1, 2, 3] .me!.me!.get 2
+  Toto::new_arr [1, 2, 3]
+    .me!.me!.get 2
+
