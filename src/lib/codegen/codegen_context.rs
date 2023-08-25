@@ -12,7 +12,7 @@ use inkwell::{
     types::{BasicType, BasicTypeEnum, FunctionType},
     values::{BasicValue, BasicValueEnum, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
-    OptimizationLevel::Aggressive,
+    OptimizationLevel::{self, Aggressive},
 };
 
 use crate::{
@@ -32,6 +32,15 @@ pub struct CodegenContext<'a> {
 impl<'a> CodegenContext<'a> {
     pub fn new(context: &'a Context, hir: &'a Root) -> Self {
         let module = context.create_module("mod");
+        let config = InitializationConfig::default();
+
+        Target::initialize_native(&config).unwrap();
+
+        let engine = module.create_execution_engine().unwrap();
+
+        let target = engine.get_target_data();
+        let layout = target.get_data_layout();
+        module.set_data_layout(&layout);
 
         Self {
             context,
@@ -43,10 +52,6 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn optimize(&mut self) {
-        let config = InitializationConfig::default();
-
-        Target::initialize_native(&config).unwrap();
-
         let pass_manager_builder = PassManagerBuilder::create();
 
         pass_manager_builder.set_optimization_level(Aggressive);

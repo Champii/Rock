@@ -8,10 +8,12 @@ use super::num::(*)
 trait Print
   @print: ->
     puts @show!
+    # There is a bug that disallow self-returning function definition in traits (#174)
     @
   @putstr: ->
     printf "%s", @show!
     fflush 0
+    # There is a bug that disallow self-returning function definition in traits (#174)
     @
 
 # Here we would need generic impl
