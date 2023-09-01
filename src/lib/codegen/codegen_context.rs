@@ -19,7 +19,7 @@ use inkwell::{
 use crate::{
     helpers::scopes::Scopes,
     hir::*,
-    ty::{PrimitiveType, Type},
+    ty::{FuncType, PrimitiveType, Type},
 };
 
 pub struct CodegenContext<'a> {
@@ -286,7 +286,13 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_prototype(&mut self, p: &'a Prototype, builder: &'a Builder) -> Result<(), ()> {
-        let t = self.hir.node_types.get(&p.hir_id).unwrap();
+        // in case of a builtin like malloc of free, the prototype has been added after the type
+        // inference phase and does not have a type. In this case, we just ignore it and return the
+        // signature
+        let t = match self.hir.node_types.get(&p.hir_id) {
+            Some(t) => t.clone(),
+            None => Type::Func(p.signature.clone()),
+        };
 
         if let Type::Func(f_type) = t {
             let ret_t = f_type.ret.clone();
@@ -312,6 +318,7 @@ impl<'a> CodegenContext<'a> {
                     AttributeLoc::Function,
                     self.context
                         .create_enum_attribute(Attribute::get_named_enum_kind_id("allockind"), 41),
+                    // alloc,uninitialized,aligned
                 );
 
                 fn_value.add_attribute(
@@ -320,19 +327,14 @@ impl<'a> CodegenContext<'a> {
                         .create_string_attribute("alloc-family", "malloc"),
                 );
 
-                //allocsize
-                // FIXME: this is not working
-                /* fn_value.add_attribute(
-                    AttributeLoc::Function,
-                    self.context
-                        .create_enum_attribute(Attribute::get_named_enum_kind_id("allocsize"), 0),
-                ); */
-
                 fn_value.add_attribute(
                     AttributeLoc::Return,
                     self.context
                         .create_enum_attribute(Attribute::get_named_enum_kind_id("noalias"), 0),
                 );
+
+                // TODO: add a proper allocsize(0) attribute, but I cannot find a way to add this
+                // with inkwell
             }
 
             // special attribute for free
@@ -341,6 +343,7 @@ impl<'a> CodegenContext<'a> {
                     AttributeLoc::Function,
                     self.context
                         .create_enum_attribute(Attribute::get_named_enum_kind_id("allockind"), 4),
+                    // free
                 );
 
                 fn_value.add_attribute(
