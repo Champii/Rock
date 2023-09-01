@@ -17,13 +17,13 @@ pub fn add_builtins(hir: &mut Root) {
         kind: TopLevelKind::Extern(Prototype {
             name: Identifier {
                 name: "malloc".to_string(),
-                hir_id: HirId(99996), // FIXME: what if this hir_id already exists ?
+                hir_id: HirId(9999996), // FIXME: what if this hir_id already exists ?
             },
             signature: FuncType {
                 arguments: vec![Type::Primitive(PrimitiveType::Int64)],
                 ret: Box::new(Type::Primitive(PrimitiveType::String)),
             },
-            hir_id: HirId(99997), // FIXME: bis
+            hir_id: HirId(9999997), // FIXME: bis
         }),
     });
 
@@ -31,13 +31,13 @@ pub fn add_builtins(hir: &mut Root) {
         kind: TopLevelKind::Extern(Prototype {
             name: Identifier {
                 name: "free".to_string(),
-                hir_id: HirId(99998), // FIXME: what if this hir_id already exists ?
+                hir_id: HirId(9999998), // FIXME: what if this hir_id already exists ?
             },
             signature: FuncType {
                 arguments: vec![Type::Primitive(PrimitiveType::String)],
                 ret: Box::new(Type::Primitive(PrimitiveType::Int64)),
             },
-            hir_id: HirId(99999), // FIXME: bis
+            hir_id: HirId(9999999), // FIXME: bis
         }),
     });
 

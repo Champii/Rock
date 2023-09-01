@@ -13,13 +13,13 @@ use inkwell::{
     types::{BasicType, BasicTypeEnum, FunctionType},
     values::{BasicValue, BasicValueEnum, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
-    OptimizationLevel::{self, Aggressive},
+    OptimizationLevel::Aggressive,
 };
 
 use crate::{
     helpers::scopes::Scopes,
     hir::*,
-    ty::{FuncType, PrimitiveType, Type},
+    ty::{PrimitiveType, Type},
 };
 
 pub struct CodegenContext<'a> {
