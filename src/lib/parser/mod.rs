@@ -1274,7 +1274,7 @@ pub fn parse_type(input: Parser) -> Res<Parser, Type> {
         map(delimited(tag("["), parse_type, tag("]")), |t| {
             Type::Primitive(PrimitiveType::Array(
                 Box::new(t),
-                0, // FIXME
+                10, // FIXME
             ))
         }),
         map(
