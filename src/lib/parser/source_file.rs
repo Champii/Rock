@@ -42,14 +42,14 @@ impl SourceFile {
     }
 
     pub fn from_str(path: &str, content: &str) -> Result<Self, Diagnostic> {
-        let mut mod_path = PathBuf::from(path.clone());
+        let mut mod_path = PathBuf::from(path);
 
         mod_path.set_extension("");
 
         let content = Self::sanitize_content(&content);
 
         Ok(SourceFile {
-            file_path: PathBuf::from(path.clone()),
+            file_path: PathBuf::from(path),
             mod_path,
             content,
         })

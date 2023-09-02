@@ -3,11 +3,52 @@ mod codegen_context;
 use codegen_context::*;
 use inkwell::context::Context;
 
-use crate::{diagnostics::Diagnostic, hir::Root, Config};
+use crate::{
+    diagnostics::Diagnostic,
+    hir::{HirId, Identifier, Prototype, Root, TopLevel, TopLevelKind},
+    ty::{FuncType, PrimitiveType, Type},
+    Config,
+};
 
-pub fn generate(config: &Config, hir: Root) -> Result<(), Diagnostic> {
+pub fn add_builtins(hir: &mut Root) {
+    let mut builtins = Vec::new();
+
+    builtins.push(TopLevel {
+        kind: TopLevelKind::Extern(Prototype {
+            name: Identifier {
+                name: "malloc".to_string(),
+                hir_id: HirId(9999996), // FIXME: what if this hir_id already exists ?
+            },
+            signature: FuncType {
+                arguments: vec![Type::Primitive(PrimitiveType::Int64)],
+                ret: Box::new(Type::Primitive(PrimitiveType::String)),
+            },
+            hir_id: HirId(9999997), // FIXME: bis
+        }),
+    });
+
+    builtins.push(TopLevel {
+        kind: TopLevelKind::Extern(Prototype {
+            name: Identifier {
+                name: "free".to_string(),
+                hir_id: HirId(9999998), // FIXME: what if this hir_id already exists ?
+            },
+            signature: FuncType {
+                arguments: vec![Type::Primitive(PrimitiveType::String)],
+                ret: Box::new(Type::Primitive(PrimitiveType::Int64)),
+            },
+            hir_id: HirId(9999999), // FIXME: bis
+        }),
+    });
+
+    hir.top_levels.append(&mut builtins);
+}
+
+pub fn generate(config: &Config, mut hir: Root) -> Result<(), Diagnostic> {
     let context = Context::create();
     let builder = context.create_builder();
+
+    add_builtins(&mut hir);
 
     let mut codegen_ctx = CodegenContext::new(&context, &hir);
 

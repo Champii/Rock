@@ -52,7 +52,7 @@ Feel free to discuss any new feature or change you may like in an issue! We welc
 
 ### From source
 
-You will need `llvm-13` and `clang-13` somewhere in your $PATH
+You will need `llvm-15` and `clang-15` somewhere in your $PATH
 
 #### With Cargo from Git (Recommanded)
 

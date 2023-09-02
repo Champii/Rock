@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use itertools::Itertools;
 
 use inkwell::{
+    attributes::{Attribute, AttributeLoc},
     basic_block::BasicBlock,
     builder::Builder,
     context::Context,
@@ -12,7 +13,7 @@ use inkwell::{
     types::{BasicType, BasicTypeEnum, FunctionType},
     values::{BasicValue, BasicValueEnum, FunctionValue},
     AddressSpace, FloatPredicate, IntPredicate,
-    OptimizationLevel::{self, Aggressive},
+    OptimizationLevel::Aggressive,
 };
 
 use crate::{
@@ -100,6 +101,8 @@ impl<'a> CodegenContext<'a> {
         pass_manager.add_loop_unroll_pass();
         pass_manager.add_loop_deletion_pass();
         pass_manager.add_cfg_simplification_pass();
+
+        pass_manager.add_dead_store_elimination_pass();
 
         pass_manager.add_verifier_pass();
 
@@ -283,7 +286,13 @@ impl<'a> CodegenContext<'a> {
     }
 
     pub fn lower_prototype(&mut self, p: &'a Prototype, builder: &'a Builder) -> Result<(), ()> {
-        let t = self.hir.node_types.get(&p.hir_id).unwrap();
+        // in case of a builtin like malloc of free, the prototype has been added after the type
+        // inference phase and does not have a type. In this case, we just ignore it and return the
+        // signature
+        let t = match self.hir.node_types.get(&p.hir_id) {
+            Some(t) => t.clone(),
+            None => Type::Func(p.signature.clone()),
+        };
 
         if let Type::Func(f_type) = t {
             let ret_t = f_type.ret.clone();
@@ -302,6 +311,47 @@ impl<'a> CodegenContext<'a> {
             };
 
             let fn_value = self.module.add_function(&p.name.name, fn_type, None);
+
+            // special attribute for malloc
+            if p.name.name == "malloc" {
+                fn_value.add_attribute(
+                    AttributeLoc::Function,
+                    self.context
+                        .create_enum_attribute(Attribute::get_named_enum_kind_id("allockind"), 41),
+                    // alloc,uninitialized,aligned
+                );
+
+                fn_value.add_attribute(
+                    AttributeLoc::Function,
+                    self.context
+                        .create_string_attribute("alloc-family", "malloc"),
+                );
+
+                fn_value.add_attribute(
+                    AttributeLoc::Return,
+                    self.context
+                        .create_enum_attribute(Attribute::get_named_enum_kind_id("noalias"), 0),
+                );
+
+                // TODO: add a proper allocsize(0) attribute, but I cannot find a way to add this
+                // with inkwell
+            }
+
+            // special attribute for free
+            if p.name.name == "free" {
+                fn_value.add_attribute(
+                    AttributeLoc::Function,
+                    self.context
+                        .create_enum_attribute(Attribute::get_named_enum_kind_id("allockind"), 4),
+                    // free
+                );
+
+                fn_value.add_attribute(
+                    AttributeLoc::Function,
+                    self.context
+                        .create_string_attribute("alloc-family", "malloc"),
+                );
+            }
 
             self.scopes.add(
                 p.hir_id.clone(),
@@ -726,7 +776,18 @@ impl<'a> CodegenContext<'a> {
             })
             .collect::<Vec<_>>();
 
-        let ptr = builder.build_alloca(llvm_struct_t_real, "struct_ptr");
+        // We use malloc here to be able to return the struct
+        let malloc = self.module.get_function("malloc").unwrap();
+        let ptr = builder
+            .build_call(
+                malloc,
+                &[llvm_struct_t_real.size_of().unwrap().into()],
+                format!("malloc_{}", t.get_name()).as_str(),
+            )
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_pointer_value();
 
         for (i, def) in defs.iter().enumerate() {
             let inner_ptr = builder
