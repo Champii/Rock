@@ -14,14 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # - name: Install libpolly-15-dev
-    #   run: |
-    #     git clone --depth 1 https://github.com/llvm/llvm-project.git
-    #     cd llvm-project
-    #     mkdir build && cd build
-    #     cmake '-DLLVM_ENABLE_PROJECTS=polly' -DCMAKE_BUILD_TYPE=MinSizeRel ../llvm
-    #     cmake --build .
-
     - name: Apt Update
       run: |
         sudo apt update
