@@ -3,7 +3,6 @@ title = "The Rock Programming Language"
 authors = ["The Rock Project Contributors"]
 description = "A practical, beginner-friendly guide to the Rock programming language"
 language = "en"
-multilingual = false
 src = "src"
 
 [build]
