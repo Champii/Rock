@@ -1,10 +1,87 @@
 # Rock
 
-The beginner guide is available as [The Rock Programming Language](https://champii.github.io/new_lang/). The source lives under [`docs/`](docs/), and local builds use `mdbook build docs`.
+[![Book](https://github.com/Champii/Rock/actions/workflows/book.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/book.yml)
+[![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
 
-## Desired features
+[Documentation](https://champii.github.io/new_lang/)
 
-## Chain calls without defining variable
+A native programming language built with Rust and LLVM.
+
+Rock combines strong static typing, type inference, ownership, traits, and functional programming features with native code generation. It is inspired by [LiveScript](https://livescript.net/), [Haskell](https://www.haskell.org/), and [Rust](https://www.rust-lang.org/).
+
+Rock is still experimental. The language, compiler, and tooling can change or break at any time. Contributions and design discussions are welcome.
+
+## Index
+
+- [Features](#features)
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Showcases](#showcases)
+- [CLI](#cli)
+- [Roadmap](#roadmap)
+
+---
+
+## Features
+
+- Strong static typing and type inference
+- Ownership, moves, references, and borrow checking
+- Traits, generics, and higher-kinded types
+- First-class functions and pattern matching
+- User-defined operators
+- Macros and modules
+- LLVM native code generation
+
+---
+
+## Install
+
+Rock currently builds from source and targets `x86_64-unknown-linux-gnu`. You will need Git, Rust with Cargo, LLVM 18 with its shared libraries, and a C linker available as `cc`.
+
+```console
+$ git clone https://github.com/Champii/Rock.git
+$ cd Rock
+$ cargo build --release
+```
+
+The user-facing `rock` and `rockc` executables are written to `target/release/`. Rock does not yet ship through a package registry or stable binary installer.
+
+See the [installation guide](https://champii.github.io/new_lang/getting-started/installation.html) for standard-library setup and troubleshooting.
+
+---
+
+## Quickstart
+
+Build the standard library artifact:
+
+```console
+$ mkdir -p build
+$ target/release/rockc \
+    --entry-file stdlib/lib.rk \
+    --crate-name stdlib \
+    --no-prelude \
+    --emit-artifact build/stdlib.rkca \
+    --no-link
+```
+
+Compile and run the hello-world example:
+
+```console
+$ target/release/rockc \
+    --entry-file examples/hello.rk \
+    --output-dir build/hello \
+    --extern-artifact stdlib=build/stdlib.rkca
+$ build/hello/hello
+Hello, World!
+```
+
+For a guided introduction, read [The Rock Programming Language](https://champii.github.io/new_lang/). The book source lives under [`docs/`](docs/) and can be built locally with `mdbook build docs`.
+
+---
+
+## Showcases
+
+### Chain calls without defining a variable
 
 ```haskell
 write_file = ->
@@ -13,7 +90,7 @@ write_file = ->
        ..close!
 ```
 
-## If and loops as expressions
+### If and loops as expressions
 
 ```haskell
 do_something = x ->
@@ -28,7 +105,7 @@ do_something = x ->
             item + 2
 ```
 
-## Functions as first class citizen
+### Functions as first-class citizens
 
 ```haskell
 call = f, x -> f x
@@ -38,14 +115,14 @@ return_fn = -> x -> x + 2
 main = -> call return_fn!, 5
 ```
 
-## Function signature
+### Function signatures
 
 ```haskell
 add : T -> T -> T
 add = x, y -> x + y
 ```
 
-## Function currying
+### Function currying
 
 ```haskell
 add = x, y -> x + y
@@ -55,7 +132,7 @@ add4 = add 4
 main = -> add4 2
 ```
 
-## Function Shorthand
+### Function shorthand
 
 ```haskell
 plus2 = (+2)
@@ -63,7 +140,7 @@ plus2 = (+2)
 main = -> plus2 2
 ```
 
-## Custom operators
+### Custom operators
 
 ```haskell
 // The pipe operator
@@ -84,7 +161,7 @@ main = ->
     inverse = !true
 ```
 
-## FP-style stdlib composition
+### FP-style stdlib composition
 
 ```haskell
 inc = x -> x + 1
@@ -117,7 +194,7 @@ main = ->
     0
 ```
 
-## Trait
+### Traits
 
 ```haskell
 trait ToString
@@ -127,14 +204,14 @@ impl ToString for Int16
     @to_string = -> @show!
 ```
 
-## Dynamic trait
+### Dynamic traits
 
 ```haskell
 some_func : <T: ToString> T -> String
 some_fumc = x -> x.to_string!
 ```
 
-## Structs
+### Structs
 
 ```haskell
 struct Hello
@@ -150,7 +227,7 @@ main = ->
     hello.display!
 ```
 
-## Generics
+### Generics
 
 ```haskell
 struct Wrapper T
@@ -161,7 +238,7 @@ enum Choice T, U
     Right U
 ```
 
-## Unsafe pointer arithmetic
+### Unsafe pointer arithmetic
 
 ```haskell
 main = ->
@@ -172,7 +249,7 @@ main = ->
         *p
 ```
 
-## Pattern matching
+### Pattern matching
 
 ```haskell
 main = ->
@@ -184,7 +261,7 @@ main = ->
         _                       => "otherwise"
 ```
 
-## Destructuring
+### Destructuring
 
 ```haskell
 fn_return_tuple = -> (10, "a string")
@@ -193,7 +270,7 @@ main = ->
     (num, str) = fn_return_tuple!
 ```
 
-## Enums
+### Enums
 
 ```haskell
 enum Error
@@ -211,7 +288,7 @@ impl Show for Error
 main = -> Error::SomeErrorWithContext "Hello" .print!
 ```
 
-## Macros
+### Macros
 
 ```haskell
 macro generate
@@ -222,7 +299,7 @@ macro generate
 %generate hello, String
 ```
 
-## Modules and dependancies
+### Modules and dependencies
 
 `Rock.toml`  
 ```toml
@@ -244,8 +321,6 @@ struct MyStruct
 
 < MyStruct
 ```
-
-# TODO
 
 ## CLI
 
@@ -274,7 +349,9 @@ You can also materialize the current crate artifact directly:
 cargo run -p rock -- artifact
 ```
 
-# TODO
+---
+
+## Roadmap
 
   - Error recovery for parser statements (find the next Indent(x))
 
