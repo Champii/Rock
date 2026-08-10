@@ -13,9 +13,9 @@ create-missing = false
 [output.html]
 default-theme = "navy"
 preferred-dark-theme = "navy"
-git-repository-url = "https://github.com/Champii/new_lang"
-edit-url-template = "https://github.com/Champii/new_lang/edit/develop/docs/{path}"
-site-url = "/new_lang/"
+git-repository-url = "https://github.com/Champii/rock"
+edit-url-template = "https://github.com/Champii/rock/edit/develop/docs/{path}"
+site-url = "/rock/"
 additional-css = ["theme/rock.css"]
 additional-js = ["theme/rock-highlight.js"]
 
