@@ -3,7 +3,7 @@
 [![Book](https://github.com/Champii/Rock/actions/workflows/book.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/book.yml)
 [![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
 
-[Documentation](https://champii.github.io/new_lang/)
+[Documentation](https://champii.github.io/Rock/)
 
 A native, expression-oriented programming language built with Rust and LLVM.
 
@@ -77,7 +77,7 @@ $ target/release/rockup default dev
 
 Restart the shell when prompted so the installed `rock` command is available. Rock does not yet ship through a package registry or stable binary installer.
 
-See the [installation guide](https://champii.github.io/new_lang/getting-started/installation.html) for setup details and troubleshooting.
+See the [installation guide](https://champii.github.io/Rock/getting-started/installation.html) for setup details and troubleshooting.
 
 ---
 
@@ -242,7 +242,7 @@ main = ->
 9080
 ```
 
-More complete programs live in [`examples/`](examples/), [`test_projects/`](test_projects/), and the [language guide](https://champii.github.io/new_lang/).
+More complete programs live in [`examples/`](examples/), [`test_projects/`](test_projects/), and the [language guide](https://champii.github.io/Rock/).
 
 ---
 
@@ -270,7 +270,7 @@ There is currently no `rock test` command. Application tests are ordinary Rock p
 
 ## Documentation
 
-The full book is published as [The Rock Programming Language](https://champii.github.io/new_lang/). Its source is under [`docs/`](docs/) and can be built locally with:
+The full book is published as [The Rock Programming Language](https://champii.github.io/Rock/). Its source is under [`docs/`](docs/) and can be built locally with:
 
 ```console
 $ mdbook build docs
