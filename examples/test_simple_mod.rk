@@ -1,0 +1,4 @@
+// Simple test of mod statement
+mod mod_test_utils
+
+main = -> 0

@@ -1,0 +1,14 @@
+struct Pair
+    < left: I64
+    < right: I64
+
+main = ->
+    mut pair = Pair
+        left: 1
+        right: 2
+    left = &mut pair.left
+    right = &pair.right
+    right.println!
+    *left = 3
+    pair.right.println!
+    0

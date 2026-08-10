@@ -1,36 +1,29 @@
-[package]
-name = "rock"
-version = "0.4.4"
-authors = ["champii <contact@champii>"]
-edition = "2021"
+[profile.release]
+panic = 'abort'
+opt-level = 'z'
+lto = 'thin'
 
-[dependencies]
-clap = "2.32.0"
-lazy_static = "1.2.0"
-regex = "1.5.6"
-env_logger = "0.5.12"
-log = "0.4"
-inkwell =  { version = "0.2", features = ["llvm15-0"] }
-either = "1.5"
-serde = "*"
-serde_derive = '*'
-bincode = "*"
-colored = "2.0.0"
-paste = "1.0.5"
-rustyline = "9.0.0"
-nom = "7.1.1"
-nom_locate = "4.0.0"
-itertools = "0.10.3"
-snailquote = "0.3.1"
-ariadne = "0.1.5"
+# Speed up compiling the test harnesses themselves.
+[profile.test]
+opt-level = 0
+debug = 0
 
-[build-dependencies]
-walkdir = "2"
+[workspace]
+resolver = "2"
 
-[lib]
-name = "rock"
-path = "src/lib/rock.rs"
+members = [
+  "rockc",
+  "rock",
+  "lib",
+  "rockup",
+  "rock-shared",
+]
 
-[[bin]]
-name = "rock"
-path = "src/bin/main.rs"
+[workspace.dependencies]
+clap = { version = "4.5.3", features = ["derive"] }
+ariadne = { version = "0.4.1", features = ["auto-color"] }
+paste = "1.0.15"
+inkwell = { version = "0.5", features = ["llvm18-0-force-dynamic"] }
+toml = "0.8"
+
+# default-members = ["rock"]

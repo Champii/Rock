@@ -1,0 +1,40 @@
+// Clone trait - explicit deep copy
+
+< trait Clone
+    @clone: Self
+
+impl Clone for I64
+    @clone = -> *self
+
+impl Clone for I32
+    @clone = -> *self
+
+impl Clone for I16
+    @clone = -> *self
+
+impl Clone for I8
+    @clone = -> *self
+
+impl Clone for U64
+    @clone = -> *self
+
+impl Clone for U32
+    @clone = -> *self
+
+impl Clone for U16
+    @clone = -> *self
+
+impl Clone for U8
+    @clone = -> *self
+
+impl Clone for F64
+    @clone = -> *self
+
+impl Clone for F32
+    @clone = -> *self
+
+impl Clone for Bool
+    @clone = -> *self
+
+impl Clone for Char
+    @clone = -> *self

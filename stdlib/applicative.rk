@@ -1,0 +1,10 @@
+// Applicative lifts values and applies wrapped functions.
+
+> stdlib::functor::Functor
+
+< trait Applicative for F _ where F _: Functor
+    pure: A -> F A
+    ap: F (A -> B) -> F A -> F B
+
+<*>: F (A -> B) -> F A -> F B where F _: Applicative
+<*> = wrapped_function, wrapped_value -> F::Applicative::ap wrapped_function, wrapped_value

@@ -1,0 +1,4 @@
+// mod_a.rk - circular import test (part 1)
+mod mod_b
+
+foo = -> 0

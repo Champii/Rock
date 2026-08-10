@@ -1,0 +1,22 @@
+==================
+function call argument holes
+==================
+
+combine 1, _, 3
+
+---
+
+(program
+  (expression
+    (call_expression
+      (primary_expression
+        (identifier))
+      (expression
+        (call_expression
+          (primary_expression
+            (number))))
+      (call_hole)
+      (expression
+        (call_expression
+          (primary_expression
+            (number)))))))

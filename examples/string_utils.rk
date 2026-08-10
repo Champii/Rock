@@ -1,0 +1,95 @@
+as_bytes: &Str -> Vec U8
+as_bytes = s ->
+    len = string_len s
+    ptr = ~ArrPtr s
+    mut result = Vec::new!
+    i = 0
+    one = 1
+    while i < len
+        result.push (unsafe ptr[i])
+        i = i + one
+    result
+
+byte_to_ascii_str: I64 -> String
+byte_to_ascii_str = b ->
+    if b == 32
+        String::from_char ' '
+    else if b == 72
+        String::from_char 'H'
+    else if b == 87
+        String::from_char 'W'
+    else if b == 100
+        String::from_char 'd'
+    else if b == 101
+        String::from_char 'e'
+    else if b == 108
+        String::from_char 'l'
+    else if b == 111
+        String::from_char 'o'
+    else if b == 114
+        String::from_char 'r'
+    else
+        String::from_char '?'
+
+reverse_ascii = s ->
+    bytes = as_bytes s
+    slice = bytes.as_slice!
+    len = string_len s
+    result = String::from_str ""
+    one = 1
+    i = len - one
+    zero = 0
+    while i >= zero
+        result = result + (byte_to_ascii_str ((byte_at slice, i) as I64))
+        i = i - one
+    result
+
+count_byte = s, target ->
+    bytes = as_bytes s
+    slice = bytes.as_slice!
+    count = 0
+    i = 0
+    one = 1
+    len = string_len s
+    while i < len
+        if ((byte_at slice, i) as I64) == target
+            count = count + one
+        i = i + one
+    count
+
+is_ascii_palindrome = s ->
+    bytes = as_bytes s
+    slice = bytes.as_slice!
+    len = string_len s
+    i = 0
+    result = 1
+    one = 1
+    two = 2
+    while i < len / two
+        if ((byte_at slice, i) as I64) != ((byte_at slice, (len - one - i)) as I64)
+            result = 0
+        i = i + one
+    result
+
+main = ->
+    s = "Hello World"
+    (reverse_ascii s).println!
+    (count_byte s, 108).println!
+    (is_ascii_palindrome "racecar").println!
+    (is_ascii_palindrome "hello").println!
+
+    prefix = "Rock is a "
+    suffix = "compiled language"
+    result = prefix + suffix
+    result.println!
+    result_slice = "Rock is a compiled language"
+    (string_contains result_slice, "compiled").println!
+    (string_find result_slice, "language").println!
+
+    bytes = as_bytes result_slice
+    slice = bytes.as_slice!
+    start = 10
+    count = 8
+    sub = byte_substr slice, start, count
+    sub.as_slice!.println!
+    0

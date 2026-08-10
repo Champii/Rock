@@ -1,7 +1,0 @@
-infix + 4
-+: a, b -> ~IAdd a b
-
-main: ->
-  let i = 21
-  i = i + 21
-  i

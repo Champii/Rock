@@ -1,0 +1,212 @@
+# Functions and Calls
+
+Functions are the main unit of behavior in Rock. A declaration has a name, an equals sign, parameters, an arrow, and a body:
+
+```rock
+add = left, right ->
+    left + right
+
+main = ->
+    result = add 2, 3
+    result.println!
+    0
+```
+
+The parameter names are introduced before the body is evaluated. The final expression of `add` is its result.
+
+## Signatures
+
+A separate signature documents and checks a function's interface:
+
+```rock
+clamp: I64 -> I64 -> I64 -> I64
+clamp = value, low, high ->
+    if value < low
+        low
+    else if value > high
+        high
+    else
+        value
+
+main = ->
+    result = clamp 120, 0, 100
+    result.println!
+    0
+```
+
+The signature lists three parameter types followed by the return type. The branches of `clamp` all produce `I64`, so the definition satisfies the contract.
+
+## Calling functions
+
+Arguments follow the function and are separated by commas. Parentheses group an expression and make nesting explicit:
+
+```rock
+add = left, right ->
+    left + right
+
+double = value ->
+    value * 2
+
+main = ->
+    result = double (add 2, 3)
+    result.println!
+    0
+```
+
+The inner call produces `5`; the outer call produces `10`. Parentheses surround the argument expression, not the callee's argument list.
+
+Use `!` for a zero-argument call:
+
+```rock
+main = ->
+    mut values: Vec I64 = Vec::new!
+    values.push 10
+    length = values.len!
+    length.println!
+    0
+```
+
+`Vec::new!` calls an associated function through the type path. `values.push 10` passes one argument to a method, while `values.len!` calls a method with no explicit arguments. The `mut` binding is required because `push` uses a mutable receiver.
+
+## Associated functions and paths
+
+`::` selects an item through a type or module path. Associated functions do not receive an existing instance:
+
+```rock
+main = ->
+    some = Option::Some 5
+    text = String::from_i64 42
+    some_text = match some
+        Option::Some value => text
+        Option::None => String::from_str "missing"
+    some_text.println!
+    0
+```
+
+`Option::Some` constructs a prelude enum variant, and `String::from_i64` constructs an owned string through an associated function. A method would instead use a receiver and dot syntax, as `some_text.println!` does.
+
+## Receiver contracts
+
+Methods declare how they use `self`. A shared receiver uses `@`; a mutable receiver uses `^@`; a consuming receiver uses `~@`:
+
+```rock
+struct Counter
+    < value: I64
+
+impl Counter
+    @read = -> @value
+
+    ^@add = amount ->
+        self.value = self.value + amount
+        return
+
+    ~@finish = -> self.value
+
+main = ->
+    mut counter = Counter
+        value: 4
+    current = counter.read!
+    counter.add 3
+    total = counter.finish!
+    current.println!
+    total.println!
+    0
+```
+
+The first call borrows `counter` shared. The second needs a mutable receiver, so the binding is marked `mut`. The final call consumes `counter`; after it returns, that value is no longer available for another use. The markers are part of the method's type-level contract, not decoration.
+
+## Return values and early exit
+
+The final expression is returned:
+
+```rock
+sign = value ->
+    if value < 0
+        0 - 1
+    else
+        1
+
+main = ->
+    (sign (0 - 8)).println!
+    (sign 8).println!
+    0
+```
+
+Use `return` when a condition should leave the function immediately:
+
+```rock
+first_nonzero = left, right ->
+    if left != 0
+        return left
+    right
+
+main = ->
+    (first_nonzero 3, 9).println!
+    (first_nonzero 0, 9).println!
+    0
+```
+
+For `(3, 9)`, the first branch returns `3` and skips `right`. For `(0, 9)`, execution reaches the final expression and returns `9`.
+
+## Unit-returning functions
+
+A function whose purpose is an effect can use `!->`:
+
+```rock
+greet: &Str -> Unit
+greet = name !->
+    ("Hello, " + name).println!
+    return
+
+main = ->
+    greet "Ada"
+    0
+```
+
+The explicit `return` is important with current compiler behavior: a unit-arrow body does not evaluate a trailing value expression. An ordinary `->` body can instead return the `Unit` produced by its final `println!` call.
+
+## Recursion
+
+A function can call itself after its declaration:
+
+```rock
+factorial: I64 -> I64
+factorial = n ->
+    if n <= 1
+        1
+    else
+        n * (factorial (n - 1))
+
+main = ->
+    (factorial 5).println!
+    0
+```
+
+The recursive call decreases `n`, so the base case `n <= 1` is eventually reached. Rock does not promise tail-call optimization; use a loop when unbounded recursion could exhaust the stack.
+
+## Multiline expressions
+
+An operator may continue on a following line at one deeper indentation level:
+
+```rock
+total: I64 -> I64 -> I64 -> I64
+total = base, tax, shipping ->
+    base
+        + tax
+        + shipping
+
+main = ->
+    result = total 100, 8, 2
+    result.println!
+    0
+```
+
+The continuation lines remain one expression. Binding intermediate values is often clearer for complicated calls because each type and ownership boundary gets a name.
+
+## Common mistakes
+
+- Omitting commas between call arguments.
+- Adding parentheses as if Rock used Rust-style `function(arguments)` calls.
+- Calling a `^@` method through a binding that is not marked `mut`.
+- Using a consuming `~@` receiver and then trying to use the consumed value again.
+- Leaving a unit-arrow function without an explicit `return` after its last effect.

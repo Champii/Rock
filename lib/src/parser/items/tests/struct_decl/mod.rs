@@ -1,0 +1,4 @@
+mod test_parse_struct;
+mod test_parse_struct_with_fields;
+mod test_parse_struct_with_fields_empty_lines;
+mod test_parse_struct_with_generics;

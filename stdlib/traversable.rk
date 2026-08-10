@@ -1,0 +1,20 @@
+// Traversable maps every element into an effect while preserving shape.
+
+> stdlib::applicative::Applicative
+> stdlib::callable::FnMut
+> stdlib::foldable::Foldable
+> stdlib::functor::Functor
+> stdlib::monad::Monad
+
+< trait Traversable for T _ where T _: Functor, T _: Foldable
+    traverse: V -> T A -> G (T B) where G _: Applicative, V: FnMut A, (G B)
+    traverse_m: V -> T A -> G (T B) where G _: Monad, V: FnMut A, (G B)
+
+traversable_identity: A -> A
+traversable_identity = value -> value
+
+sequence: T (G A) -> G (T A) where T _: Traversable, G _: Applicative
+< sequence = values ->
+    identity: G A -> G A = traversable_identity
+    result: G (T A) = T::Traversable::traverse identity, values
+    result

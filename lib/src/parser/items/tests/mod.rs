@@ -1,0 +1,25 @@
+mod common;
+
+mod array;
+mod ast_validation;
+mod block;
+mod enum_decl;
+mod expression;
+mod function_decl;
+mod ident;
+mod r#if;
+mod r#impl;
+mod instance;
+mod items;
+mod literal;
+mod r#loop;
+mod macro_decl;
+mod r#match;
+mod parse_type;
+mod path;
+mod pattern;
+mod program;
+mod statement;
+mod struct_decl;
+mod top_level;
+mod r#trait;

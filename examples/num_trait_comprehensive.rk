@@ -1,0 +1,40 @@
+// Comprehensive Num trait test
+
+main = ->
+    a = ~I64Add 1, 2
+    a.println!
+
+    b = 1.add 2
+    b.println!
+
+    c = 5.sub 3
+    c.println!
+
+    d = 4.mul 3
+    d.println!
+
+    e = 10.div 2
+    e.println!
+
+    f = 10.rem 3
+    f.println!
+
+    g = 5.neg
+    g.println!
+
+    h = 3.lt 5
+    h.println!
+
+    i = 5.lt 3
+    i.println!
+
+    j = 3.le 3
+    j.println!
+
+    k = 5.gt 3
+    k.println!
+
+    l = 5.ge 5
+    l.println!
+
+    0

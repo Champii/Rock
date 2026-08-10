@@ -1,0 +1,13 @@
+// RUN: rockc %s 2>&1 | grep "use of moved"
+
+main = ->
+    // Create owned String (heap allocated, needs drop, NOT Copy)
+    x = String::from_str "hello"
+
+    // Move ownership of x into y
+    y = x
+
+    // Try to use x after it was moved (should fail borrow check)
+    x.println!
+
+    0

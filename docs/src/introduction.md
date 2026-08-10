@@ -1,0 +1,101 @@
+# Introduction
+
+Rock is a small, expression-oriented language. Its surface syntax is compact, but the compiler still checks types, ownership, and the contracts of method receivers. Indentation forms blocks, function calls use spaces and commas, and operators are supplied by the program and its explicit dependencies.
+
+This is a complete program. It uses only names supplied by the standard-library prelude and can be read from top to bottom.
+
+```rock
+enum Greeting
+    Hello &Str
+    Goodbye
+
+message = greeting ->
+    match greeting
+        Greeting::Hello name => "Hello, " + name
+        Greeting::Goodbye => "See you soon"
+
+main = ->
+    greeting = Greeting::Hello "Rock"
+    text = message greeting
+    text.println!
+    0
+```
+
+The program has three top-level declarations:
+
+1. `Greeting` is an enum. A value is either `Hello` with a borrowed string payload or `Goodbye` with no payload.
+2. `message` is a function. Its parameter is `greeting`, and its body is the indented expression after `->`.
+3. `main` is the executable entry point. Its final expression, `0`, is the process status.
+
+The execution order is explicit. `main` constructs a `Greeting::Hello`, passes it to `message`, prints the returned string, and then returns zero. The `match` expression chooses the first arm whose pattern fits the value. Because the `Hello` arm binds `name`, the body can concatenate that payload with another string.
+
+## The visual grammar
+
+Rock uses indentation instead of braces. Every line indented farther than its header belongs to that header. The `else` keyword aligns with the `if` that owns it, and match arms align with one another.
+
+Function declarations use `name = parameters -> body`. Calls put arguments after the callee and separate multiple arguments with commas:
+
+```rock
+add = left, right ->
+    left + right
+
+main = ->
+    sum = add 20, 22
+    sum.println!
+    0
+```
+
+The call `add 20, 22` has two arguments. Parentheses group an expression, as in `add (2 + 3), 4`; they do not replace the space-and-comma call syntax. A trailing `!` invokes a zero-argument function or method, so `println!` means “call `println` with no explicit arguments.”
+
+Blocks are expressions. A block evaluates each earlier expression for its effects and gives the final expression as its value:
+
+```rock
+square = number ->
+    number * number
+
+main = ->
+    result = square 6
+    result.println!
+    0
+```
+
+The function `square` returns `36` because its final expression is `number * number`. In `main`, `result.println!` runs for its effect and `0` supplies the enclosing function's result.
+
+## Types without ceremony
+
+Local types are commonly inferred. An annotation is useful when it documents an interface or removes ambiguity:
+
+```rock
+double: I64 -> I64
+double = value ->
+    value * 2
+
+main = ->
+    answer: I64 = double 21
+    answer.println!
+    0
+```
+
+`double` accepts an `I64` and returns an `I64`. The annotation does not change the call syntax or create a runtime conversion. It gives the compiler a contract to check.
+
+## What to expect from the book
+
+The getting-started chapters build a runnable program before the language reference separates the ideas. Read [Hello, Rock!](getting-started/hello-rock.md) first, then [A First Project](getting-started/first-project.md). The language chapters revisit values, functions, control flow, structs, enums, references, ownership, traits, and the standard library in that order.
+
+Most examples use the shipped standard library. A direct `rockc` invocation therefore needs an explicit stdlib artifact, for example `--extern-artifact stdlib=/tmp/rock-book-stdlib/stdlib.rkca`. The compiler injects the stdlib prelude only when that dependency is supplied; it does not silently load a system library.
+
+The examples in this book are intentionally complete. A `rock` fence either contains a whole program or a complete top-level module fragment whose declarations are all present in that fence. A name supplied by the stdlib prelude may be used without an import; any other external name must be imported in the same file.
+
+## What this book does not cover
+
+This is a user guide, not a compiler implementation guide. It does not document parser data structures, intermediate representations, artifact internals, compiler-recognized item markers, or code-generation machinery. Low-level syntax appears only when it is part of a public application or library interface.
+
+Rock is still a prototype. The broad language model is exercised by parser and compiler tests, but some ecosystem commands and library conveniences are incomplete. Each chapter calls out current behavior where it differs from the ideal a future release may provide.
+
+## Common first mistakes
+
+- Treating parentheses as mandatory call syntax. Write `max 5, 7`, not `max(5, 7)`.
+- Forgetting that a block's last expression is its value.
+- Using an enum payload without first matching the enum variant.
+- Assuming a familiar operator has a compiler-defined meaning. The active program and its dependencies must provide the operator implementation.
+- Running `rockc` without the explicit stdlib artifact when the program uses prelude facilities.

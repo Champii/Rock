@@ -1,324 +1,349 @@
-# Rock v0.4.4
+# Rock
 
-[![Rust](https://github.com/Champii/Rock/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/rust.yml)
-[![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
+The beginner guide is available as [The Rock Programming Language](https://champii.github.io/new_lang/). The source lives under [`docs/`](docs/), and local builds use `mdbook build docs`.
 
-[Documentation](https://champii.github.io/Rock)
+## Desired features
 
-Native language made with Rust and LLVM.
-
-Aim to follow the enforced safeness of the Rust model with a borrow checker (Soon™) and to achieve high native performances thanks to LLVM.
-Rock is highly inspired from [Livescript](https://livescript.net/), [Haskell](https://www.haskell.org/) and [Rust](https://www.rust-lang.org/).
-
-No to be taken seriously (yet).  
-Rock is still in its early conception phase, and everything can change and/or break at any time.  
-Feel free to discuss any new feature or change you may like in an issue! We welcome and value every contribution.
-
-## Index
-
-- [Rock v0.4.4](#rock-v0.4.4)
-  - [Index](#index)
-  - [Features](#features)
-  - [Install](#install)
-    - [From source](#from-source)
-      - [With Cargo from Git (Recommanded)](#with-cargo-from-git-recommanded)
-      - [Manual Clone and Build from Git](#manual-clone-and-build-from-git)
-    - [Using Released Binary](#using-released-binary)
-  - [Quickstart](#quickstart)
-  - [Showcases](#showcases)
-    - [Polymorphic function](#polymorphic-function)
-    - [Custom infix operator](#custom-infix-operator)
-    - [Trait Definition](#trait-definition)
-    - [Trait default method](#trait-default-method)
-    - [Struct instance and methods]( #struct-instance-and-methods )
-    - [Show and Print implementation]( #show-and-print-implementation )
-    - [Modules and Code Separation](#modules-and-code-separation)
-  - [Development notes](#development-notes)
-
----
-
-## Features
-
-- Strongly typed
-- Type inference
-- Custom operators
-- Typeclass (Traits)
-- Polymorphism by default
-- Compile to LLVM IR
-
----
-
-## Install
-
-### From source
-
-You will need `llvm-15` and `clang-15` somewhere in your $PATH
-
-#### With Cargo from Git (Recommanded)
-
-```sh
-cargo install --locked --git https://github.com/Champii/Rock --tag v0.4.4
-rock -V
-```
-
-#### Manual Clone and Build from Git
-
-```sh
-git clone https://github.com/Champii/Rock.git
-cd Rock
-cargo run --release -- -V
-```
-
-Note: If you clone and build manually, make sure to add `Rock/target/release/` to you `$PATH` so you can run it anywhere on your system.  
-This method uses the `master` branch of Rock, that is not stable. You can checkout the latest version tag.
-
-Rock has been tested against Rust stable v1.60.0 and nightly
-
-[Adding Rust Nightly](https://github.com/Champii/Rock/wiki/Adding-Rust-Nightly)
-
-### Using Released Binary
-
-[Rock v0.4.4](https://github.com/Champii/Rock/releases/download/v0.4.4/rock)
-
-``` sh
-wget https://github.com/Champii/Rock/releases/download/v0.4.4/rock
-chmod +x rock
-./rock -V
-```
-
-This install method is not well tested yet, and might not work for your environment.
-It requires a x86_64 architecture and GLIBC 2.34. (Don't try to upgrade your GLIBC if you don't know what you are doing)
-
----
-
-## Quickstart
-
-- Lets create a new project folder to compute some factorials
-
-``` sh
-rock new factorial && cd factorial
-```
-
-- Edit the `factorial/src/main.rk` file:
+## Chain calls without defining variable
 
 ```haskell
-fact: x ->
-  if x <= 1
-  then 1
-  else x * fact (x - 1)
-
-main: -> fact 4 .print!
+write_file = ->
+    File::open "test.txt"?
+       .write "Hello, World!"?
+       ..close!
 ```
 
-Assuming that you built Rock and put its binary in your PATH:
+## If and loops as expressions
 
-``` sh
-$ rock run
-24
+```haskell
+do_something = x ->
+    value = if x > 42 then 42 else x
+
+    list =
+        while value > 0
+            value++
+
+    new_list =
+        for item in list
+            item + 2
 ```
 
-Rock should have produced a `./build/` folder, that contains your `a.out` executable.
-You can execute it directly:
+## Functions as first class citizen
 
-```sh
-$ ./build/a.out
-24
+```haskell
+call = f, x -> f x
+
+return_fn = -> x -> x + 2
+
+main = -> call return_fn!, 5
 ```
 
-Take a look at `rock --help` for a quick tour of its flags and arguments
+## Function signature
 
-Note that you currently MUST be at the project root to run the compiler. (i.e. inside the `./factorial/` folder)
-
----
-
-## Showcases
-
-### Polymorphic function
-
-``` haskell
-id: x -> x
-
-main: ->
-  id 1 .print!
-  id 2.2 .print!
-  id "Test" .print!
+```haskell
+add : T -> T -> T
+add = x, y -> x + y
 ```
 
-Prints 
+## Function currying
 
-``` sh
-$ rock run
-1
-2.2
-Test
+```haskell
+add = x, y -> x + y
+
+add4 = add 4
+
+main = -> add4 2
 ```
 
-The `id` function here is polymorphic by default, as we don't make any constraint on the type that we should take or return.  
-If we did something like this  
-`id: x -> x + x`  
-We would have constrained `x` to types that implement [`Num`](https://github.com/Champii/Rock/blob/master/std/src/num.rk)
+## Function Shorthand
 
-Note that this example would still be valid, as `Int64`, `Float64` and `String` are all implementors of `Num`.  
-`String` is nowhere at its place here, and only implements `+` for string concatenation. This should change in the future with more traits like `Add` in rust
+```haskell
+plus2 = (+2)
 
-The output would be:
-
-``` sh
-2
-4.4
-TestTest
+main = -> plus2 2
 ```
 
-### Custom infix operator
+## Custom operators
 
-``` haskell
-infix |> 1
-|>: x, f -> f x
+```haskell
+// The pipe operator
+infix 1 |>
+|> = x, f -> f x
 
-f: x -> x + 2
+// The not operator
+unary !
+! = x ->
+    match x
+        true => false
+        false => true
 
-main: -> (4 |> f).print!
+main = ->
+    [1, 2, 3]
+        |> map (+2)
+
+    inverse = !true
 ```
 
-``` sh
-$ rock run
-6
+## FP-style stdlib composition
+
+```haskell
+inc = x -> x + 1
+
+keep_even_opt = x ->
+    if x % 2 == 0
+        Option::Some x
+    else
+        Option::None
+
+main = ->
+    value = Option::Some 4
+
+    ((value <&> inc).unwrap_or 0).println!
+    ((value >>= keep_even_opt).unwrap_or 0).println!
+    (((Option::None <|> Option::Some 9)).unwrap_or 0).println!
+    (((41 |> inc))).println!
+    0
 ```
 
-You can create any operator that is made of any combination of one or more of `'+', '-', '/', '*', '|', '<', '>', '=', '!', '$', '@', '&', '%'`
+Method-only equivalent:
 
-Most of the commonly defined operators like `+`, `<=`, etc are already implemented by the [stdlib](https://github.com/Champii/Rock/tree/master/std) that is automaticaly compiled with every package.  
-There is a `--nostd` option to allow you to use your own custom implementation. 
+```haskell
+main = ->
+    value = Option::Some 4
 
-### Trait definition
+    ((value.map inc).unwrap_or 0).println!
+    ((value.and_then keep_even_opt).unwrap_or 0).println!
+    ((Option::None.or (Option::Some 9)).unwrap_or 0).println!
+    0
+```
 
-This `trait ToString` is redondant with the `trait Show` implemented in the stdlib, and serves as a demonstration only
+## Trait
 
-``` haskell
+```haskell
 trait ToString
-  @tostring: String
+    @to_string : String
 
-impl ToString Int64
-  @tostring: -> @show!
-
-impl ToString Float64
-  @tostring: -> @show!
-
-main: ->
-  (33).tostring!.print!
-  (42.42).tostring!.print!
+impl ToString for Int16
+    @to_string = -> @show!
 ```
 
-``` sh
-$ rock run
-33
-42.42
-```
-
-### Trait default method
-
-``` haskell
-trait ToString
-  @tostring: -> @show!
-
-impl ToString Int64
-impl ToString Float64
-
-main: ->
-  (33).tostring!.print!
-  (42.42).tostring!.print!
-```
-
-``` sh
-$ rock run
-33
-42.42
-```
-
-### Struct instance and methods
-
-``` haskell
-struct Player
-  level: Int64
-  name: String
-
-impl Player
-  new: level ->
-    Player
-      level: level
-      name: "Default"
-  @getlevel: -> @level
-
-main: ->
-  Player::new 1
-    .getlevel!
-    .print!
-```
-
-``` sh
-$ rock run
-1
-```
-
-### Show and Print implementation
-
-``` haskell
-struct Player
-  level: Int64
-  name: String
-
-impl Show Player
-  @show: -> @name + "(" + @level.show! + ")"
-
-# This will be automatic in the future
-impl Print Player
-
-main: ->
-  let player = Player
-    level: 42
-    name: "MyName"
-
-  player.print!
-```
-
-``` sh
-$ rock run
-MyName(42)
-```
-
-### Modules and code separation
-
-- `./myproj/src/foo.rk`
+## Dynamic trait
 
 ```haskell
-bar: x -> x + 1
+some_func : <T: ToString> T -> String
+some_fumc = x -> x.to_string!
 ```
 
-- `./myproj/src/main.rk`
+## Structs
 
 ```haskell
-mod foo
+struct Hello
+    world : String
+    some_default_field = true
 
-use foo::bar
+impl Hello
+    new = s -> Hello world: s
+    @display = -> @world.print!
 
-main: -> bar 1 .print!
+main = ->
+    hello = Hello::new "World"
+    hello.display!
 ```
 
-```sh
-$ rock run
-2
+## Generics
+
+```haskell
+struct Wrapper T
+    inner: T
+
+enum Choice T, U
+    Left T
+    Right U
 ```
 
-Note that we could have skiped the
-`use foo::bar`
-if we wrote
-`main: -> foo::bar 1 .print!`
+## Unsafe pointer arithmetic
 
----
+```haskell
+main = ->
+    unsafe
+        p: *Int8 = 0
 
-## Development notes
+        // very unsafe
+        *p
+```
 
-This project, its syntax and its APIs are subject to change at any moment.  
-This is a personal project, so please bear with me
+## Pattern matching
 
-Differently put: this is a big red hot pile of experimental garbage right now
+```haskell
+main = ->
+    a = (10, "hello")
+
+    match a
+        (0, "world")            => "something"
+        foo @ (a, str) if a > 5 => str
+        _                       => "otherwise"
+```
+
+## Destructuring
+
+```haskell
+fn_return_tuple = -> (10, "a string")
+
+main = ->
+    (num, str) = fn_return_tuple!
+```
+
+## Enums
+
+```haskell
+enum Error
+    SomeError
+    SomeErrorWithContext String
+    SomeErrorWithMoreContext String, Int
+
+impl Show for Error
+    @show = ->
+        match @
+            Self::SomeError => "SomeError"
+            Self::SomeErrorWithContext s => "SomeError" + s
+            Self::SomeErrorWithMoreContext s, i => "SomeError" + s + i.show!
+
+main = -> Error::SomeErrorWithContext "Hello" .print!
+```
+
+## Macros
+
+```haskell
+macro generate
+    $name:ident, $type:ty =>
+        struct Generated
+            $name: $type
+
+%generate hello, String
+```
+
+## Modules and dependancies
+
+`Rock.toml`  
+```toml
+name = "my_awesome_package"
+
+#[dependencies]
+my_dep = [ path = "../my_dep" ]
+```
+
+`lib.rk`  
+```haskell
+mod my_mod
+
+> my_dep::SomeType
+> my_mod::SomeOtherType
+
+struct MyStruct
+    my_field: SomeType
+
+< MyStruct
+```
+
+# TODO
+
+## CLI
+
+For a crate with a local `rock.toml`, `rock build` now behaves like a lightweight cargo-style wrapper:
+
+```bash
+cargo run -p rock -- build
+```
+
+To build and execute the current crate, use:
+
+```bash
+cargo run -p rock -- run -- <program args>
+```
+
+It will:
+
+- read path dependencies from `rock.toml`
+- build or reuse dependency artifacts under each dependency crate's `build/artifacts/`
+- build or reuse dependency object files under each dependency crate's `build/objects/`
+- compile the current crate using artifact-backed dependencies
+
+You can also materialize the current crate artifact directly:
+
+```bash
+cargo run -p rock -- artifact
+```
+
+# TODO
+
+  - Error recovery for parser statements (find the next Indent(x))
+
+  - Macros
+    - Macro nested var repetition $($($arg:ident)*)*
+    - Don't ignore \n and indent for macro args parsing
+    - Better error management and diagnostic details
+
+  - New parser
+    - Trait bound for parse_type in function signature
+    - Slices
+    - Escaped chars and strings
+    - UTF-8
+    - Allow trailing delimiters everywhere
+    - Allow for custom unary operators
+    - Struct default field value ?
+    - Better error management
+
+  - Parser
+    - High priority
+      - Add syntax for generic types in ParseType
+      - Allow for multiline double dot
+      - Allow for self inject signatures for methods in impl
+      - Add mutability operator to variables
+      - `if let` like `if Err e = run!`
+      - `Ok a = f! else return Err "error"`
+      - Escaped char in strings and char
+      - Auto export current item `< struct Foo`
+      - Slice of array `arr[1..]` and range
+      - Default arguments and named arguments
+      - Oneliner for loops (other than postfix) like array comprehension `[a for a in arr]`
+      - `do` keyword for nested blocks
+      - Comments (end of line ('#') or inline ('/*' '*/')
+      - Multiline equal
+      - Multiline Patterns
+      - Allow right indent `if` and `loop` and `match` when at-the-next-line definition
+      - Suffix ++ and -- for variables ?
+
+    - Low priority list:
+      - Allow typeless struct field when default value and let the inference take over
+      - Fix that annoying problem with unaryexp that can be confused with function shorthand (space problem between operator and expr)
+      - Async?
+      - Allow parenthesis for function calls ?
+      - String interpolation ? 
+      - Replace the Type1OrType2 with an implem of Either<Type1, Type2>
+      - Remove the `,` separator for arguments and follow haskell fn call format ?
+      - Proc macros ? Derive ? 
+      - Allow asm code ?
+      - Allow right shifted indentation when assign ? (maybe a bad idea)
+      - Multiline operators that can indent but not dedent
+
+    - To investigate again
+      - Fix nested multiline dot (indent problem)
+      - Multiline arguments and spaced dot are in conflict. A spaced dot should close the arguments on the line its defined on
+
+  - Desugar
+    - Operator precedence
+    - Operator into function calls
+    - Loops into `loop`
+    - Match into `if`
+    - Dot notation into function calls
+    - Closures into functiondecl
+
+  - Modules and dependancies
+    - Basic external module management
+
+  - Code formating
+    - If with no then
+    - trait and impl ordering
+    - Comments
+
+  - Rust FFI ?

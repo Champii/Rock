@@ -1,0 +1,16 @@
+main = ->
+    mut x = 42
+    if true
+        shared = &x
+        shared.println!
+    if true
+        ptr: *I64 = &x as *I64
+        val = unsafe *ptr
+        unsafe *ptr = 100
+        val2 = unsafe *ptr
+        val2.println!
+    r = &mut x
+    *r = 2
+    x.println!
+
+    0

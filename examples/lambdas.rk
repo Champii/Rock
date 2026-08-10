@@ -1,0 +1,8 @@
+apply = f, x -> f x
+
+main = ->
+    double = x -> x * 2
+    (double 5).println!
+    (apply double, 7).println!
+    (apply (x -> x + 100), 5).println!
+    0

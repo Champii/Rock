@@ -1,0 +1,54 @@
+:root {
+    --rock-accent: #9a5500;
+    --rock-accent-soft: rgba(217, 119, 6, 0.14);
+}
+
+html.navy,
+html.coal,
+html.ayu,
+html.rust {
+    --rock-accent: #f59e0b;
+}
+
+.menu-title {
+    letter-spacing: 0.02em;
+}
+
+.content main {
+    max-width: 850px;
+}
+
+.content main h1,
+.content main h2,
+.content main h3 {
+    letter-spacing: -0.018em;
+}
+
+.content main h2 {
+    border-bottom: 1px solid var(--table-border-color);
+    padding-bottom: 0.25em;
+}
+
+.content main a,
+.sidebar a.active {
+    text-decoration-color: var(--rock-accent);
+}
+
+.sidebar a.active {
+    color: var(--rock-accent);
+}
+
+blockquote {
+    border-left-color: var(--rock-accent);
+    background: var(--rock-accent-soft);
+    padding: 0.7em 1em;
+}
+
+code.language-rock,
+pre code.language-rock {
+    font-variant-ligatures: none;
+}
+
+table {
+    width: 100%;
+}

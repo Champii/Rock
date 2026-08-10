@@ -1,0 +1,19 @@
+enum Color
+    Red
+    Green
+    Blue
+
+color_code = c ->
+    match c
+        Color::Red => 1
+        Color::Green => 2
+        Color::Blue => 3
+
+main = ->
+    r = Color::Red
+    g = Color::Green
+    b = Color::Blue
+    (color_code r).println!
+    (color_code g).println!
+    (color_code b).println!
+    0

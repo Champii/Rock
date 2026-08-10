@@ -1,0 +1,4 @@
+mod test_opt_doesnt_consume_on_failure;
+mod test_opt_fails_returns_none;
+mod test_opt_returns_some;
+mod test_opt_succeeds;

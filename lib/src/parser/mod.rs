@@ -1,0 +1,124 @@
+pub mod engine;
+mod items;
+
+use std::path::PathBuf;
+
+pub use engine::*;
+pub use items::*;
+
+use crate::ast::tree::*;
+use crate::lexer::{Lexer, TokenType};
+use crate::{Config, DebugPrint};
+
+pub fn parse_source(
+    file_path: PathBuf,
+    source: &str,
+    config: &Config,
+) -> Result<Module, ParseError> {
+    let file_path_for_result = file_path.clone();
+    let mut lexer = Lexer::new(file_path, source).map_err(ParseError::Lexer)?;
+    let tokens = lexer.collect().map_err(ParseError::Lexer)?;
+
+    if config.has_debug_print(DebugPrint::Tokens) {
+        println!("{:#?}", tokens);
+    }
+
+    // Reset the best error tracker at the start of parsing
+    engine::reset_best_error();
+
+    let ctx = ParseCtx::from(&tokens, config);
+    let result = module_inline.process(ctx);
+
+    match result {
+        Ok((_, mut program)) => {
+            // Set the filepath on the module
+            program.filepath = Some(file_path_for_result);
+            Ok(program)
+        }
+        Err(e) => {
+            // Return the best error we've seen during parsing
+            Err(engine::get_best_error(e))
+        }
+    }
+}
+
+pub fn parse_module_tokens(
+    tokens: &[crate::lexer::Token],
+    config: &Config,
+) -> Result<Module, ParseError> {
+    engine::reset_best_error();
+    let result = module_inline.process(ParseCtx::from(tokens, config));
+    match result {
+        Ok((_, module)) => Ok(module),
+        Err(e) => Err(engine::get_best_error(e)),
+    }
+}
+
+pub fn parse_string(input: &str, config: &Config) -> Result<Program, ParseError> {
+    parse_source(PathBuf::new(), input, config).map(|mut module| {
+        module.filepath = None;
+        Program { module }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::ast::TopLevel;
+    use crate::parser::{parse_source, parse_string};
+    use crate::Config;
+
+    #[test]
+    fn parse_source_sets_module_filepath_without_reading_sibling_modules() {
+        let path = PathBuf::from("/virtual/app/main.rk");
+        let module = parse_source(
+            path.clone(),
+            "mod missing\nmain = -> 0\n",
+            &Config::default(),
+        )
+        .expect("source text should parse without filesystem module lookup");
+
+        assert_eq!(module.filepath, Some(path));
+        match &module.top_levels[0] {
+            TopLevel::Mod(ident, false) => assert_eq!(ident.name, "missing"),
+            other => panic!("expected source-backed module declaration, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_string_remains_parser_only_and_has_no_filepath() {
+        let program =
+            parse_string("main = -> 0\n", &Config::default()).expect("inline source should parse");
+
+        assert_eq!(program.module.filepath, None);
+    }
+
+    #[test]
+    fn parse_string_reports_oversized_integer_literal() {
+        let result = parse_string("main = -> 184467440737095516160\n", &Config::default());
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_string_reports_odd_indentation() {
+        let result = parse_string("main = ->\n x\n", &Config::default());
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_string_accepts_whitespace_only_blank_line() {
+        let result = parse_string("main = ->\n    0\n \nfoo = -> 1\n", &Config::default());
+
+        assert!(result.is_ok(), "parse failed: {result:?}");
+    }
+
+    #[test]
+    fn parse_string_rejects_odd_multiline_call_indent() {
+        let result = parse_string("main = -> foo\n x\n", &Config::default());
+
+        assert!(result.is_err());
+    }
+}

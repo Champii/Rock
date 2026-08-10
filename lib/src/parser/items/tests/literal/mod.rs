@@ -1,0 +1,9 @@
+mod test_parse_array;
+mod test_parse_array_empty;
+mod test_parse_array_nested_expr;
+mod test_parse_array_repeat;
+mod test_parse_bool;
+mod test_parse_char;
+mod test_parse_float;
+mod test_parse_number;
+mod test_parse_string;

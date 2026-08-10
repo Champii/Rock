@@ -1,0 +1,3 @@
+// Mathematical functions from libm
+//
+// All math extern declarations are in stdlib::libc.

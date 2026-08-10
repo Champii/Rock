@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "version": "0.1.0"
+  },
+  "grammars": [
+    {
+      "name": "rock",
+      "scope": "source.rock",
+      "file-types": ["rk"],
+      "highlights": ["queries/highlights.scm"]
+    }
+  ]
+}

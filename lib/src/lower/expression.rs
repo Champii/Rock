@@ -1,0 +1,2326 @@
+//! Expression lowering methods for Lowerer
+
+use std::collections::{HashMap, HashSet};
+
+use crate::ast;
+use crate::hir::*;
+use crate::lexer::Span;
+use crate::selection::{ReceiverCandidate, SelectedMethod, SelectionDiagnostic};
+use crate::types::{GenericParamId, Type};
+
+use crate::lower::Lowerer;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ExprUse {
+    Value,
+    AssignmentPlace,
+}
+
+pub(crate) enum AstExprOperand<'a> {
+    Unary(&'a ast::UnaryExpr),
+    Cast(&'a ast::Expression),
+}
+
+impl Lowerer {
+    // ============================================================
+    // Expression Lowering Methods
+    // ============================================================
+
+    pub(crate) fn op_precedence(&self, op: &str) -> Result<u8, String> {
+        self.infix_precedence.get(op).copied().ok_or_else(|| {
+            format!(
+                "Operator '{}' has no precedence declaration (use 'infix N {}')",
+                op, op
+            )
+        })
+    }
+
+    pub(crate) fn instantiate_function_type(&mut self, func: &HirFunction) -> Type {
+        let mut generic_params = HashSet::new();
+        for param in &func.params {
+            param.ty.collect_generic_params(&mut generic_params);
+        }
+        func.ret_type.collect_generic_params(&mut generic_params);
+
+        let subst: HashMap<GenericParamId, Type> = generic_params
+            .into_iter()
+            .map(|param| {
+                let kind = self
+                    .engine
+                    .kind_of(&Type::Generic(param))
+                    .unwrap_or(crate::type_services::kind::Kind::Type);
+                (param, self.engine.fresh_type_var_of_kind(kind))
+            })
+            .collect();
+
+        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let context = format!("call to generic function '{}'", func.name);
+        for (generic_param, bounds) in &func.generic_bounds {
+            let Some(ty) = subst.get(generic_param).cloned() else {
+                continue;
+            };
+            for bound in bounds {
+                let instantiated_bound = crate::types::TraitBound {
+                    trait_id: bound.trait_id,
+                    type_args: bound
+                        .type_args
+                        .iter()
+                        .map(|arg| arg.substitute_generics(&subst))
+                        .collect(),
+                };
+                if let Type::TypeVar(id) = &ty {
+                    self.engine.add_bound(*id, instantiated_bound.clone());
+                }
+                self.constraint_store.add_trait(
+                    ty.clone(),
+                    instantiated_bound,
+                    span.clone(),
+                    &context,
+                );
+            }
+        }
+
+        let params = func
+            .params
+            .iter()
+            .map(|param| param.ty.substitute_generics(&subst))
+            .collect();
+        let ret = func.ret_type.substitute_generics(&subst);
+        Type::function_with_safety(
+            params,
+            ret,
+            crate::types::FunctionSafety::from_is_unsafe(func.is_unsafe),
+        )
+    }
+
+    fn infer_bounded_constructor_heads(&mut self, function_ty: &Type, args: &[&HirExpr]) {
+        let Type::Function { params, .. } = function_ty else {
+            return;
+        };
+
+        for (expected, actual) in params.iter().zip(args) {
+            let resolved_expected = self.engine.resolve(expected);
+            let Type::Apply {
+                ref constructor, ..
+            } = resolved_expected
+            else {
+                continue;
+            };
+            let Type::TypeVar(constructor_id) = self.engine.resolve(constructor) else {
+                continue;
+            };
+            let bounds = self.engine.get_bounds(constructor_id);
+            if bounds.is_empty() {
+                continue;
+            }
+
+            let actual_ty = self.resolve_projection_type(&self.engine.resolve(&actual.ty));
+            if let Type::TypeVar(actual_id) = actual_ty {
+                if let Err(error) = self
+                    .engine
+                    .bind_pending_type_var(actual_id, &resolved_expected)
+                {
+                    self.diagnostics.push(error);
+                }
+                continue;
+            }
+            let mut targets = Vec::new();
+            for bound in bounds {
+                let trait_args = bound
+                    .type_args
+                    .iter()
+                    .map(|arg| self.engine.resolve(arg))
+                    .collect::<Vec<_>>();
+                let result = self
+                    .selection_service()
+                    .infer_constructor_target_for_applied_type(
+                        &actual_ty,
+                        bound.trait_id,
+                        &trait_args,
+                    );
+                match result {
+                    Ok(Some(target)) => targets.push(target),
+                    Ok(None) => {}
+                    Err(error) => {
+                        self.diagnostics.push(error.message());
+                        return;
+                    }
+                }
+            }
+            targets.sort_by_key(ToString::to_string);
+            targets.dedup();
+            if let [target] = targets.as_slice() {
+                if let Err(error) = self.engine.unify(&Type::TypeVar(constructor_id), target) {
+                    self.diagnostics.push(error);
+                }
+            }
+        }
+    }
+
+    pub(crate) fn instantiate_resolved_value_type(
+        &mut self,
+        resolved: &crate::lower::resolution::LowerResolvedValue,
+    ) -> Type {
+        if let Some(HirVarTarget::Function(function_id)) = resolved.target {
+            if let Some(func) = self.items.function(function_id).cloned() {
+                return self.instantiate_function_type(&func);
+            }
+        }
+
+        if resolved.should_instantiate {
+            self.instantiate_generics(resolved.ty.clone())
+        } else {
+            resolved.ty.clone()
+        }
+    }
+
+    fn autoref_operator_arg_for_selected_method(
+        &mut self,
+        arg: HirExpr,
+        selected: &crate::selection::SelectedMethod,
+        index: usize,
+    ) -> HirExpr {
+        let Some(param) = selected.substituted_params.get(index) else {
+            return arg;
+        };
+        let expected_ty = self.resolve_projection_type(&param.ty);
+        let resolved_arg_ty = self.resolve_projection_type(&self.engine.resolve(&arg.ty));
+
+        if matches!(expected_ty, Type::Reference { mutable: false, .. })
+            && expected_ty != resolved_arg_ty
+        {
+            let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+            return HirExpr {
+                ty: Type::Reference {
+                    mutable: false,
+                    inner: Box::new(resolved_arg_ty),
+                },
+                kind: HirExprKind::Ref(false, Box::new(arg)),
+                span,
+            };
+        }
+
+        arg
+    }
+
+    fn operator_method_accepts_args(
+        &self,
+        selected: &crate::selection::SelectedMethod,
+        args: &[HirExpr],
+    ) -> bool {
+        if selected.substituted_params.len() != args.len() {
+            return false;
+        }
+
+        if selected
+            .substituted_params
+            .iter()
+            .any(|param| Self::type_has_unresolved_parameter(&param.ty))
+        {
+            return true;
+        }
+
+        let mut subst = HashMap::new();
+        selected
+            .substituted_params
+            .iter()
+            .zip(args)
+            .all(|(param, arg)| {
+                let expected = self.resolve_projection_type(&param.ty);
+                let actual = self.resolve_projection_type(&self.engine.resolve(&arg.ty));
+                if crate::selection::type_pattern_matches(&expected, &actual, &mut subst) {
+                    return true;
+                }
+                if Self::type_accepts_inference_vars(&expected, &actual) {
+                    return true;
+                }
+                if let Type::Reference {
+                    inner,
+                    mutable: false,
+                } = expected
+                {
+                    return crate::selection::type_pattern_matches(&inner, &actual, &mut subst)
+                        || Self::type_accepts_inference_vars(&inner, &actual);
+                }
+                false
+            })
+    }
+
+    fn report_unsafe_operator_method_call_if_needed(
+        &mut self,
+        method_func: &HirFunction,
+        method_name: &str,
+    ) {
+        if method_func.is_unsafe && !self.is_in_unsafe() {
+            self.diagnostics.push(format!(
+                "Call to unsafe function '{}' requires an unsafe block",
+                method_name
+            ));
+        }
+    }
+
+    fn report_unsafe_operator_function_call_if_needed(
+        &mut self,
+        target: Option<&HirVarTarget>,
+        function_name: &str,
+    ) {
+        let is_unsafe = match target {
+            Some(HirVarTarget::Function(function_id)) => self
+                .items
+                .function(*function_id)
+                .is_some_and(|func| func.is_unsafe),
+            _ => self
+                .resolve_module_alias_or_item_def_id(function_name)
+                .and_then(|id| self.items.function(id))
+                .is_some_and(|func| func.is_unsafe),
+        };
+
+        if is_unsafe && !self.is_in_unsafe() {
+            self.diagnostics.push(format!(
+                "Call to unsafe function '{}' requires an unsafe block",
+                function_name
+            ));
+        }
+    }
+
+    fn type_accepts_inference_vars(expected: &Type, actual: &Type) -> bool {
+        match (expected, actual) {
+            (Type::TypeVar(_), _) | (_, Type::TypeVar(_)) => true,
+            (
+                Type::Function {
+                    params: expected_args,
+                    ret: expected_ret,
+                    ..
+                },
+                Type::Function {
+                    params: actual_args,
+                    ret: actual_ret,
+                    ..
+                },
+            ) => {
+                expected_args.len() == actual_args.len()
+                    && expected_args
+                        .iter()
+                        .zip(actual_args)
+                        .all(|(expected, actual)| {
+                            Self::type_accepts_inference_vars(expected, actual)
+                        })
+                    && Self::type_accepts_inference_vars(expected_ret, actual_ret)
+            }
+            (
+                Type::Struct {
+                    id: expected_id,
+                    args: expected_args,
+                },
+                Type::Struct {
+                    id: actual_id,
+                    args: actual_args,
+                },
+            )
+            | (
+                Type::Enum {
+                    id: expected_id,
+                    args: expected_args,
+                },
+                Type::Enum {
+                    id: actual_id,
+                    args: actual_args,
+                },
+            ) => {
+                expected_id == actual_id
+                    && expected_args.len() == actual_args.len()
+                    && expected_args
+                        .iter()
+                        .zip(actual_args)
+                        .all(|(expected, actual)| {
+                            Self::type_accepts_inference_vars(expected, actual)
+                        })
+            }
+            (
+                Type::Reference {
+                    mutable: expected_mutable,
+                    inner: expected_inner,
+                },
+                Type::Reference {
+                    mutable: actual_mutable,
+                    inner: actual_inner,
+                },
+            ) => {
+                (!expected_mutable || *actual_mutable)
+                    && Self::type_accepts_inference_vars(expected_inner, actual_inner)
+            }
+            (Type::Slice(expected), Type::Slice(actual))
+            | (Type::Pointer(expected), Type::Pointer(actual)) => {
+                Self::type_accepts_inference_vars(expected, actual)
+            }
+            (Type::Array(expected, expected_len), Type::Array(actual, actual_len)) => {
+                expected_len == actual_len && Self::type_accepts_inference_vars(expected, actual)
+            }
+            _ => expected == actual,
+        }
+    }
+
+    fn type_has_unresolved_parameter(ty: &Type) -> bool {
+        crate::type_services::visit::type_any(ty, |nested| {
+            matches!(nested, Type::TypeVar(_) | Type::Generic(_))
+        })
+    }
+
+    pub(crate) fn lower_expression(&mut self, expr: &ast::Expression) -> HirExpr {
+        self.lower_expression_with_use(expr, ExprUse::Value)
+    }
+
+    fn lower_expression_with_use(&mut self, expr: &ast::Expression, use_kind: ExprUse) -> HirExpr {
+        // Handle `expr as Type` casts
+        if let ast::Expression::CastExpr(inner, parse_ty) = expr {
+            if use_kind == ExprUse::AssignmentPlace {
+                self.diagnostics
+                    .push("Cast expressions cannot be used as assignment places".to_string());
+                return self.error_expression();
+            }
+            let inner_hir = self.lower_expression_with_use(inner, use_kind);
+            let target_ty = self.lower_parse_type(parse_ty);
+            let resolved_inner_ty =
+                self.resolve_projection_type(&self.engine.resolve(&inner_hir.ty));
+            let resolved_target_ty = self.resolve_projection_type(&self.engine.resolve(&target_ty));
+
+            if Self::is_fat_raw_slice_pointer(&resolved_inner_ty) && target_ty.is_integer() {
+                self.diagnostics
+                    .push("Cannot cast fat raw slice pointer to integer".to_string());
+            }
+
+            if resolved_inner_ty.is_integer() && Self::is_fat_raw_slice_pointer(&resolved_target_ty)
+            {
+                self.diagnostics
+                    .push("Cannot cast integer to fat raw slice pointer".to_string());
+            }
+
+            return HirExpr {
+                ty: target_ty.clone(),
+                kind: HirExprKind::Cast(Box::new(inner_hir), target_ty),
+                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+            };
+        }
+
+        // Flatten the right-recursive BinopExpr chain into a list
+        let mut operands: Vec<AstExprOperand<'_>> = Vec::new();
+        let mut operators: Vec<String> = Vec::new();
+
+        self.flatten_binop(expr, &mut operands, &mut operators);
+
+        if operands.len() == 1 {
+            return self.lower_ast_expr_operand_with_use(&operands[0], use_kind);
+        }
+
+        // Build tree respecting precedence using precedence climbing
+        self.build_precedence_tree_with_use(&operands, &operators, 0, operands.len() - 1, use_kind)
+    }
+
+    /// Flatten a right-recursive BinopExpr chain into operands and operators
+    pub(crate) fn flatten_binop<'a>(
+        &mut self,
+        expr: &'a ast::Expression,
+        operands: &mut Vec<AstExprOperand<'a>>,
+        operators: &mut Vec<String>,
+    ) {
+        match expr {
+            ast::Expression::BinopExpr(lhs, op, rhs) => {
+                operands.push(AstExprOperand::Unary(lhs));
+                operators.push(op.value.clone());
+                self.flatten_binop(rhs, operands, operators);
+            }
+            ast::Expression::UnaryExpr(unary) => {
+                operands.push(AstExprOperand::Unary(unary));
+            }
+            ast::Expression::CastExpr(_, _) => {
+                operands.push(AstExprOperand::Cast(expr));
+            }
+        }
+    }
+
+    fn lower_ast_expr_operand_with_use(
+        &mut self,
+        operand: &AstExprOperand<'_>,
+        use_kind: ExprUse,
+    ) -> HirExpr {
+        match operand {
+            AstExprOperand::Unary(unary) => {
+                if use_kind == ExprUse::Value {
+                    self.lower_unary_expr(unary)
+                } else {
+                    self.lower_unary_expr_with_use(unary, use_kind)
+                }
+            }
+            AstExprOperand::Cast(expr) => self.lower_expression_with_use(expr, use_kind),
+        }
+    }
+
+    fn build_precedence_tree_with_use(
+        &mut self,
+        operands: &[AstExprOperand<'_>],
+        operators: &[String],
+        start: usize,
+        end: usize,
+        use_kind: ExprUse,
+    ) -> HirExpr {
+        if start == end {
+            return self.lower_ast_expr_operand_with_use(&operands[start], use_kind);
+        }
+
+        let mut min_prec = u8::MAX;
+        let mut split_at = start;
+        for i in start..end {
+            let prec = match self.op_precedence(&operators[i]) {
+                Ok(prec) => prec,
+                Err(error) => {
+                    self.diagnostics.push(error);
+                    return self.error_expression();
+                }
+            };
+            if prec <= min_prec {
+                min_prec = prec;
+                split_at = i;
+            }
+        }
+
+        let op = &operators[split_at];
+        let (left_use, right_use) = if op == "=" {
+            (ExprUse::AssignmentPlace, ExprUse::Value)
+        } else {
+            (ExprUse::Value, ExprUse::Value)
+        };
+        let left =
+            self.build_precedence_tree_with_use(operands, operators, start, split_at, left_use);
+        let right =
+            self.build_precedence_tree_with_use(operands, operators, split_at + 1, end, right_use);
+
+        self.build_precedence_tree(&[left, right], std::slice::from_ref(op), 0, 1)
+    }
+
+    /// Build a correctly-precedenced tree from a flat list using
+    /// a simple algorithm: find the lowest-precedence operator and split there
+    pub(crate) fn build_precedence_tree(
+        &mut self,
+        operands: &[HirExpr],
+        operators: &[String],
+        start: usize,
+        end: usize,
+    ) -> HirExpr {
+        if start == end {
+            return operands[start].clone();
+        }
+
+        // Find the lowest precedence operator in range [start..end-1]
+        // For left-associativity, take the RIGHTMOST occurrence of the lowest precedence
+        let op_start = start;
+        let op_end = end; // operators[i] is between operands[i] and operands[i+1]
+
+        let mut min_prec = u8::MAX;
+        let mut split_at = op_start;
+
+        for i in op_start..op_end {
+            let prec = match self.op_precedence(&operators[i]) {
+                Ok(p) => p,
+                Err(e) => {
+                    self.diagnostics.push(e);
+                    return self.error_expression();
+                }
+            };
+            if prec <= min_prec {
+                min_prec = prec;
+                split_at = i;
+            }
+        }
+
+        let left = self.build_precedence_tree(operands, operators, start, split_at);
+        let right = self.build_precedence_tree(operands, operators, split_at + 1, end);
+
+        let op_str = &operators[split_at];
+
+        // Assignment operator: special handling
+        if op_str == "=" {
+            if let Err(error) = self.engine.unify(&right.ty, &left.ty) {
+                self.diagnostics.push_with_span(
+                    format!("Assignment type mismatch: {}", error),
+                    right.span.clone(),
+                );
+            }
+            return HirExpr {
+                ty: Type::Unit,
+                kind: HirExprKind::Assign(Box::new(left), Box::new(right)),
+                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+            };
+        }
+
+        // Short-circuit operators: keep as BinOp for special evaluation semantics
+        if op_str == "&&" || op_str == "||" {
+            // Comparison/logical ops: operands should be compatible
+            if let Err(e) = self.engine.unify(&left.ty, &right.ty) {
+                self.diagnostics.push(format!(
+                    "Binary operator '{}': operand type mismatch: {}",
+                    op_str, e
+                ));
+            }
+            let bin_op = if op_str == "&&" {
+                BinOp::And
+            } else {
+                BinOp::Or
+            };
+            return HirExpr {
+                ty: Type::Bool,
+                kind: HirExprKind::BinOp(bin_op, Box::new(left), Box::new(right)),
+                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+            };
+        }
+
+        let resolved_left_ty = self.resolve_projection_type(&self.engine.resolve(&left.ty));
+
+        if op_str == "&" {
+            let resolved_fn_ty = self.resolve_projection_type(&resolved_left_ty);
+            if let Type::Function {
+                params,
+                ret,
+                safety,
+                ..
+            } = &resolved_fn_ty
+            {
+                let borrowed_right = HirExpr {
+                    ty: Type::Reference {
+                        mutable: false,
+                        inner: Box::new(right.ty.clone()),
+                    },
+                    kind: HirExprKind::Ref(false, Box::new(right)),
+                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                };
+                let arg = params
+                    .first()
+                    .map(|param| self.coerce_argument_to_expected(borrowed_right.clone(), param))
+                    .unwrap_or(borrowed_right);
+                let ret_ty = if params.len() == 1 {
+                    ret.as_ref().clone()
+                } else {
+                    self.engine.fresh_type_var()
+                };
+                let expected_fn_ty =
+                    Type::function_with_safety(vec![arg.ty.clone()], ret_ty.clone(), *safety);
+                let _ = self.engine.unify(&left.ty, &expected_fn_ty);
+                self.report_unsafe_function_value_call_from_type(&left);
+
+                let left_is_unsafe_function = matches!(
+                    self.resolve_projection_type(&self.engine.resolve(&left.ty)),
+                    Type::Function {
+                        safety: crate::types::FunctionSafety::Unsafe,
+                        ..
+                    }
+                );
+                if !left_is_unsafe_function {
+                    match &left.kind {
+                        HirExprKind::ResolvedVar(reference) => self
+                            .report_unsafe_operator_function_call_if_needed(
+                                Some(&reference.target),
+                                &reference.name,
+                            ),
+                        HirExprKind::Var(function_name) => {
+                            self.report_unsafe_operator_function_call_if_needed(None, function_name)
+                        }
+                        _ => {}
+                    }
+                }
+
+                let target = self.call_target_for_callee(&left);
+                return HirExpr {
+                    ty: self.resolve_projection_type(&self.engine.resolve(&ret_ty)),
+                    kind: HirExprKind::Call(Box::new(left), vec![arg], target),
+                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                };
+            }
+        }
+
+        let mut resolved_ty = self.resolve_projection_type(&self.engine.resolve(&left.ty));
+
+        if let Type::Generic(gen_param) = &resolved_ty {
+            let bounds = self
+                .current_impl_bounds()
+                .get(gen_param)
+                .cloned()
+                .unwrap_or_default();
+            let receiver_candidates = self.receiver_adjustment_candidates(left.clone());
+
+            let result = self
+                .selection_service()
+                .select_bound_method_preferring_non_ref_receiver(
+                    &receiver_candidates,
+                    &bounds,
+                    op_str,
+                    resolved_ty.clone(),
+                    matches!(&left.kind, HirExprKind::Call(_, _, _)),
+                );
+            let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+            if let Some(selected) = self.handle_optional_selection(result, span) {
+                let adjusted_recv = self.apply_receiver_adjustment(
+                    selected.receiver.clone(),
+                    selected.receiver_adjustment,
+                );
+                let right = self.autoref_operator_arg_for_selected_method(right, &selected, 0);
+                let Some((method_func, ret_ty, coerced_args, target)) =
+                    self.selected_method_call_types(&selected, vec![right])
+                else {
+                    return self.error_expression();
+                };
+                self.report_unsafe_operator_method_call_if_needed(&method_func, op_str);
+
+                return HirExpr {
+                    ty: ret_ty,
+                    kind: HirExprKind::MethodCall(
+                        Box::new(adjusted_recv),
+                        op_str.clone(),
+                        coerced_args,
+                        method_func.self_receiver,
+                        Some(target),
+                    ),
+                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                };
+            }
+        }
+
+        if let Type::TypeVar(id) = &resolved_ty {
+            let bounds = self.engine.get_bounds(*id);
+            let receiver_candidates = self.receiver_adjustment_candidates(left.clone());
+            let result = self
+                .selection_service()
+                .select_bound_method_preferring_non_ref_receiver(
+                    &receiver_candidates,
+                    &bounds,
+                    op_str,
+                    resolved_ty.clone(),
+                    matches!(&left.kind, HirExprKind::Call(_, _, _)),
+                );
+            let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+            if let Some(selected) = self.handle_optional_selection(result, span) {
+                let adjusted_recv = self.apply_receiver_adjustment(
+                    selected.receiver.clone(),
+                    selected.receiver_adjustment,
+                );
+                let right = self.autoref_operator_arg_for_selected_method(right, &selected, 0);
+                let Some((method_func, ret_ty, coerced_args, target)) =
+                    self.selected_method_call_types(&selected, vec![right])
+                else {
+                    return self.error_expression();
+                };
+                self.report_unsafe_operator_method_call_if_needed(&method_func, op_str);
+
+                return HirExpr {
+                    ty: ret_ty,
+                    kind: HirExprKind::MethodCall(
+                        Box::new(adjusted_recv),
+                        op_str.clone(),
+                        coerced_args,
+                        method_func.self_receiver,
+                        Some(target),
+                    ),
+                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                };
+            }
+        }
+
+        let func_binding = crate::lower::resolution::LowerResolutionContext::new(self)
+            .resolve_identifier_value(op_str.as_str())
+            .map(|resolved| {
+                let func_ty = self.instantiate_resolved_value_type(&resolved);
+                (func_ty, resolved.name, resolved.target)
+            });
+
+        if let Some((func_ty, hir_name, target)) = func_binding {
+            self.infer_bounded_constructor_heads(&func_ty, &[&left, &right]);
+            let resolved_func_ty = self.resolve_projection_type(&self.engine.resolve(&func_ty));
+            let (mut expected_ret_ty, safety) = match resolved_func_ty {
+                Type::Function { ret, safety, .. } => (*ret, safety),
+                _ => (
+                    self.engine.fresh_type_var(),
+                    crate::types::FunctionSafety::Safe,
+                ),
+            };
+            let expected_fn_ty = Type::function_with_safety(
+                vec![left.ty.clone(), right.ty.clone()],
+                expected_ret_ty.clone(),
+                safety,
+            );
+            if let Err(e) = self.engine.unify(&func_ty, &expected_fn_ty) {
+                self.diagnostics.push(format!(
+                    "Operator '{}': function type mismatch: {}",
+                    op_str, e
+                ));
+            }
+
+            expected_ret_ty = match self.engine.normalize_resolved_type(&expected_ret_ty) {
+                Ok(ty) => ty,
+                Err(error) => {
+                    self.diagnostics.push(error);
+                    Type::Error
+                }
+            };
+            self.report_unsafe_operator_function_call_if_needed(target.as_ref(), &hir_name);
+
+            return HirExpr {
+                ty: expected_ret_ty.clone(),
+                kind: {
+                    let callee = HirExpr {
+                        ty: self.engine.resolve(&func_ty),
+                        kind: match target {
+                            Some(target) => HirExprKind::ResolvedVar(HirVarRef {
+                                name: hir_name,
+                                target,
+                            }),
+                            None => HirExprKind::Var(hir_name),
+                        },
+                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    };
+                    let target = self.call_target_for_callee(&callee);
+                    HirExprKind::Call(Box::new(callee), vec![left, right], target)
+                },
+                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+            };
+        }
+
+        // Use operator symbol directly as method name (e.g. "+" -> "+", ">>=" -> ">>=")
+        let method_name = op_str.clone();
+
+        if matches!(resolved_ty, Type::TypeVar(_)) {
+            match self.infer_unresolved_binary_operator_receiver(&left, &right, &method_name) {
+                Ok(true) => {
+                    resolved_ty = self.resolve_projection_type(&self.engine.resolve(&left.ty));
+                }
+                Ok(false) => {}
+                Err(error) => {
+                    self.diagnostics.push(error.message());
+                    return self.error_expression();
+                }
+            }
+        }
+
+        let receiver_candidates = self.receiver_adjustment_candidates(left.clone());
+        let found_method = match self.select_operator_method(
+            &receiver_candidates,
+            &method_name,
+            std::slice::from_ref(&right),
+        ) {
+            Ok(selected) => selected,
+            Err(error) => {
+                self.diagnostics.push(error.message());
+                return self.error_expression();
+            }
+        };
+
+        if let Some(selected) = found_method {
+            let right = self.autoref_operator_arg_for_selected_method(right, &selected, 0);
+            let Some((method_func, result_ty, mut coerced_args, target)) =
+                self.selected_method_call_types(&selected, vec![right])
+            else {
+                return self.error_expression();
+            };
+            let right = coerced_args.remove(0);
+            self.report_unsafe_operator_method_call_if_needed(&method_func, &method_name);
+
+            return HirExpr {
+                ty: result_ty,
+                kind: HirExprKind::MethodCall(
+                    Box::new(self.apply_receiver_adjustment(
+                        selected.receiver,
+                        selected.receiver_adjustment,
+                    )),
+                    method_name,
+                    vec![right],
+                    method_func.self_receiver,
+                    Some(target),
+                ),
+                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+            };
+        }
+
+        self.diagnostics.push(format!(
+            "No implementation found for operator '{}' on type {}",
+            op_str, resolved_ty
+        ));
+
+        self.error_expression()
+    }
+
+    fn infer_unresolved_binary_operator_receiver(
+        &mut self,
+        left: &HirExpr,
+        right: &HirExpr,
+        method_name: &str,
+    ) -> Result<bool, SelectionDiagnostic> {
+        let right_ty = self.resolve_projection_type(&self.engine.resolve(&right.ty));
+        let mut candidates = Vec::new();
+        for (_, imp) in self.items.impl_defs_in_order() {
+            let Some(crate::hir::HirImplReceiverPattern::Exact(receiver_ty)) =
+                Some(&imp.receiver_pattern)
+            else {
+                continue;
+            };
+            if !receiver_ty.is_concrete() {
+                continue;
+            }
+
+            let Some(method) = imp.methods.get(method_name) else {
+                continue;
+            };
+            let param_start = if method.is_method { 1 } else { 0 };
+            let Some(arg_param) = method.params.get(param_start) else {
+                continue;
+            };
+            let expected_arg_ty = self.resolve_projection_type(&arg_param.ty);
+            let Some(arg_unify_ty) =
+                Self::operator_candidate_arg_unify_type(&expected_arg_ty, &right_ty)
+            else {
+                continue;
+            };
+
+            let candidate = (imp.id, receiver_ty.clone(), arg_unify_ty);
+            if !candidates.contains(&candidate) {
+                candidates.push(candidate);
+            }
+        }
+
+        let mut candidate_shapes = candidates
+            .iter()
+            .map(|(_, receiver_ty, arg_ty)| (receiver_ty.clone(), arg_ty.clone()))
+            .collect::<Vec<_>>();
+        candidate_shapes.sort_by_key(|candidate| format!("{candidate:?}"));
+        candidate_shapes.dedup();
+        let candidate = if let [candidate] = candidate_shapes.as_slice() {
+            candidate
+        } else {
+            let Some(candidate) = candidate_shapes
+                .iter()
+                .find(|(receiver_ty, _)| *receiver_ty == Type::I64)
+            else {
+                if candidates.is_empty() {
+                    return Ok(false);
+                }
+                let mut candidate_ids = candidates
+                    .iter()
+                    .map(|(impl_id, _, _)| *impl_id)
+                    .collect::<Vec<_>>();
+                candidate_ids.sort();
+                candidate_ids.dedup();
+                return Err(SelectionDiagnostic::AmbiguousCandidates {
+                    operation: method_name.to_string(),
+                    receiver: self.engine.resolve(&left.ty),
+                    candidates: candidate_ids,
+                });
+            };
+            candidate
+        };
+        let (receiver_ty, expected_arg_ty) = candidate;
+
+        Ok(self.engine.unify(&left.ty, receiver_ty).is_ok()
+            && self.engine.unify(&right.ty, expected_arg_ty).is_ok())
+    }
+
+    fn operator_candidate_arg_unify_type(expected: &Type, actual: &Type) -> Option<Type> {
+        if let Type::Reference {
+            mutable: false,
+            inner,
+        } = expected
+        {
+            if matches!(actual, Type::TypeVar(_)) || inner.as_ref() == actual {
+                return Some(inner.as_ref().clone());
+            }
+        }
+
+        if matches!(actual, Type::TypeVar(_)) || expected == actual {
+            return Some(expected.clone());
+        }
+
+        None
+    }
+
+    fn infer_unresolved_unary_operator_receiver(
+        &mut self,
+        inner: &HirExpr,
+        method_name: &str,
+    ) -> Result<bool, SelectionDiagnostic> {
+        let mut candidates = Vec::new();
+        for (_, imp) in self.items.impl_defs_in_order() {
+            let Some(crate::hir::HirImplReceiverPattern::Exact(receiver_ty)) =
+                Some(&imp.receiver_pattern)
+            else {
+                continue;
+            };
+            if !receiver_ty.is_concrete() {
+                continue;
+            }
+
+            let Some(method) = imp.methods.get(method_name) else {
+                continue;
+            };
+            let param_start = if method.is_method { 1 } else { 0 };
+            if method.params.len() == param_start {
+                let candidate = (imp.id, receiver_ty.clone());
+                if !candidates.contains(&candidate) {
+                    candidates.push(candidate);
+                }
+            }
+        }
+
+        let mut receiver_types = candidates
+            .iter()
+            .map(|(_, receiver_ty)| receiver_ty.clone())
+            .collect::<Vec<_>>();
+        receiver_types.sort_by_key(|receiver_ty| format!("{receiver_ty:?}"));
+        receiver_types.dedup();
+        let receiver_ty = if let [receiver_ty] = receiver_types.as_slice() {
+            receiver_ty
+        } else {
+            let Some(receiver_ty) = receiver_types
+                .iter()
+                .find(|receiver_ty| **receiver_ty == Type::I64)
+            else {
+                if candidates.is_empty() {
+                    return Ok(false);
+                }
+                let mut candidate_ids = candidates
+                    .iter()
+                    .map(|(impl_id, _)| *impl_id)
+                    .collect::<Vec<_>>();
+                candidate_ids.sort();
+                candidate_ids.dedup();
+                return Err(SelectionDiagnostic::AmbiguousCandidates {
+                    operation: method_name.to_string(),
+                    receiver: self.engine.resolve(&inner.ty),
+                    candidates: candidate_ids,
+                });
+            };
+            receiver_ty
+        };
+
+        Ok(self.engine.unify(&inner.ty, receiver_ty).is_ok())
+    }
+
+    pub(crate) fn select_operator_method(
+        &mut self,
+        receiver_candidates: &[ReceiverCandidate],
+        method_name: &str,
+        args: &[HirExpr],
+    ) -> Result<Option<SelectedMethod>, SelectionDiagnostic> {
+        let result = self.selection_service().select_concrete_method_matching(
+            receiver_candidates,
+            method_name,
+            |ty| self.resolve_projection_type(&self.engine.resolve(ty)),
+            |selected| self.operator_method_accepts_args(selected, args),
+        );
+        match result {
+            Ok(selected) => Ok(Some(selected)),
+            Err(SelectionDiagnostic::NoImplementation { .. }) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    pub(crate) fn error_expression(&self) -> HirExpr {
+        self.error_expression_at(self.diagnostics.current_span().cloned().unwrap_or_default())
+    }
+
+    pub(crate) fn error_expression_at(&self, span: Span) -> HirExpr {
+        HirExpr {
+            ty: Type::Error,
+            kind: HirExprKind::Var("<error>".to_string()),
+            span,
+        }
+    }
+
+    pub(crate) fn lower_unary_expr(&mut self, expr: &ast::UnaryExpr) -> HirExpr {
+        self.lower_unary_expr_with_use(expr, ExprUse::Value)
+    }
+
+    pub(crate) fn lower_unary_expr_with_use(
+        &mut self,
+        expr: &ast::UnaryExpr,
+        use_kind: ExprUse,
+    ) -> HirExpr {
+        match expr {
+            ast::UnaryExpr::PrimaryExpr(primary) => {
+                if use_kind == ExprUse::Value {
+                    self.lower_primary_expr(primary)
+                } else {
+                    self.lower_primary_expr_with_use(primary, use_kind)
+                }
+            }
+            ast::UnaryExpr::UnaryExpr(op, inner) => {
+                // Special handling for & / &mut (reference operator)
+                if op.value == "&" || op.value == "&mut" {
+                    let inner_use = if op.value == "&mut" {
+                        ExprUse::AssignmentPlace
+                    } else {
+                        ExprUse::Value
+                    };
+                    let inner_hir = self.lower_unary_expr_with_use(inner, inner_use);
+
+                    if op.value == "&mut" {
+                        if let HirExprKind::Var(name) = &inner_hir.kind {
+                            if let Some(binding) = self.scope.lookup(name) {
+                                if !binding.mutable {
+                                    self.diagnostics.push_with_span(
+                                        format!(
+                                            "Cannot take a mutable reference to immutable binding '{}'",
+                                            name
+                                        ),
+                                        op.span.clone(),
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    let ref_ty = Type::Reference {
+                        mutable: op.value == "&mut",
+                        inner: Box::new(inner_hir.ty.clone()),
+                    };
+                    return HirExpr {
+                        ty: ref_ty,
+                        kind: HirExprKind::Ref(op.value == "&mut", Box::new(inner_hir)),
+                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    };
+                }
+
+                let inner_hir = self.lower_unary_expr_with_use(inner, ExprUse::Value);
+
+                // Special handling for * (dereference operator)
+                if op.value == "*" {
+                    let resolved_inner_ty = self.engine.resolve(&inner_hir.ty);
+                    if let Type::Reference { inner, .. } = &resolved_inner_ty {
+                        return HirExpr {
+                            ty: (*inner.clone()),
+                            kind: HirExprKind::Deref(Box::new(inner_hir)),
+                            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        };
+                    }
+
+                    if let Type::Pointer(inner) = &resolved_inner_ty {
+                        if !self.is_in_unsafe() {
+                            self.diagnostics.push_with_span(
+                                "Dereference of raw pointer requires an unsafe block".to_string(),
+                                op.span.clone(),
+                            );
+                        }
+
+                        return HirExpr {
+                            ty: (*inner.clone()),
+                            kind: HirExprKind::Deref(Box::new(inner_hir)),
+                            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        };
+                    }
+
+                    if let Some(next) = self
+                        .autoderef_candidates(inner_hir.clone())
+                        .into_iter()
+                        .nth(1)
+                    {
+                        return next;
+                    }
+
+                    let result_ty = resolved_inner_ty.clone();
+                    self.diagnostics.push_with_span(
+                        format!(
+                            "Cannot dereference non-pointer type: {:?}",
+                            resolved_inner_ty
+                        ),
+                        op.span.clone(),
+                    );
+                    return HirExpr {
+                        ty: result_ty,
+                        kind: HirExprKind::Deref(Box::new(inner_hir)),
+                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    };
+                }
+
+                if op.value == "-" || op.value == "!" {
+                    let method_name = op.value.as_str();
+                    let mut resolved_ty =
+                        self.resolve_projection_type(&self.engine.resolve(&inner_hir.ty));
+
+                    if matches!(resolved_ty, Type::TypeVar(_)) {
+                        match self.infer_unresolved_unary_operator_receiver(&inner_hir, method_name)
+                        {
+                            Ok(true) => {
+                                resolved_ty = self
+                                    .resolve_projection_type(&self.engine.resolve(&inner_hir.ty));
+                            }
+                            Ok(false) => {}
+                            Err(error) => {
+                                self.diagnostics
+                                    .push_with_span(error.message(), op.span.clone());
+                                return self.error_expression();
+                            }
+                        }
+                    }
+
+                    let bound_method_result = match &resolved_ty {
+                        Type::TypeVar(id) => {
+                            let bounds = self.engine.get_bounds(*id);
+                            let receiver_candidates =
+                                self.receiver_adjustment_candidates(inner_hir.clone());
+                            Some(
+                                self.selection_service()
+                                    .select_bound_method_preferring_non_ref_receiver(
+                                        &receiver_candidates,
+                                        &bounds,
+                                        method_name,
+                                        resolved_ty.clone(),
+                                        matches!(&inner_hir.kind, HirExprKind::Call(_, _, _)),
+                                    ),
+                            )
+                        }
+                        Type::Generic(gen_param) => {
+                            let bounds = self
+                                .current_impl_bounds()
+                                .get(gen_param)
+                                .cloned()
+                                .unwrap_or_default();
+                            let receiver_candidates =
+                                self.receiver_adjustment_candidates(inner_hir.clone());
+                            Some(
+                                self.selection_service()
+                                    .select_bound_method_preferring_non_ref_receiver(
+                                        &receiver_candidates,
+                                        &bounds,
+                                        method_name,
+                                        resolved_ty.clone(),
+                                        matches!(&inner_hir.kind, HirExprKind::Call(_, _, _)),
+                                    ),
+                            )
+                        }
+                        _ => None,
+                    };
+                    let bound_method = bound_method_result
+                        .and_then(|result| self.handle_optional_selection(result, op.span.clone()));
+
+                    if let Some(selected) = bound_method {
+                        let Some((method_func, result_ty, args, target)) =
+                            self.selected_method_call_types(&selected, Vec::new())
+                        else {
+                            return self.error_expression();
+                        };
+                        self.report_unsafe_operator_method_call_if_needed(
+                            &method_func,
+                            method_name,
+                        );
+
+                        return HirExpr {
+                            ty: result_ty,
+                            kind: HirExprKind::MethodCall(
+                                Box::new(self.apply_receiver_adjustment(
+                                    selected.receiver,
+                                    selected.receiver_adjustment,
+                                )),
+                                method_name.to_string(),
+                                args,
+                                method_func.self_receiver,
+                                Some(target),
+                            ),
+                            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        };
+                    }
+
+                    let receiver_candidates =
+                        self.receiver_adjustment_candidates(inner_hir.clone());
+                    let selected =
+                        match self.select_operator_method(&receiver_candidates, method_name, &[]) {
+                            Ok(selected) => selected,
+                            Err(error) => {
+                                self.diagnostics
+                                    .push_with_span(error.message(), op.span.clone());
+                                return self.error_expression();
+                            }
+                        };
+                    if let Some(selected) = selected {
+                        let Some((method_func, result_ty, args, target)) =
+                            self.selected_method_call_types(&selected, Vec::new())
+                        else {
+                            return self.error_expression();
+                        };
+                        self.report_unsafe_operator_method_call_if_needed(
+                            &method_func,
+                            method_name,
+                        );
+
+                        return HirExpr {
+                            ty: result_ty,
+                            kind: HirExprKind::MethodCall(
+                                Box::new(self.apply_receiver_adjustment(
+                                    selected.receiver,
+                                    selected.receiver_adjustment,
+                                )),
+                                method_name.to_string(),
+                                args,
+                                method_func.self_receiver,
+                                Some(target),
+                            ),
+                            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        };
+                    }
+
+                    self.diagnostics.push_with_span(
+                        format!(
+                            "No implementation found for operator '{}' on type {}",
+                            op.value, resolved_ty
+                        ),
+                        op.span.clone(),
+                    );
+                    return self.error_expression();
+                }
+
+                let unary_op = match op.value.as_str() {
+                    "~" => UnaryOp::BitNot,
+                    _ => {
+                        self.diagnostics.push_with_span(
+                            format!("Unknown unary operator: {}", op.value),
+                            op.span.clone(),
+                        );
+                        UnaryOp::BitNot
+                    }
+                };
+                let ty = inner_hir.ty.clone();
+                HirExpr {
+                    ty,
+                    kind: HirExprKind::UnaryOp(unary_op, Box::new(inner_hir)),
+                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                }
+            }
+        }
+    }
+
+    pub(crate) fn lower_primary_expr(&mut self, primary: &ast::PrimaryExpr) -> HirExpr {
+        self.lower_primary_expr_with_use(primary, ExprUse::Value)
+    }
+
+    pub(crate) fn lower_primary_expr_with_use(
+        &mut self,
+        primary: &ast::PrimaryExpr,
+        use_kind: ExprUse,
+    ) -> HirExpr {
+        if let Some(lambda) = Self::desugar_call_holes(primary) {
+            return self.lower_lambda(&lambda);
+        }
+
+        let mut result = if use_kind == ExprUse::Value {
+            self.lower_operand(&primary.operand)
+        } else {
+            self.lower_operand_with_use(&primary.operand, use_kind)
+        };
+
+        // Apply type annotation if present
+        if let Some(ann) = &primary.type_annotation {
+            let ann_ty = self.lower_parse_type(ann);
+            if let Err(e) = self.engine.unify(&result.ty, &ann_ty) {
+                self.diagnostics
+                    .push(format!("Type annotation mismatch: {}", e));
+            }
+            result.ty = ann_ty;
+        }
+
+        // Apply secondaries (function calls, field access, indexing)
+        if let Some(secondaries) = &primary.secondaries {
+            for (index, secondary) in secondaries.iter().enumerate() {
+                let secondary_use = if use_kind == ExprUse::AssignmentPlace
+                    && secondaries[index..].iter().all(|secondary| {
+                        matches!(
+                            secondary,
+                            ast::SecondaryExpr::Dot(_) | ast::SecondaryExpr::Indice(_)
+                        )
+                    }) {
+                    ExprUse::AssignmentPlace
+                } else {
+                    ExprUse::Value
+                };
+                let method_as_value = matches!(secondary, ast::SecondaryExpr::Dot(_))
+                    && secondary_use == ExprUse::Value
+                    && !matches!(
+                        secondaries.get(index + 1),
+                        Some(ast::SecondaryExpr::Arguments(_))
+                    );
+                result = self.apply_secondary(result, secondary, secondary_use, method_as_value);
+            }
+        }
+
+        result
+    }
+
+    fn desugar_call_holes(primary: &ast::PrimaryExpr) -> Option<ast::LambdaDecl> {
+        let mut rewritten = primary.clone();
+        let mut parameters = Vec::new();
+
+        for secondary in rewritten.secondaries.iter_mut().flatten() {
+            let ast::SecondaryExpr::Arguments(arguments) = secondary else {
+                continue;
+            };
+
+            for argument in arguments {
+                let Some(span) = Self::call_hole_span(&argument.arg).cloned() else {
+                    continue;
+                };
+                let name = format!("<call-hole-{}>", parameters.len());
+                let ident = ast::Ident {
+                    name: name.clone(),
+                    span: span.clone(),
+                };
+
+                parameters.push(ast::Pattern {
+                    binding: None,
+                    kind: ast::PatternKind::Ident(ast::IdentPattern {
+                        name: ident.clone(),
+                        mut_: false,
+                    }),
+                });
+                argument.arg =
+                    ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(ast::PrimaryExpr {
+                        operand: ast::Operand::Ident(ast::IdentifierPath {
+                            path: vec![ast::IdentOrType::Ident(ident)],
+                        }),
+                        secondaries: None,
+                        type_annotation: None,
+                    }));
+            }
+        }
+
+        if parameters.is_empty() {
+            return None;
+        }
+
+        Some(ast::LambdaDecl {
+            parameters,
+            body: ast::Block {
+                statements: vec![ast::Statement::Expression(ast::Expression::UnaryExpr(
+                    ast::UnaryExpr::PrimaryExpr(rewritten),
+                ))],
+            },
+            arrow_kind: ast::LambdaArrowKind::Normal,
+        })
+    }
+
+    fn call_hole_span(expression: &ast::Expression) -> Option<&crate::lexer::Span> {
+        let ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(primary)) = expression else {
+            return None;
+        };
+        if primary.secondaries.is_some() || primary.type_annotation.is_some() {
+            return None;
+        }
+        match &primary.operand {
+            ast::Operand::CallHole(span) => Some(span),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn lower_operand(&mut self, operand: &ast::Operand) -> HirExpr {
+        self.lower_operand_with_use(operand, ExprUse::Value)
+    }
+
+    fn lower_operand_with_use(&mut self, operand: &ast::Operand, use_kind: ExprUse) -> HirExpr {
+        match operand {
+            ast::Operand::Literal(lit) => self.lower_literal(lit),
+            ast::Operand::Ident(path) => self.lower_identifier_path(path),
+            ast::Operand::CallHole(span) => {
+                self.diagnostics.push_with_span(
+                    "Call hole '_' is only allowed as a complete function-call argument"
+                        .to_string(),
+                    span.clone(),
+                );
+                self.error_expression_at(span.clone())
+            }
+            ast::Operand::SelfIdent(ident) => {
+                let self_ty = self
+                    .scope
+                    .lookup("self")
+                    .map(|binding| binding.ty.clone())
+                    .unwrap_or(Type::Error);
+                let self_var = HirExpr {
+                    ty: self_ty.clone(),
+                    kind: HirExprKind::Var("self".to_string()),
+                    span: ident.span.clone(),
+                };
+
+                if ident.name == "self" {
+                    return self_var;
+                }
+
+                // @field -> self.field
+                let mut field_ty = self.engine.fresh_type_var();
+                let resolved_self = self.engine.resolve(&self_ty);
+                let (base_expr, base_ty) = if let Type::Reference { inner, .. } = &resolved_self {
+                    let deref_expr = HirExpr {
+                        ty: inner.as_ref().clone(),
+                        kind: HirExprKind::Deref(Box::new(self_var)),
+                        span: ident.span.clone(),
+                    };
+                    (deref_expr, self.engine.resolve(inner.as_ref()))
+                } else {
+                    (self_var, resolved_self)
+                };
+
+                if let Type::Struct {
+                    id,
+                    args: ref type_args,
+                } = base_ty
+                {
+                    if let Some(hir_struct) = self.items.structure(id) {
+                        let substitution = Self::generic_substitution_for_owner(
+                            hir_struct.id,
+                            &hir_struct.generic_params,
+                            type_args,
+                        );
+                        field_ty = hir_struct
+                            .fields
+                            .iter()
+                            .find(|field| field.name == ident.name)
+                            .map(|field| field.ty.substitute_generics(&substitution))
+                            .unwrap_or(Type::Error);
+                    }
+                }
+                let field = if let Type::Struct { id, .. } = base_ty {
+                    self.items.structure(id).and_then(|hir_struct| {
+                        hir_struct
+                            .fields
+                            .iter()
+                            .find(|field| field.name == ident.name)
+                            .map(|field| HirFieldLocation {
+                                owner: hir_struct.id,
+                                field_id: field.id,
+                                name: ident.name.clone(),
+                            })
+                    })
+                } else {
+                    None
+                };
+                HirExpr {
+                    ty: field_ty,
+                    kind: HirExprKind::FieldAccess(Box::new(base_expr), ident.name.clone(), field),
+                    span: ident.span.clone(),
+                }
+            }
+            ast::Operand::Instance(inst) => self.lower_instance(inst),
+            ast::Operand::LambdaDecl(lambda) => self.lower_lambda(lambda),
+            ast::Operand::Tuple(tuple) => self.lower_tuple(tuple),
+            ast::Operand::If(if_expr) => self.lower_if(if_expr),
+            ast::Operand::Match(match_expr) => self.lower_match(match_expr),
+            ast::Operand::Loop(loop_expr) => self.lower_loop(loop_expr),
+            ast::Operand::Expression(expr) => self.lower_expression_with_use(expr, use_kind),
+            ast::Operand::Unsafe(block) => {
+                let body = self.with_unsafe(|s| s.lower_block(block));
+                let ty = body.ty.clone();
+                HirExpr {
+                    ty,
+                    kind: HirExprKind::Block(body),
+                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                }
+            }
+            ast::Operand::NativeOperator(op) => {
+                // Native operator reference
+                let ty = self.engine.fresh_type_var();
+                HirExpr {
+                    ty,
+                    kind: HirExprKind::Var(op.name.clone()),
+                    span: op.span.clone(),
+                }
+            }
+        }
+    }
+
+    pub(crate) fn lower_literal(&mut self, lit: &ast::Literal) -> HirExpr {
+        self.diagnostics.set_current_span(Some(lit.span.clone()));
+        let span = lit.span.clone();
+        match &lit.kind {
+            ast::LiteralKind::Bool(b) => HirExpr {
+                ty: Type::Bool,
+                kind: HirExprKind::BoolLiteral(*b),
+                span,
+            },
+            ast::LiteralKind::Number(n) => HirExpr {
+                ty: Type::I64,
+                kind: HirExprKind::IntLiteral(*n as i64),
+                span,
+            },
+            ast::LiteralKind::Float(f) => HirExpr {
+                ty: Type::F64,
+                kind: HirExprKind::FloatLiteral(*f),
+                span,
+            },
+            ast::LiteralKind::String(s) => HirExpr {
+                ty: Type::Reference {
+                    mutable: false,
+                    inner: Box::new(Type::Str),
+                },
+                kind: HirExprKind::StringLiteral(s.clone()),
+                span,
+            },
+            ast::LiteralKind::Char(c) => HirExpr {
+                ty: Type::Char,
+                kind: HirExprKind::CharLiteral(c.chars().next().unwrap_or('\0')),
+                span,
+            },
+            ast::LiteralKind::Array(arr) => {
+                let elem_ty = self.engine.fresh_type_var();
+                let len = arr.elements.len();
+                let elements: Vec<HirExpr> = arr
+                    .elements
+                    .iter()
+                    .map(|e| {
+                        let hir_e = self.lower_expression(e);
+                        let resolved_elem_ty = self.engine.resolve(&elem_ty);
+                        let resolved_hir_ty = self.engine.resolve(&hir_e.ty);
+                        if !matches!(hir_e.kind, HirExprKind::Cast(_, _))
+                            && resolved_hir_ty == Type::I64
+                            && matches!(&resolved_elem_ty, Type::TypeVar(_))
+                        {
+                            if let Type::TypeVar(id) = resolved_elem_ty {
+                                self.constraint_store
+                                    .add_int_literal(id, hir_e.span.clone());
+                            }
+                        } else {
+                            let _ = self.engine.unify(&elem_ty, &hir_e.ty);
+                        }
+                        hir_e
+                    })
+                    .collect();
+                HirExpr {
+                    ty: Type::Array(Box::new(elem_ty), len),
+                    kind: HirExprKind::ArrayLiteral(elements),
+                    span,
+                }
+            }
+            ast::LiteralKind::ArrayRepeat { value, len } => {
+                let value = self.lower_expression(value);
+                let elem_ty = self.engine.fresh_type_var();
+                let resolved_elem_ty = self.engine.resolve(&elem_ty);
+                let resolved_value_ty = self.engine.resolve(&value.ty);
+                if !matches!(value.kind, HirExprKind::Cast(_, _))
+                    && resolved_value_ty == Type::I64
+                    && matches!(&resolved_elem_ty, Type::TypeVar(_))
+                {
+                    if let Type::TypeVar(id) = resolved_elem_ty {
+                        self.constraint_store
+                            .add_int_literal(id, value.span.clone());
+                    }
+                } else {
+                    let _ = self.engine.unify(&elem_ty, &value.ty);
+                }
+                HirExpr {
+                    ty: Type::Array(Box::new(elem_ty), *len),
+                    kind: HirExprKind::ArrayRepeat(Box::new(value), *len),
+                    span,
+                }
+            }
+        }
+    }
+
+    fn is_fat_raw_slice_pointer(ty: &Type) -> bool {
+        matches!(ty, Type::Pointer(inner) if matches!(inner.as_ref(), Type::Slice(_)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::ast::{
+        Expression, Ident, IdentOrType, IdentifierPath, Literal, LiteralKind, Operand, Operator,
+        PrimaryExpr, UnaryExpr,
+    };
+    use crate::hir::{
+        HirBlock, HirCallTarget, HirEnum, HirExpr, HirExprKind, HirFunction, HirImpl, HirImplOwner,
+        HirParam, HirStruct, HirVarTarget,
+    };
+    use crate::ids::{CrateId, DefId, LocalDefId};
+    use crate::lexer::Span;
+    use crate::lower::Lowerer;
+    use crate::selection::SelectionDiagnostic;
+    use crate::types::{GenericParamDecl, GenericParamId, Type};
+
+    fn def_id(index: u32) -> DefId {
+        DefId::new(CrateId(0), LocalDefId(index))
+    }
+
+    fn test_function(id: DefId, name: &str, params: Vec<Type>, ret_type: Type) -> HirFunction {
+        HirFunction {
+            id,
+            name: name.to_string(),
+            generic_params: Vec::new(),
+            generic_bounds: Default::default(),
+            params: params
+                .into_iter()
+                .enumerate()
+                .map(|(index, ty)| HirParam {
+                    name: format!("p{index}"),
+                    local_id: crate::ids::HirLocalId(0),
+                    ty,
+                    mutable: false,
+                    is_ref: false,
+                })
+                .collect(),
+            ret_type,
+            body: HirBlock {
+                stmts: Vec::new(),
+                ty: Type::I64,
+            },
+            is_curried: false,
+            is_method: false,
+            self_receiver: None,
+            is_unsafe: false,
+        }
+    }
+
+    fn operator_impl(
+        impl_id: DefId,
+        method_id: DefId,
+        receiver_ty: Type,
+        operator: &str,
+        param_types: Vec<Type>,
+    ) -> HirImpl {
+        let mut method = test_function(method_id, operator, param_types, Type::I64);
+        method.is_method = true;
+        HirImpl {
+            id: impl_id,
+            owner: HirImplOwner::Named("OperatorOwner".to_string()),
+            type_name: "OperatorOwner".to_string(),
+            type_generics: Vec::new(),
+            receiver_pattern: crate::hir::HirImplReceiverPattern::Exact(receiver_ty),
+            trait_name: None,
+            trait_id: None,
+            trait_generics: Vec::new(),
+            trait_arg_types: Vec::new(),
+            associated_types: Vec::new(),
+            bounds: HashMap::new().into(),
+            methods: HashMap::from([(operator.to_string(), method)]),
+        }
+    }
+
+    fn int_expr(value: u64) -> UnaryExpr {
+        UnaryExpr::PrimaryExpr(PrimaryExpr {
+            operand: Operand::Literal(Literal {
+                kind: LiteralKind::Number(value),
+                span: Span::default(),
+            }),
+            secondaries: None,
+            type_annotation: None,
+        })
+    }
+
+    fn string_expr(value: &str) -> UnaryExpr {
+        UnaryExpr::PrimaryExpr(PrimaryExpr {
+            operand: Operand::Literal(Literal {
+                kind: LiteralKind::String(value.to_string()),
+                span: Span::default(),
+            }),
+            secondaries: None,
+            type_annotation: None,
+        })
+    }
+
+    fn var_expr(name: &str) -> UnaryExpr {
+        UnaryExpr::PrimaryExpr(PrimaryExpr {
+            operand: Operand::Ident(IdentifierPath {
+                path: vec![IdentOrType::Ident(Ident {
+                    name: name.to_string(),
+                    span: Span::default(),
+                })],
+            }),
+            secondaries: None,
+            type_annotation: None,
+        })
+    }
+
+    #[test]
+    fn test_string_literal_lowers_to_borrowed_str() {
+        let mut lowerer = Lowerer::new();
+        let hir = lowerer.lower_literal(&Literal {
+            kind: LiteralKind::String("hello".to_string()),
+            span: Span::default(),
+        });
+
+        assert_eq!(
+            hir.ty,
+            Type::Reference {
+                mutable: false,
+                inner: Box::new(Type::Str),
+            }
+        );
+    }
+
+    #[test]
+    fn function_valued_ampersand_records_call_target() {
+        let mut lowerer = Lowerer::new();
+        let function_id = def_id(3);
+        let param_ty = Type::Reference {
+            mutable: false,
+            inner: Box::new(Type::I64),
+        };
+        let function_ty = Type::function(vec![param_ty.clone()], Type::I64);
+        lowerer.items.insert_function(test_function(
+            function_id,
+            "borrowed",
+            vec![param_ty],
+            Type::I64,
+        ));
+        lowerer
+            .resolver
+            .item_paths
+            .insert("borrowed".to_string(), function_id);
+        lowerer
+            .resolver
+            .item_names_by_id
+            .insert(function_id, "borrowed".to_string());
+        lowerer
+            .scope
+            .define_alias("borrowed".to_string(), function_ty, false);
+        lowerer.infix_precedence.insert("&".to_string(), 5);
+
+        let expr = Expression::BinopExpr(
+            var_expr("borrowed"),
+            Operator {
+                value: "&".to_string(),
+                span: Span::default(),
+            },
+            Box::new(Expression::UnaryExpr(int_expr(1))),
+        );
+        let hir = lowerer.lower_expression(&expr);
+
+        match hir.kind {
+            HirExprKind::Call(_, _, Some(HirCallTarget::Function(id))) => {
+                assert_eq!(id, function_id);
+            }
+            other => panic!("expected function-valued ampersand call target, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn direct_function_target_does_not_require_method_payload() {
+        let mut lowerer = Lowerer::new();
+        let function_id = def_id(33);
+        let resolved = crate::lower::resolution::LowerResolvedValue {
+            name: "function".to_string(),
+            ty: Type::I64,
+            target: Some(HirVarTarget::Function(function_id)),
+            is_alias: false,
+            scope_index: None,
+            should_instantiate: false,
+        };
+
+        assert_eq!(
+            lowerer.instantiate_resolved_value_type(&resolved),
+            Type::I64
+        );
+    }
+
+    #[test]
+    fn custom_operator_import_alias_lowers_callee_to_function_id() {
+        let mut lowerer = Lowerer::new();
+        let operator_id = def_id(1);
+        let inc_id = def_id(2);
+        let inc_ty = Type::function(vec![Type::I64], Type::I64);
+        let operator_ty = Type::function(vec![Type::I64, inc_ty.clone()], Type::I64);
+
+        lowerer.items.insert_function(test_function(
+            operator_id,
+            "|>",
+            vec![Type::I64, inc_ty.clone()],
+            Type::I64,
+        ));
+        lowerer
+            .items
+            .insert_function(test_function(inc_id, "inc", vec![Type::I64], Type::I64));
+        lowerer
+            .scope
+            .define_alias("|>".to_string(), operator_ty, false);
+        lowerer.resolver.insert_import_alias_with_name(
+            "|>".to_string(),
+            "ops::|>".to_string(),
+            operator_id,
+        );
+        lowerer.infix_precedence.insert("|>".to_string(), 5);
+
+        let expr = Expression::BinopExpr(
+            int_expr(41),
+            Operator {
+                value: "|>".to_string(),
+                span: Span::default(),
+            },
+            Box::new(Expression::UnaryExpr(var_expr("inc"))),
+        );
+        let hir = lowerer.lower_expression(&expr);
+
+        let HirExprKind::Call(callee, _, _) = hir.kind else {
+            panic!("expected custom operator to lower to a call");
+        };
+        match callee.kind {
+            HirExprKind::ResolvedVar(reference) => {
+                assert_eq!(reference.name, "ops::|>");
+                assert_eq!(reference.target, HirVarTarget::Function(operator_id));
+            }
+            other => panic!("expected resolved operator function target, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn custom_operator_module_alias_lowers_through_resolver_id() {
+        let mut lowerer = Lowerer::new();
+        let function_id = def_id(30);
+        lowerer.items.insert_function(test_function(
+            function_id,
+            "demo::ops::%%",
+            vec![Type::I64, Type::I64],
+            Type::I64,
+        ));
+        lowerer.resolver.insert_module_alias_with_name(
+            "%%".to_string(),
+            "demo::ops::%%".to_string(),
+            function_id,
+        );
+        lowerer.infix_precedence.insert("%%".to_string(), 5);
+
+        let expr = Expression::BinopExpr(
+            int_expr(1),
+            Operator {
+                value: "%%".to_string(),
+                span: Span::default(),
+            },
+            Box::new(Expression::UnaryExpr(int_expr(2))),
+        );
+        let hir = lowerer.lower_expression(&expr);
+
+        let HirExprKind::Call(callee, _, Some(HirCallTarget::Function(id))) = hir.kind else {
+            panic!(
+                "expected resolver-backed custom operator call, got {:?}",
+                hir.kind
+            );
+        };
+        assert_eq!(id, function_id);
+        match callee.kind {
+            HirExprKind::ResolvedVar(reference) => assert_eq!(reference.name, "demo::ops::%%"),
+            other => panic!("expected resolved operator callee, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn custom_operator_module_alias_shadows_root_operator_with_same_symbol() {
+        let mut lowerer = Lowerer::new();
+        let root_id = def_id(31);
+        let module_id = def_id(32);
+        lowerer.items.insert_function(test_function(
+            root_id,
+            "%%",
+            vec![Type::I64, Type::I64],
+            Type::I64,
+        ));
+        lowerer.items.insert_function(test_function(
+            module_id,
+            "demo::ops::%%",
+            vec![Type::I64, Type::I64],
+            Type::I64,
+        ));
+        lowerer
+            .resolver
+            .item_paths
+            .insert("%%".to_string(), root_id);
+        lowerer
+            .resolver
+            .item_names_by_id
+            .insert(root_id, "%%".to_string());
+        lowerer.resolver.insert_module_alias_with_name(
+            "%%".to_string(),
+            "demo::ops::%%".to_string(),
+            module_id,
+        );
+        lowerer.infix_precedence.insert("%%".to_string(), 5);
+
+        let expr = Expression::BinopExpr(
+            int_expr(1),
+            Operator {
+                value: "%%".to_string(),
+                span: Span::default(),
+            },
+            Box::new(Expression::UnaryExpr(int_expr(2))),
+        );
+        let hir = lowerer.lower_expression(&expr);
+
+        let HirExprKind::Call(callee, _, Some(HirCallTarget::Function(id))) = hir.kind else {
+            panic!("expected module alias operator call, got {:?}", hir.kind);
+        };
+        assert_eq!(id, module_id);
+        match callee.kind {
+            HirExprKind::ResolvedVar(reference) => {
+                assert_eq!(reference.name, "demo::ops::%%");
+                assert_eq!(reference.target, HirVarTarget::Function(module_id));
+            }
+            other => panic!("expected module alias operator callee, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn custom_operator_scope_local_lowers_callee_to_local_call_target() {
+        let mut lowerer = Lowerer::new();
+        let operator_local = crate::ids::HirLocalId(7);
+        let operator_ty = Type::function(vec![Type::I64, Type::I64], Type::I64);
+
+        lowerer
+            .scope
+            .define_local("%%".to_string(), operator_ty, false, operator_local);
+        lowerer.infix_precedence.insert("%%".to_string(), 5);
+
+        let expr = Expression::BinopExpr(
+            int_expr(40),
+            Operator {
+                value: "%%".to_string(),
+                span: Span::default(),
+            },
+            Box::new(Expression::UnaryExpr(int_expr(2))),
+        );
+        let hir = lowerer.lower_expression(&expr);
+
+        let HirExprKind::Call(callee, _, Some(HirCallTarget::Local(target))) = hir.kind else {
+            panic!(
+                "expected local custom operator call target, got {:?}",
+                hir.kind
+            );
+        };
+        assert_eq!(target, operator_local);
+        match callee.kind {
+            HirExprKind::ResolvedVar(reference) => {
+                assert_eq!(reference.name, "%%");
+                assert_eq!(reference.target, HirVarTarget::Local(operator_local));
+            }
+            other => panic!("expected resolved local operator callee, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn inherent_impl_custom_operator_call_carries_method_target() {
+        let mut lowerer = Lowerer::new();
+        let struct_id = def_id(10);
+        let impl_id = def_id(11);
+        let method_id = def_id(12);
+        let receiver_ty = Type::Struct {
+            id: struct_id,
+            args: Vec::new(),
+        };
+        let mut method = test_function(
+            method_id,
+            "%%",
+            vec![receiver_ty.clone(), Type::I64],
+            Type::I64,
+        );
+        method.is_method = true;
+
+        lowerer.items.insert_structure(HirStruct {
+            id: struct_id,
+            name: "Box".to_string(),
+            generic_params: Vec::new(),
+            fields: Vec::new(),
+        });
+        lowerer
+            .resolver
+            .item_names_by_id
+            .insert(struct_id, "Box".to_string());
+        lowerer
+            .items
+            .insert_impl(HirImpl {
+                id: impl_id,
+                owner: HirImplOwner::Named("Box".to_string()),
+                type_name: "Box".to_string(),
+                type_generics: Vec::new(),
+                receiver_pattern: crate::hir::HirImplReceiverPattern::Exact(receiver_ty.clone()),
+                trait_name: None,
+                trait_id: None,
+                trait_generics: Vec::new(),
+                trait_arg_types: Vec::new(),
+                associated_types: Vec::new(),
+                bounds: std::collections::HashMap::new().into(),
+                methods: HashMap::from([("%%".to_string(), method)]),
+            })
+            .unwrap();
+        lowerer.infix_precedence.insert("%%".to_string(), 5);
+
+        let left = HirExpr {
+            ty: receiver_ty,
+            kind: HirExprKind::Var("box".to_string()),
+            span: Span::default(),
+        };
+        let right = HirExpr {
+            ty: Type::I64,
+            kind: HirExprKind::IntLiteral(2),
+            span: Span::default(),
+        };
+        let hir = lowerer.build_precedence_tree(&[left, right], &["%%".to_string()], 0, 1);
+
+        match hir.kind {
+            HirExprKind::MethodCall(_, _, _, _, Some(target)) => {
+                assert_eq!(target.impl_id(), Some(impl_id));
+                assert_eq!(target.trait_id(), None);
+                assert!(target.trait_args().is_empty());
+                assert_eq!(target.method_id(), Some(method_id));
+            }
+            other => panic!("expected inherent custom operator target, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn custom_operator_impl_selection_uses_canonical_impl_method() {
+        let mut lowerer = Lowerer::new();
+        let option_id = def_id(20);
+        let impl_id = def_id(21);
+        let method_id = def_id(22);
+        let receiver_ty = Type::Enum {
+            id: option_id,
+            args: vec![Type::I64],
+        };
+        let mut method = test_function(
+            method_id,
+            "<&>",
+            vec![receiver_ty.clone(), Type::I64],
+            Type::I64,
+        );
+        method.is_method = true;
+        lowerer.items.insert_enumeration(HirEnum {
+            id: option_id,
+            name: "Option".to_string(),
+            generic_params: vec![GenericParamDecl::type_param(
+                GenericParamId {
+                    owner: option_id,
+                    index: 0,
+                },
+                "T",
+            )],
+            variants: Vec::new(),
+        });
+        lowerer
+            .resolver
+            .item_names_by_id
+            .insert(option_id, "Option".to_string());
+        lowerer
+            .items
+            .insert_impl(HirImpl {
+                id: impl_id,
+                owner: HirImplOwner::Named("Option".to_string()),
+                type_name: "Option".to_string(),
+                type_generics: Vec::new(),
+                receiver_pattern: crate::hir::HirImplReceiverPattern::Exact(receiver_ty.clone()),
+                trait_name: None,
+                trait_id: None,
+                trait_generics: Vec::new(),
+                trait_arg_types: Vec::new(),
+                associated_types: Vec::new(),
+                bounds: std::collections::HashMap::new().into(),
+                methods: HashMap::from([("<&>".to_string(), method)]),
+            })
+            .unwrap();
+        lowerer.infix_precedence.insert("<&>".to_string(), 5);
+        let left_ty = lowerer.engine.fresh_type_var();
+        lowerer
+            .engine
+            .unify(&left_ty, &receiver_ty)
+            .expect("test receiver type should resolve to Option");
+
+        let left = HirExpr {
+            ty: left_ty,
+            kind: HirExprKind::Var("option".to_string()),
+            span: Span::default(),
+        };
+        let right = HirExpr {
+            ty: Type::I64,
+            kind: HirExprKind::IntLiteral(2),
+            span: Span::default(),
+        };
+        let hir = lowerer.build_precedence_tree(&[left, right], &["<&>".to_string()], 0, 1);
+
+        match hir.kind {
+            HirExprKind::MethodCall(_, _, _, _, Some(target)) => {
+                assert_eq!(target.impl_id(), Some(impl_id));
+                assert_eq!(target.method_id(), Some(method_id));
+            }
+            other => panic!("expected impl-backed custom operator target, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn missing_concrete_operator_impl_lowers_to_error_typed_expression() {
+        let mut lowerer = Lowerer::new();
+        lowerer.infix_precedence.insert("+".to_string(), 6);
+        let expr = Expression::BinopExpr(
+            string_expr("left"),
+            Operator {
+                value: "+".to_string(),
+                span: Span::default(),
+            },
+            Box::new(Expression::UnaryExpr(string_expr("right"))),
+        );
+
+        let hir = lowerer.lower_expression(&expr);
+
+        assert_eq!(hir.ty, Type::Error);
+        assert!(
+            !matches!(hir.kind, HirExprKind::Unit),
+            "missing operator impl must not recover as executable unit"
+        );
+        assert!(lowerer.diagnostics.errors().iter().any(|error| error
+            .message
+            .contains("No implementation found for operator '+'")));
+    }
+
+    #[test]
+    fn missing_concrete_unary_operator_impl_lowers_to_error_typed_expression() {
+        let mut lowerer = Lowerer::new();
+        let expr = UnaryExpr::UnaryExpr(
+            Operator {
+                value: "-".to_string(),
+                span: Span::default(),
+            },
+            Box::new(string_expr("not numeric")),
+        );
+
+        let hir = lowerer.lower_unary_expr(&expr);
+
+        assert_eq!(hir.ty, Type::Error);
+        assert!(
+            !matches!(hir.kind, HirExprKind::Unit),
+            "missing unary operator impl must not recover as executable unit"
+        );
+        assert!(lowerer.diagnostics.errors().iter().any(|error| error
+            .message
+            .contains("No implementation found for operator '-'")));
+    }
+
+    #[test]
+    fn unresolved_binary_operator_reports_all_ambiguous_impl_ids() {
+        let mut lowerer = Lowerer::new();
+        let first_impl = def_id(30);
+        let second_impl = def_id(31);
+        lowerer
+            .items
+            .insert_impl(operator_impl(
+                first_impl,
+                def_id(32),
+                Type::Bool,
+                "%%",
+                vec![Type::Bool, Type::I64],
+            ))
+            .unwrap();
+        lowerer
+            .items
+            .insert_impl(operator_impl(
+                second_impl,
+                def_id(33),
+                Type::Str,
+                "%%",
+                vec![Type::Str, Type::I64],
+            ))
+            .unwrap();
+        let left_ty = lowerer.engine.fresh_type_var();
+        let left = HirExpr {
+            ty: left_ty.clone(),
+            kind: HirExprKind::Var("left".to_string()),
+            span: Span::default(),
+        };
+        let right = HirExpr {
+            ty: Type::I64,
+            kind: HirExprKind::IntLiteral(1),
+            span: Span::default(),
+        };
+
+        assert_eq!(
+            lowerer.infer_unresolved_binary_operator_receiver(&left, &right, "%%"),
+            Err(SelectionDiagnostic::AmbiguousCandidates {
+                operation: "%%".to_string(),
+                receiver: left_ty,
+                candidates: vec![first_impl, second_impl],
+            })
+        );
+    }
+
+    #[test]
+    fn unresolved_unary_operator_reports_all_ambiguous_impl_ids() {
+        let mut lowerer = Lowerer::new();
+        let first_impl = def_id(40);
+        let second_impl = def_id(41);
+        lowerer
+            .items
+            .insert_impl(operator_impl(
+                first_impl,
+                def_id(42),
+                Type::Bool,
+                "!",
+                vec![Type::Bool],
+            ))
+            .unwrap();
+        lowerer
+            .items
+            .insert_impl(operator_impl(
+                second_impl,
+                def_id(43),
+                Type::Str,
+                "!",
+                vec![Type::Str],
+            ))
+            .unwrap();
+        let operand_ty = lowerer.engine.fresh_type_var();
+        let operand = HirExpr {
+            ty: operand_ty.clone(),
+            kind: HirExprKind::Var("operand".to_string()),
+            span: Span::default(),
+        };
+
+        assert_eq!(
+            lowerer.infer_unresolved_unary_operator_receiver(&operand, "!"),
+            Err(SelectionDiagnostic::AmbiguousCandidates {
+                operation: "!".to_string(),
+                receiver: operand_ty,
+                candidates: vec![first_impl, second_impl],
+            })
+        );
+    }
+
+    #[test]
+    fn concrete_operator_does_not_select_first_compatible_impl() {
+        let mut lowerer = Lowerer::new();
+        let first_impl = def_id(50);
+        let second_impl = def_id(51);
+        lowerer
+            .items
+            .insert_impl(operator_impl(
+                first_impl,
+                def_id(52),
+                Type::Bool,
+                "%%",
+                vec![Type::Bool, Type::I64],
+            ))
+            .unwrap();
+        lowerer
+            .items
+            .insert_impl(operator_impl(
+                second_impl,
+                def_id(53),
+                Type::Bool,
+                "%%",
+                vec![Type::Bool, Type::I64],
+            ))
+            .unwrap();
+        lowerer.infix_precedence.insert("%%".to_string(), 5);
+        let left = HirExpr {
+            ty: Type::Bool,
+            kind: HirExprKind::BoolLiteral(true),
+            span: Span::default(),
+        };
+        let right = HirExpr {
+            ty: Type::I64,
+            kind: HirExprKind::IntLiteral(1),
+            span: Span::default(),
+        };
+
+        let hir = lowerer.build_precedence_tree(&[left, right], &["%%".to_string()], 0, 1);
+
+        assert_eq!(hir.ty, Type::Error);
+        assert!(lowerer.diagnostics.errors().iter().any(|error| {
+            error.message.contains("Ambiguous selection for '%%'")
+                && error.message.contains(&format!("{first_impl:?}"))
+                && error.message.contains(&format!("{second_impl:?}"))
+        }));
+    }
+}

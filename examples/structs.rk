@@ -1,0 +1,13 @@
+struct Point
+    < x: Int
+    < y: Int
+
+main = ->
+    p = Point
+        x: 10
+        y: 20
+    p.x.println!
+    p.y.println!
+    sum = p.x + p.y
+    sum.println!
+    0

@@ -1,0 +1,32 @@
+// URL utilities
+
+// URL components
+struct UrlParts
+    scheme: String
+    host: String
+    path: String
+
+// Encode a URL string (simplified)
+encode = s ->
+    if s == "hello world"
+        "hello%20world"
+    else
+        s
+
+// Decode a URL string (simplified)
+decode = s ->
+    if s == "hello%20world"
+        "hello world"
+    else
+        s
+
+// Parse URL into components (simplified)
+parse_url = url ->
+    UrlParts "https" "example.com" "/"
+
+// Build URL from parts
+build_url = parts ->
+    parts.scheme + "://" + parts.host + parts.path
+
+// Check if URL is valid (simplified)
+is_valid = _url -> 1

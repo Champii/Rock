@@ -1,0 +1,62 @@
+name: Rock Book
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "docs/**"
+      - ".github/workflows/book.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/book.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Install mdBook
+        uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook@0.4.52
+
+      - name: Build the book
+        run: mdbook build docs
+
+      - name: Verify the rendered book
+        run: node docs/checks/verify-book.cjs
+
+      - name: Configure GitHub Pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop' && vars.ENABLE_PAGES == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop' && vars.ENABLE_PAGES == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop' && vars.ENABLE_PAGES == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-production
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,17 @@
+// Utility module for string operations
+
+// Format two strings with a separator
+format_string = first, second ->
+    let result = first
+    let result = result + " & "
+    result + second
+
+// Repeat a string n times
+repeat_string = s, n ->
+    if n <= 0
+        ""
+    else
+        s + (repeat_string s (n - 1))
+
+// Check if string is empty
+is_empty = s -> string_len s == 0

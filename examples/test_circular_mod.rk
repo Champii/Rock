@@ -1,0 +1,4 @@
+// Test circular import detection
+mod mod_b
+
+main = -> 0

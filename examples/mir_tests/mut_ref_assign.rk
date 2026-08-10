@@ -1,0 +1,8 @@
+main = ->
+    mut x = 1
+    shared = &x
+    shared.println!
+    r = &mut x
+    *r = 2
+    x.println!
+    0

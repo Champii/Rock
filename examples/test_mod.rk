@@ -1,0 +1,15 @@
+// Test module imports using mod and > syntax
+
+mod mod_test_utils
+
+> mod_test_utils::add
+> mod_test_utils::multiply
+
+main = ->
+    result1 = add 10, 20
+    result2 = multiply 3, 4
+
+    result1.println!
+    result2.println!
+
+    0

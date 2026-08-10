@@ -1,0 +1,14 @@
+mod test_parse_array_with_comments;
+mod test_parse_array_with_errors;
+mod test_parse_array_with_expressions;
+mod test_parse_array_with_mixed_types;
+mod test_parse_array_with_trailing_comma;
+mod test_parse_array_with_whitespace;
+mod test_parse_empty_array;
+mod test_parse_large_array;
+mod test_parse_mixed_multiline_array;
+mod test_parse_multiline_array;
+mod test_parse_multiline_array_with_empty_lines;
+mod test_parse_multiple_elements_array;
+mod test_parse_nested_arrays;
+mod test_parse_single_element_array;

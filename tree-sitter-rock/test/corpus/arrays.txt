@@ -1,0 +1,25 @@
+==================
+fixed array type and repeat expression
+==================
+
+make: [U8; 256] = -> [0; 256]
+
+---
+
+(program
+  (function_declaration
+    (identifier)
+    (array_type
+      (type_identifier)
+      (number))
+    (expression
+      (lambda_expression
+        (expression
+          (call_expression
+            (primary_expression
+              (array_expression
+                (expression
+                  (call_expression
+                    (primary_expression
+                      (number))))
+                (number)))))))))

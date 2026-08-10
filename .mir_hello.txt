@@ -1,0 +1,2365 @@
+MirProgram {
+    functions: {
+        "abs": MirFunction {
+            name: "abs",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        2,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+        "float_to_string": MirFunction {
+            name: "float_to_string",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: String,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: F64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: String,
+        },
+        "int_to_string": MirFunction {
+            name: "int_to_string",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: String,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: String,
+        },
+        "main": MirFunction {
+            name: "main",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [
+                        StorageLive(
+                            Local(
+                                1,
+                            ),
+                        ),
+                        Assign(
+                            Place {
+                                local: Local(
+                                    2,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Constant(
+                                    String(
+                                        "Hello, World!",
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    1,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Constant(
+                                    Int(
+                                        0,
+                                    ),
+                                ),
+                            ),
+                        ),
+                        StorageDead(
+                            Local(
+                                1,
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I32,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        I32,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 0,
+            ret_type: I64,
+        },
+        "max": MirFunction {
+            name: "max",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "a",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "b",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 2,
+            ret_type: I64,
+        },
+        "min": MirFunction {
+            name: "min",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "a",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "b",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 2,
+            ret_type: I64,
+        },
+        "println": MirFunction {
+            name: "println",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I32,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        I32,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I32,
+        },
+        "stdlib::abs": MirFunction {
+            name: "abs",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        2,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+        "stdlib::convert::float_to_string": MirFunction {
+            name: "float_to_string",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: String,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: F64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: String,
+        },
+        "stdlib::convert::int_to_string": MirFunction {
+            name: "int_to_string",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: String,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: String,
+        },
+        "stdlib::convert::string_to_float": MirFunction {
+            name: "string_to_float",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    2,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: F64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "s",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        F64,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: F64,
+        },
+        "stdlib::convert::string_to_int": MirFunction {
+            name: "string_to_int",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    2,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "s",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        I64,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+        "stdlib::convert::to_float": MirFunction {
+            name: "to_float",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: F64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: F64,
+        },
+        "stdlib::convert::to_int": MirFunction {
+            name: "to_int",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: F64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+        "stdlib::float_to_string": MirFunction {
+            name: "float_to_string",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: String,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: F64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: String,
+        },
+        "stdlib::int_to_string": MirFunction {
+            name: "int_to_string",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: String,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: String,
+        },
+        "stdlib::io::println": MirFunction {
+            name: "println",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I32,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        I32,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I32,
+        },
+        "stdlib::max": MirFunction {
+            name: "max",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "a",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "b",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 2,
+            ret_type: I64,
+        },
+        "stdlib::min": MirFunction {
+            name: "min",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "a",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "b",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 2,
+            ret_type: I64,
+        },
+        "stdlib::println": MirFunction {
+            name: "println",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I32,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        I32,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I32,
+        },
+        "stdlib::string_to_float": MirFunction {
+            name: "string_to_float",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    2,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: F64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "s",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        F64,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: F64,
+        },
+        "stdlib::string_to_int": MirFunction {
+            name: "string_to_int",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    2,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "s",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        I64,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+        "stdlib::to_float": MirFunction {
+            name: "to_float",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: F64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: F64,
+        },
+        "stdlib::to_int": MirFunction {
+            name: "to_int",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: F64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+        "stdlib::util::abs": MirFunction {
+            name: "abs",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        2,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+        "stdlib::util::max": MirFunction {
+            name: "max",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "a",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "b",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 2,
+            ret_type: I64,
+        },
+        "stdlib::util::min": MirFunction {
+            name: "min",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        SwitchInt {
+                            discr: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            targets: [
+                                (
+                                    1,
+                                    BasicBlockId(
+                                        1,
+                                    ),
+                                ),
+                            ],
+                            otherwise: BasicBlockId(
+                                2,
+                            ),
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Goto(
+                            BasicBlockId(
+                                3,
+                            ),
+                        ),
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "a",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "b",
+                    ),
+                },
+                LocalDecl {
+                    ty: Bool,
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 2,
+            ret_type: I64,
+        },
+        "string_to_float": MirFunction {
+            name: "string_to_float",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    2,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: F64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "s",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        F64,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: F64,
+        },
+        "string_to_int": MirFunction {
+            name: "string_to_int",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [
+                        Assign(
+                            Place {
+                                local: Local(
+                                    2,
+                                ),
+                                projection: [],
+                            },
+                            Use(
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            1,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ),
+                        ),
+                    ],
+                    terminator: Some(
+                        Call {
+                            func: Copy(
+                                Place {
+                                    local: Local(
+                                        3,
+                                    ),
+                                    projection: [],
+                                },
+                            ),
+                            args: [
+                                Copy(
+                                    Place {
+                                        local: Local(
+                                            2,
+                                        ),
+                                        projection: [],
+                                    },
+                                ),
+                            ],
+                            destination: Place {
+                                local: Local(
+                                    0,
+                                ),
+                                projection: [],
+                            },
+                            target: BasicBlockId(
+                                1,
+                            ),
+                            cleanup: None,
+                        },
+                    ),
+                },
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: Some(
+                        "s",
+                    ),
+                },
+                LocalDecl {
+                    ty: String,
+                    mutability: Not,
+                    name: None,
+                },
+                LocalDecl {
+                    ty: Function(
+                        [
+                            String,
+                        ],
+                        I64,
+                    ),
+                    mutability: Not,
+                    name: None,
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+        "to_float": MirFunction {
+            name: "to_float",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: F64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: I64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: F64,
+        },
+        "to_int": MirFunction {
+            name: "to_int",
+            basic_blocks: [
+                BasicBlock {
+                    statements: [],
+                    terminator: Some(
+                        Return,
+                    ),
+                },
+            ],
+            local_decls: [
+                LocalDecl {
+                    ty: I64,
+                    mutability: Mut,
+                    name: Some(
+                        "return_place",
+                    ),
+                },
+                LocalDecl {
+                    ty: F64,
+                    mutability: Not,
+                    name: Some(
+                        "x",
+                    ),
+                },
+            ],
+            arg_count: 1,
+            ret_type: I64,
+        },
+    },
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

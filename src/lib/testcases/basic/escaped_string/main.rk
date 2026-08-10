@@ -1,4 +1,0 @@
-main: ->
-  let str = "He\rl\'l\no, W\\or\"ld\0!n"
-  42
-

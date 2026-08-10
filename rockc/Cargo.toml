@@ -1,0 +1,10 @@
+[package]
+name = "rockc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rock-lib = { path = "../lib" }
+
+clap = { workspace = true }
+

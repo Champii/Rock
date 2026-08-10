@@ -1,0 +1,27 @@
+struct Vec2
+    < x: F64
+    < y: F64
+
+impl Vec2
+    @length = -> sqrt (@x * @x + @y * @y)
+
+is_even = n ->
+    n % 2 == 0
+
+sum_to = n ->
+    result = 0
+    i = 1
+    while i <= n
+        result = result + i
+        i = i + 1
+    result
+
+main = ->
+    v = Vec2
+        x: 3.0
+        y: 4.0
+    (v.length!).println!
+    (sum_to 10).println!
+    (is_even 4).println!
+    (is_even 7).println!
+    0

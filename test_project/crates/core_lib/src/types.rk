@@ -1,0 +1,34 @@
+// Type definitions for core library
+
+// 2D Point
+struct Point
+    x: I64
+    y: I64
+
+// 3D Point
+struct Point3D
+    x: I64
+    y: I64
+    z: I64
+
+// Rectangle
+struct Rect
+    x: I64
+    y: I64
+    width: I64
+    height: I64
+
+// Color representation
+struct Color
+    r: I64
+    g: I64
+    b: I64
+
+// Create a default point at origin
+origin = -> Point 0 0
+
+// Create a default black color
+black = -> Color 0 0 0
+
+// Create a default white color
+white = -> Color 255 255 255

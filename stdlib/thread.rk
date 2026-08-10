@@ -1,0 +1,152 @@
+// Owned POSIX threads with Rust-style spawn and join semantics.
+
+> stdlib::alloc::Global
+> stdlib::alloc::Layout
+> stdlib::alloc::checked_alloc
+> stdlib::callable::FnOnce
+> stdlib::drop::Drop
+> stdlib::drop::drop_in_place
+> stdlib::libc::pthread_create
+> stdlib::libc::pthread_join
+> stdlib::libc::pthread_self
+> stdlib::libc::sched_yield
+> stdlib::libc::usleep
+> stdlib::mem::forget
+> stdlib::result::Result
+> stdlib::thread_safety::Send
+
+thread_unit = -> return
+
+< enum ThreadError
+    CreateFailed I32
+    JoinFailed I32
+
+< struct ThreadPacket F, T
+    task: F
+    result: *T
+
+< struct JoinHandle T
+    thread: U64
+    output_ptr: *T
+    env: *U8
+    env_bytes: I64
+    joined: Bool
+
+impl ThreadPacket F, T where F: FnOnce (), T
+    new: F -> *T -> ThreadPacket F, T
+    new = task, result ->
+        ThreadPacket F, T
+            task: task
+            result: result
+
+    ~@run: *U8
+    ~@run = ->
+        value = self.task.call_once (thread_unit!)
+        unsafe *self.result = value
+        0 as *U8
+
+impl JoinHandle T
+    new: U64 -> *T -> *U8 -> I64 -> JoinHandle T
+    new = thread, output_ptr, env, env_bytes ->
+        JoinHandle T
+            thread: thread
+            output_ptr: output_ptr
+            env: env
+            env_bytes: env_bytes
+            joined: false
+
+unsafe callable_word: &(() -> *U8) -> I64 -> U64
+unsafe callable_word = callable, index ->
+    words = callable as *U64
+    unsafe *(~PtrOffset words, index)
+
+free_env: *U8 -> I64 -> Unit
+free_env = env, bytes ->
+    layout = Layout
+        size: bytes
+        align: 1
+    unsafe Global::dealloc env, layout
+
+spawn: F -> Result (JoinHandle T), ThreadError where F: Send, T: Send, F: FnOnce (), T
+< spawn = task ->
+    null_result = 0 as *T
+    result_size = ~SizeOf (unsafe *null_result)
+    result_bytes = if result_size == 0
+        1
+    else
+        result_size
+    result_layout = Layout
+        size: result_bytes
+        align: 1
+    result = (checked_alloc result_layout) as *T
+
+    packet = ThreadPacket::new task, result
+    env_bytes = ~SizeOf packet
+    runner = -> packet.run!
+    code_word = unsafe callable_word (&runner), 0
+    env_word = unsafe callable_word (&runner), 1
+    code = code_word as *U8
+    env = env_word as *U8
+    null = 0 as *U8
+    mut thread = 0 as U64
+    status = pthread_create ((&mut thread) as *U64), null, code, env
+    if ~I32Eq status, 0
+        forget runner
+        Result::Ok (JoinHandle::new thread, result, env, env_bytes)
+    else
+        unsafe drop_in_place (env as *ThreadPacket F, T)
+        free_env env, env_bytes
+        free_env (result as *U8), result_bytes
+        forget runner
+        Result::Err (ThreadError::CreateFailed status)
+
+impl JoinHandle T
+    ~@join: Result T, ThreadError
+    ~@join = ->
+        mut env = 0 as U64
+        status = pthread_join self.thread, ((&mut env) as *U64)
+        if ~I32Eq status, 0
+            self.joined = true
+            output_size = ~SizeOf (unsafe *self.output_ptr)
+            output_bytes = if output_size == 0
+                1
+            else
+                output_size
+            joined = Result::Ok (unsafe *self.output_ptr)
+            free_env (self.output_ptr as *U8), output_bytes
+            free_env self.env, self.env_bytes
+            joined
+        else
+            Result::Err (ThreadError::JoinFailed status)
+
+impl Drop for JoinHandle T
+    ~@drop = ->
+        if !self.joined
+            mut env = 0 as U64
+            status = pthread_join self.thread, ((&mut env) as *U64)
+            if ~I32Eq status, 0
+                output_size = ~SizeOf (unsafe *self.output_ptr)
+                output_bytes = if output_size == 0
+                    1
+                else
+                    output_size
+                unsafe drop_in_place self.output_ptr
+                free_env (self.output_ptr as *U8), output_bytes
+                free_env self.env, self.env_bytes
+        return
+
+current_id: Unit -> U64
+< current_id = -> pthread_self!
+
+yield_now: Unit -> Unit
+< yield_now = ->
+    status = sched_yield!
+    return
+
+sleep_ms: I64 -> Unit
+< sleep_ms = milliseconds ->
+    if ~I64Le milliseconds, 0
+        return
+    micros = milliseconds * 1000
+    status = usleep (micros as U32)
+    return

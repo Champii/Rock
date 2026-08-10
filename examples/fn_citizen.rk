@@ -1,0 +1,27 @@
+infix 1 |>
+|> = x, f -> f x
+
+// Test 1: println as a first-class citizen - stored in variable
+// Note: println is now a trait method, so we pass the method itself
+tamere = x -> x.println!
+
+// Test 2: println passed to a function
+apply_print = f, val -> f val
+
+main = ->
+    // Direct println call (always worked)
+    "Direct call".println!
+
+    // println through variable (now uses trait method)
+    tamere "Through variable"
+
+    // println passed as argument - need to pass a lambda that calls the method
+    apply_print (x -> x.println!), "As argument"
+
+    // println with pipe operator (now works with our fix)
+    "Pipe operator test" |> tamere
+
+    // Simple values work too
+    42.println!
+
+    0

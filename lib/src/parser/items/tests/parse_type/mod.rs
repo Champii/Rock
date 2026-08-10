@@ -1,0 +1,11 @@
+mod test_parse_array_type;
+mod test_parse_fn_type;
+mod test_parse_hkt;
+mod test_parse_nested_fn_type;
+mod test_parse_pointer_type;
+mod test_parse_reference_type;
+mod test_parse_tuple_type;
+mod test_parse_type;
+mod test_parse_type_with_generics;
+mod test_parse_type_with_multiple_generics;
+mod test_parse_unit_type;

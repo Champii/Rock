@@ -1,0 +1,13 @@
+describe = n ->
+    match n
+        0 => 0
+        1 => 10
+        2 => 20
+        _ => 99
+
+main = ->
+    (describe 0).println!
+    (describe 1).println!
+    (describe 2).println!
+    (describe 42).println!
+    0

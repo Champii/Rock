@@ -1,0 +1,17 @@
+mod test_token_type_arrow;
+mod test_token_type_caret;
+mod test_token_type_comma;
+mod test_token_type_curried_arrow;
+mod test_token_type_dot;
+mod test_token_type_empty_input;
+mod test_token_type_equal;
+mod test_token_type_lbracket;
+mod test_token_type_lparen;
+mod test_token_type_match;
+mod test_token_type_mismatch;
+mod test_token_type_number;
+mod test_token_type_plus;
+mod test_token_type_rbracket;
+mod test_token_type_rparen;
+mod test_token_type_string;
+mod test_token_type_tilde;

@@ -1,0 +1,4 @@
+// Utility module for testing mod imports
+
+add = x, y -> x + y
+multiply = x, y -> x * y

@@ -1,8 +1,14 @@
 /target
-**/*.rs.bk
-*.o
-a.out
-project
-*.ir
-*.s
-/project*/
+/build
+/docs/book/
+/stdlib/build/
+coverage/
+.worktrees/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+
+# bv (beads viewer) local config and caches
+.bv/

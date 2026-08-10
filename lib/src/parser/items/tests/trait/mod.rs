@@ -1,0 +1,4 @@
+mod test_parse_trait;
+mod test_parse_trait_associated_types;
+mod test_parse_trait_empty_lines;
+mod test_parse_trait_self_receiver;

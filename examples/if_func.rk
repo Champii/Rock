@@ -1,0 +1,12 @@
+max = a, b ->
+    if a > b then a else b
+
+min = a, b ->
+    if a < b then a else b
+
+main = ->
+    x = max 10, 20
+    x.println!
+    y = min 10, 20
+    y.println!
+    0

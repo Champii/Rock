@@ -1,0 +1,11 @@
+// Generic identity function
+identity = x -> x
+
+// Generic const function
+const = x, y -> x
+
+// Generic apply function
+apply = f, x -> f x
+
+// Generic twice function
+twice = f, x -> f (f x)

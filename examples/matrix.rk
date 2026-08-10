@@ -1,0 +1,46 @@
+struct Matrix
+    < a: I64
+    < b: I64
+    < c: I64
+    < d: I64
+
+impl Matrix
+    @det = -> @a * @d - @b * @c
+    @trace = -> @a + @d
+    @mul = other ->
+        Matrix
+            a: @a * other.a + @b * other.c
+            b: @a * other.b + @b * other.d
+            c: @c * other.a + @d * other.c
+            d: @c * other.b + @d * other.d
+
+show_matrix: &Matrix -> Unit
+show_matrix = m ->
+    ("| " + (int_to_string ((*m).a)) + " " + (int_to_string ((*m).b)) + " |").println!
+    ("| " + (int_to_string ((*m).c)) + " " + (int_to_string ((*m).d)) + " |").println!
+    return
+
+main = ->
+    m1 = Matrix
+        a: 1
+        b: 2
+        c: 3
+        d: 4
+    m2 = Matrix
+        a: 5
+        b: 6
+        c: 7
+        d: 8
+
+    "Matrix A:".println!
+    show_matrix &m1
+    ("det(A) = " + (int_to_string (m1.det!))).println!
+    ("trace(A) = " + (int_to_string (m1.trace!))).println!
+
+    "Matrix B:".println!
+    show_matrix &m2
+
+    m3 = m1.mul m2
+    "A * B =".println!
+    show_matrix &m3
+    0

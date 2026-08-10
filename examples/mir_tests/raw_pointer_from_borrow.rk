@@ -1,0 +1,7 @@
+main = ->
+    mut x = 42
+    r = &mut x
+    ptr = r as *I64
+    y = x
+    unsafe *ptr = 7
+    0
