@@ -103,7 +103,7 @@ path = "main.rk"
 
 `main.rk`:
 
-```rock
+```livescript
 main = ->
     "Hello, Rock!".println!
     0
@@ -124,7 +124,7 @@ Hello, Rock!
 
 One function can map any unary constructor implementing `Functor`. The same implementation works for `Option`, `Result`, and `Vec`, including nested constructors.
 
-```rock
+```livescript
 map_any: M -> F A -> F B where F _: Functor, M: FnMut A, B
 map_any = mapper, value -> F::Functor::fmap mapper, value
 
@@ -169,7 +169,7 @@ Some([2, 4, 6])
 
 `Traversable` turns a vector of fallible computations into one fallible vector. `traverse_m` short-circuits on the first error, while `Foldable` reduces the validated values without exposing storage details.
 
-```rock
+```livescript
 validate_positive: I64 -> Result I64, I64
 validate_positive = value ->
     if value > 0
@@ -211,7 +211,7 @@ Ok(42)
 
 Operators are ordinary stdlib definitions rather than compiler special cases. Pipelines can map errors, sequence effects, transform successes, and propagate failures with `?`.
 
-```rock
+```livescript
 parse_port: I64 -> Result I64, I64
 parse_port = value ->
     if value > 0 && value <= 65535
