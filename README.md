@@ -120,126 +120,112 @@ Hello, Rock!
 
 ## Showcase
 
-### Generic programming over type constructors
+The working [TCP chat example](test_projects/new_new/main.rk) combines ownership, threads, synchronization, generic callbacks, and functional error handling without hiding the control flow.
 
-One function can map any unary constructor implementing `Functor`. The same implementation works for `Option`, `Result`, and `Vec`, including nested constructors.
+### Shared state as collection transforms
 
-```haskell
-map_any: M -> F A -> F B where F _: Functor, M: FnMut A, B
-map_any = mapper, value -> F::Functor::fmap mapper, value
-
-increment: I64 -> I64
-increment = value -> value + 1
-
-double: I64 -> I64
-double = value -> value * 2
-
-make_values: () -> Vec I64
-make_values = ->
-    mut values = Vec::new!
-    values.push 1
-    values.push 2
-    values.push 3
-    values
-
-map_values: Vec I64 -> Vec I64
-map_values = values -> map_any double, values
-
-main = ->
-    option: Option I64 = map_any increment, (Option::Some 4)
-    result: Result I64, I64 = map_any increment, (Result::Ok 5)
-    vector: Vec I64 = map_any double, (make_values!)
-    nested: Option (Vec I64) = map_any map_values, (Option::Some (make_values!))
-
-    option.show!.println!
-    result.show!.println!
-    vector.show!.println!
-    nested.show!.println!
-    0
-```
-
-```text
-Some(5)
-Ok(6)
-[2, 4, 6]
-Some([2, 4, 6])
-```
-
-### Effectful validation and folding
-
-`Traversable` turns a vector of fallible computations into one fallible vector. `traverse_m` short-circuits on the first error, while `Foldable` reduces the validated values without exposing storage details.
+Function-call holes keep the state operations focused on intent: remove a connection by its field, clone only the writers, then broadcast with a unit-returning callback.
 
 ```haskell
-validate_positive: I64 -> Result I64, I64
-validate_positive = value ->
-    if value > 0
-        Result::Ok value
-    else
-        Result::Err value
+struct ClientWriter
+    < stream: Arc TcpStream
+    < lock: Arc (Mutex I64)
 
-sum_pair: (I64, I64) -> I64
-sum_pair = pair -> pair.0 + pair.1
+struct ServerConnection
+    < id: I64
+    < writer: ClientWriter
 
-sum_values: Vec I64 -> I64
-sum_values = values -> Vec::Foldable::foldl sum_pair, 0, values
+struct ServerState
+    < clients: Vec ServerConnection
+    < next_id: I64
 
-validate_and_sum: Vec I64 -> Result I64, I64
-validate_and_sum = values ->
-    validated: Result (Vec I64), I64 =
-        Vec::Traversable::traverse_m validate_positive, values
-    validated <&> sum_values
+struct SharedServerState
+    < inner: Arc (Mutex ServerState)
 
-make_values: () -> Vec I64
-make_values = ->
-    mut values = Vec::new!
-    values.push 10
-    values.push 20
-    values.push 12
-    values
+impl Clone for ClientWriter
+    @clone = -> ClientWriter
+        stream: self.stream.clone!
+        lock: self.lock.clone!
 
-main = ->
-    total: Result I64, I64 = validate_and_sum (make_values!)
-    total.show!.println!
-    0
+impl ClientWriter
+    @send_all: &[U8] -> I64 -> Result I64, IoError
+    @send_all = bytes, len ->
+        guard = self.lock.lock!
+        self.stream.send_all_prefix bytes, len
+
+impl ServerState
+    ^@remove: I64 -> Unit
+    ^@remove = id -> self.clients.retain (.id != id)
+
+    @snapshot: Vec ClientWriter
+    @snapshot = -> self.clients.map_ref (.writer.clone!)
+
+broadcast: &mut SharedServerState -> &[U8; 1024] -> I64 -> Result I64, IoError
+broadcast = state, bytes, len ->
+    guard = state.inner.lock!
+    guard.snapshot!.for_each_owned target !-> target.send_all bytes, len
+    Result::Ok len
 ```
 
-```text
-Ok(42)
-```
+### TCP and threads as a result pipeline
 
-### Functional error pipelines
-
-Operators are ordinary stdlib definitions rather than compiler special cases. Pipelines can map errors, sequence effects, transform successes, and propagate failures with `?`.
+The client maps thread errors, binds the spawned reader into a curried continuation, propagates I/O failures with `?`, and maps the final join result back to the byte count.
 
 ```haskell
-parse_port: I64 -> Result I64, I64
-parse_port = value ->
-    if value > 0 && value <= 65535
-        Result::Ok value
-    else
-        Result::Err value
+struct ClientReader
+    < stream: Arc TcpStream
 
-normalize_port: I64 -> I64
-normalize_port = port -> port + 1000
+receive_with: Arc TcpStream -> T -> (&mut T -> &[U8; 1024] -> I64 -> Result I64, IoError) -> I64
+receive_with = stream, mut target, write ->
+    mut buffer: [U8; 1024] = [0; 1024]
+    mut total: I64 = 0
 
-open_service: I64 -> Result I64, I64
-open_service = requested ->
-    port = parse_port requested?
-    Result::Ok port
+    while true
+        match stream.recv &mut buffer
+            Result::Ok count =>
+                if count <= 0
+                    return total
+                else
+                    match write &mut target, &buffer, count
+                        Result::Ok written => total = total + written
+                        Result::Err _ => return total
+            Result::Err _ => return total
+    total
 
-main = ->
-    selected: Result I64, I64 =
-        (open_service 8080 <&> normalize_port)
-            <|> Result::Ok 9000
+impl ClientReader
+    ~@run: I64
+    ~@run = -> receive_with self.stream.clone!, stdout!, Stdout::write_all_prefix
 
-    selected
-        .unwrap_or 0
-        |> (port -> port.println!)
-    0
-```
+connect: () -> Result I64, IoError
+connect = ->
+    addr = Ipv4Addr::localhost!
+    socket = SocketAddrV4::new addr, 9999
+    TcpStream::connect socket >>= run_connection
 
-```text
-9080
+run_connection: TcpStream -> Result I64, IoError
+run_connection = stream ->
+    shared = Arc::new stream
+    reader = ClientReader
+        stream: shared.clone!
+
+    spawn (-> reader.run!)
+        <!> thread_error_to_io
+        >>= finish_connection shared.clone!
+
+finish_connection: Arc TcpStream -> JoinHandle I64 -> Result I64, IoError
+finish_connection = stream, handle ~>
+    total = pump_stdin stream.clone!?
+    stopped = stream.shutdown_write!?
+
+    handle.join!
+        <!> thread_error_to_io
+        <&> _ -> total
+
+pump_stdin: Arc TcpStream -> Result I64, IoError
+pump_stdin = stream -> stdin! |>> &stream
+
+thread_error_to_io: ThreadError -> IoError
+thread_error_to_io = _ -> IoError::Os 1
 ```
 
 More complete programs live in [`examples/`](examples/), [`test_projects/`](test_projects/), and the [language guide](https://champii.github.io/Rock/).
