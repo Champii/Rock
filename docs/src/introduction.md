@@ -82,7 +82,7 @@ main = ->
 
 The getting-started chapters build a runnable program before the language reference separates the ideas. Read [Hello, Rock!](getting-started/hello-rock.md) first, then [A First Project](getting-started/first-project.md). The language chapters revisit values, functions, control flow, structs, enums, references, ownership, traits, and the standard library in that order.
 
-Most examples use the shipped standard library. A direct `rockc` invocation therefore needs an explicit stdlib artifact, for example `--extern-artifact stdlib=/tmp/rock-book-stdlib/stdlib.rkca`. The compiler injects the stdlib prelude only when that dependency is supplied; it does not silently load a system library.
+Most examples use the standard library shipped with the selected Rock toolchain. The `rock` project command resolves that matching library automatically unless a manifest explicitly sets `no_std = true`.
 
 The examples in this book are intentionally complete. A `rock` fence either contains a whole program or a complete top-level module fragment whose declarations are all present in that fence. A name supplied by the stdlib prelude may be used without an import; any other external name must be imported in the same file.
 
@@ -98,4 +98,4 @@ Rock is still a prototype. The broad language model is exercised by parser and c
 - Forgetting that a block's last expression is its value.
 - Using an enum payload without first matching the enum variant.
 - Assuming a familiar operator has a compiler-defined meaning. The active program and its dependencies must provide the operator implementation.
-- Running `rockc` without the explicit stdlib artifact when the program uses prelude facilities.
+- Running `rock` outside a project directory containing `rock.toml`.

@@ -51,24 +51,10 @@ $ rock artifact   # Materialize a reusable crate artifact
 
 There is currently no `rock test` command. Compiler contributors use Cargo's Rust test suite; application tests are ordinary Rock programs or external harnesses.
 
-## When to use `rockc`
-
-Use `rockc` when a script or build system should name every compiler input explicitly:
-
-```console
-$ rockc --entry-file main.rk \
-    --output-dir build/direct \
-    --extern-artifact stdlib=/tmp/rock-book-stdlib/stdlib.rkca
-$ build/direct/main
-project entry point
-```
-
-Unlike `rock`, this command does not discover a dependency from the manifest. Every external artifact appears on the command line, which makes the invocation reproducible but more verbose. Application authors normally prefer `rock`; direct `rockc` commands are useful for a single source file, release scripts, and editor integrations.
-
 ## Formatting caution
 
 The formatter is still maturing. Known rough edges affect some trait implementation headers, nested generic applications, and `&mut` expressions. Keep source under version control, inspect formatter changes, and compile after formatting nontrivial code.
 
-## A practical transition
+## One project workflow
 
-Start with `rockc` and an explicit artifact when you are learning syntax. Once the same source is stable, place it in a project and let `rock` manage the entry path and build directory. This separates language errors from project configuration errors while you learn both workflows.
+Keep even small learning programs in a project with `rock.toml`. This gives examples, scripts, editors, and larger packages the same `rock format`, `rock build`, and `rock run` workflow from the beginning.

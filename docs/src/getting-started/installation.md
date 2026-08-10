@@ -11,15 +11,34 @@ Install these tools through your operating system:
 - LLVM 18, including its shared libraries
 - A C linker available as `cc`
 
-Clone the repository and build the workspace:
+Clone the repository and build the release toolchain:
 
 ```console
-$ git clone https://github.com/Champii/new_lang.git
-$ cd new_lang
+$ git clone https://github.com/Champii/Rock.git
+$ cd Rock
 $ cargo build --release
 ```
 
-The build produces the user-facing `rock` and `rockc` executables under `target/release`. `rock` is the project-oriented command; `rockc` compiles one entry file with explicit inputs.
+## Preparing a development toolchain
+
+Package the standard library beside the release binaries, then install that directory as a local toolchain:
+
+```console
+$ target/release/rockup dev stdlib package \
+    --path stdlib \
+    --sysroot target/release
+$ target/release/rockup toolchain install dev --path target/release
+$ target/release/rockup default dev
+```
+
+The installer creates command shims and prints the shell setup it added. Restart the shell when prompted, then verify the user-facing command:
+
+```console
+$ rock --version
+$ target/release/rockup toolchain list
+```
+
+The selected toolchain contains the compiler implementation and matching standard library, but application authors interact with it through `rock`. The project command discovers manifests, builds path dependencies, selects the standard library, and manages output paths.
 
 Run the compiler's Rust tests when changing the language implementation:
 
@@ -27,35 +46,11 @@ Run the compiler's Rust tests when changing the language implementation:
 $ cargo test -p rock-lib
 ```
 
-## Preparing the standard library
-
-Normal Rock programs use a precompiled standard-library artifact. In a repository checkout, build one directly:
-
-```console
-$ target/release/rockc \
-    --entry-file stdlib/lib.rk \
-    --crate-name stdlib \
-    --no-prelude \
-    --emit-artifact /tmp/rock-book-stdlib/stdlib.rkca \
-    --no-link
-```
-
-Pass that artifact to direct compiler invocations:
-
-```text
---extern-artifact stdlib=/tmp/rock-book-stdlib/stdlib.rkca
-```
-
-The explicit dependency matters. The compiler is not coupled to a built-in stdlib location, and it injects stdlib prelude names only after it has loaded an artifact named `stdlib`.
-
-## Choosing a workflow
-
-Use `rock` from a configured project directory for normal application work. Use `rockc` when you need a reproducible one-file command, a debug dump, or a scriptable build. Both commands ultimately compile the same language; the difference is how much project setup they perform for you.
-
 > **Current status:** Rock does not yet ship through a package registry or a stable binary installer. LLVM and target support remain platform-specific.
 
 ## Common setup failures
 
-- `llvm-config` or shared-library errors usually mean LLVM 18 is missing or a library path is not configured.
-- A missing prelude name in a direct `rockc` run usually means the explicit stdlib artifact option was omitted.
-- If a generated executable is not found, inspect the `--output-dir` directory rather than assuming the source directory contains it.
+- `llvm-config` or shared-library errors usually mean LLVM 18 is missing or its library path is not configured.
+- A missing standard-library component means the packaging step did not complete or the installed toolchain does not match the checkout.
+- If `rock` is not found after installation, restart the shell or apply the activation command printed by `rockup`.
+- If a generated executable is not found, inspect the project's `build/` directory.

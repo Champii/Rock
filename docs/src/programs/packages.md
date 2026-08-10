@@ -1,6 +1,6 @@
 # Packages and Dependencies
 
-A package is a buildable Rock crate described by `rock.toml`. The manifest names the crate, selects its source entry, and records dependencies. `rock` builds a package graph and materializes artifacts; `rockc` can consume those artifacts directly when a script needs exact inputs.
+A package is a buildable Rock crate described by `rock.toml`. The manifest names the crate, selects its source entry, and records dependencies. `rock` builds the package graph and materializes its artifacts.
 
 ## A minimal package
 
@@ -107,17 +107,11 @@ main = ->
 
 Version-only registry dependencies are accepted by manifest parsing but are not resolved by the current package workflow. Use a path dependency for a local project and do not assume that `version = "1.0"` downloads or locates a package.
 
-## Crate artifacts and `rockc`
+## Crate artifacts
 
-`rock artifact` produces a reusable `.rkca` product containing the typed exported interface, generic bodies needed by consumers, operator declarations, dependency records, and object-linkage metadata. Application authors normally let `rock` manage those paths. A direct `rockc` invocation names every artifact explicitly:
+`rock artifact` produces a reusable `.rkca` product containing the typed exported interface, generic bodies needed by consumers, operator declarations, dependency records, and object-linkage metadata. `rock build` and `rock run` create or reuse these products for path dependencies automatically; application authors do not need to pass artifact paths between packages.
 
-```console
-$ rockc --entry-file main.rk \
-    --extern-artifact stdlib=build/stdlib.rkca \
-    --extern-artifact geometry=../geometry/build/artifacts/geometry-0.1.0.rkca
-```
-
-The compiler does not search neighboring source directories for an implicit dependency. A missing or mismatched artifact is a build error, not an invitation to compile a source directory automatically.
+The package graph still remains explicit. Declare each dependency in `rock.toml`; the tool does not search neighboring source directories for undeclared packages. A missing or mismatched dependency is a build error.
 
 ## Prelude and `no_std`
 
@@ -170,6 +164,6 @@ $ rock artifact
 
 - Keep the manifest's crate name, imported crate path, and artifact name aligned.
 - Keep `[lib].path` relative to the package root and ensure the file exists.
-- Build dependencies before invoking `rockc`; `--extern-artifact` accepts artifacts, not source directories.
+- Declare every path dependency in `rock.toml` and let `rock` build it in dependency order.
 - Do not expect registry resolution, implicit source discovery, or compiler-owned stdlib injection.
 - `no_std = true` is a package-level choice; code that uses prelude types must opt into the appropriate explicit dependency instead.

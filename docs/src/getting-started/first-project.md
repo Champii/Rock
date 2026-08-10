@@ -10,7 +10,18 @@ FizzBuzz is a useful first project because it combines a value-producing functio
 
 ## The complete program
 
-Save this as `fizzbuzz.rk`:
+Create a project manifest as `rock.toml`:
+
+```toml
+[crate]
+name = "fizzbuzz"
+version = "0.1.0"
+
+[lib]
+path = "main.rk"
+```
+
+Save the program as `main.rk` beside the manifest:
 
 ```rock
 enum FizzBuzzValue
@@ -43,13 +54,10 @@ main = ->
     0
 ```
 
-Compile it with the stdlib artifact:
+Run it from the project directory:
 
 ```console
-$ rockc --entry-file fizzbuzz.rk \
-    --output-dir build/fizzbuzz \
-    --extern-artifact stdlib=/tmp/rock-book-stdlib/stdlib.rkca
-$ build/fizzbuzz/fizzbuzz
+$ rock run
 ```
 
 The complete output is:

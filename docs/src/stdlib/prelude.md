@@ -1,6 +1,6 @@
 # The Prelude and Common Traits
 
-When a program explicitly depends on the shipped `stdlib` artifact, Rock automatically imports its prelude. The prelude is a curated set of types, traits, operators, and small utility functions for ordinary programs. Specialized modules such as files, networking, threads, and process arguments remain explicit imports.
+For an ordinary project, `rock` loads the selected toolchain's standard library and makes its prelude available automatically. The prelude is a curated set of types, traits, operators, and small utility functions. Specialized modules such as files, networking, threads, and process arguments remain explicit imports.
 
 ## What is available
 
@@ -134,7 +134,7 @@ The output is `6` and `7`, and the marker file contains `marker`. The imports do
 
 ## Current limits and common mistakes
 
-- The prelude is available only when the `stdlib` artifact is explicitly supplied; the compiler does not inject a hidden sysroot dependency.
+- The prelude comes from the standard library in the selected toolchain; keep the compiler and toolchain components on the same revision.
 - `no_std` packages do not receive these names automatically.
 - An operator spelling is not a guarantee that every type supports it; trait selection still needs one applicable implementation.
 - `Clone` may allocate and is not the same as compiler-known copying of primitive values.

@@ -17,10 +17,21 @@ numeric operators.
 2. Define `fizzbuzz_value` so divisibility by 15 is checked before divisibility by 3 or 5.
 3. Define `print_value` to consume one enum and print both variants.
 4. Define `main` with a counter from 1 through 30.
-5. Compile the file with the explicit standard-library artifact.
+5. Run the project with `rock`.
 6. Run the executable and compare the final lines with the expected output.
 
-Save this complete source as `/tmp/rock-capstone/fizzbuzz.rk`:
+Save this manifest as `rock.toml` in a new project directory:
+
+```toml
+[crate]
+name = "fizzbuzz"
+version = "0.1.0"
+
+[lib]
+path = "main.rk"
+```
+
+Save this complete source beside it as `main.rk`:
 
 ```rock
 enum FizzBuzzValue
@@ -53,16 +64,10 @@ main = ->
     0
 ```
 
-Compile and run it with exact paths:
+Run it from the project directory:
 
 ```console
-$ mkdir -p /tmp/rock-capstone/build
-$ /root/new_lang2/target/release/rockc \
-    --entry-file /tmp/rock-capstone/fizzbuzz.rk \
-    --output-dir /tmp/rock-capstone/build \
-    --crate-name fizzbuzz \
-    --extern-artifact stdlib=/tmp/rock-book-stdlib/stdlib.rkca
-$ /tmp/rock-capstone/build/fizzbuzz
+$ rock run
 ```
 
 The expected output starts with `1`, `2`, `Fizz`, `4`, and `Buzz`, contains
@@ -78,14 +83,14 @@ The repository's current examples and tests are more reliable than old design
 notes. Start with these exact files:
 
 ```text
-/root/new_lang2/examples/fizzbuzz.rk
-/root/new_lang2/examples/structs.rk
-/root/new_lang2/examples/enums.rk
-/root/new_lang2/examples/enum_match.rk
-/root/new_lang2/examples/test_mod.rk
-/root/new_lang2/examples/extern_test.rk
-/root/new_lang2/stdlib/io.rk
-/root/new_lang2/stdlib/fs.rk
+examples/fizzbuzz.rk
+examples/structs.rk
+examples/enums.rk
+examples/enum_match.rk
+examples/test_mod.rk
+examples/extern_test.rk
+stdlib/io.rk
+stdlib/fs.rk
 ```
 
 Read public signatures first, then inspect the implementation body that owns
@@ -122,8 +127,8 @@ compiler changes.
 A useful contribution has a parser test for new syntax, an integration test for
 user-visible behavior, a small complete example, and a book update when the
 public surface changes. Keep the example's declarations and imports in the
-same source fence, compile it with `/tmp/rock-book-stdlib/stdlib.rkca`, and
-record the exact target and command used.
+    same source fence, place it in a project, and record the exact target and
+    `rock` command used.
 
 Prefer the simplest abstraction that communicates intent. A `match` can be
 clearer than a combinator chain, a concrete function can be clearer than a

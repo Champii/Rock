@@ -1,6 +1,17 @@
 # Hello, Rock!
 
-Create `hello.rk` with this complete program:
+Create a directory with this `rock.toml` manifest:
+
+```toml
+[crate]
+name = "hello"
+version = "0.1.0"
+
+[lib]
+path = "main.rk"
+```
+
+Create `main.rk` beside it with this complete program:
 
 ```rock
 main = ->
@@ -8,14 +19,10 @@ main = ->
     0
 ```
 
-Compile and run it from the repository checkout:
+Run it from the project directory:
 
 ```console
-$ target/release/rockc \
-    --entry-file hello.rk \
-    --output-dir build/hello \
-    --extern-artifact stdlib=/tmp/rock-book-stdlib/stdlib.rkca
-$ build/hello/hello
+$ rock run
 Hello, Rock!
 ```
 
@@ -98,3 +105,4 @@ Comments are ignored by the compiler. Use them for intent, constraints, or a non
 - Leaving out the final `0` from `main` when the body otherwise returns `Unit`.
 - Writing `println("text")`; the current call form is `"text".println!`.
 - Indenting a statement at the same level as `main = ->`; that makes it a separate top-level item instead of part of `main`.
+- Running `rock` outside the directory containing `rock.toml`.

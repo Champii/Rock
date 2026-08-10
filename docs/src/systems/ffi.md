@@ -22,9 +22,9 @@ The target C library must export `sqrt` with the declared calling convention.
 boundary. The program owns no memory passed to `sqrt`, so there is no cleanup
 operation associated with this call.
 
-Compile this kind of example only on the documented target,
-`x86_64-unknown-linux-gnu`, with the explicit standard-library artifact. A
-different target may use a different library name, ABI, or linker setup.
+Build this kind of example with `rock` only on the documented target,
+`x86_64-unknown-linux-gnu`. A different target may use a different library
+name, ABI, or linker setup.
 
 ## Pointer contracts
 

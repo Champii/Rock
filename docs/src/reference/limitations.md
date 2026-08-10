@@ -10,16 +10,14 @@ The supported code-generation target is currently
 linker. The FFI-backed standard library is POSIX- and Linux-oriented. There is
 no stable binary installer or public package registry workflow.
 
-Builds therefore need an explicit checkout and artifact. From this repository,
-the documented setup is:
+Builds therefore need an installed toolchain prepared from a checkout. From this repository, use:
 
 ```console
-$ /root/new_lang2/target/release/rockc \
-    --entry-file /root/new_lang2/stdlib/lib.rk \
-    --crate-name stdlib \
-    --no-prelude \
-    --emit-artifact /tmp/rock-book-stdlib/stdlib.rkca \
-    --no-link
+$ cargo build --release
+$ target/release/rockup dev stdlib package \
+    --path stdlib \
+    --sysroot target/release
+$ target/release/rockup toolchain install dev --path target/release
 ```
 
 Use path dependencies rather than registry-only dependencies. A complete
@@ -329,9 +327,9 @@ main = ->
     0
 ```
 
-The supplied `/tmp/rock-book-stdlib/stdlib.rkca` artifact currently rejects
-these `HashMap` method calls from a downstream file, so treat this source as a
-diagnostic until the artifact is rebuilt from the matching stdlib revision.
+An installed toolchain must contain the standard library built from the same
+revision as the compiler. If these calls fail after switching revisions,
+repackage and reinstall the development toolchain before diagnosing the source.
 
 The workaround for removal or traversal is to rebuild a new map from known
 keys, or maintain a separate owned list of keys while the map is in use.
