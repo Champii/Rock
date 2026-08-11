@@ -194,9 +194,9 @@ main = ->
 ```
 
 Arguments are separated by commas, and each argument consumes a complete
-expression. Parentheses delimit the nested call below because its comma would
-otherwise separate arguments of `double`; they do not turn a call into
-Rust-style `function(arguments)` syntax.
+expression. A nested call owns its comma-separated arguments without extra
+grouping; parentheses do not turn a call into Rust-style
+`function(arguments)` syntax.
 
 ```rock
 add: I64 -> I64 -> I64
@@ -206,7 +206,7 @@ double: I64 -> I64
 double = value -> value * 2
 
 main = ->
-    result: I64 = double (add 2, 3)
+    result: I64 = double add 2, 3
     result.println!
     0
 ```

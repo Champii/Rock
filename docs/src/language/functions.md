@@ -38,7 +38,7 @@ The signature lists three parameter types followed by the return type. The branc
 
 ## Calling functions
 
-Arguments follow the function and are separated by commas. Each argument consumes a complete expression. Parentheses are needed here because the nested `add` call contains a comma that would otherwise separate arguments of `double`:
+Arguments follow the function and are separated by commas. Each argument consumes a complete expression, including a nested call with its own comma-separated arguments:
 
 ```rock
 add = left, right ->
@@ -48,12 +48,12 @@ double = value ->
     value * 2
 
 main = ->
-    result = double (add 2, 3)
+    result = double add 2, 3
     result.println!
     0
 ```
 
-The inner call produces `5`; the outer call produces `10`. These parentheses delimit the comma-bearing nested call, not a Rust-style argument list. A single nested argument such as `double square 3` needs no grouping.
+The inner call owns the arguments `2, 3` and produces `5`; the outer call receives that complete result and produces `10`. Neither call needs grouping.
 
 Use `!` for a zero-argument call:
 

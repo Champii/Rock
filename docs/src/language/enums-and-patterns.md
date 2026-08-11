@@ -70,7 +70,7 @@ describe = message ->
         Message::Write text => text
 
 main = ->
-    describe (Message::Move 4, -2) .println!
+    describe Message::Move 4, -2 .println!
     describe Message::Write "hello" .println!
     0
 ```
@@ -139,8 +139,8 @@ describe = packet ->
         Packet::Empty => "empty"
 
 main = ->
-    describe (Packet::Data 3, "three") .println!
-    describe (Packet::Data 0 - 1, "negative") .println!
+    describe Packet::Data 3, "three" .println!
+    describe Packet::Data 0 - 1, "negative" .println!
     describe Packet::Empty .println!
     0
 ```
