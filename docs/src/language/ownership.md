@@ -106,13 +106,13 @@ main = ->
     mut counter = Counter
         value: 1
     counter.read!.println!
-    counter.set! 9
+    counter.set 9
     counter.read!.println!
     counter.take!.println!
     0
 ```
 
-`read!` leaves `counter` available because it borrows. `set!` requires a mutable binding and changes the owned value in place. `take!` consumes `counter`; the final `I64` is returned, and `counter` is not used again. The output is `1`, `9`, and `9`.
+`read!` leaves `counter` available because it borrows. `set 9` requires a mutable binding and changes the owned value in place. `take!` consumes `counter`; the final `I64` is returned, and `counter` is not used again. The output is `1`, `9`, and `9`.
 
 ## Explicit Cloning
 

@@ -126,7 +126,7 @@ main = ->
     mut counter = Counter
         value: 1
     counter.read!.println!
-    counter.set! 9
+    counter.set 9
     counter.read!.println!
     counter.take!.println!
     0
@@ -151,12 +151,12 @@ impl Projector for Identity
 
 main = ->
     identity = Identity
-    result: I64 = identity.project! 13
+    result: I64 = identity.project 13
     result.println!
     0
 ```
 
-The implementation defines `Identity::Output = I64`, so `project!` has type `I64 -> I64`. Omitting the required associated type is a compile-time error.
+The implementation defines `Identity::Output = I64`, so `project` accepts and returns `I64`. Omitting the required associated type is a compile-time error.
 
 ## Generic Trait Bounds
 

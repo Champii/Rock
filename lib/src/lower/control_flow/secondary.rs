@@ -858,17 +858,15 @@ impl Lowerer {
                             })
                             .collect();
                         if hir_args.is_empty() && !selected.substituted_params.is_empty() {
-                            return self.apply_secondary(
-                                (**recv).clone(),
-                                &ast::SecondaryExpr::Dot(ast::IdentOrNumber::Ident(
-                                    crate::ast::Ident {
-                                        name: method_name.clone(),
-                                        span: span.clone(),
-                                    },
-                                )),
-                                ExprUse::Value,
-                                true,
+                            self.diagnostics.push_with_span(
+                                format!(
+                                    "Type mismatch: method '{}' expected {} args, got 0",
+                                    method_name,
+                                    selected.substituted_params.len()
+                                ),
+                                span,
                             );
+                            return self.error_expression();
                         }
 
                         let adjusted_recv = self.apply_receiver_adjustment(
@@ -3275,8 +3273,8 @@ mod tests {
     }
 
     #[test]
-    fn empty_bang_preserves_method_value_when_explicit_params_remain() {
-        let (mut lowerer, impl_id, method_id) = lowerer_with_inherent_method();
+    fn empty_bang_rejects_method_with_explicit_params() {
+        let (mut lowerer, impl_id, _) = lowerer_with_inherent_method();
         {
             let method = lowerer
                 .items
@@ -3312,48 +3310,17 @@ mod tests {
             ExprUse::Value,
             false,
         );
-        let method_value = lowerer.apply_secondary(
+        let lowered = lowerer.apply_secondary(
             method_field,
             &SecondaryExpr::Arguments(Vec::new()),
             ExprUse::Value,
             false,
         );
 
-        assert!(
-            matches!(method_value.ty, Type::Function { ref params, ref ret, .. }
-                if params.as_slice() == [Type::I64] && matches!(ret.as_ref(), Type::Unit)),
-            "empty bang should keep remaining method params callable, got {:?} from {:?}",
-            method_value.ty,
-            method_value.kind
-        );
-
-        let lowered = lowerer.apply_secondary(
-            method_value,
-            &SecondaryExpr::Arguments(vec![crate::ast::Argument {
-                arg: number_expression(9),
-            }]),
-            ExprUse::Value,
-            false,
-        );
-
-        match lowered.kind {
-            HirExprKind::Call(callee, args, None) => {
-                assert_eq!(args.len(), 1);
-                let HirExprKind::Lambda { body, .. } = callee.kind else {
-                    panic!("expected method-value lambda callee");
-                };
-                let [crate::hir::HirStmt::Expr(HirExpr {
-                    kind: HirExprKind::MethodCall(_, _, _, _, Some(target)),
-                    ..
-                })] = body.stmts.as_slice()
-                else {
-                    panic!("expected targeted method call in method-value lambda");
-                };
-                assert_eq!(target.impl_id(), Some(impl_id));
-                assert_eq!(target.method_id(), Some(method_id));
-            }
-            other => panic!("expected explicit arg to form method call, got {other:?}"),
-        }
+        assert_eq!(lowered.ty, Type::Error);
+        assert!(lowerer.diagnostics.errors().iter().any(|error| {
+            error.message == "Type mismatch: method 'value' expected 1 args, got 0"
+        }));
     }
 
     #[test]

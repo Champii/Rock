@@ -144,12 +144,12 @@ impl Projector for Identity
 
 main = ->
     identity = Identity
-    value: I64 = identity.project! 13
+    value: I64 = identity.project 13
     value.println!
     0
 ```
 
-The implementation fixes `Identity::Output` to `I64`, so the argument and result of `project!` are both `I64`. The output is `13`. An implementation must define every associated type required by its trait.
+The implementation fixes `Identity::Output` to `I64`, so the argument and result of `project` are both `I64`. The output is `13`. An implementation must define every associated type required by its trait.
 
 ## Constructor Parameters
 

@@ -5238,7 +5238,7 @@ impl Counter
 main = ->
     mut c = Counter
         value: 1
-    c.set! 9
+    c.set 9
     c.take! .println!
     0
 "#,
@@ -5287,12 +5287,31 @@ impl Projector for Id
 
 main = ->
     id = Id
-    id.project! 13 .println!
+    id.project 13 .println!
     0
 "#,
     );
 
     assert_eq!(output.trim(), "13");
+}
+
+#[test]
+fn test_bang_rejects_method_with_required_argument() {
+    compile_should_fail(
+        r#"
+struct Counter
+
+impl Counter
+    @set: I64 -> I64
+    @set = value -> value
+
+main = ->
+    counter = Counter
+    counter.set! 9
+    0
+"#,
+        "expected 1 args, got 0",
+    );
 }
 
 #[test]
@@ -5364,7 +5383,7 @@ main = ->
         value: 4
     b = Token
         value: 4
-    a.same! b .println!
+    a.same b .println!
     0
 "#,
     );
