@@ -93,7 +93,7 @@ Function signatures use arrows. The following declaration and definition agree o
 ```rock
 hypotenuse: F64 -> F64 -> F64
 hypotenuse = a, b ->
-    (a * a + b * b) as F64
+    a * a + b * b as F64
 
 main = ->
     result = hypotenuse 3.0, 4.0
@@ -134,7 +134,7 @@ main = ->
     mutable_reference: &mut I64 = &mut number
     pointer: *I64 = mutable_reference as *I64
     unsafe *pointer = 9
-    doubled = apply (value -> value * 2), 4
+    doubled = apply value -> value * 2, 4
     pair.0.println!
     array[0].println!
     shared_value.println!
@@ -159,7 +159,7 @@ main = ->
     0
 ```
 
-The cast applies to the expression immediately on its left. Parentheses make a longer arithmetic conversion easier to scan:
+The cast applies to the expression immediately on its left. These parentheses are required so each operand is converted before division:
 
 ```rock
 average: I64 -> I64 -> F64

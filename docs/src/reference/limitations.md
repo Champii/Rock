@@ -130,7 +130,7 @@ has_text = message ->
         Message::Empty => false
 
 main = ->
-    message: Message = Message::Text (String::from_str "hello")
+    message: Message = Message::Text String::from_str "hello"
     result: Bool = has_text message
     result.println!
     0
@@ -151,7 +151,7 @@ has_text = message ->
         Message::Empty => false
 
 main = ->
-    message: Message = Message::Text (String::from_str "hello")
+    message: Message = Message::Text String::from_str "hello"
     result: Bool = has_text message
     result.println!
     0
@@ -314,7 +314,7 @@ hashing. Its intended lookup surface is `new`, `len`, `insert`, `get`, and
 ```rock
 main = ->
     mut scores: HashMap String, I64 = HashMap::new!
-    scores.insert (String::from_str "Ada"), 10
+    scores.insert String::from_str "Ada", 10
     key: String = String::from_str "Ada"
     present: Bool = scores.contains_key (& key)
     if present
@@ -363,7 +363,7 @@ abstraction. This complete program demonstrates the supported bind boundary:
 > stdlib::net::TcpListener
 
 bind_local = ->
-    address: SocketAddrV4 = SocketAddrV4::new (Ipv4Addr::localhost!), 0
+    address: SocketAddrV4 = SocketAddrV4::new Ipv4Addr::localhost!, 0
     TcpListener::bind address
 
 main = ->

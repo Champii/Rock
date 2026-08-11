@@ -145,11 +145,11 @@ The output is `locked` and `9`. `guard` leaves scope before `lock_once` returns,
 > stdlib::atomic::AtomicU64
 
 main = ->
-    counter: AtomicU64 = AtomicU64::new (0 as U64)
-    exchanged: U64 = counter.exchange (3 as U64)
-    previous: U64 = counter.fetch_add (1 as U64)
-    counter.store (5 as U64)
-    next: U64 = counter.fetch_sub (2 as U64)
+    counter: AtomicU64 = AtomicU64::new 0 as U64
+    exchanged: U64 = counter.exchange 3 as U64
+    previous: U64 = counter.fetch_add 1 as U64
+    counter.store 5 as U64
+    next: U64 = counter.fetch_sub 2 as U64
     exchanged as I64 .println!
     previous as I64 .println!
     next as I64 .println!

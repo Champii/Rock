@@ -71,7 +71,7 @@ describe = message ->
 
 main = ->
     describe (Message::Move 4, -2) .println!
-    describe (Message::Write "hello") .println!
+    describe Message::Write "hello" .println!
     0
 ```
 
@@ -93,7 +93,7 @@ is_quit = message ->
 
 main = ->
     is_quit Message::Quit .println!
-    is_quit (Message::Write "hello") .println!
+    is_quit Message::Write "hello" .println!
     0
 ```
 
@@ -112,7 +112,7 @@ classify = value ->
         _ => "positive"
 
 main = ->
-    classify (0 - 3) .println!
+    classify 0 - 3 .println!
     classify 0 .println!
     classify 8 .println!
     0
@@ -140,7 +140,7 @@ describe = packet ->
 
 main = ->
     describe (Packet::Data 3, "three") .println!
-    describe (Packet::Data (0 - 1), "negative") .println!
+    describe (Packet::Data 0 - 1, "negative") .println!
     describe Packet::Empty .println!
     0
 ```

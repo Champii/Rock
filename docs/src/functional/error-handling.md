@@ -38,7 +38,7 @@ divide = numerator, denominator ->
     if denominator == 0
         Result::Err 1
     else
-        Result::Ok (numerator / denominator)
+        Result::Ok numerator / denominator
 
 main = ->
     successful: Result I64, I64 = divide 10, 2
@@ -75,7 +75,7 @@ parse_nonnegative = value ->
         Result::Ok value
 
 main = ->
-    result: Result I64, ParseError = parse_nonnegative (0 - 3)
+    result: Result I64, ParseError = parse_nonnegative 0 - 3
     match result
         Result::Ok value => value.println!
         Result::Err error => error.show!.println!
@@ -92,10 +92,10 @@ Postfix `?` unwraps a successful `Option` or `Result` value and returns early fr
 twice_present: Option I64 -> Option I64
 twice_present = value ->
     number: I64 = value?
-    Option::Some (number * 2)
+    Option::Some number * 2
 
 main = ->
-    present: Option I64 = twice_present (Option::Some 4)
+    present: Option I64 = twice_present Option::Some 4
     absent: Option I64 = twice_present Option::None
     match present
         Option::Some value => value.println!
@@ -121,13 +121,13 @@ positive = value ->
 double_positive: I64 -> Result I64, I64
 double_positive = value ->
     number: I64 = positive value?
-    Result::Ok (number * 2)
+    Result::Ok number * 2
 
 main = ->
     success: Result I64, I64 = double_positive 4
-    failure: Result I64, I64 = double_positive (0 - 4)
-    success.unwrap_or 0 |> (value -> value.println!)
-    failure.unwrap_or 0 |> (value -> value.println!)
+    failure: Result I64, I64 = double_positive 0 - 4
+    success.unwrap_or 0 |> value -> value.println!
+    failure.unwrap_or 0 |> value -> value.println!
     0
 ```
 
@@ -149,12 +149,12 @@ keep_even = value ->
         Option::None
 
 main = ->
-    mapped: Option I64 = (Option::Some 4).map increment
-    chained: Option I64 = (Option::Some 4).and_then keep_even
-    flattened: Option I64 = (Option::Some (Option::Some 9)).flatten!
-    mapped.unwrap_or 0 |> (value -> value.println!)
-    chained.unwrap_or 0 |> (value -> value.println!)
-    flattened.unwrap_or 0 |> (value -> value.println!)
+    mapped: Option I64 = Option::Some 4 .map increment
+    chained: Option I64 = Option::Some 4 .and_then keep_even
+    flattened: Option I64 = Option::Some Option::Some 9 .flatten!
+    mapped.unwrap_or 0 |> value -> value.println!
+    chained.unwrap_or 0 |> value -> value.println!
+    flattened.unwrap_or 0 |> value -> value.println!
     0
 ```
 
@@ -167,12 +167,12 @@ increment: I64 -> I64
 increment = value -> value + 1
 
 main = ->
-    mapped: Result I64, I64 = (Result::Ok 4).map increment
-    chained: Result I64, I64 = (Result::Ok 4).and_then (value -> Result::Ok (value * 2))
-    failed: Result I64, I64 = (Result::Err 7).map increment
-    mapped.unwrap_or 0 |> (value -> value.println!)
-    chained.unwrap_or 0 |> (value -> value.println!)
-    failed.unwrap_or 0 |> (value -> value.println!)
+    mapped: Result I64, I64 = Result::Ok 4 .map increment
+    chained: Result I64, I64 = Result::Ok 4 .and_then value -> Result::Ok value * 2
+    failed: Result I64, I64 = Result::Err 7 .map increment
+    mapped.unwrap_or 0 |> value -> value.println!
+    chained.unwrap_or 0 |> value -> value.println!
+    failed.unwrap_or 0 |> value -> value.println!
     0
 ```
 
@@ -195,11 +195,11 @@ keep_even_option = value ->
 
 main = ->
     mapped: Option I64 = Option::Some 4 <&> increment
-    chained: Option I64 = (Option::Some 4) >>= keep_even_option
+    chained: Option I64 = Option::Some 4 >>= keep_even_option
     fallback: Option I64 = Option::None <|> Option::Some 9
-    mapped.unwrap_or 0 |> (value -> value.println!)
-    chained.unwrap_or 0 |> (value -> value.println!)
-    fallback.unwrap_or 0 |> (value -> value.println!)
+    mapped.unwrap_or 0 |> value -> value.println!
+    chained.unwrap_or 0 |> value -> value.println!
+    fallback.unwrap_or 0 |> value -> value.println!
     0
 ```
 
@@ -224,7 +224,7 @@ impl Try for MyFlow T
     ~@branch = ->
         match self
             MyFlow::Value value => ControlFlow::Continue value
-            MyFlow::Stop code => ControlFlow::Break (MyResidual::Stop code)
+            MyFlow::Stop code => ControlFlow::Break MyResidual::Stop code
 
 impl FromResidual MyResidual for MyFlow T
     from_residual = residual ->
@@ -241,7 +241,7 @@ next = should_continue ->
 compute: Bool -> MyFlow I64
 compute = should_continue ->
     value: I64 = next should_continue?
-    MyFlow::Value (value + 1)
+    MyFlow::Value value + 1
 
 main = ->
     match compute true

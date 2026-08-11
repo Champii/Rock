@@ -25,7 +25,7 @@ main = ->
     mut values: Vec I64 = Vec::new!
     values.push 1
     values.push 2
-    mapped: Vec I64 = values.map (value -> value + 10)
+    mapped: Vec I64 = values.map value -> value + 10
     mapped[0].println!
     mapped[1].println!
     0

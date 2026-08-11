@@ -79,7 +79,7 @@ absolute = number ->
     0 - number
 
 main = ->
-    absolute (0 - 5) .println!
+    absolute 0 - 5 .println!
     0
 ```
 

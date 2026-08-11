@@ -97,46 +97,46 @@ main = ->
     source.push 1
     source.push 2
     source.push 3
-    mapped: Vec I64 = source.map (value -> value + 1)
+    mapped: Vec I64 = source.map value -> value + 1
 
     mut borrowed_source: Vec I64 = Vec::new!
     borrowed_source.push 4
     borrowed_source.push 5
-    references: Vec I64 = borrowed_source.map_ref (value -> *value + 1)
-    borrowed_source.for_each (value ->
+    references: Vec I64 = borrowed_source.map_ref value -> *value + 1
+    borrowed_source.for_each value ->
         value.println!
-        return)
+        return
 
     mut filtered_source: Vec I64 = Vec::new!
     filtered_source.push 1
     filtered_source.push 2
     filtered_source.push 3
-    filtered: Vec I64 = filtered_source.filter (value -> value % 2 == 0)
+    filtered: Vec I64 = filtered_source.filter value -> value % 2 == 0
 
     mut retained_source: Vec I64 = Vec::new!
     retained_source.push 1
     retained_source.push 2
     retained_source.push 3
-    retained_source.retain (value -> *value % 2 == 0)
+    retained_source.retain value -> *value % 2 == 0
 
     mut optional_source: Vec I64 = Vec::new!
-    optional_source.push (0 - 1)
+    optional_source.push 0 - 1
     optional_source.push 2
     optional_source.push 3
-    positives: Vec I64 = optional_source.filter_map (value ->
+    positives: Vec I64 = optional_source.filter_map value ->
         if value > 0
             Option::Some value
         else
-            Option::None)
+            Option::None
 
     mut checked_source: Vec I64 = Vec::new!
     checked_source.push 4
     checked_source.push 5
-    checked: Result (Vec I64), I64 = checked_source.try_map (value ->
+    checked: Result (Vec I64), I64 = checked_source.try_map value ->
         if value >= 0
             Result::Ok value
         else
-            Result::Err 1)
+            Result::Err 1
 
     mapped.println!
     references.println!
@@ -165,10 +165,10 @@ main = ->
     thirty: I64 = 30
     scores.contains_key &ten .println!
     scores.contains_key &thirty .println!
-    match (scores.get &ten)
+    match scores.get &ten
         Option::Some score => score.println!
         Option::None => -1 .println!
-    match (scores.get &twenty)
+    match scores.get &twenty
         Option::Some score => score.println!
         Option::None => -1 .println!
     scores.len!.println!
@@ -208,7 +208,7 @@ The output is `5`, `4`, and `5`. `point` is moved into `boxed`; `as_mut!` change
 
 ```rock
 main = ->
-    state: Arc String = Arc::new (String::from_str "shared")
+    state: Arc String = Arc::new String::from_str "shared"
     worker_copy: Arc String = state.clone!
     *state .println!
     *worker_copy .println!

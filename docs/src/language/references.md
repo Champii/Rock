@@ -150,7 +150,7 @@ show_option = option ->
         Option::None => 0
 
 main = ->
-    value: Option String = Option::Some (String::from_str "hello")
+    value: Option String = Option::Some String::from_str "hello"
     first: I64 = show_option &value
     second: I64 = show_option &value
     first.println!

@@ -119,9 +119,9 @@ main = ->
     mapped: Option I64 = Option::Some 4 <&> increment
     bound: Option I64 = Option::Some 4 >>= keep_even
     fallback: Option I64 = Option::None <|> Option::Some 9
-    mapped.unwrap_or 0 |> (value -> value.println!)
-    bound.unwrap_or 0 |> (value -> value.println!)
-    fallback.unwrap_or 0 |> (value -> value.println!)
+    mapped.unwrap_or 0 |> value -> value.println!
+    bound.unwrap_or 0 |> value -> value.println!
+    fallback.unwrap_or 0 |> value -> value.println!
     0
 ```
 

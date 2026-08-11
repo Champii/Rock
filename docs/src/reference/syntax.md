@@ -193,8 +193,10 @@ main = ->
     0
 ```
 
-Arguments are separated by commas. Parentheses group an argument expression;
-they do not turn a call into Rust-style `function(arguments)` syntax.
+Arguments are separated by commas, and each argument consumes a complete
+expression. Parentheses delimit the nested call below because its comma would
+otherwise separate arguments of `double`; they do not turn a call into
+Rust-style `function(arguments)` syntax.
 
 ```rock
 add: I64 -> I64 -> I64
@@ -435,7 +437,7 @@ label = message ->
 
 main = ->
     first: &Str = label Message::Quit
-    second: &Str = label (Message::Number 4)
+    second: &Str = label Message::Number 4
     first.println!
     second.println!
     0

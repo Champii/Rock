@@ -61,7 +61,7 @@ The output is `invalid port`. For a valid address, `connect` performs a blocking
 
 open_listener: () -> Result SocketAddrV4, IoError
 open_listener = ->
-    listener = TcpListener::bind (SocketAddrV4::localhost 0)?
+    listener = TcpListener::bind SocketAddrV4::localhost 0?
     listener.local_addr!
 
 main = ->
@@ -87,7 +87,7 @@ The output is `true` and `127`. A listener created with port zero must be querie
 
 roundtrip: () -> Result I64, IoError
 roundtrip = ->
-    listener = TcpListener::bind (SocketAddrV4::localhost 0)?
+    listener = TcpListener::bind SocketAddrV4::localhost 0?
     address = listener.local_addr!?
     mut client = TcpStream::connect address?
     mut server = listener.accept!?

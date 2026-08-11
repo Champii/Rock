@@ -31,7 +31,7 @@ absolute = value ->
     if value >= 0 then value else 0 - value
 
 main = ->
-    absolute (0 - 7) .println!
+    absolute 0 - 7 .println!
     0
 ```
 
@@ -135,7 +135,7 @@ label = status ->
 
 main = ->
     label Status::Ready .println!
-    label (Status::Waiting 20) .println!
+    label Status::Waiting 20 .println!
     0
 ```
 

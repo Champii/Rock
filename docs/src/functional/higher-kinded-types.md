@@ -38,8 +38,8 @@ make_values = ->
     values
 
 main = ->
-    option_result: Option I64 = map_any increment, (Option::Some 4)
-    vector_result: Vec I64 = map_any double, (make_values!)
+    option_result: Option I64 = map_any increment, Option::Some 4
+    vector_result: Vec I64 = map_any double, make_values!
     option_result.show!.println!
     vector_result.show!.println!
     0
@@ -57,8 +57,8 @@ increment: I64 -> I64
 increment = value -> value + 1
 
 main = ->
-    success: Result I64, I64 = map_result increment, (Result::Ok 4)
-    failure: Result I64, I64 = map_result increment, (Result::Err 9)
+    success: Result I64, I64 = map_result increment, Result::Ok 4
+    failure: Result I64, I64 = map_result increment, Result::Err 9
     success.show!.println!
     failure.show!.println!
     0
@@ -82,7 +82,7 @@ increment: I64 -> I64
 increment = value -> value + 1
 
 main = ->
-    lifted: Option I64 = repure_any (Option::Some 0)
+    lifted: Option I64 = repure_any Option::Some 0
     wrapped: Option (I64 -> I64) = Option::Some increment
     applied: Option I64 = apply_any wrapped, lifted
     applied.show!.println!
@@ -100,7 +100,7 @@ bind_any: F I64 -> M -> F I64 where F _: Monad, M: FnMut I64, (F I64)
 bind_any = value, callback -> F::Monad::bind value, callback
 
 add_two: I64 -> Option I64
-add_two = value -> Option::Some (value + 2)
+add_two = value -> Option::Some value + 2
 
 main = ->
     start: Option I64 = Option::Some 3
@@ -120,7 +120,7 @@ fold_digits: (I64, I64) -> I64
 fold_digits = pair -> pair.0 * 10 + pair.1
 
 increment_effect: I64 -> Option I64
-increment_effect = value -> Option::Some (value + 1)
+increment_effect = value -> Option::Some value + 1
 
 make_values: () -> Vec I64
 make_values = ->
@@ -131,9 +131,9 @@ make_values = ->
     values
 
 main = ->
-    option_total: I64 = Option::Foldable::foldl fold_digits, 0, (Option::Some 4)
-    vector_total: I64 = Vec::Foldable::foldl fold_digits, 0, (make_values!)
-    traversed: Option (Vec I64) = Vec::Traversable::traverse increment_effect, (make_values!)
+    option_total: I64 = Option::Foldable::foldl fold_digits, 0, Option::Some 4
+    vector_total: I64 = Vec::Foldable::foldl fold_digits, 0, make_values!
+    traversed: Option (Vec I64) = Vec::Traversable::traverse increment_effect, make_values!
     option_total.println!
     vector_total.println!
     traversed.show!.println!
@@ -161,7 +161,7 @@ make_values = ->
     values
 
 main = ->
-    result: Option (Vec I64) = Vec::Traversable::traverse_m stop_at_two, (make_values!)
+    result: Option (Vec I64) = Vec::Traversable::traverse_m stop_at_two, make_values!
     result.show!.println!
     0
 ```
@@ -175,21 +175,21 @@ The second callback returns `None`, so traversal stops and the output is `None`.
 ```rock
 main = ->
     mut effects: Vec (Option I64) = Vec::new!
-    effects.push (Option::Some 4)
-    effects.push (Option::Some 5)
+    effects.push Option::Some 4
+    effects.push Option::Some 5
     successful: Option (Vec I64) = sequence effects
     match successful
         Option::Some values =>
             values.len!.println!
-            match (values.get 0)
+            match values.get 0
                 Option::Some value => *value .println!
                 Option::None => 0.println!
         Option::None => 0.println!
 
     mut failed_effects: Vec (Option I64) = Vec::new!
-    failed_effects.push (Option::Some 1)
+    failed_effects.push Option::Some 1
     failed_effects.push Option::None
-    failed_effects.push (Option::Some 3)
+    failed_effects.push Option::Some 3
     failed: Option (Vec I64) = sequence failed_effects
     match failed
         Option::Some values => values.len!.println!

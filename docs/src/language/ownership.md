@@ -68,8 +68,8 @@ string_length = text -> text.len!
 
 main = ->
     mut words: Vec String = Vec::new!
-    words.push (String::from_str "a")
-    words.push (String::from_str "long")
+    words.push String::from_str "a"
+    words.push String::from_str "long"
     lengths: Vec I64 = words.map string_length
     lengths[0].println!
     lengths[1].println!

@@ -24,7 +24,7 @@ read_text_prefix = reader, buffer ->
 write_demo: &Str -> Result I64, IoError
 write_demo = path ->
     mut file = File::create path?
-    write_text (&mut file), "hello"
+    write_text &mut file, "hello"
 
 main = ->
     match write_demo "rock-io-traits.txt"
@@ -133,7 +133,7 @@ read_stdin: () -> Result I64, IoError
 read_stdin = ->
     mut input = stdin!
     mut buffer: [U8; 16] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    input.read (&mut buffer)
+    input.read &mut buffer
 
 main = ->
     match read_stdin!

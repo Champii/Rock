@@ -45,7 +45,7 @@ main = ->
     0
 ```
 
-The call `add 20, 22` has two arguments. Parentheses group an expression, as in `add (2 + 3), 4`; they do not replace the space-and-comma call syntax. A trailing `!` invokes a zero-argument function or method, so `println!` means “call `println` with no explicit arguments.”
+The call `add 20, 22` has two arguments. Each argument is a complete expression, so `add 2 + 3, 4` passes `5` and `4` without extra grouping. Parentheses remain useful when they change precedence or delimit a nested call containing commas; they do not replace the space-and-comma call syntax. A trailing `!` invokes a zero-argument function or method, so `println!` means “call `println` with no explicit arguments.”
 
 Blocks are expressions. A block evaluates each earlier expression for its effects and gives the final expression as its value:
 

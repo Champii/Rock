@@ -157,7 +157,7 @@ The output is `3` and `20`. `values` owns all three elements before and after `p
 main = ->
     mut values: Vec I64 = Vec::new!
     values.push 10
-    match (values.get 4)
+    match values.get 4
         Option::Some value => *value .println!
         Option::None => -1 .println!
     0
