@@ -20,8 +20,8 @@ main = ->
     v = Vec2
         x: 3.0
         y: 4.0
-    (v.length!).println!
-    (sum_to 10).println!
-    (is_even 4).println!
-    (is_even 7).println!
+    v.length! .println!
+    sum_to 10 .println!
+    is_even 4 .println!
+    is_even 7 .println!
     0

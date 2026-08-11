@@ -13,16 +13,43 @@ use super::{indent_token, parse_if, parse_type};
 use super::{literal, stuck_operator_token};
 
 pub fn expression(stream: Input) -> IResult<Expression> {
+    let (mut stream, mut expression) = expression_without_spaced_dot(stream)?;
+
+    if stream.inside_argument_list {
+        return Ok((stream, expression));
+    }
+
+    while matches!(
+        stream.tokens.first().map(|token| &token.token_type),
+        Some(TokenType::SpacedDot)
+    ) {
+        let (next_stream, _) = TokenType::SpacedDot.process(stream)?;
+        let (next_stream, member) = ident_or_number.process(next_stream)?;
+        let (next_stream, trailing) = many(secondary).process(next_stream)?;
+
+        let mut secondaries = vec![SecondaryExpr::Dot(member)];
+        secondaries.extend(trailing);
+        expression = append_secondaries(expression, secondaries);
+        stream = next_stream;
+    }
+
+    Ok((stream, expression))
+}
+
+fn expression_without_spaced_dot(stream: Input) -> IResult<Expression> {
     let (stream, base) = (
         unary_expr,
         (
             operator,
             // Allow expression continuation on the same line
-            expression
+            expression_without_spaced_dot
                 // Or on the next line with indentation
                 .or(preceded(
                     TokenType::Eol,
-                    preceded(empty_lines, preceded(indent_token, expression)),
+                    preceded(
+                        empty_lines,
+                        preceded(indent_token, expression_without_spaced_dot),
+                    ),
                 )),
         )
             // Or operator at the beginning of the next line (indented by one level)
@@ -42,6 +69,22 @@ pub fn expression(stream: Input) -> IResult<Expression> {
     parse_cast_suffix(stream, base)
 }
 
+fn append_secondaries(expression: Expression, mut trailing: Vec<SecondaryExpr>) -> Expression {
+    if let Expression::UnaryExpr(UnaryExpr::PrimaryExpr(mut primary)) = expression {
+        primary
+            .secondaries
+            .get_or_insert_with(Vec::new)
+            .append(&mut trailing);
+        Expression::UnaryExpr(UnaryExpr::PrimaryExpr(primary))
+    } else {
+        Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+            operand: Operand::Expression(Box::new(expression)),
+            secondaries: Some(trailing),
+            type_annotation: None,
+        }))
+    }
+}
+
 fn parse_cast_suffix(stream: Input, base: Expression) -> IResult<Expression> {
     if let Ok((stream_after_as, _)) = TokenType::Keyword("as".to_string()).process(stream) {
         if let Ok((stream2, ty)) = parse_type(stream_after_as) {
@@ -49,15 +92,6 @@ fn parse_cast_suffix(stream: Input, base: Expression) -> IResult<Expression> {
         }
     }
     Ok((stream, base))
-}
-
-fn application_expression(stream: Input) -> IResult<Expression> {
-    let (stream, base) = unary_expr
-        .map(Expression::UnaryExpr)
-        .process(stream)
-        .map_err(|e| e.with_context("application expression"))?;
-
-    parse_cast_suffix(stream, base)
 }
 
 /// Parse a multiline operator continuation: operator at the beginning of the next line,
@@ -88,7 +122,7 @@ fn multiline_operator_continuation(stream: Input) -> IResult<(Operator, Expressi
     }
     // Parse operator and expression WITHOUT increasing indent context
     // This allows subsequent continuations at the same indent level
-    (operator, expression).process(stream)
+    (operator, expression_without_spaced_dot).process(stream)
 }
 
 pub fn unary_expr(stream: Input) -> IResult<UnaryExpr> {
@@ -415,9 +449,7 @@ fn not_inline_call_operator(stream: Input) -> IResult<()> {
 }
 
 fn call_argument_expression(stream: Input) -> IResult<Expression> {
-    call_hole_expression
-        .or(application_expression)
-        .process(stream)
+    call_hole_expression.or(expression).process(stream)
 }
 
 fn call_hole_expression(stream: Input) -> IResult<Expression> {
@@ -683,11 +715,7 @@ pub fn dot(stream: Input) -> IResult<IdentOrNumber> {
     }
 
     // Try inline dots
-    let (mut stream, ident) = preceded(
-        TokenType::Dot.or(preceded(arguments_list_short_circuit, TokenType::SpacedDot)),
-        ident_or_number,
-    )
-    .process(stream)?;
+    let (mut stream, ident) = preceded(TokenType::Dot, ident_or_number).process(stream)?;
     stream.after_multiline_dot = false;
     Ok((stream, ident))
 }

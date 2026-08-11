@@ -541,13 +541,13 @@ For tests using heap-allocated values that are now moved:
 ```rock
 // Before:
 arr = [1, 2, 3]
-(array_len arr).println!
-(array_index arr, 1).println!
+array_len arr .println!
+array_index arr, 1 .println!
 
 // After:
 arr = [1, 2, 3]
-(array_len &arr).println!
-(array_index &arr, 1).println!
+array_len &arr .println!
+array_index &arr, 1 .println!
 ```
 
 **Step 2: Run all tests**

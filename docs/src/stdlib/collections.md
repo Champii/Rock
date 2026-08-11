@@ -56,7 +56,7 @@ main = ->
     offset.println!
     contains.println!
     middle.len!.println!
-    (second as I64).println!
+    second as I64 .println!
     0
 ```
 
@@ -77,10 +77,10 @@ main = ->
     values.set 1, 99
     match values.get 1
         Option::Some value => value.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     match values.swap_remove 0
         Option::Some value => value.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     values.len!.println!
     0
 ```
@@ -143,7 +143,7 @@ main = ->
     filtered.println!
     retained_source.println!
     positives.println!
-    checked.unwrap_or (Vec::new!).println!
+    checked.unwrap_or Vec::new! .println!
     0
 ```
 
@@ -163,14 +163,14 @@ main = ->
     ten: I64 = 10
     twenty: I64 = 20
     thirty: I64 = 30
-    (scores.contains_key &ten).println!
-    (scores.contains_key &thirty).println!
+    scores.contains_key &ten .println!
+    scores.contains_key &thirty .println!
     match (scores.get &ten)
         Option::Some score => score.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     match (scores.get &twenty)
         Option::Some score => score.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     scores.len!.println!
     0
 ```
@@ -210,8 +210,8 @@ The output is `5`, `4`, and `5`. `point` is moved into `boxed`; `as_mut!` change
 main = ->
     state: Arc String = Arc::new (String::from_str "shared")
     worker_copy: Arc String = state.clone!
-    (*state).println!
-    (*worker_copy).println!
+    *state .println!
+    *worker_copy .println!
     0
 ```
 

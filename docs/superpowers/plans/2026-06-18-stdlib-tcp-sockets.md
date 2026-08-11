@@ -70,9 +70,9 @@ last_errno = ->
 main = ->
     fd = socket (-1), 1, 0
     if fd < 0
-        (last_errno!).println!
+        last_errno! .println!
     else
-        (close fd).println!
+        close fd .println!
     0
 "#,
     );
@@ -295,7 +295,7 @@ main = ->
         Result::Ok listener =>
             match listener.local_addr!
                 Result::Ok addr =>
-                    (addr.port > 0).println!
+                    addr.port > 0 .println!
                     addr.ip.a.println!
                     addr.ip.d.println!
                     0
@@ -476,8 +476,8 @@ main = ->
                                                 Result::Ok read =>
                                                     written.println!
                                                     read.println!
-                                                    (buf[0] as I64).println!
-                                                    (buf[3] as I64).println!
+                                                    buf[0] as I64 .println!
+                                                    buf[3] as I64 .println!
                                                     0
                                                 Result::Err _ => 5
                                         Result::Err _ => 4

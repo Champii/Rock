@@ -21,8 +21,8 @@ mod math
 > math::square
 
 main = ->
-    (square 6).println!
-    (math::square 4).println!
+    square 6 .println!
+    math::square 4 .println!
     0
 ```
 
@@ -97,8 +97,8 @@ mod api
 > api::*
 
 main = ->
-    (add 2, 5).println!
-    (double 9).println!
+    add 2, 5 .println!
+    double 9 .println!
     0
 ```
 
@@ -149,7 +149,7 @@ main = ->
     point = make_point 3, 4
     point.x.println!
     point.y.println!
-    (distance_squared point).println!
+    distance_squared point .println!
     0
 ```
 
@@ -195,7 +195,7 @@ mod left
 mod right
 
 main = ->
-    (left::value! + right::value!).println!
+    left::value! + right::value! .println!
     0
 ```
 

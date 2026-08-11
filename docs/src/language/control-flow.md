@@ -17,7 +17,7 @@ category = temperature ->
         "warm"
 
 main = ->
-    (category 12).println!
+    category 12 .println!
     0
 ```
 
@@ -31,7 +31,7 @@ absolute = value ->
     if value >= 0 then value else 0 - value
 
 main = ->
-    (absolute (0 - 7)).println!
+    absolute (0 - 7) .println!
     0
 ```
 
@@ -50,7 +50,7 @@ sum_to_ten = ->
     total
 
 main = ->
-    (sum_to_ten!).println!
+    sum_to_ten! .println!
     0
 ```
 
@@ -134,8 +134,8 @@ label = status ->
         Status::Waiting _ => "waiting"
 
 main = ->
-    (label Status::Ready).println!
-    (label (Status::Waiting 20)).println!
+    label Status::Ready .println!
+    label (Status::Waiting 20) .println!
     0
 ```
 

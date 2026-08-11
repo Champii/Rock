@@ -67,8 +67,8 @@ open_listener = ->
 main = ->
     match open_listener!
         Result::Ok address =>
-            (address.port > 0).println!
-            (address.ip.a as I64).println!
+            address.port > 0 .println!
+            address.ip.a as I64 .println!
             0
         Result::Err _ => 1
 ```
@@ -99,8 +99,8 @@ roundtrip = ->
     server.shutdown!
     written.println!
     read.println!
-    (received[0] as I64).println!
-    (received[3] as I64).println!
+    received[0] as I64 .println!
+    received[3] as I64 .println!
     Result::Ok 0
 
 main = ->

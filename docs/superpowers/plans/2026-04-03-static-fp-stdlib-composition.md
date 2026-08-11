@@ -68,13 +68,13 @@ main = ->
     none = Option::None
     nested = Option::Some (Option::Some 9)
 
-    ((some.map inc).unwrap_or 0).println!
-    ((none.map inc).unwrap_or 0).println!
-    ((some.and_then to_even).unwrap_or 0).println!
+    (some.map inc).unwrap_or 0 .println!
+    (none.map inc).unwrap_or 0 .println!
+    (some.and_then to_even).unwrap_or 0 .println!
     ((Option::Some 8).and_then to_even).unwrap_or 0.println!
-    (nested.flatten!.unwrap_or 0).println!
-    ((some.fold 0, x -> x + 1)).println!
-    ((none.fold 7, x -> x + 1)).println!
+    nested.flatten!.unwrap_or 0 .println!
+    (some.fold 0, x -> x + 1) .println!
+    (none.fold 7, x -> x + 1) .println!
     0
 "#,
     );
@@ -110,14 +110,14 @@ main = ->
     err = Result::Err (String::from_str "boom")
     nested = Result::Ok (Result::Ok 9)
 
-    ((ok.map inc).unwrap_or 0).println!
-    ((err.map inc).unwrap_or 0).println!
-    ((ok.and_then parse).unwrap_or 0).println!
+    (ok.map inc).unwrap_or 0 .println!
+    (err.map inc).unwrap_or 0 .println!
+    (ok.and_then parse).unwrap_or 0 .println!
     ((Result::Ok -1).and_then parse).unwrap_or 0.println!
-    ((err.map_err tag).fold 0, e -> e.len).println!
-    (nested.flatten!.unwrap_or 0).println!
-    ((ok.fold e -> 0, x -> x + 1)).println!
-    ((err.fold e -> e.len, x -> x)).println!
+    (err.map_err tag).fold 0, e -> e.len .println!
+    nested.flatten!.unwrap_or 0 .println!
+    (ok.fold e -> 0, x -> x + 1) .println!
+    (err.fold e -> e.len, x -> x) .println!
     0
 "#,
     );
@@ -280,15 +280,15 @@ main = ->
     ok = Result::Ok 4
     err = Result::Err (String::from_str "bad")
 
-    ((some >>= keep_even_opt).unwrap_or 0).println!
-    ((none >>= keep_even_opt).unwrap_or 0).println!
-    (((Option::Some 4) <&> inc).unwrap_or 0).println!
-    (((Option::None <|> Option::Some 9)).unwrap_or 0).println!
+    (some >>= keep_even_opt).unwrap_or 0 .println!
+    (none >>= keep_even_opt).unwrap_or 0 .println!
+    ((Option::Some 4) <&> inc).unwrap_or 0 .println!
+    ((Option::None <|> Option::Some 9)).unwrap_or 0 .println!
 
-    ((ok >>= keep_even_res).unwrap_or 0).println!
-    ((err >>= keep_even_res).unwrap_or 0).println!
-    (((Result::Ok 4) <&> inc).unwrap_or 0).println!
-    (((Result::Err (String::from_str "x")) <|> Result::Ok 9).unwrap_or 0).println!
+    (ok >>= keep_even_res).unwrap_or 0 .println!
+    (err >>= keep_even_res).unwrap_or 0 .println!
+    ((Result::Ok 4) <&> inc).unwrap_or 0 .println!
+    ((Result::Err (String::from_str "x")) <|> Result::Ok 9).unwrap_or 0 .println!
     0
 "#,
     );
@@ -353,8 +353,8 @@ fn test_stdlib_pipe_operator_function() {
 inc = x -> x + 1
 
 main = ->
-    (41 |> inc).println!
-    (((Option::Some 41) <&> inc).unwrap_or 0).println!
+    41 |> inc .println!
+    ((Option::Some 41) <&> inc).unwrap_or 0 .println!
     0
 "#,
     );
@@ -434,7 +434,7 @@ keep_even = x ->
 
 main = ->
     result = (Option::Some 4) <&> inc >>= keep_even
-    (result.unwrap_or 0).println!
+    result.unwrap_or 0 .println!
 ```
 ```
 

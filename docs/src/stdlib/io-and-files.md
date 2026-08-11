@@ -29,7 +29,7 @@ write_demo = path ->
 main = ->
     match write_demo "rock-io-traits.txt"
         Result::Ok count => count.println!
-        Result::Err _ => (-1).println!
+        Result::Err _ => -1 .println!
     0
 ```
 
@@ -59,7 +59,7 @@ main = ->
         Result::Ok count =>
             match append_greeting "rock-greeting.txt"
                 Result::Ok appended =>
-                    (count + appended).println!
+                    count + appended .println!
                     0
                 Result::Err _ => 1
         Result::Err _ => 1
@@ -88,8 +88,8 @@ read_file = path ->
     mut bytes: [U8; 5] = [0, 0, 0, 0, 0]
     count = file.read (&mut bytes)?
     count.println!
-    (bytes[0] as I64).println!
-    (bytes[4] as I64).println!
+    bytes[0] as I64 .println!
+    bytes[4] as I64 .println!
     Result::Ok count
 
 main = ->
@@ -138,7 +138,7 @@ read_stdin = ->
 main = ->
     match read_stdin!
         Result::Ok count => count.println!
-        Result::Err _ => (-1).println!
+        Result::Err _ => -1 .println!
     0
 ```
 

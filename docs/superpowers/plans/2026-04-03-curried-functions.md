@@ -454,8 +454,8 @@ Examples:
 add = a, b ~> a + b
 main = ->
     inc = add 1
-    (inc 2).println!
-    (add 1, 2).println!
+    inc 2 .println!
+    add 1, 2 .println!
     0
 ```
 
@@ -479,7 +479,7 @@ Examples:
 c = Counter
     value: 10
 get = c.get
-(get!).println!
+get! .println!
 ```
 
 - [ ] **Step 4: Add curried method tests**
@@ -488,8 +488,8 @@ Examples:
 
 ```rock
 step = c.add 1
-(step 2).println!
-(c.add 1, 2).println!
+step 2 .println!
+c.add 1, 2 .println!
 ```
 
 - [ ] **Step 5: Add trait-impl concrete resolution tests**

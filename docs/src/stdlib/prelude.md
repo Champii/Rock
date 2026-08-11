@@ -95,7 +95,7 @@ main = ->
     original: String = String::from_str "owned"
     duplicate: String = original.clone!
     shared: Arc String = Arc::new duplicate
-    (*shared).println!
+    *shared .println!
     original.println!
     0
 ```

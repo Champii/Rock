@@ -34,7 +34,7 @@ macro make_constant
 %make_constant answer 6 * 7
 
 main = ->
-    (answer!).println!
+    answer! .println!
     0
 ```
 
@@ -67,9 +67,9 @@ macro define_values
 %define_values first second third
 
 main = ->
-    (first!).println!
-    (second!).println!
-    (third!).println!
+    first! .println!
+    second! .println!
+    third! .println!
     0
 ```
 
@@ -86,8 +86,8 @@ source = -> 7
 %define_aliases source left right
 
 main = ->
-    (left!).println!
-    (right!).println!
+    left! .println!
+    right! .println!
     0
 ```
 
@@ -108,8 +108,8 @@ macro make_value
 %make_value fallback
 
 main = ->
-    (explicit!).println!
-    (fallback!).println!
+    explicit! .println!
+    fallback! .println!
     0
 ```
 

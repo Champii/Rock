@@ -29,8 +29,8 @@ main = ->
     mut number: I64 = 1
     first = &number
     second = first
-    (*first).println!
-    (*second).println!
+    *first .println!
+    *second .println!
     number = 2
     number.println!
     0
@@ -107,7 +107,7 @@ A mutable reference can be temporarily reborrowed. The shorter reborrow must fin
 show_and_set: &mut I64 -> Unit
 show_and_set = value ->
     *value = 2
-    (*value).println!
+    *value .println!
     return
 
 main = ->
@@ -128,7 +128,7 @@ A reference cannot outlive its referent. Rock ends a borrow after its final use 
 main = ->
     mut number: I64 = 1
     view = &number
-    (*view).println!
+    *view .println!
     number = 2
     number.println!
     0

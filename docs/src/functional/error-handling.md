@@ -19,10 +19,10 @@ main = ->
     absent: Option I64 = find_even 7
     match present
         Option::Some value => value.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     match absent
         Option::Some value => value.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     0
 ```
 
@@ -99,10 +99,10 @@ main = ->
     absent: Option I64 = twice_present Option::None
     match present
         Option::Some value => value.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     match absent
         Option::Some value => value.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     0
 ```
 

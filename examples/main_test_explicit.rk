@@ -2,5 +2,5 @@ id : T -> T
 id = a -> a
 
 main = ->
-    (id 3).println!
-    (id "lol").println!
+    id 3 .println!
+    id "lol" .println!

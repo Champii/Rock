@@ -4,7 +4,7 @@ use crate::parser::*;
 use crate::Config;
 
 #[test]
-fn application_binds_before_infix() {
+fn application_argument_consumes_infix_expression() {
     let input = "foo 2 + 2";
     let tokens = lex_test(input);
     let config = Config::default();
@@ -13,40 +13,25 @@ fn application_binds_before_infix() {
         .process(ParseCtx::from(&tokens, &config))
         .unwrap();
 
-    match expression {
-        Expression::BinopExpr(lhs, op, rhs) => {
-            assert_eq!(op.value, "+");
+    let Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+        secondaries: Some(secondaries),
+        ..
+    })) = expression
+    else {
+        panic!("expected application");
+    };
+    let SecondaryExpr::Arguments(arguments) = &secondaries[0] else {
+        panic!("expected arguments");
+    };
 
-            match lhs {
-                UnaryExpr::PrimaryExpr(PrimaryExpr {
-                    operand: Operand::Ident(_),
-                    secondaries: Some(secondaries),
-                    ..
-                }) => {
-                    assert_eq!(secondaries.len(), 1);
-                    assert!(matches!(&secondaries[0], SecondaryExpr::Arguments(_)));
-                }
-                other => panic!("expected application on the left, got {:?}", other),
-            }
-
-            match *rhs {
-                Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
-                    operand: Operand::Literal(_),
-                    secondaries: None,
-                    ..
-                })) => {}
-                other => panic!("expected literal rhs, got {:?}", other),
-            }
-        }
-        other => panic!("expected binop, got {:?}", other),
-    }
+    assert!(matches!(arguments[0].arg, Expression::BinopExpr(_, _, _)));
 
     assert_eq!(rest.len(), 0);
 }
 
 #[test]
-fn constructor_application_stops_before_infix_chain() {
-    let input = "Option::Some 2 <&> inc";
+fn parenthesized_application_can_be_used_as_infix_operand() {
+    let input = "(Option::Some 2) <&> inc";
     let tokens = lex_test(input);
     let config = Config::default();
 

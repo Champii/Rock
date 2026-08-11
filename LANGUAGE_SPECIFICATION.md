@@ -578,7 +578,9 @@ result = value |> transform |> validate
 ```
 
 ### 11.2 Operator Precedence
-Operators follow standard mathematical precedence rules, with custom operators having user-defined precedence levels.
+Higher declared precedence binds more tightly. Function application has precedence `8`: operators above `8` become part of the final function argument, while operators at or below `8` apply to the call result. For example, `double x + 1` means `double (x + 1)` when `+` has precedence `9`, while `Option::Some x <&> transform` applies `<&>` to `Option::Some x` when `<&>` has precedence `8`.
+
+A tight dot binds directly to its receiver: `value.method!`. A spaced dot has lower precedence than the complete expression on its left, so `double x + 1 .println!` prints the result of `double (x + 1)`. Parentheses remain available when explicit grouping is needed, such as `(double x) + 1`.
 
 ## 12. Unsafe Code
 

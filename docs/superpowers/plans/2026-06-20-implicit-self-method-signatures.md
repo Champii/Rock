@@ -229,7 +229,7 @@ impl Counter
 main = ->
     c = Counter
         value: 7
-    (c.value!).println!
+    c.value! .println!
     0
 "#,
     );
@@ -257,7 +257,7 @@ main = ->
     c = Counter
         value: 1
     c.set! 9
-    (c.take!).println!
+    c.take! .println!
     0
 "#,
     );
@@ -390,7 +390,7 @@ impl Value for Boxed
 main = ->
     b = Boxed
         value: 11
-    (b.value!).println!
+    b.value! .println!
     0
 "#,
     );
@@ -414,7 +414,7 @@ impl Projector for Id
 
 main = ->
     id = Id
-    (id.project! 13).println!
+    id.project! 13 .println!
     0
 "#,
     );
@@ -610,7 +610,7 @@ main = ->
         value: 4
     b = Token
         value: 4
-    (a.same! b).println!
+    a.same! b .println!
     0
 "#,
     );

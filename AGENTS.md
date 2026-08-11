@@ -131,6 +131,13 @@ make
 ## Rock Syntax
 - Rock function-call arguments are comma-separated. Write calls like `max 5, 7` and `~I64Lt a, b`, not space-separated forms like `max 5 7`.
 
+## Documentation
+- For beginner-guide and README work, write in a RustBook-like style: detailed, explicit, and approachable for readers with some programming experience.
+- Every explained Rock feature should have concrete code, and every Rock code fence should be locally understandable with user-defined types, functions, and variables declared in the same fence unless the prompt explicitly allows a fragment convention.
+- Exclude compiler-internal syntax such as `lang` markers from user-facing guides unless the task is explicitly about compiler internals.
+- User-facing docs should prefer the `rock` CLI for application workflows. Use `rockc` only for compiler-contributor or artifact-level workflows, and explain why when it appears.
+- Keep README links pointed at this repository's published docs (`Champii/Rock` / `champii.github.io/Rock`) rather than stale `new_lang` URLs, and remove outdated roadmaps instead of preserving them.
+
 ## Types And Data Modeling
 - Rust edition is 2021 across the workspace.
 - Prefer enums and structs for compiler data over loose tuples or maps.

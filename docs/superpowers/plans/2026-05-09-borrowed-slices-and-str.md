@@ -1188,7 +1188,7 @@ fn test_string_literal_indexing_is_rejected() {
         r#"
 main = ->
     s = "abc"
-    (s[1]).println!
+    s[1] .println!
     0
 "#,
         "cannot index Str by integer",
@@ -1213,7 +1213,7 @@ main = ->
     holder = Holder
         data: [97, 98, 99]
     slice = &holder.data
-    (second slice as I64).println!
+    second slice as I64 .println!
     0
 "#,
     );
@@ -1240,11 +1240,11 @@ fn test_string_builtins() {
         r#"
 main = ->
     s = "Hello, World!"
-    (string_len s).println!
-    (string_find s, "World").println!
-    (string_find s, "xyz").println!
-    (string_contains s, "Hello").println!
-    (string_contains s, "xyz").println!
+    string_len s .println!
+    string_find s, "World" .println!
+    string_find s, "xyz" .println!
+    string_contains s, "Hello" .println!
+    string_contains s, "xyz" .println!
     0
 "#,
     );

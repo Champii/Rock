@@ -99,7 +99,7 @@ main = ->
     point = Point
         x: 3
         y: 4
-    (distance_squared point).println!
+    distance_squared point .println!
     0
 ```
 

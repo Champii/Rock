@@ -1701,7 +1701,7 @@ fn test_module_directory_mod_file_resolution() {
     .unwrap();
     std::fs::write(
         dir.join("test.rk"),
-        "mod utils\n> utils::answer\nmain = ->\n    (answer!).println!\n    0\n",
+        "mod utils\n> utils::answer\nmain = ->\n    answer! .println!\n    0\n",
     )
     .unwrap();
 

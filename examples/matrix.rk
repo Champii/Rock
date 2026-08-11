@@ -16,8 +16,8 @@ impl Matrix
 
 show_matrix: &Matrix -> Unit
 show_matrix = m ->
-    ("| " + (int_to_string ((*m).a)) + " " + (int_to_string ((*m).b)) + " |").println!
-    ("| " + (int_to_string ((*m).c)) + " " + (int_to_string ((*m).d)) + " |").println!
+    "| " + (int_to_string ((*m).a)) + " " + (int_to_string ((*m).b)) + " |" .println!
+    "| " + (int_to_string ((*m).c)) + " " + (int_to_string ((*m).d)) + " |" .println!
     return
 
 main = ->
@@ -34,8 +34,8 @@ main = ->
 
     "Matrix A:".println!
     show_matrix &m1
-    ("det(A) = " + (int_to_string (m1.det!))).println!
-    ("trace(A) = " + (int_to_string (m1.trace!))).println!
+    "det(A) = " + (int_to_string (m1.det!)) .println!
+    "trace(A) = " + (int_to_string (m1.trace!)) .println!
 
     "Matrix B:".println!
     show_matrix &m2

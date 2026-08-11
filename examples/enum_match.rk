@@ -13,7 +13,7 @@ main = ->
     r = Color::Red
     g = Color::Green
     b = Color::Blue
-    (color_code r).println!
-    (color_code g).println!
-    (color_code b).println!
+    color_code r .println!
+    color_code g .println!
+    color_code b .println!
     0

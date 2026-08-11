@@ -21,6 +21,8 @@ pub(crate) enum AstExprOperand<'a> {
     Cast(&'a ast::Expression),
 }
 
+const APPLICATION_PRECEDENCE: u8 = 8;
+
 impl Lowerer {
     // ============================================================
     // Expression Lowering Methods
@@ -370,7 +372,109 @@ impl Lowerer {
         self.lower_expression_with_use(expr, ExprUse::Value)
     }
 
+    fn flatten_owned_binop(
+        expr: &ast::Expression,
+        operands: &mut Vec<ast::Expression>,
+        operators: &mut Vec<ast::Operator>,
+    ) {
+        match expr {
+            ast::Expression::BinopExpr(lhs, operator, rhs) => {
+                operands.push(ast::Expression::UnaryExpr(lhs.clone()));
+                operators.push(operator.clone());
+                Self::flatten_owned_binop(rhs, operands, operators);
+            }
+            _ => operands.push(expr.clone()),
+        }
+    }
+
+    fn build_owned_binop_chain(
+        operands: &[ast::Expression],
+        operators: &[ast::Operator],
+    ) -> Option<ast::Expression> {
+        let mut expression = operands.last()?.clone();
+        for index in (0..operators.len()).rev() {
+            let ast::Expression::UnaryExpr(lhs) = operands[index].clone() else {
+                return None;
+            };
+            expression =
+                ast::Expression::BinopExpr(lhs, operators[index].clone(), Box::new(expression));
+        }
+        Some(expression)
+    }
+
+    fn append_ast_secondaries(
+        expression: ast::Expression,
+        mut trailing: Vec<ast::SecondaryExpr>,
+    ) -> ast::Expression {
+        if let ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(mut primary)) = expression {
+            primary
+                .secondaries
+                .get_or_insert_with(Vec::new)
+                .append(&mut trailing);
+            ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(primary))
+        } else {
+            ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(ast::PrimaryExpr {
+                operand: ast::Operand::Expression(Box::new(expression)),
+                secondaries: Some(trailing),
+                type_annotation: None,
+            }))
+        }
+    }
+
+    fn apply_application_precedence(&self, expr: &ast::Expression) -> Option<ast::Expression> {
+        let ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(primary)) = expr else {
+            return None;
+        };
+        let secondaries = primary.secondaries.as_ref()?;
+
+        for (secondary_index, secondary) in secondaries.iter().enumerate() {
+            let ast::SecondaryExpr::Arguments(arguments) = secondary else {
+                continue;
+            };
+            let Some(last_argument) = arguments.last() else {
+                continue;
+            };
+
+            let mut operands = Vec::new();
+            let mut operators = Vec::new();
+            Self::flatten_owned_binop(&last_argument.arg, &mut operands, &mut operators);
+            let Some(split_at) = operators.iter().position(|operator| {
+                self.infix_precedence
+                    .get(&operator.value)
+                    .is_some_and(|precedence| *precedence <= APPLICATION_PRECEDENCE)
+            }) else {
+                continue;
+            };
+
+            let argument =
+                Self::build_owned_binop_chain(&operands[..=split_at], &operators[..split_at])?;
+            let mut call_secondaries = secondaries[..=secondary_index].to_vec();
+            let ast::SecondaryExpr::Arguments(call_arguments) =
+                &mut call_secondaries[secondary_index]
+            else {
+                unreachable!();
+            };
+            call_arguments.last_mut()?.arg = argument;
+
+            let mut call_primary = primary.clone();
+            call_primary.secondaries = Some(call_secondaries);
+            let call = ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(call_primary));
+
+            let mut outer_operands = vec![call];
+            outer_operands.extend_from_slice(&operands[split_at + 1..]);
+            let outer = Self::build_owned_binop_chain(&outer_operands, &operators[split_at..])?;
+            let trailing = secondaries[secondary_index + 1..].to_vec();
+            return Some(Self::append_ast_secondaries(outer, trailing));
+        }
+
+        None
+    }
+
     fn lower_expression_with_use(&mut self, expr: &ast::Expression, use_kind: ExprUse) -> HirExpr {
+        if let Some(expression) = self.apply_application_precedence(expr) {
+            return self.lower_expression_with_use(&expression, use_kind);
+        }
+
         // Handle `expr as Type` casts
         if let ast::Expression::CastExpr(inner, parse_ty) = expr {
             if use_kind == ExprUse::AssignmentPlace {

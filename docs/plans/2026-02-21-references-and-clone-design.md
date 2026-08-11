@@ -262,8 +262,8 @@ char_at s, 0       // s is still valid
 
 ```rock
 arr = [1, 2, 3]
-(array_len &arr).println!
-(array_index &arr, 1).println!
+array_len &arr .println!
+array_index &arr, 1 .println!
 ```
 
 ### For cases needing ownership, use clone:

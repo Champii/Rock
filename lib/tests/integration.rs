@@ -875,7 +875,7 @@ fn test_declarative_macro_can_produce_call_argument_holes() {
         combine = a, b, c -> a * 100 + b * 10 + c
         main = ->
             section = combine 1, _, 3
-            (section 2).println!
+            section 2 .println!
             0
 %make_main"#,
     );
@@ -923,7 +923,7 @@ fn test_primitive_operator_semantics_come_from_user_defined_operator() {
         r#"+ = left, right -> ~I64Sub left, right
 
 main = ->
-    (40 + 2).println!
+    40 + 2 .println!
     0
 "#,
     );
@@ -1764,7 +1764,7 @@ fn test_string_literal_indexing_is_rejected() {
         r#"
 main = ->
     s = "abc"
-    (s[1]).println!
+    s[1] .println!
     0
 "#,
         "cannot index Str by integer",
@@ -1800,7 +1800,7 @@ main = ->
     holder = Holder
         data: &bytes
     slice = holder.data
-    ((second slice) as I64).println!
+    (second slice) as I64 .println!
     0
 "#,
     );
@@ -1830,7 +1830,7 @@ show_slice = s -> s.show!
 
 main = ->
     arr = [1, 2, 3]
-    (show_slice &arr).println!
+    show_slice &arr .println!
     0
 "#,
     );
@@ -1988,7 +1988,7 @@ sum = s ->
 
 main = ->
     arr = [1, 2, 3]
-    (sum arr).println!
+    sum arr .println!
     0
 "#,
         "Type mismatch",
@@ -2016,7 +2016,7 @@ fn test_overapplied_non_unary_call_is_rejected() {
 add = x, y -> x + y
 
 main = ->
-    (add 1, 2, 3).println!
+    add 1, 2, 3 .println!
     0
 "#,
         "Type mismatch",
@@ -2033,7 +2033,7 @@ sum = s ->
 
 main = ->
     arr = [1, 2, 3]
-    (sum &arr).println!
+    sum &arr .println!
     0
 "#,
     );
@@ -2050,7 +2050,7 @@ first_byte = s -> s[0] as I64
 
 main = ->
     buf = [7 as U8, 8, 9]
-    (first_byte &buf).println!
+    first_byte &buf .println!
     0
 "#,
     );
@@ -2064,7 +2064,7 @@ fn test_array_literal_binding_annotation_infers_integer_elements() {
         r#"
 main = ->
     buf: [U8; 5] = [1, 2, 3, 4, 5]
-    (buf[4] as I64).println!
+    buf[4] as I64 .println!
     0
 "#,
     );
@@ -2084,7 +2084,7 @@ next_byte = calls ->
 main = ->
     mut calls = 0
     buf: [U8; 256] = [next_byte (&mut calls); 256]
-    (buf[255] as I64).println!
+    buf[255] as I64 .println!
     calls.println!
     0
 "#,
@@ -2099,7 +2099,7 @@ fn test_repeat_array_binding_annotation_infers_integer_element() {
         r#"
 main = ->
     buf: [U8; 256] = [0; 256]
-    (buf[255] as I64).println!
+    buf[255] as I64 .println!
     0
 "#,
     );
@@ -2133,8 +2133,8 @@ write_first = s ->
 main = ->
     mut buf = [0, 0, 0, 0, 0]
     slice = &mut buf
-    (write_first slice).println!
-    (buf[0] as I64).println!
+    write_first slice .println!
+    buf[0] as I64 .println!
     0
 "#,
     );
@@ -2156,7 +2156,7 @@ main = ->
     value = 40
     mut buf = [value + 2, 0, 0]
     slice = &mut buf
-    (first_byte slice).println!
+    first_byte slice .println!
     0
 "#,
     );
@@ -2208,7 +2208,7 @@ fn test_arr_ptr_rejects_fixed_array_values() {
 main = ->
     arr = [1, 2, 3]
     ptr = ~ArrPtr arr
-    unsafe (*ptr).println!
+    unsafe *ptr .println!
     0
 "#,
         "ArrPtr expected slice",
@@ -2295,7 +2295,7 @@ impl EchoArray for [T; 3]
 
 main = ->
     arr: [I64; 3] = [7, 8, 9]
-    (arr.echo 7).println!
+    arr.echo 7 .println!
     0
 "#,
     );
@@ -2318,7 +2318,7 @@ use_code = value -> value.code!
 
 main = ->
     arr: [I64; 3] = [1, 2, 3]
-    (use_code arr).println!
+    use_code arr .println!
     0
 "#,
     );
@@ -2455,7 +2455,7 @@ fn shared_index_reference_uses_index_authority() {
 main = ->
     mut arr: [I64; 2] = [1, 2]
     shared = &arr[0]
-    (*shared).println!
+    *shared .println!
     0
 "#,
     );
@@ -2486,7 +2486,7 @@ main = ->
     mutable = &mut target[0]
     *mutable = 9
     shared = &target[0]
-    (*shared).println!
+    *shared .println!
     target.write_value.println!
     0
 "#,
@@ -2520,8 +2520,8 @@ main = ->
     mut arr: [I64; 2] = [1, 2]
     mutable = &mut arr[0]
     shared = &arr[0]
-    (*mutable).println!
-    (*shared).println!
+    *mutable .println!
+    *shared .println!
     0
 "#,
         "borrow conflict on",
@@ -2540,8 +2540,8 @@ main = ->
     holder = Holder
         reference: &mut x
     shared = &x
-    (*holder.reference).println!
-    (*shared).println!
+    *holder.reference .println!
+    *shared .println!
     0
 "#,
         "borrow conflict on",
@@ -2560,8 +2560,8 @@ main = ->
     holder = Holder
         reference: &mut x
     other = &mut x
-    (*holder.reference).println!
-    (*other).println!
+    *holder.reference .println!
+    *other .println!
     0
 "#,
         "borrow conflict on",
@@ -2576,7 +2576,7 @@ main = ->
     mut arr: [I64; 2] = [2, 1]
     if arr[0] > arr[1] then
         arr[0] = arr[1]
-    (arr[0]).println!
+    arr[0] .println!
     0
 "#,
     );
@@ -2676,7 +2676,7 @@ main = ->
     arr: [Bool; 3] = [false, false, true]
     arr[0].show!.println!
     p = &arr[0]
-    (*p).println!
+    *p .println!
     0
 "#,
         "orphan impl",
@@ -2701,7 +2701,7 @@ is_selected_at_two = value ->
 
 main = ->
     arr: [Bool; 3] = [true, false, false]
-    (is_selected_at_two arr).println!
+    is_selected_at_two arr .println!
     0
 "#,
         "orphan impl",
@@ -2789,13 +2789,13 @@ fn test_stdlib_math() {
     let output = compile_and_run(
         r#"
 main = ->
-    (stdlib::libc::sqrt 144.0).println!
-    (stdlib::libc::sin 0.0).println!
-    (stdlib::libc::cos 0.0).println!
-    (stdlib::libc::pow 2.0, 10.0).println!
-    (stdlib::libc::ceil 3.2).println!
-    (stdlib::libc::floor 3.8).println!
-    (string_len "hello").println!
+    stdlib::libc::sqrt 144.0 .println!
+    stdlib::libc::sin 0.0 .println!
+    stdlib::libc::cos 0.0 .println!
+    stdlib::libc::pow 2.0, 10.0 .println!
+    stdlib::libc::ceil 3.2 .println!
+    stdlib::libc::floor 3.8 .println!
+    string_len "hello" .println!
     0
 "#,
     );
@@ -2814,7 +2814,7 @@ fn test_stdlib_prelude_extern_is_available_without_explicit_import() {
     let output = compile_and_run(
         r#"
 main = ->
-    (sqrt 144.0).println!
+    sqrt 144.0 .println!
     0
 "#,
     );
@@ -2838,9 +2838,9 @@ last_errno = ->
 main = ->
     fd = socket (-1), 1, 0
     if fd < (0 as I32)
-        (last_errno!).println!
+        last_errno! .println!
     else
-        (close fd).println!
+        close fd .println!
     0
 "#,
     );
@@ -2868,15 +2868,15 @@ main = ->
     custom = Ipv4Addr::new 1, 2, 3, 4
     addr = SocketAddrV4::localhost 8080
     any_addr = SocketAddrV4::any 7000
-    (local.a as I64).println!
-    (local.d as I64).println!
-    (any.a as I64).println!
-    (custom.c as I64).println!
+    local.a as I64 .println!
+    local.d as I64 .println!
+    any.a as I64 .println!
+    custom.c as I64 .println!
     new_addr = SocketAddrV4::new custom, 9000
     addr.port.println!
-    (new_addr.ip.a as I64).println!
+    new_addr.ip.a as I64 .println!
     new_addr.port.println!
-    (any_addr.ip.a as I64).println!
+    any_addr.ip.a as I64 .println!
     any_addr.port.println!
     0
 "#,
@@ -2902,11 +2902,11 @@ main = ->
         Result::Ok listener =>
             match listener.local_addr!
                 Result::Ok addr =>
-                    (addr.port > 0).println!
-                    (addr.ip.a as I64).println!
-                    (addr.ip.b as I64).println!
-                    (addr.ip.c as I64).println!
-                    (addr.ip.d as I64).println!
+                    addr.port > 0 .println!
+                    addr.ip.a as I64 .println!
+                    addr.ip.b as I64 .println!
+                    addr.ip.c as I64 .println!
+                    addr.ip.d as I64 .println!
                     0
                 Result::Err _ => 2
         Result::Err _ => 1
@@ -3008,8 +3008,8 @@ roundtrip = ->
     stopped = client.shutdown_write!
     written.println!
     read.println!
-    (received[0] as I64).println!
-    (received[3] as I64).println!
+    received[0] as I64 .println!
+    received[3] as I64 .println!
     Result::Ok 0
 
 main = ->
@@ -3077,7 +3077,7 @@ main = ->
     sink = Arc::new Sink
     match write_one (&sink)
         Result::Ok count => count.println!
-        Result::Err _ => (-1).println!
+        Result::Err _ => -1 .println!
     0
 "#,
     );
@@ -3112,8 +3112,8 @@ roundtrip = ->
     read = server.read slice?
     written.println!
     read.println!
-    (buf[0] as I64).println!
-    (buf[3] as I64).println!
+    buf[0] as I64 .println!
+    buf[3] as I64 .println!
     Result::Ok 0
 
 main = ->
@@ -3166,8 +3166,8 @@ roundtrip = ->
     read = client.read slice?
     written.println!
     read.println!
-    (buf[0] as I64).println!
-    (buf[4] as I64).println!
+    buf[0] as I64 .println!
+    buf[4] as I64 .println!
     Result::Ok 0
 
 main = ->
@@ -3260,8 +3260,8 @@ read_file = path ->
     slice = &mut buf
     read = read_into (&mut file), slice?
     read.println!
-    (buf[0] as I64).println!
-    (buf[4] as I64).println!
+    buf[0] as I64 .println!
+    buf[4] as I64 .println!
     Result::Ok 0
 
 main = ->
@@ -3473,7 +3473,7 @@ fn test_function_name_can_match_c_extern_symbol() {
 > stdlib::net::TcpListener
 
 main = ->
-    (listen!).println!
+    listen! .println!
     0
 
 listen = -> 42
@@ -3503,14 +3503,14 @@ fn test_hash_trait_scalar_and_str() {
     let output = compile_and_run(
         r#"
 main = ->
-    (42.hash!).println!
-    ((-42).hash!).println!
-    (true.hash!).println!
-    (false.hash!).println!
-    ('A'.hash!).println!
-    ("abc".hash!).println!
-    ("abc".hash!).println!
-    ("abd".hash!).println!
+    42.hash! .println!
+    (-42).hash! .println!
+    true.hash! .println!
+    false.hash! .println!
+    'A'.hash! .println!
+    "abc".hash! .println!
+    "abc".hash! .println!
+    "abd".hash! .println!
     0
 "#,
     );
@@ -3687,7 +3687,7 @@ main = ->
     mut c = Counter
         value: 1
     c.inc!
-    (c.get!).println!
+    c.get! .println!
     0
 "#,
     );
@@ -3715,7 +3715,7 @@ poke = value -> value.touch!
 main = ->
     mut counter = Counter
         value: 41
-    (poke (&mut counter)).println!
+    poke (&mut counter) .println!
     0
 "#,
     );
@@ -3738,7 +3738,7 @@ read_ref = value -> value.read!
 
 main = ->
     value = 42
-    (read_ref &value).println!
+    read_ref &value .println!
     0
 "#,
     );
@@ -3782,9 +3782,9 @@ min = a, b ->
     if a < b then a else b
 
 main = ->
-    (max 10, 20).println!
-    (min 10, 20).println!
-    (max 5, 3).println!
+    max 10, 20 .println!
+    min 10, 20 .println!
+    max 5, 3 .println!
     0
 "#,
     );
@@ -3802,9 +3802,9 @@ double = x -> x * 2
 triple = x -> x * 3
 
 main = ->
-    (double 5).println!
-    (triple 5).println!
-    (double (triple 3)).println!
+    double 5 .println!
+    triple 5 .println!
+    double (triple 3) .println!
     0
 "#,
     );
@@ -3870,10 +3870,10 @@ main = ->
     outer = combine _, 5, _
     nested = apply (combine 7, _, 9), 8
     projected = box _.value
-    (middle 2).println!
-    (outer 4, 6).println!
+    middle 2 .println!
+    outer 4, 6 .println!
     nested.println!
-    (projected 42).println!
+    projected 42 .println!
     0
 "#,
     );
@@ -3889,9 +3889,9 @@ fn test_modulo_operator() {
     let output = compile_and_run(
         r#"
 main = ->
-    (10 % 3).println!
-    (15 % 5).println!
-    (7 % 2).println!
+    10 % 3 .println!
+    15 % 5 .println!
+    7 % 2 .println!
     0
 "#,
     );
@@ -3906,9 +3906,9 @@ fn test_string_operations() {
     let output = compile_and_run(
         r#"
 main = ->
-    (string_len "hello").println!
-    (string_len "").println!
-    (string_len "world!").println!
+    string_len "hello" .println!
+    string_len "" .println!
+    string_len "world!" .println!
     0
 "#,
     );
@@ -3930,9 +3930,9 @@ classify = value ->
         _ => 3
 
 main = ->
-    (classify (String::from_str "listen")).println!
-    (classify (String::from_str "connect")).println!
-    (classify (String::from_str "other")).println!
+    classify (String::from_str "listen") .println!
+    classify (String::from_str "connect") .println!
+    classify (String::from_str "other") .println!
     0
 "#,
     );
@@ -4005,9 +4005,9 @@ mod utils
 > utils::square
 
 main = ->
-    (add 3, 4).println!
-    (double 10).println!
-    (square 5).println!
+    add 3, 4 .println!
+    double 10 .println!
+    square 5 .println!
     0
 ",
     )
@@ -4054,7 +4054,7 @@ fn test_module_type_alias_import_export_and_qualification() {
     std::fs::write(dir.join("types.rk"), "type Number = I64\n\n< Number\n").unwrap();
     std::fs::write(
         dir.join("test.rk"),
-        "mod types\n> types::Number\n\nidentity: Number -> Number\nidentity = value -> value\n\nmain = ->\n    (identity 42).println!\n    0\n",
+        "mod types\n> types::Number\n\nidentity: Number -> Number\nidentity = value -> value\n\nmain = ->\n    identity 42 .println!\n    0\n",
     )
     .unwrap();
 
@@ -4199,8 +4199,8 @@ mod api
 > api::*
 
 main = ->
-    (add 2, 5).println!
-    (double 9).println!
+    add 2, 5 .println!
+    double 9 .println!
     0
 ",
     )
@@ -4254,7 +4254,7 @@ mod left
 mod right
 
 main = ->
-    (left::value! + right::value!).println!
+    left::value! + right::value! .println!
     0
 ",
     )
@@ -4315,7 +4315,7 @@ main = ->
     p = make_point 3, 4
     p.x.println!
     p.y.println!
-    (distance_sq p).println!
+    distance_sq p .println!
     0
 ",
     )
@@ -4345,9 +4345,9 @@ fn test_array_indexing() {
         r#"
 main = ->
     arr = [10, 20, 30, 40, 50]
-    (arr[0]).println!
-    (arr[2]).println!
-    (arr[4]).println!
+    arr[0] .println!
+    arr[2] .println!
+    arr[4] .println!
     0
 "#,
     );
@@ -4393,8 +4393,8 @@ fn test_string_add_operator_concats_owned_string_and_borrowed_str() {
     let output = compile_and_run(
         r#"
 main = ->
-    ((String::from_str "Hello, ") + "World!").println!
-    ("Hello, " + "World!").println!
+    (String::from_str "Hello, ") + "World!" .println!
+    "Hello, " + "World!" .println!
     0
 "#,
     );
@@ -4433,10 +4433,10 @@ fn test_array_index_assignment() {
         r#"
 main = ->
     mut arr = [10, 20, 30]
-    (arr[1]).println!
+    arr[1] .println!
     arr[1] = 99
-    (arr[1]).println!
-    (arr[0]).println!
+    arr[1] .println!
+    arr[0] .println!
     0
 "#,
     );
@@ -4455,7 +4455,7 @@ read_second = slice -> slice[1]
 
 main = ->
     arr = [7, 8, 9]
-    (read_second &arr).println!
+    read_second &arr .println!
     0
 "#,
     );
@@ -4529,7 +4529,7 @@ read_negative = slice -> slice[(0 - 1)]
 
 main = ->
     arr = [7, 8, 9]
-    (read_negative &arr).println!
+    read_negative &arr .println!
     0
 "#,
     );
@@ -4550,7 +4550,7 @@ read_upper = slice -> slice[3]
 
 main = ->
     arr = [7, 8, 9]
-    (read_upper &arr).println!
+    read_upper &arr .println!
     0
 "#,
     );
@@ -4587,9 +4587,9 @@ fn test_array_len() {
         r#"
 main = ->
     arr = [10, 20, 30, 40, 50]
-    (~ArrayLen arr).println!
+    ~ArrayLen arr .println!
     empty = [1]
-    (~ArrayLen empty).println!
+    ~ArrayLen empty .println!
     0
 "#,
     );
@@ -4614,7 +4614,7 @@ sum_array = arr ->
 
 main = ->
     arr = [1, 2, 3, 4]
-    (sum_array &arr).println!
+    sum_array &arr .println!
     0
 "#,
     );
@@ -4629,8 +4629,8 @@ fn test_boolean_printing() {
 main = ->
     true.println!
     false.println!
-    (3 > 2).println!
-    (3 < 2).println!
+    3 > 2 .println!
+    3 < 2 .println!
     0
 "#,
     );
@@ -4681,16 +4681,16 @@ main = ->
         x: 1
         y: 2
 
-    (v1.dot v2).println!
+    v1.dot v2 .println!
     v1.magnitude_sq!.println!
 
-    (gcd 48, 18).println!
+    gcd 48, 18 .println!
 
     arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    (sum_array &arr).println!
+    sum_array &arr .println!
 
-    (abs 42).println!
-    (abs (0 - 7)).println!
+    abs 42 .println!
+    abs (0 - 7) .println!
 
     s1 = string_concat "Rock", " "
     greeting = s1.concat (String::from_str "lang!")
@@ -4715,11 +4715,11 @@ fn test_closure_capture() {
 main = ->
     base = 100
     f = x -> x + base
-    (f 5).println!
-    (f 20).println!
+    f 5 .println!
+    f 20 .println!
     offset = 10
     g = y -> y * 2 + offset
-    (g 3).println!
+    g 3 .println!
     0
 "#,
     );
@@ -5120,7 +5120,7 @@ main = ->
         i = i + 1
     k = 0
     while k < 5
-        (arr[k]).println!
+        arr[k] .println!
         k = k + 1
     0
 "#,
@@ -5162,9 +5162,9 @@ double = x -> x * 2
 add = x, y -> x + y
 
 main = ->
-    (add (square 3), (double 5)).println!
-    (square (double 3)).println!
-    (double (square 4)).println!
+    add (square 3), (double 5) .println!
+    square (double 3) .println!
+    double (square 4) .println!
     0
 "#,
     );
@@ -5210,7 +5210,7 @@ impl Counter
 main = ->
     c = Counter
         value: 7
-    (c.value!).println!
+    c.value! .println!
     0
 "#,
     );
@@ -5239,7 +5239,7 @@ main = ->
     mut c = Counter
         value: 1
     c.set! 9
-    (c.take!).println!
+    c.take! .println!
     0
 "#,
     );
@@ -5263,7 +5263,7 @@ impl Value for Boxed
 main = ->
     b = Boxed
         value: 11
-    (b.value!).println!
+    b.value! .println!
     0
 "#,
     );
@@ -5287,7 +5287,7 @@ impl Projector for Id
 
 main = ->
     id = Id
-    (id.project! 13).println!
+    id.project! 13 .println!
     0
 "#,
     );
@@ -5364,7 +5364,7 @@ main = ->
         value: 4
     b = Token
         value: 4
-    (a.same! b).println!
+    a.same! b .println!
     0
 "#,
     );
@@ -5494,9 +5494,9 @@ main = ->
     r = Color::Red
     g = Color::Green
     b = Color::Blue
-    (to_num r).println!
-    (to_num g).println!
-    (to_num b).println!
+    to_num r .println!
+    to_num g .println!
+    to_num b .println!
     0
 "#,
     );
@@ -5565,7 +5565,7 @@ score = choice ->
         Miss => 0
 
 main = ->
-    (score (BetaChoice::Hit 41)).println!
+    score (BetaChoice::Hit 41) .println!
     0
 "#,
     );
@@ -5707,12 +5707,12 @@ main = ->
     m3.d.println!
     r1 = safe_div 10, 3
     r2 = safe_div 10, 0
-    (unwrap r1).println!
-    (unwrap r2).println!
-    (gcd 48, 18).println!
-    (is_prime 7).println!
-    (is_prime 15).println!
-    (is_prime 97).println!
+    unwrap r1 .println!
+    unwrap r2 .println!
+    gcd 48, 18 .println!
+    is_prime 7 .println!
+    is_prime 15 .println!
+    is_prime 97 .println!
     0
 "#,
     );
@@ -6336,8 +6336,8 @@ triple = x -> x * 3
 apply = f, x -> f x
 
 main = ->
-    (apply double, 5).println!
-    (apply triple, 5).println!
+    apply double, 5 .println!
+    apply triple, 5 .println!
     0
 "#,
     );
@@ -6354,7 +6354,7 @@ apply = f, x -> f x
 
 main = ->
     base = 10
-    (apply (y -> y + base), 5).println!
+    apply (y -> y + base), 5 .println!
     0
 "#,
     );
@@ -6370,8 +6370,8 @@ add = a, b ~> a + b
 
 main = ->
     inc = add 1
-    (inc 2).println!
-    (add 1, 2).println!
+    inc 2 .println!
+    add 1, 2 .println!
     0
 "#,
     );
@@ -6389,7 +6389,7 @@ add = a, b ~> a + b
 
 main = ->
     inc = add 2
-    (inc 5).println!
+    inc 5 .println!
     0
 "#,
     );
@@ -6457,8 +6457,8 @@ main = ->
     counter = Counter
         value: 10
     add_one = counter.add 1
-    (add_one 2).println!
-    (counter.add 1, 2).println!
+    add_one 2 .println!
+    counter.add 1, 2 .println!
     0
 "#,
     );
@@ -6515,9 +6515,9 @@ fib = n ->
         (fib (n - 1)) + (fib (n - 2))
 
 main = ->
-    (factorial 5).println!
-    (factorial 10).println!
-    (fib 10).println!
+    factorial 5 .println!
+    factorial 10 .println!
+    fib 10 .println!
     0
 "#,
     );
@@ -6621,9 +6621,9 @@ collatz_steps = n ->
     steps
 
 main = ->
-    (collatz_steps 1).println!
-    (collatz_steps 6).println!
-    (collatz_steps 27).println!
+    collatz_steps 1 .println!
+    collatz_steps 6 .println!
+    collatz_steps 27 .println!
     0
 "#,
     );
@@ -6643,12 +6643,12 @@ main = ->
     v.push 20
 
     match (v.get 0)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     match (v.get 5)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -6668,7 +6668,7 @@ main = ->
     saved = v.get 0
     v.push 2
     match saved
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 0.println!
     0
 "#,
@@ -6704,16 +6704,16 @@ main = ->
     v.push 1
     v.push 2
     v.push 3
-    (v.len!).println!
+    v.len! .println!
 
     match (v.get 0)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 0.println!
     match (v.get 1)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 0.println!
     match (v.get 2)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 0.println!
     0
 "#,
@@ -6764,7 +6764,7 @@ fn test_stdlib_vec_new_as_slice_uses_non_null_buffer() {
 main = ->
     v: Vec I64 = Vec::new!
     slice = v.as_slice!
-    (((~ArrPtr (*slice)) as I64) != 0).println!
+    ((~ArrPtr (*slice)) as I64) != 0 .println!
     0
 "#,
     );
@@ -6780,7 +6780,7 @@ main = ->
     mut v = Vec::new!
     v.push 1
     slice = v.as_slice!
-    (((~ArrPtr (*slice)) as I64) != 0).println!
+    ((~ArrPtr (*slice)) as I64) != 0 .println!
     0
 "#,
     );
@@ -6842,27 +6842,27 @@ fn test_hash_map_insert_get_len_and_contains() {
         r#"
 main = ->
     mut map = HashMap::new!
-    (map.len!).println!
+    map.len! .println!
     map.insert 10, 100
     map.insert 20, 200
-    (map.len!).println!
+    map.len! .println!
     ten = 10
     twenty = 20
     thirty = 30
-    (map.contains_key &ten).println!
-    (map.contains_key &thirty).println!
+    map.contains_key &ten .println!
+    map.contains_key &thirty .println!
 
     match (map.get &ten)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     match (map.get &twenty)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     match (map.get &thirty)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -6930,8 +6930,8 @@ main = ->
         value: 7
     c = Box
         value: 9
-    (same_boxed a, b).println!
-    (same_boxed a2, c).println!
+    same_boxed a, b .println!
+    same_boxed a2, c .println!
     0
 "#,
     );
@@ -7041,7 +7041,7 @@ bad_eq: T -> U -> Bool where T: Eq
 bad_eq = left, right -> left == right
 
 main = ->
-    (bad_eq 1, true).println!
+    bad_eq 1, true .println!
     0
 "#,
         "Type mismatch",
@@ -7056,12 +7056,12 @@ main = ->
     mut map = HashMap::new!
     map.insert 1, 10
     map.insert 1, 99
-    (map.len!).println!
+    map.len! .println!
     one = 1
 
     match (map.get &one)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -7085,20 +7085,20 @@ main = ->
     map.insert 41, 410
     map.insert 49, 490
 
-    (map.len!).println!
+    map.len! .println!
     one = 1
     nine = 9
     forty_nine = 49
 
     match (map.get &one)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
     match (map.get &nine)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
     match (map.get &forty_nine)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -7128,19 +7128,19 @@ main = ->
         id: 1), 10
     map.insert (BadKey
         id: 2), 20
-    (map.len!).println!
+    map.len! .println!
 
     one = BadKey
         id: 1
     match (map.get &one)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     two = BadKey
         id: 2
     match (map.get &two)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -7172,17 +7172,17 @@ main = ->
     map.insert "red", 1
     map.insert "blue", 2
     map.insert "red", 3
-    (map.len!).println!
+    map.len! .println!
     red = "red"
     green = "green"
 
     match (map.get &red)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     match (map.get &green)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -7333,13 +7333,13 @@ main = ->
         drop_id: 201
     match (map.get &get_probe)
         Option::Some val => (*val).id.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     get_probe.id.println!
 
     contains_probe = TrackedKey
         id: 1
         drop_id: 202
-    (map.contains_key &contains_probe).println!
+    map.contains_key &contains_probe .println!
     contains_probe.id.println!
 
     missing_probe = TrackedKey
@@ -7347,7 +7347,7 @@ main = ->
         drop_id: 203
     match (map.get &missing_probe)
         Option::Some val => (*val).id.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     missing_probe.id.println!
 
     second_get_probe = TrackedKey
@@ -7355,7 +7355,7 @@ main = ->
         drop_id: 204
     match (map.get &second_get_probe)
         Option::Some val => (*val).id.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     second_get_probe.id.println!
 
     0
@@ -7452,7 +7452,7 @@ main = ->
     v.push 10
     v.push 20
     slice = v.as_slice!
-    (slice[1]).println!
+    slice[1] .println!
     0
 "#,
     );
@@ -7469,7 +7469,7 @@ main = ->
     v.push 11
     v.push 22
     slice = v.as_slice!
-    (slice[1]).println!
+    slice[1] .println!
     0
 "#,
     );
@@ -7486,7 +7486,7 @@ main = ->
     v.push 1
     slice = v.as_slice!
     v.push 2
-    (slice[0]).println!
+    slice[0] .println!
     0
 "#,
         "borrow",
@@ -7499,7 +7499,7 @@ fn test_string_len_method() {
         r#"
 main = ->
     s = String::from_str "hello"
-    (s.len!).println!
+    s.len! .println!
     0
 "#,
     );
@@ -7533,8 +7533,8 @@ show_option = opt ->
 
 main = ->
     value = Option::Some (String::from_str "hello")
-    (show_option &value).println!
-    (show_option &value).println!
+    show_option &value .println!
+    show_option &value .println!
     0
 "#,
     );
@@ -7558,8 +7558,8 @@ show_boxed = opt ->
 main = ->
     value = Option::Some (Boxed
         text: String::from_str "hello")
-    (show_boxed &value).println!
-    (show_boxed &value).println!
+    show_boxed &value .println!
+    show_boxed &value .println!
     0
 "#,
     );
@@ -7580,8 +7580,8 @@ read_option_ref = opt ->
 main = ->
     number = 42
     value = Option::Some (&number)
-    (read_option_ref &value).println!
-    (read_option_ref &value).println!
+    read_option_ref &value .println!
+    read_option_ref &value .println!
     0
 "#,
     );
@@ -7652,7 +7652,7 @@ impl Box T
 
 main = ->
     b = Box::new 21
-    (b.apply identity).println!
+    b.apply identity .println!
     0
 "#,
     );
@@ -7680,7 +7680,7 @@ impl Holder T
 main = ->
     value = identity 42
     h = Holder::new value
-    (h.apply identity).println!
+    h.apply identity .println!
     0
 "#,
     );
@@ -7756,7 +7756,7 @@ used = -> 1
 unused = -> 2
 
 main = ->
-    (used!).println!
+    used! .println!
     0
 "#,
     );
@@ -7791,7 +7791,7 @@ use_i64 = -> identity 7
 use_i32 = -> identity (8 as I32)
 
 main = ->
-    (use_i64!).println!
+    use_i64! .println!
     0
 "#,
     );
@@ -7837,7 +7837,7 @@ impl Box T
 
 main = ->
     b = Box::new 21
-    (b.apply identity).println!
+    b.apply identity .println!
     0
 "#,
     );
@@ -7916,10 +7916,10 @@ main = ->
 
     f = float_to_string 3.5
     f.println!
-    (f.len! > 0).println!
+    f.len! > 0 .println!
 
-    (string_to_int "42").println!
-    (string_to_float "2.5").println!
+    string_to_int "42" .println!
+    string_to_float "2.5" .println!
     0
 "#,
     );
@@ -7949,8 +7949,8 @@ main = ->
     sub: Vec U8 = byte_substr slice_in, 1, 2
     sub.len!.println!
     slice = sub.as_slice!
-    (slice[0] as I64).println!
-    (slice[1] as I64).println!
+    slice[0] as I64 .println!
+    slice[1] as I64 .println!
     0
 "#,
     );
@@ -7980,10 +7980,10 @@ main = ->
 fn test_stdlib_eq_default_not_equal() {
     let src = r#"
 main = ->
-    (1 != 2).println!
-    (1 != 1).println!
-    ("abc" != "abd").println!
-    ("abc" != "abc").println!
+    1 != 2 .println!
+    1 != 1 .println!
+    "abc" != "abd" .println!
+    "abc" != "abc" .println!
     0
 "#;
 
@@ -8047,7 +8047,7 @@ main = ->
     v3 = v1.add v2
     v3.x.println!
     v3.y.println!
-    (v1.dot v2_for_dot).println!
+    v1.dot v2_for_dot .println!
     v1.magnitude_sq!.println!
     0
 "#,
@@ -8113,12 +8113,12 @@ fn test_builtin_functions() {
     let output = compile_and_run(
         r#"
 main = ->
-    (abs (0 - 5)).println!
-    (abs 3).println!
-    (min 10, 20).println!
-    (max 10, 20).println!
-    (min (0 - 5), 3).println!
-    (max (0 - 5), 3).println!
+    abs (0 - 5) .println!
+    abs 3 .println!
+    min 10, 20 .println!
+    max 10, 20 .println!
+    min (0 - 5), 3 .println!
+    max (0 - 5), 3 .println!
     s = float_to_string 3.14
     s.println!
     0
@@ -8142,11 +8142,11 @@ extern malloc: I64 -> *U8
 
 main = ->
     s = "Hello, World!"
-    (string_len s).println!
-    (string_find s, "World").println!
-    (string_find s, "xyz").println!
-    (string_contains s, "Hello").println!
-    (string_contains s, "xyz").println!
+    string_len s .println!
+    string_find s, "World" .println!
+    string_find s, "xyz" .println!
+    string_contains s, "Hello" .println!
+    string_contains s, "xyz" .println!
     buf = malloc 8
     unsafe
         *buf = 97
@@ -8158,7 +8158,7 @@ main = ->
         *(~PtrOffset buf, 6) = 102
         *(~PtrOffset buf, 7) = 0
     bounded = unsafe ~BorrowStr buf, 7
-    (string_find bounded, "def").println!
+    string_find bounded, "def" .println!
     0
 "#,
     );
@@ -8178,10 +8178,10 @@ fn test_closures() {
 main = ->
     x = 10
     add_x = a -> a + x
-    (add_x 5).println!
-    (add_x 20).println!
+    add_x 5 .println!
+    add_x 20 .println!
     mul = a, b -> a * b
-    (mul 3, 7).println!
+    mul 3, 7 .println!
     0
 "#,
     );
@@ -8214,7 +8214,7 @@ main = ->
             y: 20
         width: 100
         height: 50
-    (r.area!).println!
+    r.area! .println!
     r.origin.x.println!
     r.origin.y.println!
     0
@@ -8249,7 +8249,7 @@ main = ->
     c = c.inc!
     c = c.inc!
     c = c.dec!
-    (c.get!).println!
+    c.get! .println!
     0
 "#,
     );
@@ -8273,8 +8273,8 @@ unwrap_or = opt, default ->
 main = ->
     a = Option::Some 42
     b = Option::None
-    (unwrap_or a, 0).println!
-    (unwrap_or b, 99).println!
+    unwrap_or a, 0 .println!
+    unwrap_or b, 99 .println!
     0
 "#,
     );
@@ -8336,12 +8336,12 @@ fn test_float_arithmetic() {
 main = ->
     x = 3.14
     y = 2.0
-    (x + y).println!
-    (x * y).println!
-    (x - y).println!
-    (x / y).println!
-    (sqrt x).println!
-    (to_int x).println!
+    x + y .println!
+    x * y .println!
+    x - y .println!
+    x / y .println!
+    sqrt x .println!
+    to_int x .println!
     z = to_float 42
     z.println!
     0
@@ -8365,7 +8365,7 @@ main = ->
     arr = [1, 2, 3, 4, 5]
     i = 0
     while i < (~ArrayLen arr)
-        (arr[i] * 2).println!
+        arr[i] * 2 .println!
         i = i + 1
     0
 "#,
@@ -8401,10 +8401,10 @@ fn test_string_parsing() {
 main = ->
     n = string_to_int "12345"
     n.println!
-    (n + 1).println!
+    n + 1 .println!
     f = string_to_float "3.14"
     f.println!
-    (string_to_int "-42").println!
+    string_to_int "-42" .println!
     0
 "#,
     );
@@ -8471,8 +8471,8 @@ main = ->
         b: 6
         c: 7
         d: 8
-    (m1.det!).println!
-    (m1.trace!).println!
+    m1.det! .println!
+    m1.trace! .println!
     m3 = m1.mul m2
     m3.a.println!
     m3.b.println!
@@ -8533,7 +8533,7 @@ fib = n ->
 main = ->
     i = 0
     while i < 10
-        (fib i).println!
+        fib i .println!
         i = i + 1
     0
 "#,
@@ -8623,9 +8623,9 @@ color_name = c ->
         Color::Blue => "blue"
 
 main = ->
-    (color_name (Color::Red)).println!
-    (color_name (Color::Green)).println!
-    (color_name (Color::Blue)).println!
+    color_name (Color::Red) .println!
+    color_name (Color::Green) .println!
+    color_name (Color::Blue) .println!
     0
 "#,
     );
@@ -8685,7 +8685,7 @@ main = ->
     y = 10
     z = -y
     z.println!
-    (abs (0 - 7)).println!
+    abs (0 - 7) .println!
     0
 "#,
     );
@@ -8708,8 +8708,8 @@ gcd = a, b ->
 lcm = a, b -> a / (gcd a, b) * b
 
 main = ->
-    (gcd 48, 18).println!
-    (lcm 12, 18).println!
+    gcd 48, 18 .println!
+    lcm 12, 18 .println!
     0
 "#,
     );
@@ -9000,7 +9000,7 @@ get_y = p -> p.y
 
 main = ->
     p = Point::make 10, 20
-    (get_y p).println!
+    get_y p .println!
     0
 "#,
         "Field 'y' of struct 'Point' is private",
@@ -9024,7 +9024,7 @@ impl Point
 
 main = ->
     p = Point::make 10, 20
-    (p.sum!).println!
+    p.sum! .println!
     0
 "#,
     );
@@ -9095,7 +9095,7 @@ inspect = p ->
 
 main = ->
     p = Point::make 10, 20
-    (inspect p).println!
+    inspect p .println!
     0
 "#,
         "Field 'y' of struct 'Point' is private",
@@ -9121,7 +9121,7 @@ impl Point
 
 main = ->
     p = Point::make 10, 20
-    (p.sum!).println!
+    p.sum! .println!
     0
 "#,
     );
@@ -9181,8 +9181,8 @@ unwrap = box ->
         Box value: value => value + 1
 
 main = ->
-    (unwrap (Box
-        value: 10)).println!
+    unwrap (Box
+        value: 10) .println!
     0
 "#,
     );
@@ -9203,8 +9203,8 @@ unwrap = box ->
         Box value: value => value
 
 main = ->
-    (unwrap (Box
-        value: "hello")).println!
+    unwrap (Box
+        value: "hello") .println!
     0
 "#,
     );
@@ -9322,7 +9322,7 @@ get_first = arr ->
 
 main = ->
     arr: [I64; 4] = [10, 20, 30, 40]
-    (get_first arr).println!
+    get_first arr .println!
     0
 "#,
     );
@@ -9343,7 +9343,7 @@ write_first = s ->
 main = ->
     mut arr = [1, 2, 3]
     r = &mut arr
-    (write_first r).println!
+    write_first r .println!
     arr[0].println!
     0
 "#,
@@ -9365,7 +9365,7 @@ sum = s ->
 main = ->
     mut arr = [1, 2, 3]
     r = &mut arr
-    (sum r).println!
+    sum r .println!
     0
 "#,
     );
@@ -9383,7 +9383,7 @@ show_mut = s -> s.show!
 main = ->
     mut arr = [1, 2, 3]
     r = &mut arr
-    (show_mut r).println!
+    show_mut r .println!
     0
 "#,
     );
@@ -9482,13 +9482,13 @@ main = ->
     v.push 30
     v.set 1, 99
     match (v.get 0)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 0.println!
     match (v.get 1)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 0.println!
     match (v.get 2)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 0.println!
     0
 "#,
@@ -9643,11 +9643,11 @@ main = ->
         7
         x -> x + 1
 
-    ((some_map.map inc).unwrap_or 0).println!
-    ((none_map.map inc).unwrap_or 0).println!
-    ((some_and_then.and_then to_even).unwrap_or 0).println!
-    (((Option::Some 8).and_then to_even).unwrap_or 0).println!
-    ((nested.flatten!).unwrap_or 0).println!
+    (some_map.map inc).unwrap_or 0 .println!
+    (none_map.map inc).unwrap_or 0 .println!
+    (some_and_then.and_then to_even).unwrap_or 0 .println!
+    ((Option::Some 8).and_then to_even).unwrap_or 0 .println!
+    (nested.flatten!).unwrap_or 0 .println!
     some_folded.println!
     none_folded.println!
     0
@@ -9663,11 +9663,11 @@ fn test_stdlib_option_inspect_borrows_payload_and_returns_option() {
     let output = compile_and_run(
         r#"
 print_ref: &I64 -> I32
-print_ref = x -> (*x).println!
+print_ref = x -> *x .println!
 
 main = ->
     value = (Option::Some 4).inspect print_ref
-    (value.unwrap_or 0).println!
+    value.unwrap_or 0 .println!
     0
 "#,
     );
@@ -9681,7 +9681,7 @@ fn test_stdlib_option_inspect_owned_string_borrows_and_returns_owned_option() {
     let output = compile_and_run(
         r#"
 print_len: &String -> I32
-print_len = value -> (value.len!).println!
+print_len = value -> value.len! .println!
 
 main = ->
     value = Option::Some (String::from_str "hello")
@@ -9699,7 +9699,7 @@ fn test_stdlib_option_inspect_owned_string_consumes_receiver() {
     compile_should_fail(
         r#"
 print_len: &String -> I32
-print_len = value -> (value.len!).println!
+print_len = value -> value.len! .println!
 
 main = ->
     value = Option::Some (String::from_str "hello")
@@ -9738,16 +9738,16 @@ main = ->
     nested_err: Result (Result I64, I64), I64 = Result::Ok (Result::Err 6)
     ok_fold: Result I64, I64 = Result::Ok 41
     err_fold: Result I64, I64 = Result::Err 4
-    ((ok_map.map inc).unwrap_or 0).println!
-    ((err_map.map inc).unwrap_or 0).println!
-    ((err_map_err.map_err tag).fold id_i64, id_i64).println!
-    ((ok_and_then.and_then parse).unwrap_or 0).println!
-    (((Result::Ok (-1)).and_then parse).unwrap_or 0).println!
-    ((err_or.or (Result::Ok 9)).unwrap_or 0).println!
-    ((nested_ok.flatten!).unwrap_or 0).println!
-    ((nested_err.flatten!).fold id_i64, id_i64).println!
-    ((ok_fold.fold id_i64, inc1)).println!
-    ((err_fold.fold id_i64, id_i64)).println!
+    (ok_map.map inc).unwrap_or 0 .println!
+    (err_map.map inc).unwrap_or 0 .println!
+    (err_map_err.map_err tag).fold id_i64, id_i64 .println!
+    (ok_and_then.and_then parse).unwrap_or 0 .println!
+    ((Result::Ok (-1)).and_then parse).unwrap_or 0 .println!
+    (err_or.or (Result::Ok 9)).unwrap_or 0 .println!
+    (nested_ok.flatten!).unwrap_or 0 .println!
+    (nested_err.flatten!).fold id_i64, id_i64 .println!
+    (ok_fold.fold id_i64, inc1) .println!
+    (err_fold.fold id_i64, id_i64) .println!
     0
 "#,
     );
@@ -10163,17 +10163,17 @@ main = ->
     calls.println!
     option_identity_l: Option (Option I64) = Option::Traversable::traverse option_pure_inc, (Option::Some 1)
     option_identity_r: Option (Option I64) = Option::Applicative::pure (Option::Some 2)
-    (encode_option_option option_identity_l).println!
-    (encode_option_option option_identity_r).println!
+    encode_option_option option_identity_l .println!
+    encode_option_option option_identity_r .println!
     result_identity_input: Result I64, I64 = Result::Ok 1
     result_identity_l: Option (Result I64, I64) = (Result _, I64)::Traversable::traverse option_pure_inc, result_identity_input
     result_identity_r: Option (Result I64, I64) = Option::Applicative::pure (Result::Ok 2)
-    (encode_option_result result_identity_l).println!
-    (encode_option_result result_identity_r).println!
+    encode_option_result result_identity_l .println!
+    encode_option_result result_identity_r .println!
     vec_identity_l: Option (Vec I64) = Vec::Traversable::traverse (value -> Option::Some value), (make_values!)
     vec_identity_r: Option (Vec I64) = Option::Applicative::pure (make_values!)
-    (encode_option_vec vec_identity_l).println!
-    (encode_option_vec vec_identity_r).println!
+    encode_option_vec vec_identity_l .println!
+    encode_option_vec vec_identity_r .println!
 
     option_composition_inner: Option (Option I64) = Option::Traversable::traverse option_pure_double_then_inc, (Option::Some 1)
     option_composition_l: Option (Option (Option I64)) = Option::Some option_composition_inner
@@ -10191,12 +10191,12 @@ main = ->
     vec_composition_l: Option (Option (Vec I64)) = Option::Some vec_composition_inner
     vec_first: Option (Vec I64) = Vec::Traversable::traverse option_pure_double, (make_values!)
     vec_composition_r: Option (Option (Vec I64)) = Option::Functor::fmap traverse_vec_inc, vec_first
-    (encode_option_option_option option_composition_l).println!
-    (encode_option_option_option option_composition_r).println!
-    (encode_option_option_result result_composition_l).println!
-    (encode_option_option_result result_composition_r).println!
-    (encode_option_option_vec vec_composition_l).println!
-    (encode_option_option_vec vec_composition_r).println!
+    encode_option_option_option option_composition_l .println!
+    encode_option_option_option option_composition_r .println!
+    encode_option_option_result result_composition_l .println!
+    encode_option_option_result result_composition_r .println!
+    encode_option_option_vec vec_composition_l .println!
+    encode_option_option_vec vec_composition_r .println!
 
     option_natural_input_l: Option I64 = Option::Some 1
     option_natural_effect: Option (Option I64) = Option::Traversable::traverse option_pure_inc, option_natural_input_l
@@ -10213,33 +10213,33 @@ main = ->
     vec_natural_effect: Option (Vec I64) = Vec::Traversable::traverse option_pure_inc, (make_values!)
     vec_naturality_l: Result (Vec I64), I64 = option_to_result vec_natural_effect
     vec_naturality_r: Result (Vec I64), I64 = Vec::Traversable::traverse result_pure_inc, (make_values!)
-    (encode_result_option option_naturality_l).println!
-    (encode_result_option option_naturality_r).println!
-    (encode_result_result result_naturality_l).println!
-    (encode_result_result result_naturality_r).println!
-    (encode_result_vec vec_naturality_l).println!
-    (encode_result_vec vec_naturality_r).println!
+    encode_result_option option_naturality_l .println!
+    encode_result_option option_naturality_r .println!
+    encode_result_result result_naturality_l .println!
+    encode_result_result result_naturality_r .println!
+    encode_result_vec vec_naturality_l .println!
+    encode_result_vec vec_naturality_r .println!
 
     "app-option".println!
     vec_app_option: Option (Vec I64) = Vec::Traversable::traverse option_stop, (make_values!)
-    (encode_option_vec vec_app_option).println!
+    encode_option_vec vec_app_option .println!
     "monad-option".println!
     vec_monad_option: Option (Vec I64) = Vec::Traversable::traverse_m option_stop, (make_values!)
-    (encode_option_vec vec_monad_option).println!
+    encode_option_vec vec_monad_option .println!
     "app-result".println!
     vec_app_result: Result (Vec I64), I64 = Vec::Traversable::traverse result_stop, (make_values!)
-    (encode_result_vec vec_app_result).println!
+    encode_result_vec vec_app_result .println!
     "monad-result".println!
     vec_monad_result: Result (Vec I64), I64 = Vec::Traversable::traverse_m result_stop, (make_values!)
-    (encode_result_vec vec_monad_result).println!
+    encode_result_vec vec_monad_result .println!
 
     "container-short".println!
     none_input: Option I64 = Option::None
     none_traverse: Option (Option I64) = Option::Traversable::traverse_m option_stop, none_input
     failed_input: Result I64, I64 = Result::Err 7
     failed_traverse: Option (Result I64, I64) = (Result _, I64)::Traversable::traverse_m option_stop, failed_input
-    (encode_option_option none_traverse).println!
-    (encode_option_result failed_traverse).println!
+    encode_option_option none_traverse .println!
+    encode_option_result failed_traverse .println!
     0
 "#,
     );
@@ -10309,7 +10309,7 @@ main = ->
         Option::Some values =>
             values.len!.println!
             match (values.get 0)
-                Option::Some value => (*value).println!
+                Option::Some value => *value .println!
                 Option::None => 0.println!
         Option::None => 0.println!
 
@@ -10320,7 +10320,7 @@ main = ->
     failed: Option (Vec I64) = sequence failed_effects
     match failed
         Option::Some _ => 1.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     0
 "#,
     );
@@ -10445,7 +10445,7 @@ double = value -> value * 2
 
 print_ref: &I64 -> Unit
 print_ref = value ->
-    (*value).println!
+    *value .println!
     return
 
 print_owned: I64 -> Unit
@@ -10615,7 +10615,7 @@ filter_transform = value ->
 
 try_transform: Tracked -> Result Tracked, I64
 try_transform = value ->
-    (0 - value.value).println!
+    0 - value.value .println!
     if value.value == 502
         Result::Err 9
     else
@@ -10807,19 +10807,19 @@ main = ->
     fallback_err: Result I64, I64 = Result::Err 7
     wrapped_res_inc: Result (I64 -> I64), I64 = Result::Ok inc
 
-    ((some >>= keep_even_opt).unwrap_or 0).println!
-    ((none >>= keep_even_opt).unwrap_or 0).println!
-    ((inc <$> Option::Some 4).unwrap_or 0).println!
-    (((Option::Some 4) <&> inc).unwrap_or 0).println!
-    ((wrapped_inc <*> Option::Some 4).unwrap_or 0).println!
-    ((fallback_none <|> Option::Some 9).unwrap_or 0).println!
+    (some >>= keep_even_opt).unwrap_or 0 .println!
+    (none >>= keep_even_opt).unwrap_or 0 .println!
+    (inc <$> Option::Some 4).unwrap_or 0 .println!
+    ((Option::Some 4) <&> inc).unwrap_or 0 .println!
+    (wrapped_inc <*> Option::Some 4).unwrap_or 0 .println!
+    (fallback_none <|> Option::Some 9).unwrap_or 0 .println!
 
-    ((ok >>= keep_even_res).unwrap_or 0).println!
-    ((err >>= keep_even_res).unwrap_or 0).println!
-    ((inc <$> mapped_ok).unwrap_or 0).println!
-    ((mapped_ok_reverse <&> inc).unwrap_or 0).println!
-    ((wrapped_res_inc <*> Result::Ok 4).unwrap_or 0).println!
-    ((fallback_err <|> Result::Ok 9).unwrap_or 0).println!
+    (ok >>= keep_even_res).unwrap_or 0 .println!
+    (err >>= keep_even_res).unwrap_or 0 .println!
+    (inc <$> mapped_ok).unwrap_or 0 .println!
+    (mapped_ok_reverse <&> inc).unwrap_or 0 .println!
+    (wrapped_res_inc <*> Result::Ok 4).unwrap_or 0 .println!
+    (fallback_err <|> Result::Ok 9).unwrap_or 0 .println!
     0
 "#,
     );
@@ -10900,7 +10900,7 @@ main = ->
         value: 7
     result: Result I64, I64 = Result::Ok 4
     n.println!
-    (Option::Some 3).println!
+    Option::Some 3 .println!
     result.println!
     0
 "#;
@@ -10990,7 +10990,7 @@ fn test_stdlib_option_map_owned_string_consumes_receiver() {
 main = ->
     value = Option::Some (String::from_str "hello")
     mapped = value.map (s -> s.len!)
-    (mapped.unwrap_or 0).println!
+    mapped.unwrap_or 0 .println!
     again = value.show!
     again.println!
     0
@@ -11006,7 +11006,7 @@ fn test_stdlib_result_map_owned_string_consumes_receiver() {
 main = ->
     value: Result String, String = Result::Ok (String::from_str "hello")
     mapped = value.map (s -> s.len!)
-    (mapped.unwrap_or 0).println!
+    mapped.unwrap_or 0 .println!
     again = value.show!
     again.println!
     0
@@ -11022,7 +11022,7 @@ fn test_stdlib_result_map_err_owned_string_consumes_receiver() {
 main = ->
     value: Result String, String = Result::Err (String::from_str "oops")
     mapped = value.map_err (s -> s.len!)
-    ((mapped.fold (n -> n), (s -> s.len!))).println!
+    (mapped.fold (n -> n), (s -> s.len!)) .println!
     again = value.show!
     again.println!
     0
@@ -11041,7 +11041,7 @@ bind = s -> Option::Some (s.len!)
 main = ->
     value = Option::Some (String::from_str "hello")
     mapped = value >>= bind
-    (mapped.unwrap_or 0).println!
+    mapped.unwrap_or 0 .println!
     0
 "#,
     );
@@ -11059,7 +11059,7 @@ bind = s -> Result::Ok (s.len!)
 main = ->
     value: Result String, String = Result::Ok (String::from_str "hello")
     mapped = value >>= bind
-    (mapped.unwrap_or 0).println!
+    mapped.unwrap_or 0 .println!
     0
 "#,
     );
@@ -11110,8 +11110,8 @@ fn test_stdlib_pipe_operator_function() {
 inc = x -> x + 1
 
 main = ->
-    (41 |> inc).println!
-    ((((Option::Some 41) <&> inc).unwrap_or 0)).println!
+    41 |> inc .println!
+    (((Option::Some 41) <&> inc).unwrap_or 0) .println!
     0
 "#,
     );
@@ -11145,7 +11145,7 @@ mod ops
 inc = x -> x + 1
 
 main = ->
-    (41 |> inc).println!
+    41 |> inc .println!
     0
 ",
     )
@@ -11172,7 +11172,7 @@ fn test_root_pipe_operator_shadows_prelude_with_same_param_names() {
 inc = x -> x + 1
 
 main = ->
-    (41 |> inc).println!
+    41 |> inc .println!
     0
 "#,
     );
@@ -11187,14 +11187,18 @@ fn test_application_binds_before_infix() {
 double = x -> x * 2
 
 main = ->
-    (double 2 + 2).println!
-    ((Option::Some 2 <&> (+ 2)).unwrap_or 0).println!
+    complete_argument = double 2 + 2
+    complete_argument.println!
+    application_first = (double 2) + 2
+    application_first.println!
+    double 2 + 2 .println!
+    Option::Some 2 <&> (+ 2) .unwrap_or 0 .println!
     0
 "#,
     );
 
     let lines: Vec<&str> = output.trim().lines().collect();
-    assert_eq!(lines, vec!["6", "4"]);
+    assert_eq!(lines, vec!["8", "6", "8", "4"]);
 }
 
 #[test]
@@ -11206,16 +11210,16 @@ main = ->
     v.push 10
     v.push 20
     match (v.get 0)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => "None".println!
     match (v.get 5)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => "None".println!
     match (v.get 1)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 99.println!
     match (v.get 99)
-        Option::Some val => (*val).println!
+        Option::Some val => *val .println!
         Option::None => 99.println!
     0
 "#,
@@ -11624,7 +11628,7 @@ read_second = s ->
 
 main = ->
     arr = [7, 8, 9]
-    (read_second &arr).println!
+    read_second &arr .println!
     0
 "#,
     );
@@ -11644,7 +11648,7 @@ write_second = s ->
 
 main = ->
     arr = [7, 8, 9]
-    (write_second &arr).println!
+    write_second &arr .println!
     0
 "#,
     );
@@ -11664,7 +11668,7 @@ write_oob = s ->
 
 main = ->
     arr = [7, 8, 9]
-    (write_oob &arr).println!
+    write_oob &arr .println!
     0
 "#,
     );
@@ -11687,7 +11691,7 @@ read_first = s ->
 
 main = ->
     arr = [7, 8, 9]
-    (read_first &arr).println!
+    read_first &arr .println!
     0
 "#,
         "unsafe",
@@ -11706,7 +11710,7 @@ write_first = s ->
 
 main = ->
     arr = [7, 8, 9]
-    (write_first &arr).println!
+    write_first &arr .println!
     0
 "#,
         "unsafe",
@@ -11760,7 +11764,7 @@ read_addr = s ->
 
 main = ->
     arr = [7, 8, 9]
-    (read_addr &arr).println!
+    read_addr &arr .println!
     0
 "#,
         "Cannot cast fat raw slice pointer to integer",
@@ -11792,7 +11796,7 @@ advance = s ->
 
 main = ->
     arr = [7, 8, 9]
-    (advance &arr).println!
+    advance &arr .println!
     0
 "#,
         "No implementation found for operator '+' on type *[I64]",
@@ -11862,8 +11866,8 @@ main = ->
         *buf = 10
         *(buf + 1) = 20
         *(buf + 2) = 30
-        (*(buf + 1)).println!
-        (*(buf + 2 - 1)).println!
+        *(buf + 1) .println!
+        *(buf + 2 - 1) .println!
     free (buf as *U8)
     0
 "#,
@@ -11894,7 +11898,7 @@ main = ->
         boxed = PtrBox
             ptr: buf
         ptr = boxed.offset 1
-        (*ptr).println!
+        *ptr .println!
     free (buf as *U8)
     0
 "#,
@@ -12043,7 +12047,7 @@ fn test_stdlib_box_new_uses_non_null_pointer() {
 
 main = ->
     boxed = Box::new 42
-    ((boxed.as_ptr! as I64) != 0).println!
+    (boxed.as_ptr! as I64) != 0 .println!
     0
 "#,
     );
@@ -12122,7 +12126,7 @@ impl Drop for Child
 
 impl Drop for Owner
     ~@drop = ->
-        (self.child.value + 100).println!
+        self.child.value + 100 .println!
         return
 
 main = ->
@@ -12319,7 +12323,7 @@ make_value = ->
     return read_holder (&(make_holder!))
 
 main = ->
-    (make_value!).println!
+    make_value! .println!
     3.println!
     0
 "#,
@@ -12923,8 +12927,8 @@ main = ->
     ptr = buf.ptr!
     unsafe *ptr = 41
     unsafe *(~PtrOffset ptr, 1) = 42
-    (unsafe *ptr).println!
-    (unsafe *(~PtrOffset ptr, 1)).println!
+    unsafe *ptr .println!
+    unsafe *(~PtrOffset ptr, 1) .println!
     0
 "#,
     );
@@ -12991,7 +12995,7 @@ fn test_stdlib_raw_buffer_zero_capacity_as_slice_uses_non_null_buffer() {
 main = ->
     buf: RawBuffer I64 = unsafe RawBuffer::with_capacity (stdlib::mem::size_of 0), 0
     slice = unsafe buf.as_slice 0
-    (((~ArrPtr (*slice)) as I64) != 0).println!
+    ((~ArrPtr (*slice)) as I64) != 0 .println!
     0
 "#,
     );
@@ -13204,7 +13208,7 @@ make_value = -> 1
 
 main = ->
     r = &make_value!
-    (*r).println!
+    *r .println!
     0
 "#,
         "temporary",
@@ -13223,7 +13227,7 @@ make_value = -> 1
 main = ->
     holder = Holder
         ref: &make_value!
-    (*holder.ref).println!
+    *holder.ref .println!
     0
 "#,
         "temporary",
@@ -13238,7 +13242,7 @@ make_value = -> 1
 
 main = ->
     pair = (&make_value!, 0)
-    (*pair.0).println!
+    *pair.0 .println!
     0
 "#,
         "temporary",
@@ -13449,7 +13453,7 @@ main = ->
     mut v = Vec::new!
     v.push 7
     match (get_first &v)
-        Option::Some value => (*value).println!
+        Option::Some value => *value .println!
         Option::None => 0.println!
     0
 "#,
@@ -13470,7 +13474,7 @@ first = v -> &((*v)[0])
 main = ->
     mut v = Vec::new!
     v.push 7
-    (*(first &v)).println!
+    *(first &v) .println!
     0
 "#,
     );
@@ -13499,7 +13503,7 @@ main = ->
         value: 7
     saved = &container[&key]
     key.value = 2
-    (*saved).println!
+    *saved .println!
     0
 "#,
         "borrow conflict",
@@ -13527,7 +13531,7 @@ main = ->
         value: 7
     saved = &container[&key]
     key.value = 2
-    (*saved).println!
+    *saved .println!
     0
 "#,
     );
@@ -13612,7 +13616,7 @@ id_ref = value -> value
 
 main = ->
     value = 7
-    (*(id_ref &value)).println!
+    *(id_ref &value) .println!
     0
 "#,
     );
@@ -13928,7 +13932,7 @@ force_second = value -> value.value!
 main = ->
     box = Box
         value: 0
-    (force_second box).println!
+    force_second box .println!
     0
 "#,
     );
@@ -13956,7 +13960,7 @@ force_bool = value -> value.pick!
 
 main = ->
     both = Both
-    (force_bool both).println!
+    force_bool both .println!
     0
 "#,
     );
@@ -14024,7 +14028,7 @@ force_i64 = value -> value.pick!
 main = ->
     box = Box
         value: 9
-    (force_i64 box).println!
+    force_i64 box .println!
     0
 "#,
     );
@@ -14046,7 +14050,7 @@ impl Unwrap I64 for Empty
 
 main = ->
     empty = Empty
-    (empty.unwrap_or 9).println!
+    empty.unwrap_or 9 .println!
     0
 "#,
     );
@@ -14070,7 +14074,7 @@ impl Identity I64 for Empty
 
 main = ->
     empty = Empty
-    (empty.identity 11).println!
+    empty.identity 11 .println!
     0
 "#,
     );
@@ -14094,7 +14098,7 @@ impl Project I64 for Factory
 
 main = ->
     factory = Factory
-    (factory.project 12).println!
+    factory.project 12 .println!
     0
 "#,
     );
@@ -14223,7 +14227,7 @@ force_second = value -> value.value!
 
 main = ->
     box = Box
-    (force_second box).println!
+    force_second box .println!
     0
 "#,
     );
@@ -14254,7 +14258,7 @@ force_second = value -> value.value!
 
 main = ->
     box = Box
-    (force_second box).println!
+    force_second box .println!
     0
 "#,
     );
@@ -14286,7 +14290,7 @@ impl First for Box
 
 main = ->
     box = Box
-    (box.value 10).println!
+    box.value 10 .println!
     0
 "#,
         "Ambiguous selection for 'value'",
@@ -14309,7 +14313,7 @@ impl DefaultValue for Box
 
 main = ->
     box = Box
-    (box.value 12).println!
+    box.value 12 .println!
     0
 "#,
     );
@@ -14352,7 +14356,7 @@ impl Neg for Wrapper
 main = ->
     value = Wrapper
         value: 7
-    (-value).println!
+    -value .println!
     0
 "#,
     );
@@ -14374,7 +14378,7 @@ impl Not for Wrapper
 main = ->
     value = Wrapper
         value: true
-    (!value).println!
+    !value .println!
     0
 "#,
     );
@@ -14399,7 +14403,7 @@ force_not = value -> !value
 main = ->
     value = Wrapper
         value: true
-    (force_not value).println!
+    force_not value .println!
     0
 "#,
     );
@@ -14425,7 +14429,7 @@ impl Neg for Wrapper
 main = ->
     value = Wrapper
         value: 7
-    (-value).println!
+    -value .println!
     0
 "#,
     );
@@ -14451,7 +14455,7 @@ impl Not for Wrapper
 main = ->
     value = Wrapper
         value: true
-    (!value).println!
+    !value .println!
     0
 "#,
     );
@@ -15205,7 +15209,7 @@ impl Math
 
 main = ->
     operation = Math::double
-    (operation 6).println!
+    operation 6 .println!
     0
 "#,
     );
@@ -15348,7 +15352,7 @@ struct Thing
 impl Factory for Thing
 
 main = ->
-    (Thing::make!).println!
+    Thing::make! .println!
     0
 "#,
     );
@@ -15647,7 +15651,7 @@ identity: Number -> Number
 identity = value -> value
 
 main = ->
-    (identity 42).println!
+    identity 42 .println!
     0
 "#,
     );

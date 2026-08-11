@@ -6,7 +6,7 @@ main = ->
 
     for i in 1..4
         for j in 1..4
-            (i * j).println!
+            i * j .println!
         "".println!
 
     count = 0

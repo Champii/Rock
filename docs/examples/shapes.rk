@@ -16,5 +16,5 @@ main = ->
         width: 4
         height: 5
     shape = Shape::Rectangle rectangle
-    (area shape).println!
+    area shape .println!
     0

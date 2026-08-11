@@ -1102,7 +1102,7 @@ impl Holder T
 
 main = ->
     h = Holder::new 42
-    (h.apply identity).println!
+    h.apply identity .println!
     0
 "#,
     );

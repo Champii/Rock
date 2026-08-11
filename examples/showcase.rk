@@ -70,21 +70,21 @@ main = ->
 
     c = Shape::Circle 5
     s = Shape::Square 4
-    (area c).println!
-    (area s).println!
+    area c .println!
+    area s .println!
 
-    (factorial 10).println!
-    (is_prime 97).println!
+    factorial 10 .println!
+    is_prime 97 .println!
 
     arr = [10, 20, 30, 40, 50]
-    (sum_array &arr).println!
-    (~ArrayLen arr).println!
+    sum_array &arr .println!
+    ~ArrayLen arr .println!
 
     num_str = int_to_string dot
     msg = "Result: " + num_str
     msg.println!
 
-    (abs (0 - 42)).println!
-    (min 5, 10).println!
-    (max 5, 10).println!
+    abs (0 - 42) .println!
+    min 5, 10 .println!
+    max 5, 10 .println!
     0

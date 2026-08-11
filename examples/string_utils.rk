@@ -73,18 +73,18 @@ is_ascii_palindrome = s ->
 
 main = ->
     s = "Hello World"
-    (reverse_ascii s).println!
-    (count_byte s, 108).println!
-    (is_ascii_palindrome "racecar").println!
-    (is_ascii_palindrome "hello").println!
+    reverse_ascii s .println!
+    count_byte s, 108 .println!
+    is_ascii_palindrome "racecar" .println!
+    is_ascii_palindrome "hello" .println!
 
     prefix = "Rock is a "
     suffix = "compiled language"
     result = prefix + suffix
     result.println!
     result_slice = "Rock is a compiled language"
-    (string_contains result_slice, "compiled").println!
-    (string_find result_slice, "language").println!
+    string_contains result_slice, "compiled" .println!
+    string_find result_slice, "language" .println!
 
     bytes = as_bytes result_slice
     slice = bytes.as_slice!

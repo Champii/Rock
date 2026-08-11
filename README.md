@@ -49,6 +49,7 @@ Rock is experimental. The language, compiler, and tooling can change or break at
 - Functional operators including `|>`, `<$>`, `<&>`, `<!>`, `<*>`, `>>=`, and `<|>`
 - Effectful traversal and sequencing over `Option`, `Result`, and `Vec`
 - Function-call holes and concise lambdas for point-free-style pipelines
+- Complete-expression arguments and low-precedence spaced-dot chains such as `double x + 1 .println!`
 - Expression-oriented `if`, `match`, loops, and blocks
 
 ### Programs and tooling

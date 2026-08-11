@@ -70,8 +70,8 @@ describe = message ->
         Message::Write text => text
 
 main = ->
-    (describe (Message::Move 4, -2)).println!
-    (describe (Message::Write "hello")).println!
+    describe (Message::Move 4, -2) .println!
+    describe (Message::Write "hello") .println!
     0
 ```
 
@@ -92,8 +92,8 @@ is_quit = message ->
         _ => false
 
 main = ->
-    (is_quit Message::Quit).println!
-    (is_quit (Message::Write "hello")).println!
+    is_quit Message::Quit .println!
+    is_quit (Message::Write "hello") .println!
     0
 ```
 
@@ -112,9 +112,9 @@ classify = value ->
         _ => "positive"
 
 main = ->
-    (classify (0 - 3)).println!
-    (classify 0).println!
-    (classify 8).println!
+    classify (0 - 3) .println!
+    classify 0 .println!
+    classify 8 .println!
     0
 ```
 
@@ -139,9 +139,9 @@ describe = packet ->
         Packet::Empty => "empty"
 
 main = ->
-    (describe (Packet::Data 3, "three")).println!
-    (describe (Packet::Data (0 - 1), "negative")).println!
-    (describe Packet::Empty).println!
+    describe (Packet::Data 3, "three") .println!
+    describe (Packet::Data (0 - 1), "negative") .println!
+    describe Packet::Empty .println!
     0
 ```
 
@@ -189,7 +189,7 @@ name = color ->
         Color::Blue => "blue"
 
 main = ->
-    (name Color::Blue).println!
+    name Color::Blue .println!
     0
 ```
 

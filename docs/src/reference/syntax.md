@@ -251,7 +251,7 @@ describe = shape ->
 main = ->
     point: Point = Point::new 3, 4
     shape: Shape = Shape::Dot point
-    (describe shape).println!
+    describe shape .println!
     0
 ```
 
@@ -488,7 +488,21 @@ OPERATOR_DECLARATION ::= "infix" INTEGER_LITERAL OPERATOR
 INFIX_FUNCTION ::= OPERATOR "=" PARAMETER_LIST "->" BODY
 PREFIX_EXPRESSION ::= OPERATOR EXPRESSION
 POSTFIX_EXPRESSION ::= EXPRESSION "?" | EXPRESSION "!"
+SPACED_DOT_EXPRESSION ::= EXPRESSION " ." IDENTIFIER ARGUMENTS?
 ```
+
+Function application has precedence `8`. An operator declared above `8` is
+part of the final argument; an operator at or below `8` applies to the call
+result. A spaced dot has lower precedence and applies to the complete
+expression on its left:
+
+```rock
+double value + 1 .println!
+Option::Some value <&> transform .unwrap_or fallback .println!
+```
+
+Use parentheses when an operator above application precedence must instead
+operate on the call result: `(double value) + 1`.
 
 This complete program defines a pipeline operator and uses a cast, a field
 selection, and a postfix call:

@@ -67,8 +67,8 @@ main = ->
         value: 7
     different = Box
         value: 9
-    (same_box left, equal).println!
-    (same_box left_again, different).println!
+    same_box left, equal .println!
+    same_box left_again, different .println!
     0
 ```
 

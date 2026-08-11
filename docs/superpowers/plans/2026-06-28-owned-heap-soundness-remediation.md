@@ -147,8 +147,8 @@ show_option = opt ->
 
 main = ->
     value = Option::Some (String::from_str "hello")
-    (show_option &value).println!
-    (show_option &value).println!
+    show_option &value .println!
+    show_option &value .println!
     0
 ```
 

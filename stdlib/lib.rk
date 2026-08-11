@@ -38,11 +38,11 @@ infix 8 >>
 infix 8 >>=
 infix 9 +
 infix 9 -
-infix 9 <|>
-infix 9 <$>
-infix 9 <&>
-infix 9 <*>
-infix 9 <!>
+infix 8 <|>
+infix 8 <$>
+infix 8 <&>
+infix 8 <*>
+infix 8 <!>
 infix 10 *
 infix 10 /
 infix 10 %

@@ -174,7 +174,7 @@ main = ->
         value: 7
     second = Box
         value: 7
-    (same_box first, second).println!
+    same_box first, second .println!
     0
 ```
 

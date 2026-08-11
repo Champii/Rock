@@ -27,7 +27,7 @@ main = ->
     letter: Char = 'R'
     text: &Str = "rock"
     signed.println!
-    (unsigned as I64).println!
+    unsigned as I64 .println!
     fraction.println!
     enabled.println!
     letter.println!

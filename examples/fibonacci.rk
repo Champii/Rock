@@ -7,6 +7,6 @@ fib = n ->
 main = ->
     i = 0
     while i < 15
-        (fib i).println!
+        fib i .println!
         i = i + 1
     0

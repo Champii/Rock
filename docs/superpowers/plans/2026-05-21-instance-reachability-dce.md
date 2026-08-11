@@ -1225,7 +1225,7 @@ used = -> 1
 unused = -> 2
 
 main = ->
-    (used!).println!
+    used! .println!
     0
 "#,
     );
@@ -1254,7 +1254,7 @@ use_i64 = -> identity 7
 use_i32 = -> identity 8i32
 
 main = ->
-    (use_i64!).println!
+    use_i64! .println!
     0
 "#,
     );

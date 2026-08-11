@@ -54,7 +54,7 @@ square = number ->
     number * number
 
 main = ->
-    (square 5).println!
+    square 5 .println!
     0
 ```
 
@@ -66,7 +66,7 @@ announce_square = number ->
     number * number
 
 main = ->
-    (announce_square 5).println!
+    announce_square 5 .println!
     0
 ```
 
@@ -79,7 +79,7 @@ absolute = number ->
     0 - number
 
 main = ->
-    (absolute (0 - 5)).println!
+    absolute (0 - 5) .println!
     0
 ```
 

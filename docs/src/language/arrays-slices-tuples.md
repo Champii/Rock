@@ -86,8 +86,8 @@ main = ->
     mut row: [I64; 2] = [1, 0]
     second_row: [I64; 2] = [0, 1]
     set_second &mut row
-    first_row (&row).println!
-    first_row (&second_row).println!
+    first_row &row .println!
+    first_row &second_row .println!
     matrix: [[I64; 2]; 2] = [row, second_row]
     0
 ```
@@ -158,8 +158,8 @@ main = ->
     mut values: Vec I64 = Vec::new!
     values.push 10
     match (values.get 4)
-        Option::Some value => (*value).println!
-        Option::None => (-1).println!
+        Option::Some value => *value .println!
+        Option::None => -1 .println!
     0
 ```
 

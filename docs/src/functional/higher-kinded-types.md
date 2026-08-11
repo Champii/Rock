@@ -182,7 +182,7 @@ main = ->
         Option::Some values =>
             values.len!.println!
             match (values.get 0)
-                Option::Some value => (*value).println!
+                Option::Some value => *value .println!
                 Option::None => 0.println!
         Option::None => 0.println!
 
@@ -193,7 +193,7 @@ main = ->
     failed: Option (Vec I64) = sequence failed_effects
     match failed
         Option::Some values => values.len!.println!
-        Option::None => (-1).println!
+        Option::None => -1 .println!
     0
 ```
 

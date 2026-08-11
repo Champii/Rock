@@ -6,8 +6,8 @@ describe = n ->
         _ => 99
 
 main = ->
-    (describe 0).println!
-    (describe 1).println!
-    (describe 2).println!
-    (describe 42).println!
+    describe 0 .println!
+    describe 1 .println!
+    describe 2 .println!
+    describe 42 .println!
     0

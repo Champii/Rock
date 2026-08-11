@@ -150,9 +150,9 @@ main = ->
     previous: U64 = counter.fetch_add (1 as U64)
     counter.store (5 as U64)
     next: U64 = counter.fetch_sub (2 as U64)
-    (exchanged as I64).println!
-    (previous as I64).println!
-    (next as I64).println!
+    exchanged as I64 .println!
+    previous as I64 .println!
+    next as I64 .println!
     0
 ```
 
@@ -169,7 +169,7 @@ The thread module also exports `current_id`, `yield_now`, and `sleep_ms`. They a
 
 main = ->
     thread_id: U64 = current_id!
-    (thread_id as I64).println!
+    thread_id as I64 .println!
     yield_now!
     sleep_ms 1
     0

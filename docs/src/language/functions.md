@@ -127,8 +127,8 @@ sign = value ->
         1
 
 main = ->
-    (sign (0 - 8)).println!
-    (sign 8).println!
+    sign (0 - 8) .println!
+    sign 8 .println!
     0
 ```
 
@@ -141,8 +141,8 @@ first_nonzero = left, right ->
     right
 
 main = ->
-    (first_nonzero 3, 9).println!
-    (first_nonzero 0, 9).println!
+    first_nonzero 3, 9 .println!
+    first_nonzero 0, 9 .println!
     0
 ```
 
@@ -155,7 +155,7 @@ A function whose purpose is an effect can use `!->`:
 ```rock
 greet: &Str -> Unit
 greet = name !->
-    ("Hello, " + name).println!
+    "Hello, " + name .println!
     return
 
 main = ->
@@ -178,7 +178,7 @@ factorial = n ->
         n * (factorial (n - 1))
 
 main = ->
-    (factorial 5).println!
+    factorial 5 .println!
     0
 ```
 

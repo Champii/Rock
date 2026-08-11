@@ -11,7 +11,7 @@ main = ->
     p = Point
         x: 3
         y: 4
-    (p.sum!).println!
-    (p.get_x!).println!
-    (p.add 10).println!
+    p.sum! .println!
+    p.get_x! .println!
+    p.add 10 .println!
     0

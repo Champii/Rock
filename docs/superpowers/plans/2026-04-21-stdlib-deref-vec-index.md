@@ -204,12 +204,12 @@ main = ->
     v.push 20
 
     match (v.get 0)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     match (v.get 5)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -224,7 +224,7 @@ main = ->
 
 Run: `cargo test -p rock-lib --test integration test_vec_get_returns_optional_reference -- --exact --nocapture`
 
-Expected: FAIL with a type error in the `Option::Some val => (*val).println!` branch because `v.get` still returns copied `I64` values instead of references.
+Expected: FAIL with a type error in the `Option::Some val => *val .println!` branch because `v.get` still returns copied `I64` values instead of references.
 
 - [ ] **Step 3: Make `~MakeArr` infer `[T]` from a `*T` argument**
 
@@ -323,13 +323,13 @@ For `test_vec_push`:
 
 ```rock
 match (v.get 0)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => 0.println!
 match (v.get 1)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => 0.println!
 match (v.get 2)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => 0.println!
 ```
 
@@ -337,13 +337,13 @@ For `test_vec_set_get`:
 
 ```rock
 match (v.get 0)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => 0.println!
 match (v.get 1)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => 0.println!
 match (v.get 2)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => 0.println!
 ```
 
@@ -351,16 +351,16 @@ For `test_vec_get_option`:
 
 ```rock
 match (v.get 0)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => "None".println!
 match (v.get 5)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => "None".println!
 match (v.get 1)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => 99.println!
 match (v.get 99)
-    Option::Some val => (*val).println!
+    Option::Some val => *val .println!
     Option::None => 99.println!
 ```
 

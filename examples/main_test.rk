@@ -1,5 +1,5 @@
 id = a -> a
 
 main = ->
-    (id "lol").println!
-    (id 3).println!
+    id "lol" .println!
+    id 3 .println!

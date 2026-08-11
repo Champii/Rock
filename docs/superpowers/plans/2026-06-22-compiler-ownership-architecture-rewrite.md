@@ -119,7 +119,7 @@ main = ->
     mut c = Counter
         value: 1
     c.inc!
-    (c.get!).println!
+    c.get! .println!
     0
 "#,
     );
@@ -308,7 +308,7 @@ id_ref = value -> value
 
 main = ->
     value = 7
-    ((*id_ref &value)).println!
+    (*id_ref &value) .println!
     0
 "#,
     );

@@ -223,13 +223,13 @@ Use this shape in `examples/matrix.rk`:
 
 ```rock
 show_matrix = m ->
-    ("| " + (int_to_string m.a) + " " + (int_to_string m.b) + " |").println!
-    ("| " + (int_to_string m.c) + " " + (int_to_string m.d) + " |").println!
+    "| " + (int_to_string m.a) + " " + (int_to_string m.b) + " |" .println!
+    "| " + (int_to_string m.c) + " " + (int_to_string m.d) + " |" .println!
 
 main = ->
     ...
-    ("det(A) = " + (int_to_string (m1.det!))).println!
-    ("trace(A) = " + (int_to_string (m1.trace!))).println!
+    "det(A) = " + (int_to_string (m1.det!)) .println!
+    "trace(A) = " + (int_to_string (m1.trace!)) .println!
 ```
 
 Use this shape in `examples/showcase.rk`:
@@ -309,10 +309,10 @@ Add this near other stdlib operator tests in `lib/tests/integration.rs`:
 fn test_stdlib_eq_default_not_equal() {
     let src = r#"
 main = ->
-    (1 != 2).println!
-    (1 != 1).println!
-    ("abc" != "abd").println!
-    ("abc" != "abc").println!
+    1 != 2 .println!
+    1 != 1 .println!
+    "abc" != "abd" .println!
+    "abc" != "abc" .println!
     0
 "#;
 
@@ -432,8 +432,8 @@ main = ->
     n = Named
         value: 7
     n.println!
-    (Option::Some 3).println!
-    (Result::Ok 4).println!
+    Option::Some 3 .println!
+    Result::Ok 4 .println!
     0
 "#;
 

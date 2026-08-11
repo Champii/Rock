@@ -37,14 +37,14 @@ fn test_hash_trait_scalar_and_str() {
     let output = compile_and_run(
         r#"
 main = ->
-    (42.hash!).println!
-    ((-42).hash!).println!
-    (true.hash!).println!
-    (false.hash!).println!
-    ('A'.hash!).println!
-    ("abc".hash!).println!
-    ("abc".hash!).println!
-    ("abd".hash!).println!
+    42.hash! .println!
+    (-42).hash! .println!
+    true.hash! .println!
+    false.hash! .println!
+    'A'.hash! .println!
+    "abc".hash! .println!
+    "abc".hash! .println!
+    "abd".hash! .println!
     0
 "#,
     );
@@ -186,24 +186,24 @@ fn test_hash_map_insert_get_len_and_contains() {
         r#"
 main = ->
     mut map = HashMap::new!
-    (map.len!).println!
+    map.len! .println!
     map.insert 10, 100
     map.insert 20, 200
-    (map.len!).println!
-    (map.contains_key 10).println!
-    (map.contains_key 30).println!
+    map.len! .println!
+    map.contains_key 10 .println!
+    map.contains_key 30 .println!
 
     match (map.get 10)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     match (map.get 20)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     match (map.get 30)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -221,11 +221,11 @@ main = ->
     mut map = HashMap::new!
     map.insert 1, 10
     map.insert 1, 99
-    (map.len!).println!
+    map.len! .println!
 
     match (map.get 1)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -249,17 +249,17 @@ main = ->
     map.insert 41, 410
     map.insert 49, 490
 
-    (map.len!).println!
+    map.len! .println!
 
     match (map.get 1)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
     match (map.get 9)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
     match (map.get 49)
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
@@ -518,15 +518,15 @@ main = ->
     map.insert "red", 1
     map.insert "blue", 2
     map.insert "red", 3
-    (map.len!).println!
+    map.len! .println!
 
     match (map.get "red")
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     match (map.get "green")
-        Option::Some val => (*val).println!
-        Option::None => (-1).println!
+        Option::Some val => *val .println!
+        Option::None => -1 .println!
 
     0
 "#,
