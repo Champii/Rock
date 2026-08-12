@@ -954,7 +954,7 @@ fn collect_expr<P: HirPhase>(
             collect_expr(owner, iter, child_path(&path, 0), context, ids);
             collect_block(owner, body, child_path(&path, 1), context, ids);
         }
-        HirExprKind::Loop(body) | HirExprKind::Block(body) => {
+        HirExprKind::Loop(body) | HirExprKind::Block(body) | HirExprKind::UnsafeBlock(body) => {
             collect_block(owner, body, child_path(&path, 0), context, ids);
         }
         HirExprKind::Lambda {

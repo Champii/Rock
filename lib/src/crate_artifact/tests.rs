@@ -382,7 +382,7 @@ fn collect_index_authorities(
                 collect_index_authorities(arg, targets);
             }
         }
-        HirExprKind::Block(body) | HirExprKind::Loop(body) => {
+        HirExprKind::Block(body) | HirExprKind::Loop(body) | HirExprKind::UnsafeBlock(body) => {
             collect_index_authorities_from_block(body, targets);
         }
         _ => {}

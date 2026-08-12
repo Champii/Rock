@@ -12,7 +12,7 @@ mod type_vars;
 
 pub use constraints::ConstraintStore;
 pub use engine::InferenceEngine;
-pub use generalize::generalize_single_function;
+pub use generalize::{generalize_single_function, generalize_single_function_with_exclusions};
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
@@ -435,30 +435,22 @@ pub fn finalize(mut hir: PartialHir) -> Result<ResolvedHirProgram, Vec<ResolveEr
     hir.validate_item_ids()?;
     validate_method_ids(&hir)?;
     // Phase 4: solve accumulated constraints; trait violations on concrete types are hard errors.
-    let solve_result = solve::solve_constraints(
-        &mut hir.engine,
-        &hir.constraint_store,
-        &hir.impls,
-        &hir.structs,
-        &hir.enums,
-        &hir.traits,
-        &hir.language_items,
-    );
-    for warning in &solve_result.warnings {
-        eprintln!("{}", warning);
-    }
-    if !solve_result.errors.is_empty() {
-        return Err(solve_result
-            .errors
-            .into_iter()
-            .map(|msg| ResolveError::new(msg))
-            .collect());
-    }
+    solve_pending_constraints(&mut hir)?;
 
     // Phase 4.5: apply numeric defaults only where literal constraints provide evidence.
     hir.engine.apply_numeric_defaults(&hir.constraint_store);
 
-    authority::materialize_pending_method_calls(&mut hir, false)?;
+    // First materialize obligations whose rigid heads are already known.  This
+    // resolves inferred callees before propagating their solved schemes into
+    // call-site instances, while leaving genuinely deferred Try obligations
+    // for the fixed-point pass below.
+    authority::materialize_pending_authorities(&mut hir, false, false)?;
+    authority::propagate_function_instances(&mut hir)?;
+
+    solve_pending_constraints(&mut hir)?;
+    hir.engine.apply_numeric_defaults(&hir.constraint_store);
+
+    authority::materialize_pending_authorities(&mut hir, false, true)?;
 
     // Phase 5: generalize free type variables into generic parameters
     generalize::generalize_all_functions(&mut hir);
@@ -468,7 +460,7 @@ pub fn finalize(mut hir: PartialHir) -> Result<ResolvedHirProgram, Vec<ResolveEr
     if !errors.is_empty() {
         return Err(errors);
     }
-    authority::materialize_pending_method_calls(&mut hir, true)?;
+    authority::materialize_pending_authorities(&mut hir, true, true)?;
 
     let canonical_names_by_id = canonical_names_for_hir(&hir);
     let normalization_env = hir.engine.normalization_env();
@@ -495,6 +487,30 @@ pub fn finalize(mut hir: PartialHir) -> Result<ResolvedHirProgram, Vec<ResolveEr
         local_def_ids,
         normalization_env,
     ))
+}
+
+fn solve_pending_constraints(hir: &mut PartialHir) -> Result<(), Vec<ResolveError>> {
+    let solve_result = solve::solve_constraints(
+        &mut hir.engine,
+        &hir.constraint_store,
+        &hir.impls,
+        &hir.structs,
+        &hir.enums,
+        &hir.traits,
+        &hir.language_items,
+    );
+    for warning in &solve_result.warnings {
+        eprintln!("{}", warning);
+    }
+    if solve_result.errors.is_empty() {
+        Ok(())
+    } else {
+        Err(solve_result
+            .errors
+            .into_iter()
+            .map(ResolveError::new)
+            .collect())
+    }
 }
 
 #[cfg(test)]
@@ -636,7 +652,7 @@ mod tests {
             .imported_effective_trait_methods
             .insert((impl_id, member_id), method_id);
 
-        let errors = authority::materialize_pending_method_calls(&mut partial, true)
+        let errors = authority::materialize_pending_authorities(&mut partial, true, true)
             .expect_err("strict inference must reject targetless method dispatch");
         assert!(errors.iter().any(|error| {
             error

@@ -294,6 +294,7 @@ fn convert_expr(expr: HirExpr) -> Result<AcceptedHirExpr, Vec<String>> {
         },
         HirExprKind::Loop(body) => HirExprKindFor::Loop(convert_block(body)?),
         HirExprKind::Block(body) => HirExprKindFor::Block(convert_block(body)?),
+        HirExprKind::UnsafeBlock(body) => HirExprKindFor::Block(convert_block(body)?),
         HirExprKind::Lambda {
             params,
             body,
@@ -593,6 +594,7 @@ fn unresolve_expr(expr: AcceptedHirExpr) -> HirExpr {
         },
         HirExprKindFor::Loop(body) => HirExprKindFor::Loop(unresolve_block(body)),
         HirExprKindFor::Block(body) => HirExprKindFor::Block(unresolve_block(body)),
+        HirExprKindFor::UnsafeBlock(body) => HirExprKindFor::Block(unresolve_block(body)),
         HirExprKindFor::Lambda {
             params,
             body,

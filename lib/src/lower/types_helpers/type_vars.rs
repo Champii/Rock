@@ -134,7 +134,7 @@ impl Lowerer {
                     self.resolve_all_types_in_block(eb);
                 }
             }
-            HirExprKind::Block(block) => {
+            HirExprKind::Block(block) | HirExprKind::UnsafeBlock(block) => {
                 self.resolve_all_types_in_block(block);
             }
             HirExprKind::Lambda {

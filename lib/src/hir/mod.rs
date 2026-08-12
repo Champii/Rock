@@ -1763,7 +1763,10 @@ fn validate_method_authorities_in_expr(
         }
         HirExprKindFor::Lambda { body, .. }
         | HirExprKindFor::Block(body)
-        | HirExprKindFor::Loop(body) => validate_method_authorities_in_block(program, body, errors),
+        | HirExprKindFor::Loop(body)
+        | HirExprKindFor::UnsafeBlock(body) => {
+            validate_method_authorities_in_block(program, body, errors)
+        }
         HirExprKindFor::IntLiteral(_)
         | HirExprKindFor::FloatLiteral(_)
         | HirExprKindFor::BoolLiteral(_)
@@ -2136,9 +2139,9 @@ fn hir_expr_is_codegen_concrete<P: HirPhase>(expr: &HirExprFor<P>) -> bool {
         HirExprKindFor::For { iter, body, .. } => {
             hir_expr_is_codegen_concrete(iter) && hir_block_is_codegen_concrete(body)
         }
-        HirExprKindFor::Loop(body) | HirExprKindFor::Block(body) => {
-            hir_block_is_codegen_concrete(body)
-        }
+        HirExprKindFor::Loop(body)
+        | HirExprKindFor::Block(body)
+        | HirExprKindFor::UnsafeBlock(body) => hir_block_is_codegen_concrete(body),
         HirExprKindFor::Lambda {
             params,
             body,
@@ -3159,6 +3162,8 @@ pub enum HirExprKindFor<P: HirPhase> {
     Loop(HirBlockFor<P>),
     /// Block expression
     Block(HirBlockFor<P>),
+    /// Explicit unsafe block; this marker is erased when converting to accepted HIR.
+    UnsafeBlock(HirBlockFor<P>),
     /// Lambda/closure
     Lambda {
         params: Vec<HirParam>,
@@ -3738,7 +3743,9 @@ fn substitute_typevars_in_expr_with_targets(
             );
             substitute_typevars_in_block(body, target_ids, target_generic_ids, concrete_ty);
         }
-        HirExprKindFor::Loop(body) | HirExprKindFor::Block(body) => {
+        HirExprKindFor::Loop(body)
+        | HirExprKindFor::Block(body)
+        | HirExprKindFor::UnsafeBlock(body) => {
             substitute_typevars_in_block(body, target_ids, target_generic_ids, concrete_ty);
         }
         HirExprKindFor::Lambda {

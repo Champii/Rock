@@ -3021,7 +3021,9 @@ fn remap_expr_child_locations_with_scope<P: crate::hir::HirPhase>(
                 depth + 1,
             )
         }
-        HirExprKindFor::Loop(body) | HirExprKindFor::Block(body) => {
+        HirExprKindFor::Loop(body)
+        | HirExprKindFor::Block(body)
+        | HirExprKindFor::UnsafeBlock(body) => {
             let mut body_scope = local_scope.clone();
             remap_block_child_locations(
                 body,

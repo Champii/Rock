@@ -769,7 +769,8 @@ mod tests {
                     _ => None,
                 })
             }
-            crate::hir::HirExprKindFor::Block(block) => find_first_struct_pattern(block),
+            crate::hir::HirExprKindFor::Block(block)
+            | crate::hir::HirExprKindFor::UnsafeBlock(block) => find_first_struct_pattern(block),
             _ => None,
         }
     }
@@ -807,7 +808,8 @@ mod tests {
                     _ => None,
                 })
             }
-            crate::hir::HirExprKindFor::Block(block) => find_first_enum_pattern(block),
+            crate::hir::HirExprKindFor::Block(block)
+            | crate::hir::HirExprKindFor::UnsafeBlock(block) => find_first_enum_pattern(block),
             _ => None,
         }
     }

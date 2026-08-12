@@ -362,7 +362,9 @@ fn finalize_expr(ctx: &mut FinalizeCtx<'_>, expr: &mut HirExpr) {
             finalize_expr(ctx, iter);
             finalize_block(ctx, body);
         }
-        HirExprKind::Loop(body) | HirExprKind::Block(body) => finalize_block(ctx, body),
+        HirExprKind::Loop(body) | HirExprKind::Block(body) | HirExprKind::UnsafeBlock(body) => {
+            finalize_block(ctx, body)
+        }
         HirExprKind::Lambda {
             params,
             body,

@@ -172,13 +172,6 @@ fn function_generic_ids_in_order(func: &HirFunction) -> Vec<GenericParamId> {
     ids
 }
 
-fn clear_function_generics_if_unused(func: &mut HirFunction) {
-    if function_generic_ids_in_order(func).is_empty() {
-        func.generic_params.clear();
-        func.generic_bounds.clear();
-    }
-}
-
 fn sync_static_impl_generic_params_to_ids(
     func: &mut HirFunction,
     type_generics: &[GenericParamDecl],
@@ -321,9 +314,6 @@ impl Lowerer {
                 .collect();
         }
 
-        // Skip generalization for main
-        let should_generalize = name != "main";
-
         let body_context = BodyLoweringContext::new(
             name.clone(),
             BodyOwner::Function(func.id),
@@ -354,7 +344,6 @@ impl Lowerer {
             lowerer.scope.pop();
             body
         });
-
         // Unify return type with body type
         if let Err(e) = self.engine.unify(&body.ty, &func.ret_type) {
             self.diagnostics.push_with_span(
@@ -362,28 +351,8 @@ impl Lowerer {
                 fd.name.span.clone(),
             );
         }
-
         func.body = body;
-
-        // Generalize the function immediately after lowering its body
-        if should_generalize {
-            func = self.generalize_single_function(func);
-
-            self.resolve_all_types_in_function(&mut func);
-            clear_function_generics_if_unused(&mut func);
-
-            // Update the scope with the generalized type
-            let param_types: Vec<Type> = func.params.iter().map(|p| p.ty.clone()).collect();
-            let func_type = Type::function_with_safety(
-                param_types,
-                func.ret_type.clone(),
-                crate::types::FunctionSafety::from_is_unsafe(func.is_unsafe),
-            );
-            self.scope.define_top_level(name.clone(), func_type, false);
-        } else {
-            self.resolve_all_types_in_function(&mut func);
-        }
-
+        self.resolve_all_types_in_function(&mut func);
         self.items.insert_function(func);
     }
 
@@ -744,12 +713,9 @@ impl Lowerer {
                         method_ident.span.clone(),
                     );
                 }
-
                 func.body = body;
+                self.resolve_all_types_in_function(&mut func);
                 self.scope.pop();
-
-                // Generalize the method immediately after lowering its body
-                func = self.generalize_single_function(func);
 
                 // For non-self (associated) functions, inherit impl type_generics as
                 // generic_params so the monomorphizer can specialize them from call-site types.
@@ -765,9 +731,6 @@ impl Lowerer {
                     }
                 }
 
-                // Resolve all type variables in the function
-                self.resolve_all_types_in_function(&mut func);
-
                 if func.self_receiver.is_none() {
                     rehome_static_impl_type_generics(&mut func, &type_generics, impl_id);
 
@@ -775,7 +738,6 @@ impl Lowerer {
                     self.resolve_all_types_in_function(&mut func);
                     sync_static_impl_generic_params_to_ids(&mut func, &type_generics, impl_id);
                 }
-                clear_function_generics_if_unused(&mut func);
 
                 // Keep the source-style alias for lookup while the method payload remains
                 // owned by its impl.

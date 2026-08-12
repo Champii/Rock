@@ -381,6 +381,7 @@ impl Monomorphizer {
                     for (i, arg) in args.iter_mut().enumerate() {
                         if i < callee_func.params.len() {
                             let param_ty = &callee_func.params[i].ty;
+                            adapt_array_slice_callback(arg, param_ty);
                             let generic_target = match &arg.kind {
                                 HirExprKind::ResolvedVar(reference) => match reference.target {
                                     HirVarTarget::Function(id) | HirVarTarget::Extern(id) => {
@@ -594,7 +595,7 @@ impl Monomorphizer {
                 self.process_expr(iter);
                 self.process_block(body);
             }
-            HirExprKind::Loop(body) | HirExprKind::Block(body) => {
+            HirExprKind::Loop(body) | HirExprKind::Block(body) | HirExprKind::UnsafeBlock(body) => {
                 self.process_block(body);
             }
             HirExprKind::Lambda {
@@ -644,6 +645,123 @@ impl Monomorphizer {
             _ => {}
         }
     }
+}
+
+fn adapt_array_slice_callback(arg: &mut HirExpr, expected: &Type) {
+    let Type::Function {
+        params: expected_params,
+        ret: expected_ret,
+        safety: expected_safety,
+        ..
+    } = expected
+    else {
+        return;
+    };
+    let Type::Function {
+        params: actual_params,
+        ret: actual_ret,
+        ..
+    } = arg.ty.clone()
+    else {
+        return;
+    };
+    if expected_params.len() != actual_params.len()
+        || !expected_params
+            .iter()
+            .zip(actual_params.iter())
+            .any(|(expected, actual)| {
+                matches!(
+                    (expected, actual),
+                    (
+                        Type::Reference { inner: expected_inner, .. },
+                        Type::Reference { inner: actual_inner, .. },
+                    ) if matches!(expected_inner.as_ref(), Type::Array(_, _))
+                        && matches!(actual_inner.as_ref(), Type::Slice(_))
+                )
+            })
+        || !matches!(&arg.kind, HirExprKind::Lambda { captures, .. } if captures.is_empty())
+    {
+        return;
+    }
+
+    let span = arg.span.clone();
+    let params = expected_params
+        .iter()
+        .enumerate()
+        .map(|(index, ty)| crate::hir::HirParam {
+            name: format!("__callback_arg_{index}"),
+            local_id: crate::ids::HirLocalId(index as u32),
+            ty: ty.clone(),
+            mutable: false,
+            is_ref: false,
+        })
+        .collect::<Vec<_>>();
+    let call_args = params
+        .iter()
+        .zip(actual_params.iter())
+        .map(|(param, actual)| {
+            let parameter = HirExpr {
+                ty: param.ty.clone(),
+                kind: HirExprKind::ResolvedVar(HirVarRef {
+                    name: param.name.clone(),
+                    target: HirVarTarget::Local(param.local_id),
+                }),
+                span: span.clone(),
+            };
+            let Type::Reference { inner, mutable } = actual else {
+                return parameter;
+            };
+            let Type::Reference {
+                inner: parameter_inner,
+                ..
+            } = &parameter.ty
+            else {
+                return parameter;
+            };
+            if !matches!(parameter_inner.as_ref(), Type::Array(_, _))
+                || !matches!(inner.as_ref(), Type::Slice(_))
+            {
+                return parameter;
+            }
+            HirExpr {
+                ty: Type::Reference {
+                    mutable: *mutable,
+                    inner: inner.clone(),
+                },
+                kind: HirExprKind::Intrinsic {
+                    name: "ArrayRefToSlice".to_string(),
+                    args: vec![parameter],
+                },
+                span: span.clone(),
+            }
+        })
+        .collect::<Vec<_>>();
+    let original = std::mem::replace(
+        arg,
+        HirExpr {
+            ty: Type::Unit,
+            kind: HirExprKind::Unit,
+            span: span.clone(),
+        },
+    );
+    let call = HirExpr {
+        ty: *actual_ret,
+        kind: HirExprKind::Call(Box::new(original), call_args, None),
+        span: span.clone(),
+    };
+    arg.ty = Type::function_with_safety(
+        expected_params.clone(),
+        *expected_ret.clone(),
+        *expected_safety,
+    );
+    arg.kind = HirExprKind::Lambda {
+        params,
+        body: HirBlock {
+            ty: call.ty.clone(),
+            stmts: vec![HirStmt::Expr(call)],
+        },
+        captures: Vec::new(),
+    };
 }
 
 #[cfg(test)]

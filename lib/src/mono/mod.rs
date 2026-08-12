@@ -985,7 +985,10 @@ impl Monomorphizer {
             }
             HirExprKind::Lambda { body, .. }
             | HirExprKind::Block(body)
-            | HirExprKind::Loop(body) => self.validate_materialized_block(owner, body, method_ids),
+            | HirExprKind::Loop(body)
+            | HirExprKind::UnsafeBlock(body) => {
+                self.validate_materialized_block(owner, body, method_ids)
+            }
             HirExprKind::ResolvedVar(reference) => {
                 if matches!(reference.target, HirVarTarget::Function(id) if method_ids.contains(&id))
                 {

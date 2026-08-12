@@ -121,6 +121,24 @@ pub fn generalize_single_function(
     engine: &InferenceEngine,
     constraints: &ConstraintStore,
     function_type_vars: &HashMap<DefId, HashSet<TypeVarId>>,
+    func: HirFunction,
+) -> HirFunction {
+    generalize_single_function_with_exclusions(
+        engine,
+        constraints,
+        function_type_vars,
+        &HashSet::new(),
+        func,
+    )
+}
+
+/// Generalize a function while preserving inference variables that belong to
+/// an authority which must be materialized after body lowering.
+pub fn generalize_single_function_with_exclusions(
+    engine: &InferenceEngine,
+    constraints: &ConstraintStore,
+    function_type_vars: &HashMap<DefId, HashSet<TypeVarId>>,
+    excluded: &HashSet<TypeVarId>,
     mut func: HirFunction,
 ) -> HirFunction {
     if !func.generic_params.is_empty() {
@@ -156,12 +174,13 @@ pub fn generalize_single_function(
         &mut resolved_signature_type_vars,
     );
     resolved_signature_type_vars.retain(|representative| {
-        !constraints.has_literal_evidence_for_representative(*representative, |var| {
-            match engine.resolve(&Type::TypeVar(var)) {
-                Type::TypeVar(representative) => Some(representative),
-                _ => None,
-            }
-        })
+        !is_excluded_representative(engine, excluded, *representative)
+            && !constraints.has_literal_evidence_for_representative(*representative, |var| {
+                match engine.resolve(&Type::TypeVar(var)) {
+                    Type::TypeVar(representative) => Some(representative),
+                    _ => None,
+                }
+            })
     });
 
     if resolved_signature_type_vars.is_empty() {
@@ -282,6 +301,17 @@ pub fn generalize_single_function(
     replace_type_vars_in_block_composite(engine, &mut func.body, &var_to_generic, &composite_types);
 
     func
+}
+
+fn is_excluded_representative(
+    engine: &InferenceEngine,
+    excluded: &HashSet<TypeVarId>,
+    representative: TypeVarId,
+) -> bool {
+    let representative = engine.resolve(&Type::TypeVar(representative));
+    excluded
+        .iter()
+        .any(|var| engine.resolve(&Type::TypeVar(*var)) == representative)
 }
 
 #[cfg(test)]

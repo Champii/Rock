@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::ast;
 use crate::hir::*;
+use crate::ids::DefId;
 use crate::lexer::Span;
 use crate::lower::expression::ExprUse;
 use crate::lower::intrinsics::{
@@ -405,64 +406,7 @@ impl Lowerer {
             selected.receiver.span.clone(),
             "method call",
         );
-        let mut target = selected.target.clone();
-        if let Some(trait_args) = target.trait_args_mut() {
-            *trait_args = trait_args
-                .iter()
-                .map(|arg| self.engine.resolve(&arg.substitute_generics(&method_subst)))
-                .collect();
-        }
-        for param in &selected.owner_generic_params {
-            if target
-                .owner_substitution
-                .iter()
-                .any(|binding| binding.param == *param)
-            {
-                continue;
-            }
-            if let Some(ty) = method_subst
-                .get(param)
-                .or_else(|| selected.owner_substitution.get(param))
-            {
-                target.owner_substitution.push(HirTypeBinding {
-                    param: *param,
-                    ty: self.engine.resolve(ty),
-                });
-            }
-        }
-        target.owner_substitution.sort_by_key(|binding| {
-            (
-                binding.param.owner.crate_id.0,
-                binding.param.owner.local.0,
-                binding.param.index,
-            )
-        });
-        let owner_params = target
-            .owner_substitution
-            .iter()
-            .map(|binding| binding.param)
-            .collect::<std::collections::HashSet<_>>();
-        let method_params = method_func
-            .generic_params
-            .iter()
-            .map(|param| param.id)
-            .filter(|param| !owner_params.contains(param) && Some(param.owner) != target.trait_id())
-            .collect::<std::collections::HashSet<_>>();
-        target.method_substitution = method_subst
-            .iter()
-            .filter(|(param, _)| method_params.contains(param))
-            .map(|(&param, ty)| crate::hir::HirTypeBinding {
-                param,
-                ty: self.engine.resolve(ty),
-            })
-            .collect();
-        target.method_substitution.sort_by_key(|binding| {
-            (
-                binding.param.owner.crate_id.0,
-                binding.param.owner.local.0,
-                binding.param.index,
-            )
-        });
+        let target = selected.target_with_substitution(&method_subst, |ty| self.engine.resolve(ty));
 
         Some((method_func, ret_ty, coerced_args, target))
     }
@@ -925,10 +869,34 @@ impl Lowerer {
                     }
                 }
 
-                hir_args = args
-                    .iter()
-                    .map(|argument| self.lower_expression(&argument.arg))
-                    .collect();
+                let expected_param_types = match self.engine.resolve(&expr.ty) {
+                    Type::Function { params, .. } => Some(params),
+                    _ => None,
+                };
+                hir_args = Vec::with_capacity(args.len());
+                for (index, argument) in args.iter().enumerate() {
+                    let expected = expected_param_types
+                        .as_ref()
+                        .and_then(|params| params.get(index))
+                        .cloned();
+                    let hir_arg = if let Some(lambda) = Self::lambda_from_expression(&argument.arg)
+                    {
+                        let expected_params =
+                            expected
+                                .as_ref()
+                                .and_then(|ty| match self.engine.resolve(ty) {
+                                    Type::Function { params, .. } => Some(params),
+                                    _ => None,
+                                });
+                        self.lower_lambda_with_expected_params(lambda, expected_params.as_deref())
+                    } else {
+                        self.lower_expression(&argument.arg)
+                    };
+                    hir_args.push(match expected {
+                        Some(expected) => self.coerce_argument_to_expected(hir_arg, &expected),
+                        None => hir_arg,
+                    });
+                }
 
                 if matches!(&expr.kind, HirExprKind::MethodCall(_, _, _, _, _))
                     && hir_args.is_empty()
@@ -1236,7 +1204,7 @@ impl Lowerer {
                         None
                     };
 
-                    let found_method = found_method.or_else(|| {
+                    let mut found_method = found_method.or_else(|| {
                         if let Type::TypeVar(var_id) = &recv_ty {
                             let bounds = self.engine.get_bounds(*var_id);
                             let receiver_candidates =
@@ -1306,6 +1274,26 @@ impl Lowerer {
                         }
                         None
                     });
+
+                    if method_as_value && found_method.is_none() {
+                        let inferred = self.selection_service().select_inferred_method_candidates(
+                            &expr,
+                            &ident.name,
+                            |ty| self.resolve_projection_type(&self.engine.resolve(ty)),
+                        );
+                        if inferred.len() == 1 {
+                            found_method = inferred.into_iter().next();
+                        } else if inferred.len() > 1 {
+                            self.diagnostics.push_with_span(
+                                format!(
+                                    "Ambiguous selection for '{}' on type {}",
+                                    ident.name, recv_ty
+                                ),
+                                span.clone(),
+                            );
+                            return self.error_expression();
+                        }
+                    }
 
                     if method_as_value {
                         if let Some(selected) = found_method.clone() {
@@ -2018,6 +2006,39 @@ impl Lowerer {
             return self.error_expression();
         };
 
+        if matches!(carrier_ty, Type::TypeVar(_)) {
+            let output_ty = self.engine.fresh_type_var();
+            let residual_ty = self.engine.fresh_type_var();
+            self.record_try_trait_bound(&carrier_ty, &try_protocol, span.clone());
+            return self.build_try_expression(
+                expr,
+                None,
+                None,
+                None,
+                output_ty,
+                residual_ty,
+                return_ty,
+                &try_protocol,
+                span,
+            );
+        }
+
+        if Self::try_type_contains_unresolved(&carrier_ty) {
+            let output_ty = self.engine.fresh_type_var();
+            let residual_ty = self.engine.fresh_type_var();
+            return self.build_try_expression(
+                expr,
+                None,
+                None,
+                None,
+                output_ty,
+                residual_ty,
+                return_ty,
+                &try_protocol,
+                span,
+            );
+        }
+
         let selected_branch = match self.selection_service().select_required_trait_member(
             &expr,
             &carrier_ty,
@@ -2083,18 +2104,48 @@ impl Lowerer {
             return self.error_expression();
         };
 
+        let branch_method =
+            selected_branch.target_with_substitution(&branch_subst, |ty| self.engine.resolve(ty));
         if matches!(return_ty, Type::TypeVar(_)) {
-            let owner = self
-                .current_function_name()
-                .unwrap_or("this function")
-                .to_string();
-            self.diagnostics.push_with_span(
-                format!(
-                    "Cannot use '?' in '{owner}' because its return type is inferred; declare its return type explicitly"
-                ),
-                span.clone(),
+            let expr = self.apply_receiver_adjustment(
+                selected_branch.receiver.clone(),
+                selected_branch.receiver_adjustment,
             );
-            return self.error_expression();
+            return self.build_try_expression(
+                expr,
+                Some(branch_method),
+                selected_branch
+                    .function
+                    .as_ref()
+                    .and_then(|func| func.self_receiver),
+                None,
+                output_ty,
+                residual_ty,
+                return_ty,
+                &try_protocol,
+                span,
+            );
+        }
+
+        if Self::try_type_contains_unresolved(&return_ty) {
+            let expr = self.apply_receiver_adjustment(
+                selected_branch.receiver.clone(),
+                selected_branch.receiver_adjustment,
+            );
+            return self.build_try_expression(
+                expr,
+                Some(branch_method),
+                selected_branch
+                    .function
+                    .as_ref()
+                    .and_then(|func| func.self_receiver),
+                None,
+                output_ty,
+                residual_ty,
+                return_ty,
+                &try_protocol,
+                span,
+            );
         }
 
         let Some(from_residual_trait) = self
@@ -2170,164 +2221,110 @@ impl Lowerer {
             }
         }
 
-        let mut branch_method = selected_branch.target.clone();
-        for param in &selected_branch.owner_generic_params {
-            if branch_method
-                .owner_substitution
-                .iter()
-                .any(|binding| binding.param == *param)
-            {
-                continue;
-            }
-            if let Some(ty) = branch_subst
-                .get(param)
-                .or_else(|| selected_branch.owner_substitution.get(param))
-            {
-                branch_method.owner_substitution.push(HirTypeBinding {
-                    param: *param,
-                    ty: self.engine.resolve(ty),
-                });
-            }
-        }
-        branch_method.owner_substitution.sort_by_key(|binding| {
-            (
-                binding.param.owner.crate_id.0,
-                binding.param.owner.local.0,
-                binding.param.index,
-            )
-        });
-        let branch_method_params = selected_branch
-            .function
-            .as_ref()
-            .map(|function| {
-                function
-                    .generic_params
-                    .iter()
-                    .map(|param| param.id)
-                    .filter(|param| param.owner == function.id)
-                    .filter(|param| {
-                        !branch_method
-                            .owner_substitution
-                            .iter()
-                            .any(|binding| binding.param == *param)
-                    })
-                    .collect::<std::collections::HashSet<_>>()
-            })
-            .unwrap_or_default();
-        branch_method.method_substitution = branch_subst
-            .iter()
-            .filter(|(param, _)| branch_method_params.contains(param))
-            .map(|(&param, ty)| crate::hir::HirTypeBinding {
-                param,
-                ty: self.engine.resolve(ty),
-            })
-            .collect();
-        branch_method.method_substitution.sort_by_key(|binding| {
-            (
-                binding.param.owner.crate_id.0,
-                binding.param.owner.local.0,
-                binding.param.index,
-            )
-        });
+        let from_residual_method = selected_from_residual
+            .target_with_substitution(&from_residual_subst, |ty| self.engine.resolve(ty));
 
-        let mut from_residual_method = selected_from_residual.target.clone();
-        for param in &selected_from_residual.owner_generic_params {
-            if from_residual_method
-                .owner_substitution
-                .iter()
-                .any(|binding| binding.param == *param)
-            {
-                continue;
-            }
-            if let Some(ty) = from_residual_subst
-                .get(param)
-                .or_else(|| selected_from_residual.owner_substitution.get(param))
-            {
-                from_residual_method
-                    .owner_substitution
-                    .push(HirTypeBinding {
-                        param: *param,
-                        ty: self.engine.resolve(ty),
-                    });
-            }
+        let expr = self.apply_receiver_adjustment(
+            selected_branch.receiver.clone(),
+            selected_branch.receiver_adjustment,
+        );
+
+        self.build_try_expression(
+            expr,
+            Some(branch_method),
+            selected_branch
+                .function
+                .as_ref()
+                .and_then(|func| func.self_receiver),
+            Some(HirCallTarget::StaticMethod(HirStaticMethodTarget {
+                owner_ty: return_ty.clone(),
+                method: from_residual_method,
+            })),
+            output_ty,
+            residual_ty,
+            return_ty,
+            &try_protocol,
+            span,
+        )
+    }
+
+    fn record_try_trait_bound(
+        &mut self,
+        carrier_ty: &Type,
+        protocol: &crate::language_items::TryLanguageItems<DefId>,
+        span: Span,
+    ) {
+        let bound = TraitBound {
+            trait_id: protocol.try_trait_id,
+            type_args: Vec::new(),
+        };
+        if let Type::TypeVar(id) = carrier_ty {
+            self.engine.add_bound(*id, bound.clone());
         }
-        from_residual_method
-            .owner_substitution
-            .sort_by_key(|binding| {
-                (
-                    binding.param.owner.crate_id.0,
-                    binding.param.owner.local.0,
-                    binding.param.index,
-                )
-            });
-        let method_params = selected_from_residual
-            .function
-            .as_ref()
-            .map(|function| {
-                function
-                    .generic_params
-                    .iter()
-                    .map(|param| param.id)
-                    .filter(|param| param.owner == function.id)
-                    .filter(|param| {
-                        !from_residual_method
-                            .owner_substitution
-                            .iter()
-                            .any(|binding| binding.param == *param)
-                    })
-                    .collect::<std::collections::HashSet<_>>()
-            })
-            .unwrap_or_default();
-        from_residual_method.method_substitution = from_residual_subst
-            .iter()
-            .filter(|(param, _)| method_params.contains(param))
-            .map(|(&param, ty)| crate::hir::HirTypeBinding {
-                param,
-                ty: self.engine.resolve(ty),
-            })
-            .collect();
-        from_residual_method
-            .method_substitution
-            .sort_by_key(|binding| {
-                (
-                    binding.param.owner.crate_id.0,
-                    binding.param.owner.local.0,
-                    binding.param.index,
-                )
-            });
-        let Some(control_flow_enum_info) =
-            self.items.enumeration(try_protocol.control_flow_enum_id)
+        self.constraint_store
+            .add_trait(carrier_ty.clone(), bound, span, "try operator");
+    }
+
+    fn try_type_contains_unresolved(ty: &Type) -> bool {
+        crate::type_services::visit::type_any(ty, |nested| {
+            matches!(
+                nested,
+                Type::TypeVar(_)
+                    | Type::Generic(_)
+                    | Type::Projection { .. }
+                    | Type::Apply { .. }
+                    | Type::Constructor { .. }
+                    | Type::Lambda { .. }
+                    | Type::BoundVar { .. }
+                    | Type::Error
+            )
+        })
+    }
+
+    fn build_try_expression(
+        &mut self,
+        expr: HirExpr,
+        branch_method: Option<HirMethodCallTarget>,
+        branch_self_receiver: Option<crate::types::ReceiverMode>,
+        from_residual_target: Option<HirCallTarget>,
+        output_ty: Type,
+        residual_ty: Type,
+        return_ty: Type,
+        protocol: &crate::language_items::TryLanguageItems<DefId>,
+        span: Span,
+    ) -> HirExpr {
+        let Some(control_flow_enum_info) = self.items.enumeration(protocol.control_flow_enum_id)
         else {
             self.diagnostics.push_with_span(
                 "Cannot use '?' because the ControlFlow language-item enum is unavailable"
                     .to_string(),
                 span.clone(),
             );
-            return self.error_expression();
+            return self.error_expression_at(span);
         };
         let Some(break_variant_info) = control_flow_enum_info
             .variants
             .iter()
-            .find(|variant| variant.id == try_protocol.break_variant_id)
+            .find(|variant| variant.id == protocol.break_variant_id)
         else {
             self.diagnostics.push_with_span(
                 "Cannot use '?' because the ControlFlow language-item break variant is unavailable"
                     .to_string(),
                 span.clone(),
             );
-            return self.error_expression();
+            return self.error_expression_at(span);
         };
         let Some(continue_variant_info) = control_flow_enum_info
             .variants
             .iter()
-            .find(|variant| variant.id == try_protocol.continue_variant_id)
+            .find(|variant| variant.id == protocol.continue_variant_id)
         else {
             self.diagnostics.push_with_span(
                 "Cannot use '?' because the ControlFlow language-item continue variant is unavailable"
                     .to_string(),
                 span.clone(),
             );
-            return self.error_expression();
+            return self.error_expression_at(span);
         };
         let control_flow_enum = control_flow_enum_info.id;
         let break_variant = HirVariantLocation {
@@ -2341,25 +2338,14 @@ impl Lowerer {
             name: continue_variant_info.name.clone(),
         };
 
-        let expr = self.apply_receiver_adjustment(
-            selected_branch.receiver.clone(),
-            selected_branch.receiver_adjustment,
-        );
-
         HirExpr {
             ty: output_ty.clone(),
             kind: HirExprKind::Try {
                 expr: Box::new(expr),
-                branch_method: Some(branch_method),
+                branch_method,
                 branch_target: None,
-                branch_self_receiver: selected_branch
-                    .function
-                    .as_ref()
-                    .and_then(|func| func.self_receiver),
-                from_residual_target: Some(HirCallTarget::StaticMethod(HirStaticMethodTarget {
-                    owner_ty: return_ty.clone(),
-                    method: from_residual_method,
-                })),
+                branch_self_receiver,
+                from_residual_target,
                 output_ty,
                 residual_ty,
                 return_ty,

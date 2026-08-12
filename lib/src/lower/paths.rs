@@ -658,14 +658,53 @@ impl Lowerer {
                 span: span.clone(),
             })
             .collect::<Vec<_>>();
-        let call = HirExpr {
-            ty: ret.as_ref().clone(),
-            kind: HirExprKind::Call(
-                Box::new(callee),
-                args,
-                Some(HirCallTarget::StaticMethod(target)),
-            ),
-            span: span.clone(),
+        let method_info = target
+            .method
+            .impl_id()
+            .and_then(|impl_id| self.items.impl_def(impl_id))
+            .and_then(|imp| {
+                let method_id = target.method.method_id()?;
+                imp.methods
+                    .iter()
+                    .find_map(|(name, method)| (method.id == method_id).then_some((name, method)))
+            });
+        let method_info = method_info.or_else(|| {
+            target.method.method_id().and_then(|method_id| {
+                self.items
+                    .impl_defs_in_order()
+                    .flat_map(|(_, imp)| imp.methods.iter())
+                    .find_map(|(name, method)| (method.id == method_id).then_some((name, method)))
+            })
+        });
+        let call = if let Some((method_name, method)) =
+            method_info.filter(|(_, method)| method.self_receiver.is_some())
+        {
+            let Some(receiver) = args.first().cloned() else {
+                self.diagnostics
+                    .push("selected receiver method value has no receiver parameter".to_string());
+                return self.error_expression();
+            };
+            HirExpr {
+                ty: ret.as_ref().clone(),
+                kind: HirExprKind::MethodCall(
+                    Box::new(receiver),
+                    method_name.clone(),
+                    args.into_iter().skip(1).collect(),
+                    method.self_receiver,
+                    Some(target.method.clone()),
+                ),
+                span: span.clone(),
+            }
+        } else {
+            HirExpr {
+                ty: ret.as_ref().clone(),
+                kind: HirExprKind::Call(
+                    Box::new(callee),
+                    args,
+                    Some(HirCallTarget::StaticMethod(target)),
+                ),
+                span: span.clone(),
+            }
         };
         let body = HirBlock {
             ty: ret.as_ref().clone(),
@@ -688,9 +727,62 @@ impl Lowerer {
         &mut self,
         resolved: crate::lower::resolution::LowerResolvedStaticMethod,
     ) -> Result<(HirExpr, HirStaticMethodTarget), String> {
-        let ty = self.instantiate_resolved_value_type(&resolved.value);
+        let resolved_ty = self.instantiate_resolved_value_type(&resolved.value);
+        let (ty, fresh_substitution) = self.freshen_type_vars(resolved_ty);
         let mut substitution = HashMap::new();
         Self::infer_generic_subst_from_types(&resolved.value.ty, &ty, &mut substitution);
+        let mut method_generic_params = if !resolved.method_generic_params.is_empty() {
+            resolved.method_generic_params.clone()
+        } else if resolved
+            .target
+            .impl_id()
+            .is_some_and(|impl_id| impl_id.crate_id == self.root_crate_id)
+            && resolved.target.method_id().is_some()
+        {
+            let method_id = resolved.target.method_id().expect("checked above");
+            self.items
+                .impl_defs_in_order()
+                .find_map(|(_, imp)| {
+                    imp.methods
+                        .values()
+                        .find(|method| method.id == method_id)
+                        .map(|method| method.generic_params.iter().map(|param| param.id).collect())
+                })
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        method_generic_params.retain(|param| !resolved.owner_generic_params.contains(param));
+        let mut raw_type_vars = Vec::new();
+        crate::type_services::visit::visit_type(&resolved.value.ty, &mut |nested: &Type| {
+            if let Type::TypeVar(id) = nested {
+                if !raw_type_vars.contains(id) {
+                    raw_type_vars.push(*id);
+                }
+            }
+        });
+        if method_generic_params.is_empty()
+            && resolved
+                .target
+                .impl_id()
+                .is_some_and(|impl_id| impl_id.crate_id == self.root_crate_id)
+        {
+            if let Some(method_id) = resolved.target.method_id() {
+                method_generic_params = raw_type_vars
+                    .iter()
+                    .enumerate()
+                    .map(|(index, _)| GenericParamId {
+                        owner: method_id,
+                        index: index as u32,
+                    })
+                    .collect();
+            }
+        }
+        for (param, id) in method_generic_params.iter().zip(raw_type_vars) {
+            if let Some(ty) = fresh_substitution.get(&id) {
+                substitution.entry(*param).or_insert_with(|| ty.clone());
+            }
+        }
         let receiver_pattern = match &resolved.receiver_pattern {
             HirImplReceiverPattern::Exact(ty) | HirImplReceiverPattern::Constructor(ty) => {
                 ty.clone()
@@ -728,8 +820,10 @@ impl Lowerer {
                     })
             })
             .collect::<Result<_, _>>()?;
-        target.method_substitution = resolved
-            .method_generic_params
+        for binding in &mut target.owner_substitution {
+            binding.ty = binding.ty.substitute(&fresh_substitution);
+        }
+        target.method_substitution = method_generic_params
             .iter()
             .map(|&param| {
                 substitution
@@ -807,6 +901,23 @@ impl Lowerer {
                 method: target,
             },
         ))
+    }
+
+    fn freshen_type_vars(&mut self, ty: Type) -> (Type, HashMap<crate::ids::TypeVarId, Type>) {
+        let mut ids = HashSet::new();
+        crate::type_services::visit::visit_type(&ty, &mut |nested: &Type| {
+            if let Type::TypeVar(id) = nested {
+                ids.insert(*id);
+            }
+        });
+        let substitution = ids
+            .into_iter()
+            .map(|id| {
+                let kind = self.engine.kind_of_type_var(id);
+                (id, self.engine.fresh_type_var_of_kind(kind))
+            })
+            .collect::<HashMap<_, _>>();
+        (ty.substitute(&substitution), substitution)
     }
 
     fn infer_static_owner_signature_relation(
@@ -1350,7 +1461,9 @@ impl Lowerer {
             HirExprKind::ArrayRepeat(value, _) => {
                 self.collect_lambda_captures_expr(value, defined, used, capture_kinds, current_kind)
             }
-            HirExprKind::Block(block) | HirExprKind::Loop(block) => {
+            HirExprKind::Block(block)
+            | HirExprKind::Loop(block)
+            | HirExprKind::UnsafeBlock(block) => {
                 let mut nested_defined = defined.clone();
                 self.collect_lambda_captures_block(
                     block,
@@ -2129,8 +2242,12 @@ impl Lowerer {
             });
         }
 
-        let body = self.lower_lambda_body(lambda);
-        let ret_type = body.ty.clone();
+        let lambda_return_ty = self.engine.fresh_type_var();
+        let body = self.with_body_return_type(lambda_return_ty.clone(), |lowerer| {
+            lowerer.lower_lambda_body(lambda)
+        });
+        let _ = self.engine.unify(&body.ty, &lambda_return_ty);
+        let ret_type = self.engine.resolve(&lambda_return_ty);
         let captures = self.collect_lambda_captures(&body, &params);
 
         self.scope.pop();
@@ -2191,8 +2308,11 @@ impl Lowerer {
             is_ref,
         };
 
+        let lambda_return_ty = self.engine.fresh_type_var();
         let body = if params.len() == 1 {
-            self.lower_block(body)
+            self.with_body_return_type(lambda_return_ty.clone(), |lowerer| {
+                lowerer.lower_block(body)
+            })
         } else {
             let inner = self.lower_curried_lambda_stage_with_expected_params(
                 &params[1..],
@@ -2205,6 +2325,8 @@ impl Lowerer {
                 stmts: vec![HirStmt::Expr(inner)],
             }
         };
+        let _ = self.engine.unify(&body.ty, &lambda_return_ty);
+        let body_ty = self.engine.resolve(&lambda_return_ty);
         let mut captures = self.collect_lambda_captures(&body, std::slice::from_ref(&param));
         for capture in &mut captures {
             capture.kind = HirClosureCaptureKind::Move;
@@ -2213,12 +2335,7 @@ impl Lowerer {
         self.scope.pop();
 
         HirExpr {
-            ty: Self::lambda_function_type(
-                vec![ty],
-                body.ty.clone(),
-                FunctionSafety::Safe,
-                &captures,
-            ),
+            ty: Self::lambda_function_type(vec![ty], body_ty, FunctionSafety::Safe, &captures),
             kind: HirExprKind::Lambda {
                 params: vec![param],
                 body,
@@ -2336,7 +2453,8 @@ mod tests {
                 find_first_struct_literal_expr(callee)
                     .or_else(|| args.iter().find_map(find_first_struct_literal_expr))
             }
-            crate::hir::HirExprKindFor::Block(block) => find_first_struct_literal(block),
+            crate::hir::HirExprKindFor::Block(block)
+            | crate::hir::HirExprKindFor::UnsafeBlock(block) => find_first_struct_literal(block),
             _ => None,
         }
     }
@@ -2353,7 +2471,8 @@ mod tests {
             crate::hir::HirExprKindFor::Call(callee, args, _) => find_static_method_target(callee)
                 .or_else(|| args.iter().find_map(find_static_method_target)),
             crate::hir::HirExprKindFor::Lambda { body, .. }
-            | crate::hir::HirExprKindFor::Block(body) => {
+            | crate::hir::HirExprKindFor::Block(body)
+            | crate::hir::HirExprKindFor::UnsafeBlock(body) => {
                 body.stmts.iter().find_map(|stmt| match stmt {
                     crate::hir::HirStmtFor::Let { value, .. }
                     | crate::hir::HirStmtFor::Expr(value)
@@ -2401,7 +2520,8 @@ mod tests {
                 find_first_enum_variant_expr(callee)
                     .or_else(|| args.iter().find_map(find_first_enum_variant_expr))
             }
-            crate::hir::HirExprKindFor::Block(block) => find_first_enum_variant(block),
+            crate::hir::HirExprKindFor::Block(block)
+            | crate::hir::HirExprKindFor::UnsafeBlock(block) => find_first_enum_variant(block),
             _ => None,
         }
     }
@@ -2422,7 +2542,8 @@ mod tests {
                 find_first_resolved_var_expr(callee)
                     .or_else(|| args.iter().find_map(find_first_resolved_var_expr))
             }
-            crate::hir::HirExprKindFor::Block(block) => find_first_resolved_var(block),
+            crate::hir::HirExprKindFor::Block(block)
+            | crate::hir::HirExprKindFor::UnsafeBlock(block) => find_first_resolved_var(block),
             _ => None,
         }
     }

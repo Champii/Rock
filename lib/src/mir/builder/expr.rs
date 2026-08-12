@@ -493,7 +493,7 @@ impl<'a> MirBuilder<'a> {
                 self.current_block = Some(merge_block);
                 self.emit_assign(dest, Rvalue::Use(Operand::Constant(Constant::Unit)), span);
             }
-            HirExprKind::Block(block) => {
+            HirExprKind::Block(block) | HirExprKind::UnsafeBlock(block) => {
                 self.lower_block(block, dest);
             }
             HirExprKind::Assign(lhs, rhs) => {

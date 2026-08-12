@@ -227,6 +227,53 @@ impl<'a> SelectionService<'a> {
             })
     }
 
+    /// Select a method for a receiver whose nominal head is still unknown.
+    ///
+    /// This is deliberately limited to rigid, fully concrete implementation
+    /// patterns.  It materializes a unique method obligation without guessing
+    /// an HKT constructor or an abstract receiver head.
+    pub fn select_inferred_method_candidates<F>(
+        &self,
+        receiver: &HirExpr,
+        method_name: &str,
+        mut normalize: F,
+    ) -> Vec<SelectedMethod>
+    where
+        F: FnMut(&Type) -> Type,
+    {
+        self.impl_ids_in_order()
+            .filter_map(|id| self.impls.get(&id))
+            .filter_map(|imp| {
+                let receiver_ty = inferred_rigid_receiver_type(&imp.receiver_pattern)?;
+                let synthetic_receiver = HirExpr {
+                    ty: receiver_ty,
+                    kind: receiver.kind.clone(),
+                    span: receiver.span.clone(),
+                };
+                let candidate = ReceiverCandidate {
+                    expr: synthetic_receiver,
+                    adjustment: ReceiverAdjustment::None,
+                    can_autoref_mut: false,
+                };
+                self.select_concrete_method_candidates(
+                    std::slice::from_ref(&candidate),
+                    method_name,
+                    |ty| normalize(ty),
+                )
+                .into_iter()
+                .filter(|selected| selected.target.impl_id() == Some(imp.id))
+                .into_iter()
+                .filter(|selected| selected.pending_impl_bounds.is_empty())
+                .map(|mut selected| {
+                    selected.receiver.kind = receiver.kind.clone();
+                    selected.receiver.span = receiver.span.clone();
+                    selected
+                })
+                .next()
+            })
+            .collect()
+    }
+
     pub fn mut_receiver_method_requires_mutable_receiver<F>(
         &self,
         receiver_candidates: &[ReceiverCandidate],
@@ -2365,6 +2412,46 @@ impl<'a> SelectionService<'a> {
             2
         }
     }
+}
+
+fn inferred_rigid_receiver_type(pattern: &HirImplReceiverPattern) -> Option<Type> {
+    let ty = match pattern {
+        HirImplReceiverPattern::Exact(ty) | HirImplReceiverPattern::Constructor(ty) => ty,
+        HirImplReceiverPattern::SliceFamily { element } => {
+            return Some(Type::Reference {
+                mutable: false,
+                inner: Box::new(Type::Slice(Box::new(element.clone()))),
+            });
+        }
+    };
+
+    if !matches!(
+        ty,
+        Type::Struct { .. }
+            | Type::Enum { .. }
+            | Type::Reference { .. }
+            | Type::Slice(_)
+            | Type::Array(_, _)
+            | Type::Pointer(_)
+            | Type::Tuple(_)
+    ) {
+        return None;
+    }
+
+    (!crate::type_services::visit::type_any(ty, |nested| {
+        matches!(
+            nested,
+            Type::TypeVar(_)
+                | Type::Generic(_)
+                | Type::Projection { .. }
+                | Type::Apply { .. }
+                | Type::Constructor { .. }
+                | Type::Lambda { .. }
+                | Type::BoundVar { .. }
+                | Type::Error
+        )
+    }))
+    .then(|| ty.clone())
 }
 
 #[cfg(test)]

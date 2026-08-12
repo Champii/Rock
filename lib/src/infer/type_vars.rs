@@ -45,8 +45,7 @@ fn replace_type_vars_in_pattern_composite(
 
 /// Check if a block contains expressions that prevent generalization.
 ///
-/// TupleLiteral is the only remaining blocker — generic tuple return types are not
-/// yet supported by codegen. BinOp, UnaryOp, and Intrinsic were removed: the free
+/// BinOp, UnaryOp, and Intrinsic were removed: the free
 /// TypeVar detection correctly handles those (if their TypeVars unify to concrete
 /// types the function won't generalize; if they remain free the function is
 /// genuinely polymorphic and should be generic).
@@ -91,8 +90,6 @@ fn is_constrained_operator_method(method_name: &str) -> bool {
 
 pub(super) fn uses_constrained_ops_expr(expr: &HirExpr) -> bool {
     match &expr.kind {
-        // Tuple returns are not yet supported by codegen for generic functions.
-        HirExprKind::TupleLiteral(_) => true,
         HirExprKind::MethodCall(recv, method_name, args, _, _) => {
             is_constrained_operator_method(method_name)
                 || uses_constrained_ops_expr(recv)
@@ -281,7 +278,7 @@ fn replace_type_vars_in_expr_composite(
         HirExprKind::Loop(body) => {
             replace_type_vars_in_block_composite(engine, body, mapping, composite_types)
         }
-        HirExprKind::Block(body) => {
+        HirExprKind::Block(body) | HirExprKind::UnsafeBlock(body) => {
             replace_type_vars_in_block_composite(engine, body, mapping, composite_types)
         }
         HirExprKind::Lambda {

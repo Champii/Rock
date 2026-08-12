@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast;
 use crate::hir::*;
+use crate::ids::TypeVarId;
 use crate::lexer::Span;
 use crate::selection::{ReceiverCandidate, SelectedMethod, SelectionDiagnostic};
 use crate::types::{GenericParamId, Type};
@@ -38,6 +39,49 @@ impl Lowerer {
     }
 
     pub(crate) fn instantiate_function_type(&mut self, func: &HirFunction) -> Type {
+        if func.generic_params.is_empty()
+            && self.should_instantiate_inferred_function(func.id)
+            && self
+                .function_type_vars
+                .get(&func.id)
+                .is_some_and(|vars| !vars.is_empty())
+        {
+            let mut representatives = HashMap::<TypeVarId, Type>::new();
+            let mut substitution = HashMap::<TypeVarId, Type>::new();
+            for variable in self
+                .function_type_vars
+                .get(&func.id)
+                .into_iter()
+                .flatten()
+                .copied()
+            {
+                let resolved = self.engine.resolve(&Type::TypeVar(variable));
+                let replacement = match resolved {
+                    Type::TypeVar(representative) => representatives
+                        .entry(representative)
+                        .or_insert_with(|| {
+                            let kind = self.engine.kind_of_type_var(representative);
+                            self.engine.fresh_type_var_of_kind(kind)
+                        })
+                        .clone(),
+                    resolved => resolved,
+                };
+                substitution.insert(variable, replacement);
+            }
+
+            let params = func
+                .params
+                .iter()
+                .map(|param| param.ty.substitute(&substitution))
+                .collect();
+            let ret = func.ret_type.substitute(&substitution);
+            return Type::function_with_safety(
+                params,
+                ret,
+                crate::types::FunctionSafety::from_is_unsafe(func.is_unsafe),
+            );
+        }
+
         let mut generic_params = HashSet::new();
         for param in &func.params {
             param.ty.collect_generic_params(&mut generic_params);
@@ -850,10 +894,22 @@ impl Lowerer {
                 safety,
             );
             if let Err(e) = self.engine.unify(&func_ty, &expected_fn_ty) {
-                self.diagnostics.push(format!(
-                    "Operator '{}': function type mismatch: {}",
-                    op_str, e
-                ));
+                if e.contains("cannot infer a type constructor")
+                    && (Self::type_has_unresolved_parameter(&left.ty)
+                        || Self::type_has_unresolved_parameter(&right.ty))
+                {
+                    self.constraint_store.add_equality(
+                        func_ty.clone(),
+                        expected_fn_ty.clone(),
+                        self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        &format!("Operator '{op_str}' function type mismatch"),
+                    );
+                } else {
+                    self.diagnostics.push(format!(
+                        "Operator '{}': function type mismatch: {}",
+                        op_str, e
+                    ));
+                }
             }
 
             expected_ret_ty = match self.engine.normalize_resolved_type(&expected_ret_ty) {
@@ -1614,7 +1670,7 @@ impl Lowerer {
                 let ty = body.ty.clone();
                 HirExpr {
                     ty,
-                    kind: HirExprKind::Block(body),
+                    kind: HirExprKind::UnsafeBlock(body),
                     span: self.diagnostics.current_span().cloned().unwrap_or_default(),
                 }
             }

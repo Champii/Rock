@@ -10,6 +10,7 @@ pub(crate) mod diagnostics;
 pub mod error;
 pub mod expression;
 pub mod function;
+pub(crate) mod inference_scc;
 pub mod intrinsics;
 pub(crate) mod items;
 pub(crate) mod module_context;
@@ -58,6 +59,7 @@ pub struct Lowerer {
     pub(crate) modules: LowerModuleService,
     pub(crate) prelude: LowerPreludeService,
     pub(crate) function_type_vars: HashMap<DefId, HashSet<TypeVarId>>,
+    pub(crate) inference_sccs: HashMap<DefId, DefId>,
     pub(crate) current_trait: Option<String>,
     pub(crate) current_trait_id: Option<DefId>,
     pub(crate) current_trait_generics: Vec<String>,
@@ -97,6 +99,7 @@ impl Lowerer {
             modules: services.modules,
             prelude: services.prelude,
             function_type_vars: HashMap::new(),
+            inference_sccs: HashMap::new(),
             current_trait: None,
             current_trait_id: None,
             current_trait_generics: Vec::new(),
@@ -117,6 +120,23 @@ impl Lowerer {
             body_context: None,
             tuple_temp_counter: 0,
         }
+    }
+
+    pub(crate) fn should_instantiate_inferred_function(&self, function_id: DefId) -> bool {
+        let Some(owner) = self.body_context.as_ref().map(|context| context.owner()) else {
+            return true;
+        };
+        let current_id = match owner {
+            BodyOwner::Function(id)
+            | BodyOwner::ImplMethod { method_id: id, .. }
+            | BodyOwner::TraitMethod { method_id: id, .. } => *id,
+        };
+
+        if current_id == function_id {
+            return false;
+        }
+
+        self.inference_sccs.get(&current_id) != self.inference_sccs.get(&function_id)
     }
 
     pub fn with_options(inject_prelude: bool) -> Self {

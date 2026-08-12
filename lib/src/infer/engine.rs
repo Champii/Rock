@@ -741,7 +741,7 @@ impl InferenceEngine {
                 Constraint::IntLiteral { var, .. } | Constraint::FloatLiteral { var, .. } => {
                     self.unresolved_type_var_representative(*var)
                 }
-                Constraint::Trait { .. } => None,
+                Constraint::Trait { .. } | Constraint::Equality { .. } => None,
             })
             .collect::<HashSet<_>>();
         for representative in representatives {
@@ -1154,10 +1154,6 @@ impl InferenceEngine {
                 args: actual_args[..prefix_len].to_vec(),
             }
         };
-        if Self::contains_type_var(&prefix) {
-            return Some(Err(Self::constructor_inference_error(pattern, actual)));
-        }
-
         let mut probe = self.clone_for_probe();
         if probe.bind_type_var(*constructor_var, prefix).is_err() {
             return Some(Err(Self::constructor_inference_error(pattern, actual)));
@@ -1206,37 +1202,6 @@ impl InferenceEngine {
         format!(
             "cannot infer a type constructor from {pattern} = {actual}; add an explicit constructor section annotation"
         )
-    }
-
-    fn contains_type_var(ty: &Type) -> bool {
-        match ty {
-            Type::TypeVar(_) => true,
-            Type::Slice(inner) | Type::Pointer(inner) => Self::contains_type_var(inner),
-            Type::Array(inner, _) | Type::Reference { inner, .. } => Self::contains_type_var(inner),
-            Type::Tuple(items)
-            | Type::Struct { args: items, .. }
-            | Type::Enum { args: items, .. } => items.iter().any(Self::contains_type_var),
-            Type::Function {
-                params,
-                ret,
-                captures,
-                ..
-            } => {
-                params.iter().any(Self::contains_type_var)
-                    || Self::contains_type_var(ret)
-                    || captures
-                        .iter()
-                        .any(|capture| Self::contains_type_var(&capture.ty))
-            }
-            Type::Projection { ty, trait_args, .. } => {
-                Self::contains_type_var(ty) || trait_args.iter().any(Self::contains_type_var)
-            }
-            Type::Apply { constructor, args } => {
-                Self::contains_type_var(constructor) || args.iter().any(Self::contains_type_var)
-            }
-            Type::Lambda { body, .. } => Self::contains_type_var(body),
-            _ => false,
-        }
     }
 
     fn has_escaping_bound_var(ty: &Type, binder_depth: u32) -> bool {

@@ -229,7 +229,7 @@ fn retarget_generated_default_trait_method_calls_in_expr(
                 );
             }
         }
-        HirExprKind::Block(block) | HirExprKind::Loop(block) => {
+        HirExprKind::Block(block) | HirExprKind::Loop(block) | HirExprKind::UnsafeBlock(block) => {
             retarget_generated_default_trait_method_calls_in_block(
                 block,
                 trait_id,
@@ -464,7 +464,7 @@ fn apply_generated_default_self_type_in_expr(
                 apply_generated_default_self_type_in_block(else_branch, param_ty, self_type);
             }
         }
-        HirExprKind::Block(block) | HirExprKind::Loop(block) => {
+        HirExprKind::Block(block) | HirExprKind::Loop(block) | HirExprKind::UnsafeBlock(block) => {
             apply_generated_default_self_type_in_block(block, param_ty, self_type);
         }
         HirExprKind::Lambda { body, .. } => {
@@ -674,7 +674,7 @@ fn resolve_generated_default_expr_types(engine: &mut InferenceEngine, expr: &mut
                 resolve_generated_default_block_types(engine, else_branch);
             }
         }
-        HirExprKind::Block(block) | HirExprKind::Loop(block) => {
+        HirExprKind::Block(block) | HirExprKind::Loop(block) | HirExprKind::UnsafeBlock(block) => {
             resolve_generated_default_block_types(engine, block);
         }
         HirExprKind::Lambda {
@@ -1690,7 +1690,9 @@ impl TraitConformanceService<'_> {
                         generic_subst,
                     );
                 }
-                HirExprKind::Loop(body) | HirExprKind::Block(body) => {
+                HirExprKind::Loop(body)
+                | HirExprKind::Block(body)
+                | HirExprKind::UnsafeBlock(body) => {
                     substitute_trait_impl_types_in_block(
                         body,
                         impl_type,
@@ -2708,7 +2710,7 @@ fn remap_expr_generic_owner(expr: &mut HirExpr, old_owner: DefId, new_owner: Def
             remap_expr_generic_owner(iter, old_owner, new_owner);
             remap_block_generic_owner(body, old_owner, new_owner);
         }
-        HirExprKind::Loop(body) | HirExprKind::Block(body) => {
+        HirExprKind::Loop(body) | HirExprKind::Block(body) | HirExprKind::UnsafeBlock(body) => {
             remap_block_generic_owner(body, old_owner, new_owner);
         }
         HirExprKind::Lambda {

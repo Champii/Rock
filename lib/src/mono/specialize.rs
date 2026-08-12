@@ -1,6 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use super::hir_types::{HirExpr, HirFunction, HirParam};
+use super::hir_types::{HirBlock, HirExpr, HirFunction, HirParam};
 use crate::ids::{CrateId, DefId, LocalDefId, TypeId};
 use crate::selection::{constructor_target_from_applied_type, type_pattern_matches};
 use crate::type_services::normalize::apply_type_lambda;
@@ -35,11 +35,35 @@ impl Monomorphizer {
                 );
                 return Some((instance_id, func_type, body.ret_type.clone()));
             }
+            let pending = self.create_specialization_signature(generic_func, &type_args);
+            let param_types = pending
+                .params
+                .iter()
+                .map(|param| param.ty.clone())
+                .collect();
+            let func_type = Type::function_with_safety(
+                param_types,
+                pending.ret_type.clone(),
+                crate::types::FunctionSafety::from_is_unsafe(pending.is_unsafe),
+            );
+            return Some((instance_id, func_type, pending.ret_type));
         }
 
         let specialized_name = format!("{}_mono_{}", func_name, self.counter);
         self.counter += 1;
 
+        let backend_symbol = self.backend_symbol_for_origin(&origin, &substitution);
+        let instance_id = self
+            .instances
+            .intern(instance_key, |id| crate::mono::InstanceRecord {
+                id,
+                origin: origin.clone(),
+                substitution: substitution.clone(),
+                symbols: crate::mono::InstanceSymbols::new(func_name, backend_symbol.clone()),
+                declared: None,
+                provided_by_object: false,
+                is_specialization: true,
+            });
         let specialized_func =
             self.create_specialization(generic_func, &type_args, &specialized_name);
         let specialized_ret_type = specialized_func.ret_type.clone();
@@ -54,18 +78,6 @@ impl Monomorphizer {
             crate::types::FunctionSafety::from_is_unsafe(specialized_func.is_unsafe),
         );
 
-        let backend_symbol = self.backend_symbol_for_origin(&origin, &substitution);
-        let instance_id = self
-            .instances
-            .intern(instance_key, |id| crate::mono::InstanceRecord {
-                id,
-                origin: origin.clone(),
-                substitution: substitution.clone(),
-                symbols: crate::mono::InstanceSymbols::new(func_name, backend_symbol.clone()),
-                declared: None,
-                provided_by_object: false,
-                is_specialization: true,
-            });
         self.instances
             .insert_pre_mir_body(instance_id, specialized_func.clone());
         if let Some(body) = self.instances.pre_mir_body(instance_id) {
@@ -503,6 +515,7 @@ impl Monomorphizer {
         type_args: &[TypeId],
         specialized_name: &str,
     ) -> HirFunction {
+        let signature = self.create_specialization_signature(generic_func, type_args);
         let mut substitution = HashMap::new();
         for (i, generic_id) in Self::generic_ids_for_function(generic_func)
             .iter()
@@ -513,23 +526,10 @@ impl Monomorphizer {
             }
         }
 
-        let params: Vec<HirParam> = generic_func
-            .params
-            .iter()
-            .map(|p| HirParam {
-                name: p.name.clone(),
-                local_id: p.local_id,
-                ty: self.substitute_type_with_map(&p.ty, &substitution),
-                mutable: p.mutable,
-                is_ref: p.is_ref,
-            })
-            .collect();
-
-        let ret_type = self.substitute_type_with_map(&generic_func.ret_type, &substitution);
         let mut body = self.substitute_block(&generic_func.body, &substitution);
         let old_var_types = self.var_types.clone();
         self.var_types.clear();
-        let mut params_for_body = params.clone();
+        let mut params_for_body = signature.params.clone();
         self.process_params(&mut params_for_body);
         self.process_block(&mut body);
         self.var_types = old_var_types;
@@ -539,9 +539,47 @@ impl Monomorphizer {
             name: specialized_name.to_string(),
             generic_params: vec![],
             generic_bounds: crate::hir::HirGenericBounds::new(),
-            params,
-            ret_type,
+            params: signature.params,
+            ret_type: signature.ret_type,
             body,
+            is_curried: generic_func.is_curried,
+            is_method: generic_func.is_method,
+            self_receiver: generic_func.self_receiver,
+            is_unsafe: generic_func.is_unsafe,
+        }
+    }
+
+    fn create_specialization_signature(
+        &mut self,
+        generic_func: &HirFunction,
+        type_args: &[TypeId],
+    ) -> HirFunction {
+        let substitution = Self::generic_ids_for_function(generic_func)
+            .into_iter()
+            .zip(type_args.iter().copied())
+            .collect::<HashMap<_, _>>();
+        let params = generic_func
+            .params
+            .iter()
+            .map(|param| HirParam {
+                name: param.name.clone(),
+                local_id: param.local_id,
+                ty: self.substitute_type_with_map(&param.ty, &substitution),
+                mutable: param.mutable,
+                is_ref: param.is_ref,
+            })
+            .collect();
+        HirFunction {
+            id: generic_func.id,
+            name: generic_func.name.clone(),
+            generic_params: vec![],
+            generic_bounds: crate::hir::HirGenericBounds::new(),
+            params,
+            ret_type: self.substitute_type_with_map(&generic_func.ret_type, &substitution),
+            body: HirBlock {
+                stmts: Vec::new(),
+                ty: Type::Unit,
+            },
             is_curried: generic_func.is_curried,
             is_method: generic_func.is_method,
             self_receiver: generic_func.self_receiver,

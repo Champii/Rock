@@ -1281,7 +1281,7 @@ impl Monomorphizer {
                 self.update_self_types_expr(iter, self_type);
                 self.update_self_types(body, self_type);
             }
-            HirExprKind::Loop(body) | HirExprKind::Block(body) => {
+            HirExprKind::Loop(body) | HirExprKind::Block(body) | HirExprKind::UnsafeBlock(body) => {
                 self.update_self_types(body, self_type);
             }
             HirExprKind::Lambda { body, .. } => {

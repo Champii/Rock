@@ -2381,6 +2381,9 @@ impl SerializedHirExprKind {
             crate::hir::HirExprKindFor::Block(body) => {
                 Self::Block(SerializedHirBlock::encode(body, encoder)?)
             }
+            crate::hir::HirExprKindFor::UnsafeBlock(body) => {
+                Self::Block(SerializedHirBlock::encode(body, encoder)?)
+            }
             crate::hir::HirExprKindFor::Lambda {
                 params,
                 body,

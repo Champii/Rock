@@ -3648,6 +3648,110 @@ main = ->
 }
 
 #[test]
+fn deferred_method_section_autorefs_shared_receiver() {
+    let output = compile_and_run(
+        r#"
+> stdlib::result::Result
+
+struct Counter
+    < value: I64
+
+impl Counter
+    @read: Result I64, I64
+    @read = -> Result::Ok self.value
+
+make: () -> Result Counter, I64
+make = -> Result::Ok (Counter
+    value: 41)
+
+main = ->
+    result: Result I64, I64 = make! >>= (.read!)
+    result.println!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "Ok(41)");
+}
+
+#[test]
+fn deferred_method_section_uses_autoderef_receiver() {
+    let output = compile_and_run(
+        r#"
+struct Inner
+    < value: I64
+
+impl Inner
+    @read = -> self.value
+
+struct Box T
+    < value: T
+
+impl Deref for Box T
+    type Target = T
+    @* = -> &@value
+
+make: () -> Box Inner
+make = -> Box
+    value: Inner
+        value: 42
+
+main = ->
+    result = make! |> (.read!)
+    result.println!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "42");
+}
+
+#[test]
+fn deferred_method_value_execution_preserves_selected_method() {
+    let output = compile_and_run(
+        r#"
+struct Counter
+    < value: I64
+
+impl Counter
+    @read = -> self.value
+
+identity = value -> value
+
+main = ->
+    counter = identity (Counter
+        value: 43)
+    reader = counter.read
+    value: I64 = reader!
+    value.println!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "43");
+}
+
+#[test]
+fn deferred_bounded_generic_method_rejects_invalid_argument() {
+    compile_should_fail(
+        r#"
+trait Marker
+
+struct Box
+
+impl Box
+    @requires_marker: T -> Unit where T: Marker
+    @requires_marker = _ -> return
+
+make: () -> Result Box, I64
+make = -> Result::Ok Box
+
+main = ->
+    result = make! >>= (.requires_marker 1)
+    0
+"#,
+        "does not implement trait",
+    );
+}
+
+#[test]
 fn deferred_unknown_method_section_remains_unknown_field() {
     compile_should_fail(
         r#"
@@ -6138,7 +6242,7 @@ main = ->
     result = compute true
     match result
         Result::Ok value => value.println!
-        Result::Err err => err.println!
+        Result::Err err => (err + 0).println!
     0
 "#,
     );
@@ -6313,19 +6417,458 @@ main = ->
 }
 
 #[test]
-fn test_try_in_inferred_return_function_requests_explicit_return_type() {
+fn test_signatureless_method_receiver_is_constrained_by_call_site() {
+    let output = compile_and_run(
+        r#"
+run_mode = mode -> mode.as_str!
+
+main = ->
+    mode = String::from_str "listen"
+    run_mode &mode .println!
+    0
+"#,
+    );
+
+    assert_eq!(output.trim(), "listen");
+}
+
+#[test]
+fn test_signatureless_higher_order_helper_is_instantiated_at_two_targets() {
+    let output = compile_and_run(
+        r#"
+apply = value, mapper -> mapper value
+
+increment = value -> value + 1
+identity_bool = value ->
+    if value
+        true
+    else
+        false
+
+main = ->
+    first = apply 41, increment
+    second = apply true, identity_bool
+    first.println!
+    second.println!
+    0
+"#,
+    );
+
+    assert_eq!(
+        output.trim().lines().collect::<Vec<_>>(),
+        vec!["42", "true"]
+    );
+}
+
+#[test]
+fn test_signatureless_callback_infers_mut_reference_parameter() {
+    let output = compile_and_run(
+        r#"
+dispatch = mut target, callback ->
+    callback target
+    0
+
+main = ->
+    mut value = 0
+    dispatch &mut value, (slot -> *slot = 41)
+    value.println!
+    0
+"#,
+    );
+
+    assert_eq!(output.trim(), "41");
+}
+
+#[test]
+fn test_signatureless_forward_try_and_hkt_map_are_inferred() {
+    let output = compile_and_run(
+        r#"
+finish_connection = ->
+    value = source!?
+    wrapped = if true
+        Result::Ok value
+    else
+        Result::Err 0
+    wrapped.map (item -> item + 1)
+
+source = ->
+    if true
+        Result::Ok 41
+    else
+        Result::Err 0
+
+main = ->
+    result = finish_connection!
+    match result
+        Result::Ok value => value.println!
+        Result::Err err => err.println!
+    0
+"#,
+    );
+
+    assert_eq!(output.trim(), "42");
+}
+
+#[test]
+fn test_signatureless_ambiguous_method_still_reports_diagnostic() {
     compile_should_fail(
+        r#"
+trait First
+    @ping: () -> I64
+
+trait Second
+    @ping: () -> I64
+
+struct Service
+
+impl First for Service
+    @ping = -> 1
+
+impl Second for Service
+    @ping = -> 2
+
+run = value -> value.ping!
+
+main = ->
+    run Service
+    0
+"#,
+        "Ambiguous selection",
+    );
+}
+
+#[test]
+fn test_signatureless_mutual_recursion_remains_monomorphic() {
+    let output = compile_and_run(
+        r#"
+even = value ->
+    if value == 0
+        true
+    else
+        odd (value - 1)
+
+odd = value ->
+    if value == 0
+        false
+    else
+        even (value - 1)
+
+main = ->
+    even 10 .println!
+    odd 10 .println!
+    0
+"#,
+    );
+
+    assert_eq!(
+        output.trim().lines().collect::<Vec<_>>(),
+        vec!["true", "false"]
+    );
+}
+
+#[test]
+fn test_signatureless_direct_recursion_registers_specialization_before_body() {
+    let output = compile_and_run(
+        r#"
+count_down = value ->
+    if value == 0
+        42
+    else
+        count_down (value - 1)
+
+main = ->
+    count_down 3 .println!
+    0
+"#,
+    );
+
+    assert_eq!(output.trim(), "42");
+}
+
+#[test]
+fn test_try_in_inferred_return_function_is_inferred_successfully() {
+    let output = compile_and_run(
         r#"
 fallible: () -> Result I64, I64
 fallible = -> Result::Ok 41
 
 compute = ->
     value = fallible!?
-    Result::Ok (value + 1)
+    if true
+        Result::Ok (value + 1)
+    else
+        Result::Err 0
+
+main = ->
+    result = compute!
+    match result
+        Result::Ok value => value.println!
+        Result::Err err => err.println!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "42");
+}
+
+#[test]
+fn test_try_inferred_later_defined_helper_is_materialized_after_body_unification() {
+    let output = compile_and_run(
+        r#"
+compute = ->
+    value = later true?
+    if true
+        Result::Ok (value + 1)
+    else
+        Result::Err 0
+
+later = ok ->
+    if ok
+        Result::Ok 41
+    else
+        Result::Err 7
+
+main = ->
+    result = compute!
+    match result
+        Result::Ok value => value.println!
+        Result::Err err => err.println!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "42");
+}
+
+#[test]
+fn test_try_inferred_impl_method_materializes_before_method_generalization() {
+    let output = compile_and_run(
+        r#"
+maybe_value: Bool -> Result I64, I64
+maybe_value = ok ->
+    if ok
+        Result::Ok 41
+    else
+        Result::Err 7
+
+struct Worker
+
+impl Worker
+    @compute = ok ->
+        value = maybe_value ok?
+        if true
+            Result::Ok (value + 1)
+        else
+            Result::Err 0
+
+main = ->
+    worker = Worker
+    result = worker.compute true
+    match result
+        Result::Ok value => value.println!
+        Result::Err err => err.println!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "42");
+}
+
+#[test]
+fn test_try_inferred_function_generalizes_unrelated_parameter() {
+    let output = compile_and_run(
+        r#"
+fallible: () -> Result I64, I64
+fallible = -> Result::Ok 41
+
+compute = ignored ->
+    value = fallible!?
+    if true
+        Result::Ok (value + 1)
+    else
+        Result::Err 0
+
+main = ->
+    first = compute 1
+    second = compute true
+    match first
+        Result::Ok value => value.println!
+        Result::Err err => err.println!
+    match second
+        Result::Ok value => value.println!
+        Result::Err err => err.println!
+    0
+"#,
+    );
+    assert_eq!(output.trim().lines().collect::<Vec<_>>(), vec!["42", "42"]);
+}
+
+#[test]
+fn test_try_deferred_non_carrier_reports_diagnostic() {
+    compile_should_fail(
+        r#"
+compute = ->
+    value = later!?
+    if true
+        Result::Ok value
+    else
+        Result::Err 0
+
+later = -> 1
+
+main = ->
+    compute!
+    0
+"#,
+        "Cannot use '?' on non-carrier type",
+    );
+}
+
+#[test]
+fn test_try_deferred_from_residual_reports_diagnostic() {
+    compile_should_fail(
+        r#"
+maybe: () -> Option I64
+maybe = -> Option::None
+
+compute = ->
+    value = maybe!?
+    if true
+        Result::Ok value
+    else
+        Result::Err 0
+
+main = ->
+    compute!
+    0
+"#,
+        "FromResidual",
+    );
+}
+
+#[test]
+fn test_try_deferred_unsafe_branch_requires_unsafe_block() {
+    compile_should_fail(
+        r#"
+enum Carrier T
+    Value T
+    Stop I64
+
+enum Residual
+    Stop I64
+
+impl Try for Carrier T
+    type Output = T
+    type Residual = Residual
+
+    unsafe ~@branch = ->
+        match self
+            Carrier::Value value => ControlFlow::Continue value
+            Carrier::Stop code => ControlFlow::Break (Residual::Stop code)
+
+impl FromResidual Residual for Carrier T
+    from_residual = residual ->
+        match residual
+            Residual::Stop code => Carrier::Stop code
+
+compute = ->
+    value = source!?
+    if true
+        Carrier::Value value
+    else
+        Carrier::Stop 0
+
+source: () -> Carrier I64
+source = -> Carrier::Value 41
+
+main = ->
+    compute!
+    0
+"#,
+        "requires an unsafe block",
+    );
+}
+
+#[test]
+fn test_try_deferred_unsafe_branch_is_allowed_inside_unsafe_block() {
+    let output = compile_and_run(
+        r#"
+enum Carrier T
+    Value T
+    Stop I64
+
+enum Residual
+    Stop I64
+
+impl Try for Carrier T
+    type Output = T
+    type Residual = Residual
+
+    unsafe ~@branch = ->
+        match self
+            Carrier::Value value => ControlFlow::Continue value
+            Carrier::Stop code => ControlFlow::Break (Residual::Stop code)
+
+impl FromResidual Residual for Carrier T
+    from_residual = residual ->
+        match residual
+            Residual::Stop code => Carrier::Stop code
+
+compute = ->
+    value = unsafe
+        source!?
+    if true
+        Carrier::Value value
+    else
+        Carrier::Stop 0
+
+source: () -> Carrier I64
+source = -> Carrier::Value 41
+
+main = ->
+    compute!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "");
+}
+
+#[test]
+fn test_try_in_lambda_uses_lambda_return_type_not_outer_function() {
+    let output = compile_and_run(
+        r#"
+maybe = -> Option::Some 41
+
+outer: () -> Result I64, I64
+outer = ->
+    convert = ->
+        value = maybe!?
+        if true
+            Option::Some value
+        else
+            Option::None
+    ignored = convert!
+    Result::Ok 42
+
+main = ->
+    result = outer!
+    match result
+        Result::Ok value => value.println!
+        Result::Err err => err.println!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "42");
+}
+
+#[test]
+fn test_try_generic_carrier_is_rejected_without_ambiguous_selection() {
+    compile_should_fail(
+        r#"
+compute = value ->
+    extracted = value?
+    extracted
 
 main = -> 0
 "#,
-        "Cannot use '?' in 'compute' because its return type is inferred; declare its return type explicitly",
+        "carrier type is unresolved or generic",
     );
 }
 

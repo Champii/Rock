@@ -257,7 +257,7 @@ impl<'a> LowerResolutionContext<'a> {
             .filter_map(|imp| {
                 imp.methods
                     .get(method_name)
-                    .filter(|method| !method.is_method)
+                    .filter(|method| !method.is_method || method.self_receiver.is_some())
                     .map(|method| (*imp, method))
             })
             .collect::<Vec<_>>();

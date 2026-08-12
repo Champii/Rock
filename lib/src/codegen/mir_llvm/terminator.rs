@@ -300,7 +300,9 @@ impl<'ctx> CodeGen<'ctx> {
                 })?
         };
 
-        if !matches!(destination_ty, Type::Unit) {
+        let destination_is_unit = matches!(&destination_ty, Type::Unit)
+            || matches!(&destination_ty, Type::Tuple(elements) if elements.is_empty());
+        if !destination_is_unit {
             let value = result.try_as_basic_value().left().ok_or_else(|| {
                 CodegenError::from("MIR call expected a return value but got void")
             })?;

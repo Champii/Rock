@@ -302,6 +302,9 @@ impl Monomorphizer {
             HirExprKind::Block(body) => {
                 HirExprKind::Block(self.substitute_block(body, substitution))
             }
+            HirExprKind::UnsafeBlock(body) => {
+                HirExprKind::UnsafeBlock(self.substitute_block(body, substitution))
+            }
             HirExprKind::Lambda {
                 params,
                 body,

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::hir::{
     HirAssociatedTypeDef, HirExpr, HirFunction, HirImpl, HirMethodCallTarget, HirParam,
-    HirSelectedMethodTarget,
+    HirSelectedMethodTarget, HirTypeBinding,
 };
 use crate::ids::DefId;
 use crate::types::{GenericParamId, TraitBound, Type};
@@ -117,6 +117,84 @@ impl SelectedMethod {
             return_type: self.return_type.clone(),
         }
     }
+
+    /// Build the canonical call target after method generic inference.
+    ///
+    /// Selection owns the target shape; callers only provide the inferred
+    /// substitutions and their normalizer.
+    pub fn target_with_substitution<F>(
+        &self,
+        substitution: &HashMap<GenericParamId, Type>,
+        mut normalize: F,
+    ) -> HirMethodCallTarget
+    where
+        F: FnMut(&Type) -> Type,
+    {
+        let mut target = self.target.clone();
+        if let Some(trait_args) = target.trait_args_mut() {
+            *trait_args = trait_args
+                .iter()
+                .map(|arg| normalize(&arg.substitute_generics(substitution)))
+                .collect();
+        }
+
+        for param in &self.owner_generic_params {
+            if target
+                .owner_substitution
+                .iter()
+                .any(|binding| binding.param == *param)
+            {
+                continue;
+            }
+            if let Some(ty) = substitution
+                .get(param)
+                .or_else(|| self.owner_substitution.get(param))
+            {
+                target.owner_substitution.push(HirTypeBinding {
+                    param: *param,
+                    ty: normalize(ty),
+                });
+            }
+        }
+        target.owner_substitution.sort_by_key(binding_sort_key);
+
+        let owner_params = target
+            .owner_substitution
+            .iter()
+            .map(|binding| binding.param)
+            .collect::<std::collections::HashSet<_>>();
+        let method_params = self
+            .function
+            .as_ref()
+            .map(|function| {
+                function
+                    .generic_params
+                    .iter()
+                    .map(|param| param.id)
+                    .filter(|param| !owner_params.contains(param))
+                    .filter(|param| Some(param.owner) != target.trait_id())
+                    .collect::<std::collections::HashSet<_>>()
+            })
+            .unwrap_or_default();
+        target.method_substitution = substitution
+            .iter()
+            .filter(|(param, _)| method_params.contains(param))
+            .map(|(&param, ty)| HirTypeBinding {
+                param,
+                ty: normalize(ty),
+            })
+            .collect();
+        target.method_substitution.sort_by_key(binding_sort_key);
+        target
+    }
+}
+
+fn binding_sort_key(binding: &HirTypeBinding) -> (u32, u32, u32) {
+    (
+        binding.param.owner.crate_id.0,
+        binding.param.owner.local.0,
+        binding.param.index,
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

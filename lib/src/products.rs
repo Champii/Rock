@@ -1893,7 +1893,9 @@ fn assert_valid_product_expr_ids<P: HirPhase>(expr: &crate::hir::HirExprFor<P>) 
             assert_valid_product_expr_ids(iter);
             assert_valid_product_block_ids(body);
         }
-        crate::hir::HirExprKindFor::Loop(body) | crate::hir::HirExprKindFor::Block(body) => {
+        crate::hir::HirExprKindFor::Loop(body)
+        | crate::hir::HirExprKindFor::Block(body)
+        | crate::hir::HirExprKindFor::UnsafeBlock(body) => {
             assert_valid_product_block_ids(body);
         }
         crate::hir::HirExprKindFor::Lambda {
@@ -2495,7 +2497,9 @@ where
             remap_expr_types(iter, remap_type);
             remap_block_types(body, remap_type);
         }
-        crate::hir::HirExprKindFor::Loop(body) | crate::hir::HirExprKindFor::Block(body) => {
+        crate::hir::HirExprKindFor::Loop(body)
+        | crate::hir::HirExprKindFor::Block(body)
+        | crate::hir::HirExprKindFor::UnsafeBlock(body) => {
             remap_block_types(body, remap_type);
         }
         crate::hir::HirExprKindFor::Lambda {
@@ -2719,7 +2723,9 @@ fn remap_expr_location_product_ids<P: HirPhase>(
             remap_expr_location_product_ids(iter, id_remap);
             remap_block_location_product_ids(body, id_remap);
         }
-        crate::hir::HirExprKindFor::Loop(body) | crate::hir::HirExprKindFor::Block(body) => {
+        crate::hir::HirExprKindFor::Loop(body)
+        | crate::hir::HirExprKindFor::Block(body)
+        | crate::hir::HirExprKindFor::UnsafeBlock(body) => {
             remap_block_location_product_ids(body, id_remap);
         }
         crate::hir::HirExprKindFor::Lambda { body, .. } => {
@@ -3402,7 +3408,9 @@ fn remap_expr_owned_type_ids<P: HirPhase>(
             remap_expr_owned_type_ids(iter, old_id, new_id);
             remap_block_owned_type_ids(body, old_id, new_id);
         }
-        crate::hir::HirExprKindFor::Loop(body) | crate::hir::HirExprKindFor::Block(body) => {
+        crate::hir::HirExprKindFor::Loop(body)
+        | crate::hir::HirExprKindFor::Block(body)
+        | crate::hir::HirExprKindFor::UnsafeBlock(body) => {
             remap_block_owned_type_ids(body, old_id, new_id);
         }
         crate::hir::HirExprKindFor::Lambda {

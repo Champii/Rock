@@ -52,13 +52,11 @@ impl Clone for SharedServerState
         inner: self.inner.clone!
 
 impl ClientWriter
-    @send_all: &[U8] -> I64 -> Result I64, IoError
     @send_all = bytes, len ->
         guard = self.lock.lock!
         self.stream.send_all_prefix bytes, len
 
 impl ServerState
-    ^@add: ClientWriter -> Option I64
     ^@add = writer ->
         if self.clients.len! < max_clients!
             id = self.next_id
@@ -71,52 +69,48 @@ impl ServerState
         else
             Option::None
 
-    ^@remove: I64 -> Unit
     ^@remove = id -> self.clients.retain (.id != id)
 
-    @snapshot: Vec ClientWriter
     @snapshot = -> self.clients.map_ref (.writer.clone!)
 
 impl SharedServerState
-    new: ServerState -> SharedServerState
     new = state ->
         SharedServerState
             inner: Arc::new Mutex::new state
 
-    @add: ClientWriter -> Option I64
     @add = writer ->
         mut guard = self.inner.lock!
         guard.add writer
 
-    @remove: I64 -> Unit
     @remove = id ->
         mut guard = self.inner.lock!
         guard.remove id
 
-broadcast: &mut SharedServerState -> &[U8; 1024] -> I64 -> Result I64, IoError
 broadcast = state, bytes, len ->
+    payload: &[U8] = bytes
+    count: I64 = len
     guard = state.inner.lock!
-    guard.snapshot!.for_each_owned target !-> target.send_all bytes, len
-    Result::Ok len
+    guard.snapshot!.for_each_owned target !-> target.send_all payload, count
+    Result::Ok count
 
-receive_with: Arc TcpStream -> T -> (&mut T -> &[U8; 1024] -> I64 -> Result I64, IoError) -> I64
 receive_with = stream, mut target, write ->
+    client_stream: Arc TcpStream = stream
     mut buff: [U8; 1024] = [0; 1024]
     mut total: I64 = 0
     while true
-        match stream.recv &mut buff
+        match client_stream.recv &mut buff
             Result::Ok count =>
                 if count <= 0
                     return total
                 else
-                    match write &mut target, &buff, count
+                    written_result: Result I64, IoError = write &mut target, &buff, count
+                    match written_result
                         Result::Ok written => total = total + written
                         Result::Err _ => return total
             Result::Err _ => return total
     total
 
 impl ServerClient
-    ~@run: I64
     ~@run = ->
         total = receive_with self.stream.clone!, self.state.clone!, broadcast
         id = self.id
@@ -124,16 +118,13 @@ impl ServerClient
         total
 
 impl ClientReader
-    ~@run: I64
     ~@run = -> receive_with self.stream.clone!, stdout!, Stdout::write_all_prefix
 
-listen: () -> Result I64, IoError
 listen = ->
     addr = Ipv4Addr::localhost!
     addr2 = SocketAddrV4::new addr, 9999
     TcpListener::bind addr2 >>= run_listener
 
-run_listener: TcpListener -> Result I64, IoError
 run_listener = listener ->
     state = SharedServerState::new ServerState
         clients: Vec::new!
@@ -142,7 +133,7 @@ run_listener = listener ->
     mut accepted: I64 = 0
 
     while true
-        accepted_client = listener.accept! <&> start_client state.clone!
+        accepted_client: Result (Option (JoinHandle I64)), IoError = listener.accept! <&> start_client state.clone!
         handler = accepted_client?
         started: I64 = handler.fold
             0
@@ -153,7 +144,6 @@ run_listener = listener ->
 
     Result::Ok accepted
 
-start_client: SharedServerState -> TcpStream -> Option (JoinHandle I64)
 start_client = state, accepted_stream ~>
     stream = Arc::new accepted_stream
     writer = ClientWriter
@@ -172,37 +162,36 @@ start_client = state, accepted_stream ~>
                 Option::None
             Option::Some _
 
-connect: () -> Result I64, IoError
 connect = ->
     addr = Ipv4Addr::localhost!
     addr2 = SocketAddrV4::new addr, 9999
     TcpStream::connect addr2 >>= run_connection
 
-run_connection: TcpStream -> Result I64, IoError
 run_connection = stream ->
     shared = Arc::new stream
     reader = ClientReader
         stream: shared.clone!
     spawn (-> reader.run!)
         <!> thread_error_to_io
-        >>= finish_connection shared.clone!
+        >>= finish_connection (shared.clone!)
 
-finish_connection: Arc TcpStream -> JoinHandle I64 -> Result I64, IoError
 finish_connection = stream, handle ~>
-    total = pump_stdin stream.clone!?
-    stopped = stream.shutdown_write!?
-    handle.join!
+    client_stream: Arc TcpStream = stream
+    join_handle: JoinHandle I64 = handle
+    total_result: Result I64, IoError = pump_stdin client_stream.clone!
+    total = total_result?
+    stopped_result: Result Unit, IoError = client_stream.shutdown_write!
+    stopped = stopped_result?
+    result: Result I64, IoError = join_handle.join!
         <!> thread_error_to_io
         <&> _ -> total
+    result
 
-pump_stdin: Arc TcpStream -> Result I64, IoError
 pump_stdin = stream ->
     stdin! |>> &stream
 
-thread_error_to_io: ThreadError -> IoError
 thread_error_to_io = _ -> IoError::Os 1
 
-run_mode: &String -> Result I64, IoError
 run_mode = mode ->
     match mode.as_str!
         "listen" => listen!

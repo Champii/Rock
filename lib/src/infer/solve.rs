@@ -71,6 +71,27 @@ pub fn solve_constraints(
     let mut errors = Vec::new();
     let mut generic_bounds: HashMap<TypeVarId, Vec<TraitBound>> = HashMap::new();
 
+    for constraint in &store.constraints {
+        let Constraint::Equality {
+            left,
+            right,
+            context,
+            ..
+        } = constraint
+        else {
+            continue;
+        };
+        let resolved_left = engine.resolve(left);
+        let resolved_right = engine.resolve(right);
+        if let Err(error) = engine.unify(&resolved_left, &resolved_right) {
+            if contains_unresolved_type(&resolved_left) || contains_unresolved_type(&resolved_right)
+            {
+                continue;
+            }
+            errors.push(format!("{context}: {error}"));
+        }
+    }
+
     // Callable bounds relate a callable's argument and return types to generic
     // parameters. Establish those equalities before validating any bounds so
     // constraint iteration order cannot leave `Ret` unconstrained.
@@ -119,6 +140,11 @@ pub fn solve_constraints(
                 let resolved = TypeNormalizer::new(&normalization_env)
                     .normalize(&resolved_ty)
                     .unwrap_or(resolved_ty);
+                if !matches!(resolved, Type::TypeVar(_) | Type::Generic(_))
+                    && contains_unresolved_type(&resolved)
+                {
+                    continue;
+                }
                 let resolved_bound = TraitBound {
                     trait_id: bound.trait_id,
                     type_args: bound
@@ -143,6 +169,27 @@ pub fn solve_constraints(
                         // Already a generic parameter — bound satisfied at mono time.
                     }
                     concrete_ty => {
+                        if context == "try operator"
+                            && language_items
+                                .try_protocol
+                                .as_ref()
+                                .is_some_and(|protocol| bound.trait_id == protocol.try_trait_id)
+                            && crate::type_services::visit::type_any(concrete_ty, |nested| {
+                                matches!(
+                                    nested,
+                                    Type::TypeVar(_)
+                                        | Type::Generic(_)
+                                        | Type::Projection { .. }
+                                        | Type::Apply { .. }
+                                        | Type::Constructor { .. }
+                                        | Type::Lambda { .. }
+                                        | Type::BoundVar { .. }
+                                        | Type::Error
+                                )
+                            })
+                        {
+                            continue;
+                        }
                         if !impl_exists_for(
                             concrete_ty,
                             resolved_bound.trait_id,
@@ -152,6 +199,17 @@ pub fn solve_constraints(
                             enums,
                             builtin_traits,
                         ) {
+                            if context == "try operator"
+                                && language_items
+                                    .try_protocol
+                                    .as_ref()
+                                    .is_some_and(|protocol| bound.trait_id == protocol.try_trait_id)
+                            {
+                                errors.push(format!(
+                                    "Cannot use '?' on non-carrier type {concrete_ty}"
+                                ));
+                                continue;
+                            }
                             let msg = format!(
                                 "type `{}` does not implement trait `trait#{}::{}` (required by {})",
                                 concrete_ty,
@@ -201,6 +259,7 @@ pub fn solve_constraints(
                     }
                 }
             }
+            Constraint::Equality { .. } => {}
         }
     }
 
@@ -209,6 +268,22 @@ pub fn solve_constraints(
         errors,
         generic_bounds,
     }
+}
+
+fn contains_unresolved_type(ty: &Type) -> bool {
+    crate::type_services::visit::type_any(ty, |nested| {
+        matches!(
+            nested,
+            Type::TypeVar(_)
+                | Type::Generic(_)
+                | Type::Projection { .. }
+                | Type::Apply { .. }
+                | Type::Constructor { .. }
+                | Type::Lambda { .. }
+                | Type::BoundVar { .. }
+                | Type::Error
+        )
+    })
 }
 
 fn try_unify_bound_constructor_application(

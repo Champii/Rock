@@ -22,6 +22,13 @@ pub enum Constraint {
     IntLiteral { var: TypeVarId, span: Span },
     /// The type variable must resolve to some float type (from float literals)
     FloatLiteral { var: TypeVarId, span: Span },
+    /// Two types must unify once deferred call-site inference has resolved them.
+    Equality {
+        left: Type,
+        right: Type,
+        span: Span,
+        context: String,
+    },
 }
 
 /// Accumulated type constraints produced during lowering.
@@ -51,6 +58,15 @@ impl ConstraintStore {
     pub fn add_float_literal(&mut self, var: TypeVarId, span: Span) {
         self.constraints
             .push(Constraint::FloatLiteral { var, span });
+    }
+
+    pub fn add_equality(&mut self, left: Type, right: Type, span: Span, context: &str) {
+        self.constraints.push(Constraint::Equality {
+            left,
+            right,
+            span,
+            context: context.to_string(),
+        });
     }
 
     pub fn literal_default_type(&self, var: TypeVarId) -> Option<Type> {
@@ -96,7 +112,7 @@ impl ConstraintStore {
             | Constraint::FloatLiteral {
                 var: constrained, ..
             } => resolve_representative(*constrained) == Some(representative),
-            Constraint::Trait { .. } => false,
+            Constraint::Trait { .. } | Constraint::Equality { .. } => false,
         })
     }
 }
