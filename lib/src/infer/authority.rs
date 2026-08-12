@@ -119,6 +119,9 @@ fn propagate_expr(
 ) {
     match &mut expr.kind {
         HirExprKind::Call(callee, args, _) => {
+            // Establish the call-site scheme before descending into deferred
+            // arguments so their method authority can use the parameter type.
+            propagate_call_instance(hir, &expr.ty, callee, args, monomorphic, errors);
             propagate_expr(hir, callee, monomorphic, errors);
             for arg in args.iter_mut() {
                 propagate_expr(hir, arg, monomorphic, errors);
@@ -126,6 +129,9 @@ fn propagate_expr(
             propagate_call_instance(hir, &expr.ty, callee, args, monomorphic, errors);
         }
         HirExprKind::MethodCall(receiver, _, args, _, target) => {
+            if let Some(target) = target.as_ref() {
+                propagate_method_arguments(hir, receiver, args, target);
+            }
             propagate_expr(hir, receiver, monomorphic, errors);
             for arg in args {
                 propagate_expr(hir, arg, monomorphic, errors);
@@ -212,6 +218,43 @@ fn propagate_expr(
         | HirExprKind::Unit => {}
     }
     expr.ty = hir.engine.resolve(&expr.ty);
+}
+
+fn propagate_method_arguments(
+    hir: &mut PartialHir,
+    receiver: &HirExpr,
+    args: &[HirExpr],
+    target: &crate::hir::HirMethodCallTarget,
+) {
+    let Some(method) = find_method(hir, target.method_id()) else {
+        return;
+    };
+    let substitutions = target
+        .owner_substitution
+        .iter()
+        .chain(&target.method_substitution)
+        .map(|binding| (binding.param, binding.ty.clone()))
+        .collect::<HashMap<_, _>>();
+    let (receiver_param, params) = if method.self_receiver.is_some() {
+        (method.params.first(), &method.params[1..])
+    } else {
+        (None, &method.params[..])
+    };
+    if let Some(param) = receiver_param {
+        let mut expected = param.ty.substitute_generics(&substitutions);
+        if matches!(hir.engine.resolve(&receiver.ty), Type::TypeVar(_))
+            && !method.ret_type.contains_reference()
+        {
+            if let Type::Reference { inner, .. } = expected {
+                expected = *inner;
+            }
+        }
+        let _ = hir.engine.unify(&receiver.ty, &expected);
+    }
+    for (arg, param) in args.iter().zip(params) {
+        let expected = param.ty.substitute_generics(&substitutions);
+        let _ = hir.engine.unify(&arg.ty, &expected);
+    }
 }
 
 fn propagate_call_instance(
@@ -1331,6 +1374,9 @@ impl MethodAuthorityContext<'_> {
                     }
                 }
                 _ => {
+                    if !self.strict && contains_recovery_type(&candidate.expr.ty) {
+                        continue;
+                    }
                     errors.push(ResolveError::new(format!(
                         "Ambiguous selection for '{}' on type {}",
                         method_name, candidate.expr.ty
@@ -1387,6 +1433,27 @@ impl MethodAuthorityContext<'_> {
                 return selected;
             }
             if inferred.len() > 1 {
+                if !self.strict && contains_recovery_type(&receiver.ty) {
+                    return None;
+                }
+                if let Some(expected) = _expected_ty.map(|ty| self.resolved_type(ty)) {
+                    if !contains_recovery_type(&expected) {
+                        let narrowed = inferred
+                            .iter()
+                            .filter(|candidate| {
+                                let mut substitution = candidate.owner_substitution.clone();
+                                type_pattern_matches(
+                                    &candidate.return_type,
+                                    &expected,
+                                    &mut substitution,
+                                )
+                            })
+                            .count();
+                        if narrowed == 0 {
+                            return None;
+                        }
+                    }
+                }
                 errors.push(ResolveError::new(format!(
                     "Ambiguous selection for '{}' on type {}",
                     method_name, receiver.ty

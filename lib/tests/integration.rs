@@ -6510,6 +6510,34 @@ main = ->
 }
 
 #[test]
+fn test_signatureless_deferred_method_argument_uses_call_parameter_type() {
+    let output = compile_and_run(
+        r#"
+struct Left
+struct Right
+
+impl Left
+    @make = -> 41
+
+impl Right
+    @make = -> true
+
+consume: I64 -> Result I64, I64
+consume = value -> Result::Ok value
+
+wrapper = value ->
+    result = consume value.make!
+    result
+
+main = ->
+    wrapper Left .println!
+    0
+"#,
+    );
+    assert_eq!(output.trim(), "Ok(41)");
+}
+
+#[test]
 fn test_signatureless_ambiguous_method_still_reports_diagnostic() {
     compile_should_fail(
         r#"

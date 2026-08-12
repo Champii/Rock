@@ -268,7 +268,13 @@ impl Lowerer {
         }
 
         let mut receiver_vars = Vec::new();
-        collect_type_vars(&self.engine.resolve(&recv.ty), &mut receiver_vars);
+        let resolved_receiver = self.engine.resolve(&recv.ty);
+        collect_type_vars(&resolved_receiver, &mut receiver_vars);
+        if let Type::TypeVar(id) = resolved_receiver {
+            if self.engine.get_bounds(id).is_empty() {
+                return None;
+            }
+        }
         for var in receiver_vars {
             if let Some(default) = self
                 .constraint_store
@@ -308,6 +314,14 @@ impl Lowerer {
                     }
                 }
                 _ => {
+                    if crate::type_services::visit::type_any(
+                        &receiver_candidate.expr.ty,
+                        |nested| {
+                            matches!(nested, Type::TypeVar(_) | Type::Generic(_) | Type::Error)
+                        },
+                    ) {
+                        continue;
+                    }
                     let mut targets = concrete
                         .iter()
                         .map(|candidate| candidate.target.clone())
@@ -725,6 +739,9 @@ impl Lowerer {
                     let found_method = found_method.or_else(|| {
                         if let Type::TypeVar(var_id) = &recv_ty {
                             let bounds = self.engine.get_bounds(*var_id);
+                            if bounds.is_empty() {
+                                return None;
+                            }
                             let receiver_candidates =
                                 self.receiver_adjustment_candidates((**recv).clone());
                             let result = self
@@ -1207,6 +1224,9 @@ impl Lowerer {
                     let mut found_method = found_method.or_else(|| {
                         if let Type::TypeVar(var_id) = &recv_ty {
                             let bounds = self.engine.get_bounds(*var_id);
+                            if bounds.is_empty() {
+                                return None;
+                            }
                             let receiver_candidates =
                                 self.receiver_adjustment_candidates(expr.clone());
                             let result = self
