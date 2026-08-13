@@ -15,6 +15,9 @@ use crate::types::{TraitBound, Type};
 pub struct InferenceEngine {
     next_var: IdGen<TypeVarId>,
     substitutions: HashMap<TypeVarId, Type>,
+    substitution_generation: u64,
+    rigid_substitution_generation: u64,
+    changed_type_vars: Vec<TypeVarId>,
     /// Trait bounds for type variables (var_id -> list of bounds)
     trait_bounds: HashMap<TypeVarId, Vec<TraitBound>>,
     /// Origin span for each fresh type variable (for error messages)
@@ -36,7 +39,25 @@ impl TypeFolder for ResolveFolder<'_> {
                 .cloned()
                 .map(|replacement| self.fold_type(replacement))
                 .unwrap_or(Type::TypeVar(id)),
-            other => fold_type_children(other, self),
+            other => {
+                let resolved = fold_type_children(other, self);
+                match resolved {
+                    Type::Function {
+                        params,
+                        ret,
+                        safety,
+                        captures,
+                        ..
+                    } => Type::Function {
+                        params,
+                        ret,
+                        safety,
+                        callable_kind: crate::types::CallableKind::from_captures(&captures),
+                        captures,
+                    },
+                    other => other,
+                }
+            }
         }
     }
 }
@@ -192,10 +213,11 @@ mod tests {
         let mut engine = InferenceEngine::new();
         engine.set_normalization_env(env);
         let f = engine.fresh_type_var_of_kind(Kind::arrow(Kind::Type, Kind::Type));
+        let a = engine.fresh_type_var();
 
         engine
             .unify(
-                &apply(f.clone(), vec![Type::I64]),
+                &apply(f.clone(), vec![a.clone()]),
                 &Type::Enum {
                     id: result,
                     args: vec![Type::Bool, Type::I64],
@@ -205,25 +227,62 @@ mod tests {
 
         assert_eq!(
             engine.resolve(&f),
-            apply(
-                constructor(result, crate::types::NominalTypeKind::Enum),
-                vec![Type::Bool]
-            )
+            Type::Lambda {
+                params: vec![Kind::Type],
+                body: Box::new(Type::Enum {
+                    id: result,
+                    args: vec![
+                        Type::BoundVar {
+                            depth: 0,
+                            index: 0,
+                            kind: Kind::Type,
+                        },
+                        Type::I64
+                    ],
+                }),
+            }
         );
+        assert_eq!(engine.resolve(&a), Type::Bool);
     }
 
     #[test]
-    fn constructor_variable_rejects_non_aligned_rigid_application() {
+    fn constructor_variable_matches_a_unique_rigid_section() {
         let result = test_def(104);
         let mut env = TypeNormalizationEnv::new();
         env.register_nominal(result, crate::types::NominalTypeKind::Enum, 2);
         let mut engine = InferenceEngine::new();
         engine.set_normalization_env(env);
         let f = engine.fresh_type_var_of_kind(Kind::arrow(Kind::Type, Kind::Type));
+        let a = engine.fresh_type_var();
+
+        engine
+            .unify(
+                &apply(f.clone(), vec![a.clone()]),
+                &Type::Enum {
+                    id: result,
+                    args: vec![Type::I64, Type::Bool],
+                },
+            )
+            .unwrap();
+
+        assert!(matches!(engine.resolve(&f), Type::Lambda { .. }));
+        assert_eq!(engine.resolve(&a), Type::I64);
+    }
+
+    #[test]
+    fn repeated_constructor_hole_mismatch_is_rejected() {
+        let result = test_def(106);
+        let mut env = TypeNormalizationEnv::new();
+        env.register_nominal(result, crate::types::NominalTypeKind::Enum, 2);
+        let mut engine = InferenceEngine::new();
+        engine.set_normalization_env(env);
+        let constructor = engine
+            .fresh_type_var_of_kind(Kind::arrow(Kind::Type, Kind::arrow(Kind::Type, Kind::Type)));
+        let hole = engine.fresh_type_var();
 
         let error = engine
             .unify(
-                &apply(f.clone(), vec![Type::I64]),
+                &apply(constructor.clone(), vec![hole.clone(), hole]),
                 &Type::Enum {
                     id: result,
                     args: vec![Type::I64, Type::Bool],
@@ -231,8 +290,31 @@ mod tests {
             )
             .unwrap_err();
 
-        assert!(error.contains("explicit constructor section annotation"));
-        assert_eq!(engine.resolve(&f), f);
+        assert!(error.contains("cannot infer a type constructor"));
+        assert!(matches!(engine.resolve(&constructor), Type::TypeVar(_)));
+    }
+
+    #[test]
+    fn constructor_application_arity_mismatch_is_rejected() {
+        let result = test_def(107);
+        let mut env = TypeNormalizationEnv::new();
+        env.register_nominal(result, crate::types::NominalTypeKind::Enum, 0);
+        let mut engine = InferenceEngine::new();
+        engine.set_normalization_env(env);
+        let constructor = engine.fresh_type_var_of_kind(Kind::arrow(Kind::Type, Kind::Type));
+
+        let error = engine
+            .unify(
+                &apply(constructor.clone(), vec![Type::I64]),
+                &Type::Enum {
+                    id: result,
+                    args: Vec::new(),
+                },
+            )
+            .unwrap_err();
+
+        assert!(error.contains("cannot infer a type constructor"));
+        assert!(matches!(engine.resolve(&constructor), Type::TypeVar(_)));
     }
 
     #[test]
@@ -332,6 +414,21 @@ mod tests {
             Type::Error
         );
         assert!(errors[0].contains("ambiguous type constructor"));
+    }
+
+    #[test]
+    fn probe_progress_does_not_mutate_production_generation() {
+        let mut engine = InferenceEngine::new();
+        let variable = engine.fresh_type_var();
+        let before = engine.substitution_generation();
+        let mut probe = engine.clone_for_probe();
+        probe.unify(&variable, &Type::I64).unwrap();
+
+        assert_eq!(engine.substitution_generation(), before);
+        assert!(matches!(engine.resolve(&variable), Type::TypeVar(_)));
+        engine.commit_probe(probe);
+        assert!(engine.substitution_generation() > before);
+        assert_eq!(engine.resolve(&variable), Type::I64);
     }
 
     #[test]
@@ -686,6 +783,9 @@ impl InferenceEngine {
         Self {
             next_var: IdGen::new(),
             substitutions: HashMap::new(),
+            substitution_generation: 0,
+            rigid_substitution_generation: 0,
+            changed_type_vars: Vec::new(),
             trait_bounds: HashMap::new(),
             var_spans: HashMap::new(),
             var_kinds: HashMap::new(),
@@ -704,6 +804,9 @@ impl InferenceEngine {
         Self {
             next_var: IdGen::with_next_raw(next),
             substitutions: HashMap::new(),
+            substitution_generation: 0,
+            rigid_substitution_generation: 0,
+            changed_type_vars: Vec::new(),
             trait_bounds: HashMap::new(),
             var_spans: HashMap::new(),
             var_kinds,
@@ -715,11 +818,35 @@ impl InferenceEngine {
         Self {
             next_var: IdGen::with_next_raw(self.next_var.next_raw()),
             substitutions: self.substitutions.clone(),
+            substitution_generation: self.substitution_generation,
+            rigid_substitution_generation: self.rigid_substitution_generation,
+            changed_type_vars: Vec::new(),
             trait_bounds: self.trait_bounds.clone(),
             var_spans: self.var_spans.clone(),
             var_kinds: self.var_kinds.clone(),
             normalization_env: self.normalization_env.clone(),
         }
+    }
+
+    pub(crate) fn clone_for_commit(&self) -> Self {
+        let mut clone = self.clone_for_probe();
+        clone.changed_type_vars = self.changed_type_vars.clone();
+        clone
+    }
+
+    pub(crate) fn commit_probe(&mut self, mut probe: Self) {
+        let changed = probe.take_changed_type_vars();
+        let generation_delta = probe
+            .substitution_generation
+            .wrapping_sub(self.substitution_generation);
+        let rigid_delta = probe
+            .rigid_substitution_generation
+            .wrapping_sub(self.rigid_substitution_generation);
+        probe.substitution_generation = self.substitution_generation.wrapping_add(generation_delta);
+        probe.rigid_substitution_generation =
+            self.rigid_substitution_generation.wrapping_add(rigid_delta);
+        probe.changed_type_vars = changed;
+        *self = probe;
     }
 
     /// Add a trait bound to a type variable
@@ -732,16 +859,45 @@ impl InferenceEngine {
         self.trait_bounds.get(&var_id).cloned().unwrap_or_default()
     }
 
+    pub(crate) fn substitution_generation(&self) -> u64 {
+        self.substitution_generation
+    }
+
+    pub(crate) fn rigid_substitution_generation(&self) -> u64 {
+        self.rigid_substitution_generation
+    }
+
+    pub(crate) fn take_changed_type_vars(&mut self) -> Vec<TypeVarId> {
+        std::mem::take(&mut self.changed_type_vars)
+    }
+
+    pub(crate) fn unresolved_type_var_representative_for_dependency(
+        &self,
+        var: TypeVarId,
+    ) -> Option<TypeVarId> {
+        self.unresolved_type_var_representative(var)
+    }
+
     /// Apply defaults only to unresolved variables with numeric literal evidence.
     pub fn apply_numeric_defaults(&mut self, constraints: &ConstraintStore) {
+        self.apply_numeric_defaults_for_owners(constraints, None);
+    }
+
+    pub(crate) fn apply_numeric_defaults_for_owners(
+        &mut self,
+        constraints: &ConstraintStore,
+        owners: Option<&HashSet<crate::infer::ConstraintOwner>>,
+    ) {
         let representatives = constraints
-            .constraints
             .iter()
-            .filter_map(|constraint| match constraint {
+            .filter(|(id, _)| constraints.includes_owner(*id, owners))
+            .filter_map(|(_, constraint)| match constraint {
                 Constraint::IntLiteral { var, .. } | Constraint::FloatLiteral { var, .. } => {
                     self.unresolved_type_var_representative(*var)
                 }
-                Constraint::Trait { .. } | Constraint::Equality { .. } => None,
+                Constraint::Trait { .. } | Constraint::Equality { .. } | Constraint::Try { .. } => {
+                    None
+                }
             })
             .collect::<HashSet<_>>();
         for representative in representatives {
@@ -756,7 +912,7 @@ impl InferenceEngine {
                 continue;
             };
             if self.unresolved_type_var_representative(representative) == Some(representative) {
-                self.substitutions.insert(representative, default);
+                let _ = self.bind_type_var(representative, default);
             }
         }
     }
@@ -835,6 +991,13 @@ impl InferenceEngine {
             .map_err(|error| error.to_string())?;
 
         if a == b {
+            if let Type::TypeVar(id) = original_a {
+                if self.substitutions.contains_key(&id) && self.substitutions.get(&id) != Some(&a) {
+                    self.substitutions.insert(id, a.clone());
+                    self.substitution_generation = self.substitution_generation.wrapping_add(1);
+                    self.changed_type_vars.push(id);
+                }
+            }
             return Ok(());
         }
 
@@ -851,9 +1014,15 @@ impl InferenceEngine {
         }
 
         if let Some(result) = self.try_unify_constructor_spine(&a, &b) {
+            if result.is_ok() {
+                self.canonicalize_type_var_alias(&original_a, &b);
+            }
             return result;
         }
         if let Some(result) = self.try_unify_constructor_spine(&b, &a) {
+            if result.is_ok() {
+                self.canonicalize_type_var_alias(&original_b, &a);
+            }
             return result;
         }
 
@@ -1024,6 +1193,15 @@ impl InferenceEngine {
                     args: b_args,
                 },
             ) => {
+                if let (Type::TypeVar(a_id), Type::TypeVar(b_id)) =
+                    (a_constructor.as_ref(), b_constructor.as_ref())
+                {
+                    if a_id != b_id {
+                        return Err(format!(
+                            "ambiguous constructor heads while unifying {a} with {b}"
+                        ));
+                    }
+                }
                 if a_args.len() != b_args.len() {
                     return Err(format!("Type application arity mismatch: {a} vs {b}"));
                 }
@@ -1070,6 +1248,9 @@ impl InferenceEngine {
     }
 
     fn bind_type_var(&mut self, id: TypeVarId, ty: Type) -> Result<(), String> {
+        if self.substitutions.get(&id) == Some(&ty) {
+            return Ok(());
+        }
         let variable_kind = self.kind_of_type_var(id);
         let type_kind = TypeNormalizer::new(&self.normalization_env)
             .kind_of(&ty)
@@ -1097,6 +1278,16 @@ impl InferenceEngine {
             self.var_spans.entry(*target_id).or_insert(span);
         }
         self.substitutions.insert(id, ty);
+        self.substitution_generation = self.substitution_generation.wrapping_add(1);
+        if !crate::type_services::visit::type_any(&self.substitutions[&id], |nested| {
+            matches!(nested, Type::TypeVar(_))
+        }) {
+            self.rigid_substitution_generation = self.rigid_substitution_generation.wrapping_add(1);
+        }
+        self.changed_type_vars.push(id);
+        if let Type::TypeVar(target_id) = self.substitutions[&id].clone() {
+            self.changed_type_vars.push(target_id);
+        }
         Ok(())
     }
 
@@ -1111,6 +1302,25 @@ impl InferenceEngine {
         TypeNormalizer::new(&self.normalization_env)
             .normalize(&self.resolve(ty))
             .map_err(|error| error.to_string())
+    }
+
+    fn canonicalize_type_var_alias(&mut self, original: &Type, other: &Type) {
+        let Type::TypeVar(id) = original else {
+            return;
+        };
+        let Ok(normalized) =
+            TypeNormalizer::new(&self.normalization_env).normalize(&self.resolve(other))
+        else {
+            return;
+        };
+        if matches!(normalized, Type::TypeVar(_)) || self.occurs_in(*id, &normalized) {
+            return;
+        }
+        if self.substitutions.contains_key(id) && self.substitutions.get(id) != Some(&normalized) {
+            self.substitutions.insert(*id, normalized);
+            self.substitution_generation = self.substitution_generation.wrapping_add(1);
+            self.changed_type_vars.push(*id);
+        }
     }
 
     fn try_unify_constructor_spine(
@@ -1138,6 +1348,20 @@ impl InferenceEngine {
         ) {
             return None;
         }
+        if let Type::TypeVar(actual_var) = actual {
+            return self
+                .occurs_in(*actual_var, pattern)
+                .then_some(Err(Self::constructor_inference_error(pattern, actual)));
+        }
+        if matches!(
+            actual,
+            Type::Apply {
+                constructor,
+                ..
+            } if matches!(constructor.as_ref(), Type::TypeVar(_))
+        ) {
+            return None;
+        }
         let Some((actual_constructor, actual_args)) = Self::rigid_spine(actual) else {
             return Some(Err(Self::constructor_inference_error(pattern, actual)));
         };
@@ -1145,20 +1369,99 @@ impl InferenceEngine {
             return Some(Err(Self::constructor_inference_error(pattern, actual)));
         }
 
-        let prefix_len = actual_args.len() - pattern_args.len();
-        let prefix = if prefix_len == 0 {
-            actual_constructor
+        let mut probe = self.clone_for_probe();
+        if actual_args.len() == pattern_args.len() {
+            if probe
+                .bind_type_var(*constructor_var, actual_constructor)
+                .is_err()
+            {
+                return Some(Err(Self::constructor_inference_error(pattern, actual)));
+            }
+            for (pattern_arg, actual_arg) in pattern_args.iter().zip(actual_args.iter()) {
+                if probe.unify(pattern_arg, actual_arg).is_err() {
+                    return Some(Err(Self::constructor_inference_error(pattern, actual)));
+                }
+            }
+            *self = probe;
+            return Some(Ok(()));
+        }
+        let pattern_kinds = pattern_args
+            .iter()
+            .map(|arg| {
+                TypeNormalizer::new(&probe.normalization_env)
+                    .kind_of(&probe.resolve(arg))
+                    .ok()
+            })
+            .collect::<Option<Vec<_>>>();
+        let Some(pattern_kinds) = pattern_kinds else {
+            return Some(Err(Self::constructor_inference_error(pattern, actual)));
+        };
+        let mut hole_indices = std::collections::HashMap::new();
+        let mut section_params = Vec::new();
+        let section_args = pattern_args
+            .iter()
+            .zip(pattern_kinds.iter())
+            .map(|(pattern_arg, kind)| {
+                let hole_index = if let Type::TypeVar(id) = pattern_arg {
+                    if let Some(index) = hole_indices.get(id).copied() {
+                        index
+                    } else {
+                        let index = section_params.len() as u32;
+                        hole_indices.insert(*id, index);
+                        section_params.push(kind.clone());
+                        index
+                    }
+                } else {
+                    let index = section_params.len() as u32;
+                    section_params.push(kind.clone());
+                    index
+                };
+                Type::BoundVar {
+                    depth: 0,
+                    index: hole_index,
+                    kind: kind.clone(),
+                }
+            })
+            .chain(actual_args[pattern_args.len()..].iter().cloned())
+            .collect::<Vec<_>>();
+        let section_body = if section_args.len() == actual_args.len() {
+            match actual {
+                Type::Struct { id, .. } => Type::Struct {
+                    id: *id,
+                    args: section_args,
+                },
+                Type::Enum { id, .. } => Type::Enum {
+                    id: *id,
+                    args: section_args,
+                },
+                _ => Type::Apply {
+                    constructor: Box::new(actual_constructor),
+                    args: section_args,
+                },
+            }
         } else {
             Type::Apply {
                 constructor: Box::new(actual_constructor),
-                args: actual_args[..prefix_len].to_vec(),
+                args: section_args,
             }
         };
-        let mut probe = self.clone_for_probe();
-        if probe.bind_type_var(*constructor_var, prefix).is_err() {
+        let section = if pattern_args.is_empty() {
+            section_body
+        } else {
+            Type::Lambda {
+                params: section_params,
+                body: Box::new(section_body),
+            }
+        };
+        for (pattern_arg, actual_arg) in pattern_args.iter().zip(actual_args.iter()) {
+            if probe.unify(pattern_arg, actual_arg).is_err() {
+                return Some(Err(Self::constructor_inference_error(pattern, actual)));
+            }
+        }
+        if probe.bind_type_var(*constructor_var, section).is_err() {
             return Some(Err(Self::constructor_inference_error(pattern, actual)));
         }
-        for (pattern_arg, actual_arg) in pattern_args.iter().zip(actual_args[prefix_len..].iter()) {
+        for (pattern_arg, actual_arg) in pattern_args.iter().zip(actual_args.iter()) {
             if probe.unify(pattern_arg, actual_arg).is_err() {
                 return Some(Err(Self::constructor_inference_error(pattern, actual)));
             }
@@ -1330,7 +1633,14 @@ impl InferenceEngine {
                     .cloned()
                     .map(|ty| self.resolve(&ty))
                     .unwrap_or_else(|| ty.clone());
-                self.substitutions.insert(*id, replacement(&current));
+                let replacement = replacement(&current);
+                if current != replacement {
+                    self.substitutions.insert(*id, replacement);
+                    self.substitution_generation = self.substitution_generation.wrapping_add(1);
+                    self.rigid_substitution_generation =
+                        self.rigid_substitution_generation.wrapping_add(1);
+                    self.changed_type_vars.push(*id);
+                }
             }
         }
     }

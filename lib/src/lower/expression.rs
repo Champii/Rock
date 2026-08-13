@@ -894,7 +894,8 @@ impl Lowerer {
                 safety,
             );
             if let Err(e) = self.engine.unify(&func_ty, &expected_fn_ty) {
-                if e.contains("cannot infer a type constructor")
+                if (e.contains("cannot infer a type constructor")
+                    || e.contains("ambiguous constructor heads"))
                     && (Self::type_has_unresolved_parameter(&left.ty)
                         || Self::type_has_unresolved_parameter(&right.ty))
                 {
@@ -951,6 +952,19 @@ impl Lowerer {
                     resolved_ty = self.resolve_projection_type(&self.engine.resolve(&left.ty));
                 }
                 Ok(false) => {}
+                Err(SelectionDiagnostic::AmbiguousCandidates { .. }) => {
+                    let result_ty = self.engine.fresh_type_var();
+                    let callee = HirExpr {
+                        ty: Type::function(vec![right.ty.clone()], result_ty.clone()),
+                        kind: HirExprKind::FieldAccess(Box::new(left), method_name, None),
+                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    };
+                    return HirExpr {
+                        ty: result_ty,
+                        kind: HirExprKind::Call(Box::new(callee), vec![right], None),
+                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    };
+                }
                 Err(error) => {
                     self.diagnostics.push(error.message());
                     return self.error_expression();
@@ -1052,26 +1066,37 @@ impl Lowerer {
         let candidate = if let [candidate] = candidate_shapes.as_slice() {
             candidate
         } else {
-            let Some(candidate) = candidate_shapes
-                .iter()
-                .find(|(receiver_ty, _)| *receiver_ty == Type::I64)
-            else {
-                if candidates.is_empty() {
-                    return Ok(false);
-                }
-                let mut candidate_ids = candidates
-                    .iter()
-                    .map(|(impl_id, _, _)| *impl_id)
-                    .collect::<Vec<_>>();
-                candidate_ids.sort();
-                candidate_ids.dedup();
-                return Err(SelectionDiagnostic::AmbiguousCandidates {
-                    operation: method_name.to_string(),
-                    receiver: self.engine.resolve(&left.ty),
-                    candidates: candidate_ids,
-                });
+            let default = match self.engine.resolve(&left.ty) {
+                Type::TypeVar(id) => self
+                    .constraint_store
+                    .literal_default_type_for_representative(id, |var| {
+                        self.engine
+                            .unresolved_type_var_representative_for_dependency(var)
+                    }),
+                _ => None,
             };
-            candidate
+            if let Some(default) = default.as_ref() {
+                if let Some(candidate) = candidate_shapes
+                    .iter()
+                    .find(|(receiver_ty, _)| receiver_ty == default)
+                {
+                    candidate
+                } else {
+                    return Self::ambiguous_operator_candidates(
+                        &self.engine,
+                        &left.ty,
+                        method_name,
+                        &candidates,
+                    );
+                }
+            } else {
+                return Self::ambiguous_operator_candidates(
+                    &self.engine,
+                    &left.ty,
+                    method_name,
+                    &candidates,
+                );
+            }
         };
         let (receiver_ty, expected_arg_ty) = candidate;
 
@@ -1134,29 +1159,81 @@ impl Lowerer {
         let receiver_ty = if let [receiver_ty] = receiver_types.as_slice() {
             receiver_ty
         } else {
-            let Some(receiver_ty) = receiver_types
-                .iter()
-                .find(|receiver_ty| **receiver_ty == Type::I64)
-            else {
-                if candidates.is_empty() {
-                    return Ok(false);
-                }
-                let mut candidate_ids = candidates
-                    .iter()
-                    .map(|(impl_id, _)| *impl_id)
-                    .collect::<Vec<_>>();
-                candidate_ids.sort();
-                candidate_ids.dedup();
-                return Err(SelectionDiagnostic::AmbiguousCandidates {
-                    operation: method_name.to_string(),
-                    receiver: self.engine.resolve(&inner.ty),
-                    candidates: candidate_ids,
-                });
+            let default = match self.engine.resolve(&inner.ty) {
+                Type::TypeVar(id) => self
+                    .constraint_store
+                    .literal_default_type_for_representative(id, |var| {
+                        self.engine
+                            .unresolved_type_var_representative_for_dependency(var)
+                    }),
+                _ => None,
             };
-            receiver_ty
+            if let Some(default) = default.as_ref() {
+                if let Some(receiver_ty) = receiver_types.iter().find(|ty| *ty == default) {
+                    receiver_ty
+                } else {
+                    return Self::ambiguous_unary_operator_candidates(
+                        &self.engine,
+                        &inner.ty,
+                        method_name,
+                        &candidates,
+                    );
+                }
+            } else {
+                return Self::ambiguous_unary_operator_candidates(
+                    &self.engine,
+                    &inner.ty,
+                    method_name,
+                    &candidates,
+                );
+            }
         };
 
         Ok(self.engine.unify(&inner.ty, receiver_ty).is_ok())
+    }
+
+    fn ambiguous_operator_candidates(
+        engine: &crate::infer::InferenceEngine,
+        receiver: &Type,
+        operation: &str,
+        candidates: &[(crate::ids::DefId, Type, Type)],
+    ) -> Result<bool, SelectionDiagnostic> {
+        if candidates.is_empty() {
+            return Ok(false);
+        }
+        let mut candidate_ids = candidates
+            .iter()
+            .map(|(impl_id, _, _)| *impl_id)
+            .collect::<Vec<_>>();
+        candidate_ids.sort();
+        candidate_ids.dedup();
+        Err(SelectionDiagnostic::AmbiguousCandidates {
+            operation: operation.to_string(),
+            receiver: engine.resolve(receiver),
+            candidates: candidate_ids,
+        })
+    }
+
+    fn ambiguous_unary_operator_candidates(
+        engine: &crate::infer::InferenceEngine,
+        receiver: &Type,
+        operation: &str,
+        candidates: &[(crate::ids::DefId, Type)],
+    ) -> Result<bool, SelectionDiagnostic> {
+        if candidates.is_empty() {
+            return Ok(false);
+        }
+        let mut candidate_ids = candidates
+            .iter()
+            .map(|(impl_id, _)| *impl_id)
+            .collect::<Vec<_>>();
+        candidate_ids.sort();
+        candidate_ids.dedup();
+        Err(SelectionDiagnostic::AmbiguousCandidates {
+            operation: operation.to_string(),
+            receiver: engine.resolve(receiver),
+            candidates: candidate_ids,
+        })
     }
 
     pub(crate) fn select_operator_method(
@@ -1308,6 +1385,23 @@ impl Lowerer {
                                     .resolve_projection_type(&self.engine.resolve(&inner_hir.ty));
                             }
                             Ok(false) => {}
+                            Err(SelectionDiagnostic::AmbiguousCandidates { .. }) => {
+                                let result_ty = self.engine.fresh_type_var();
+                                let callee = HirExpr {
+                                    ty: Type::function(Vec::new(), result_ty.clone()),
+                                    kind: HirExprKind::FieldAccess(
+                                        Box::new(inner_hir),
+                                        method_name.to_string(),
+                                        None,
+                                    ),
+                                    span: op.span.clone(),
+                                };
+                                return HirExpr {
+                                    ty: result_ty,
+                                    kind: HirExprKind::Call(Box::new(callee), Vec::new(), None),
+                                    span: op.span.clone(),
+                                };
+                            }
                             Err(error) => {
                                 self.diagnostics
                                     .push_with_span(error.message(), op.span.clone());

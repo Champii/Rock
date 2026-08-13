@@ -46,9 +46,33 @@ impl<'a> BodyLowerer<'a> {
             .lowerer
             .items
             .functions()
-            .map(|(id, _)| id)
+            .filter_map(|(id, _)| self.lowerer.current_def_ids.contains(&id).then_some(id))
             .collect::<BTreeSet<_>>();
         self.lowerer.inference_sccs = crate::lower::inference_scc::components(&nodes, &edges);
+        for (_, trait_def) in self.lowerer.items.trait_defs() {
+            for method in trait_def.methods.values() {
+                if !self.lowerer.current_def_ids.contains(&method.id) {
+                    continue;
+                }
+                self.lowerer
+                    .inference_sccs
+                    .entry(method.id)
+                    .or_insert(method.id);
+            }
+        }
+        for (_, impl_def) in self.lowerer.items.impl_defs() {
+            for method in impl_def.methods.values() {
+                if !self.lowerer.current_def_ids.contains(&method.id) {
+                    continue;
+                }
+                self.lowerer
+                    .inference_sccs
+                    .entry(method.id)
+                    .or_insert(method.id);
+            }
+        }
+        self.lowerer.inference_scc_order =
+            crate::lower::inference_scc::dependency_order(&self.lowerer.inference_sccs, &edges);
 
         self.lower_module(root_module, root_module_id);
         self.lower_loaded_modules();
@@ -119,6 +143,17 @@ impl<'ast> ast::visit::Visitor<'ast> for FunctionReferenceCollector {
         self.scopes.push(bindings);
         ast::visit::walk_block(self, &lambda.body);
         self.scopes.pop();
+    }
+
+    fn visit_operator(&mut self, operator: &'ast ast::Operator) {
+        if !self
+            .scopes
+            .iter()
+            .rev()
+            .any(|scope| scope.contains(&operator.value))
+        {
+            self.paths.push(vec![operator.value.clone()]);
+        }
     }
 
     fn visit_block(&mut self, block: &'ast ast::Block) {
@@ -272,9 +307,15 @@ fn collect_module_edges(
                 candidates.push(format!("{prefix}::{path}"));
             }
             candidates.push(path);
-            if let Some(target) = candidates
-                .into_iter()
-                .find_map(|candidate| lowerer.resolver.item_paths.get(&candidate).copied())
+            if let Some(target) = lowerer
+                .resolver
+                .resolve_item_or_alias(&candidates[0])
+                .or_else(|| {
+                    candidates
+                        .iter()
+                        .skip(1)
+                        .find_map(|candidate| lowerer.resolver.resolve_item_or_alias(candidate))
+                })
             {
                 if lowerer.items.function(target).is_some() {
                     function_edges.insert(target);

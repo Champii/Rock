@@ -121,6 +121,8 @@ impl<'a> LoweringPipeline<'a> {
             local_def_ids: lowerer.local_def_ids,
             language_items: lowerer.language_items,
             imported_effective_trait_methods: lowerer.imported_effective_trait_methods,
+            inference_sccs: lowerer.inference_sccs.clone(),
+            inference_scc_order: lowerer.inference_scc_order,
         })
     }
 }

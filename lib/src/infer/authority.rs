@@ -7,7 +7,8 @@ use crate::hir::{
     HirTypeBinding, HirVarRef, HirVarTarget,
 };
 use crate::ids::{DefId, HirLocalId};
-use crate::infer::{ConstraintStore, PartialHir};
+use crate::infer::constraints::Constraint;
+use crate::infer::{ConstraintOwner, ConstraintStore, ObligationState, PartialHir};
 use crate::language_items::TryLanguageItems;
 use crate::lower::ResolveError;
 use crate::selection::{
@@ -17,35 +18,689 @@ use crate::types::{
     CallableKind, CaptureKind, FunctionCapture, FunctionSafety, GenericParamId, TraitBound, Type,
 };
 
-pub(super) fn materialize_pending_authorities(
-    hir: &mut PartialHir,
-    strict: bool,
-    try_strict: bool,
-) -> Result<(), Vec<ResolveError>> {
-    materialize_pending(hir, strict, try_strict)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct AuthorityPassResult {
+    pub progress: bool,
+    pub pending: bool,
+    pub ambiguous: bool,
 }
 
-pub(super) fn propagate_function_instances(hir: &mut PartialHir) -> Result<(), Vec<ResolveError>> {
-    let monomorphic = hir
-        .functions
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(super) struct AuthorityObligationId(u32);
+
+impl AuthorityObligationId {
+    pub(super) const fn raw(self) -> u32 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) enum AuthorityObligationKind {
+    Propagation,
+    DeferredCall,
+    MethodCall,
+    Field,
+    Try,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct AuthoritySiteId {
+    kind: AuthorityObligationKind,
+    file_path: std::path::PathBuf,
+    start: usize,
+    end: usize,
+}
+
+impl AuthoritySiteId {
+    fn new(kind: AuthorityObligationKind, span: &crate::lexer::Span) -> Self {
+        Self {
+            kind,
+            file_path: span.file_path.clone(),
+            start: span.start,
+            end: span.end,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct AuthorityObligation {
+    pub id: AuthorityObligationId,
+    pub owner: ConstraintOwner,
+    pub kind: AuthorityObligationKind,
+    pub state: ObligationState,
+    pub last_generation: u64,
+    pub attempts: u32,
+    pub context: String,
+    pub span: crate::lexer::Span,
+    site: Option<AuthoritySiteId>,
+    dependencies: HashSet<crate::ids::TypeVarId>,
+}
+
+impl AuthorityObligation {
+    pub(super) fn depends_on_any(&self, changed: &HashSet<crate::ids::TypeVarId>) -> bool {
+        self.dependencies.iter().any(|var| changed.contains(var))
+    }
+
+    pub(super) fn wake(&mut self) {
+        if matches!(
+            self.state,
+            ObligationState::Pending | ObligationState::Ambiguous
+        ) {
+            self.state = ObligationState::Pending;
+            self.last_generation = u64::MAX;
+        }
+    }
+}
+
+pub(super) fn authority_obligations(
+    hir: &PartialHir,
+    owners: &HashSet<ConstraintOwner>,
+) -> Vec<AuthorityObligation> {
+    let mut selected_owners = owners
         .iter()
-        .filter_map(|(&id, function)| {
-            let ambiguous = has_ambiguous_deferred_method(hir, &function.body);
-            ambiguous.then_some(id)
+        .copied()
+        .filter(|owner| matches!(owner, ConstraintOwner::Body(_)))
+        .collect::<Vec<_>>();
+    selected_owners.sort();
+    let mut obligations = Vec::with_capacity(selected_owners.len() * 2);
+    for owner in selected_owners {
+        let id = AuthorityObligationId(obligations.len() as u32);
+        let mut propagation = AuthorityObligation {
+            id,
+            owner,
+            kind: AuthorityObligationKind::Propagation,
+            state: ObligationState::Pending,
+            last_generation: u64::MAX,
+            attempts: 0,
+            context: format!("call and type propagation for {owner:?}"),
+            span: function_for_owner(hir, owner)
+                .and_then(|function| first_block_span(&function.body))
+                .unwrap_or_default(),
+            site: None,
+            dependencies: HashSet::new(),
+        };
+        refresh_authority_dependencies(hir, &mut propagation);
+        obligations.push(propagation);
+
+        if let Some(function) = function_for_owner(hir, owner) {
+            let mut sites = Vec::new();
+            collect_authority_sites(&function.body, &hir.engine, &mut sites);
+            for (kind, site, context, span, dependencies) in sites {
+                let id = AuthorityObligationId(obligations.len() as u32);
+                obligations.push(AuthorityObligation {
+                    id,
+                    owner,
+                    kind,
+                    state: ObligationState::Pending,
+                    last_generation: u64::MAX,
+                    attempts: 0,
+                    context,
+                    span,
+                    site: Some(site),
+                    dependencies: dependencies
+                        .into_iter()
+                        .map(|var| {
+                            hir.engine
+                                .unresolved_type_var_representative_for_dependency(var)
+                                .unwrap_or(var)
+                        })
+                        .collect(),
+                });
+            }
+        }
+    }
+    obligations
+}
+
+pub(super) fn run_authority_obligation(
+    hir: &mut PartialHir,
+    obligation: &mut AuthorityObligation,
+    strict: bool,
+    try_strict: bool,
+) -> Result<AuthorityPassResult, Vec<ResolveError>> {
+    if obligation.state != ObligationState::Pending {
+        return Ok(AuthorityPassResult {
+            progress: false,
+            pending: false,
+            ambiguous: obligation.state == ObligationState::Ambiguous,
+        });
+    }
+    let generation = hir.engine.substitution_generation();
+    if obligation.last_generation == generation {
+        return Ok(AuthorityPassResult {
+            progress: false,
+            pending: true,
+            ambiguous: false,
+        });
+    }
+    let owners = HashSet::from([obligation.owner]);
+    let previous_owner = hir.constraint_store.replace_owner(obligation.owner);
+    let result = match obligation.kind {
+        AuthorityObligationKind::Propagation => {
+            propagate_function_instances_for_owners_with_progress(hir, Some(&owners))
+        }
+        AuthorityObligationKind::DeferredCall
+        | AuthorityObligationKind::MethodCall
+        | AuthorityObligationKind::Field
+        | AuthorityObligationKind::Try => materialize_authority_site(
+            hir,
+            obligation.owner,
+            obligation.site.clone().expect("selection obligation site"),
+            strict,
+            try_strict,
+        ),
+    };
+    hir.constraint_store.replace_owner(previous_owner);
+    let result = result?;
+    obligation.last_generation = generation;
+    obligation.attempts = obligation.attempts.saturating_add(1);
+    if obligation.kind != AuthorityObligationKind::Propagation {
+        if result.ambiguous {
+            obligation.state = ObligationState::Ambiguous;
+        } else if !result.pending {
+            obligation.state = ObligationState::Solved;
+        }
+    }
+    refresh_authority_dependencies(hir, obligation);
+    Ok(result)
+}
+
+fn refresh_authority_dependencies(hir: &PartialHir, obligation: &mut AuthorityObligation) {
+    obligation.dependencies.clear();
+    let ConstraintOwner::Body(_) = obligation.owner else {
+        return;
+    };
+    let function = function_for_owner(hir, obligation.owner);
+    let Some(function) = function else {
+        return;
+    };
+    if let Some(selected_site) = obligation.site.as_ref() {
+        let mut sites = Vec::new();
+        collect_authority_sites(&function.body, &hir.engine, &mut sites);
+        if let Some((_, _, _, _, dependencies)) = sites
+            .into_iter()
+            .find(|(_, site, ..)| site == selected_site)
+        {
+            obligation.dependencies = dependencies;
+        }
+    } else {
+        for ty in function
+            .params
+            .iter()
+            .map(|param| &param.ty)
+            .chain(std::iter::once(&function.ret_type))
+        {
+            collect_type_vars(&hir.engine.resolve(ty), &mut obligation.dependencies);
+        }
+        collect_block_type_vars(&function.body, &hir.engine, &mut obligation.dependencies);
+    }
+    let dependencies = obligation.dependencies.drain().collect::<Vec<_>>();
+    for var in dependencies {
+        obligation.dependencies.insert(
+            hir.engine
+                .unresolved_type_var_representative_for_dependency(var)
+                .unwrap_or(var),
+        );
+    }
+}
+
+fn function_for_owner(hir: &PartialHir, owner: ConstraintOwner) -> Option<&HirFunction> {
+    let ConstraintOwner::Body(id) = owner else {
+        return None;
+    };
+    hir.functions
+        .get(&id)
+        .or_else(|| {
+            hir.traits
+                .values()
+                .flat_map(|trait_def| trait_def.methods.values())
+                .find(|method| method.id == id)
         })
-        .collect::<HashSet<_>>();
+        .or_else(|| {
+            hir.impls
+                .values()
+                .flat_map(|imp| imp.methods.values())
+                .find(|method| method.id == id)
+        })
+}
+
+fn first_block_span(block: &HirBlock) -> Option<crate::lexer::Span> {
+    block.stmts.iter().find_map(|statement| match statement {
+        HirStmt::Let { value, .. }
+        | HirStmt::Expr(value)
+        | HirStmt::Return(Some(value))
+        | HirStmt::Break(Some(value)) => Some(value.span.clone()),
+        HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => None,
+    })
+}
+
+type AuthoritySite = (
+    AuthorityObligationKind,
+    AuthoritySiteId,
+    String,
+    crate::lexer::Span,
+    HashSet<crate::ids::TypeVarId>,
+);
+
+fn collect_authority_sites(
+    root: &HirBlock,
+    engine: &crate::infer::InferenceEngine,
+    output: &mut Vec<AuthoritySite>,
+) {
+    fn dependencies(
+        types: impl IntoIterator<Item = Type>,
+        engine: &crate::infer::InferenceEngine,
+    ) -> HashSet<crate::ids::TypeVarId> {
+        let mut output = HashSet::new();
+        for ty in types {
+            collect_type_vars(&engine.resolve(&ty), &mut output);
+        }
+        output
+    }
+
+    fn block(
+        body: &HirBlock,
+        engine: &crate::infer::InferenceEngine,
+        output: &mut Vec<AuthoritySite>,
+    ) {
+        for statement in &body.stmts {
+            match statement {
+                HirStmt::Let { value, .. }
+                | HirStmt::Expr(value)
+                | HirStmt::Return(Some(value))
+                | HirStmt::Break(Some(value)) => expr(value, engine, output, false),
+                HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => {}
+            }
+        }
+    }
+
+    fn expr(
+        node: &HirExpr,
+        engine: &crate::infer::InferenceEngine,
+        output: &mut Vec<AuthoritySite>,
+        suppress_field_slot: bool,
+    ) {
+        match &node.kind {
+            HirExprKind::Call(callee, args, target) => {
+                if let HirExprKind::FieldAccess(receiver, name, location) = &callee.kind {
+                    if target.is_none() && location.is_none() {
+                        let kind = AuthorityObligationKind::DeferredCall;
+                        let types = std::iter::once(node.ty.clone())
+                            .chain(std::iter::once(receiver.ty.clone()))
+                            .chain(args.iter().map(|arg| arg.ty.clone()));
+                        output.push((
+                            kind,
+                            AuthoritySiteId::new(kind, &node.span),
+                            format!("method or operator call '{name}'"),
+                            node.span.clone(),
+                            dependencies(types, engine),
+                        ));
+                    }
+                    expr(callee, engine, output, true);
+                } else {
+                    expr(callee, engine, output, false);
+                }
+                for arg in args {
+                    expr(arg, engine, output, false);
+                }
+            }
+            HirExprKind::MethodCall(receiver, name, args, _, target) => {
+                if target.is_none() {
+                    let kind = AuthorityObligationKind::MethodCall;
+                    let types = std::iter::once(node.ty.clone())
+                        .chain(std::iter::once(receiver.ty.clone()))
+                        .chain(args.iter().map(|arg| arg.ty.clone()));
+                    output.push((
+                        kind,
+                        AuthoritySiteId::new(kind, &node.span),
+                        format!("method call '{name}'"),
+                        node.span.clone(),
+                        dependencies(types, engine),
+                    ));
+                }
+                expr(receiver, engine, output, false);
+                for arg in args {
+                    expr(arg, engine, output, false);
+                }
+            }
+            HirExprKind::FieldAccess(receiver, name, location) => {
+                if !suppress_field_slot {
+                    if location.is_none() {
+                        let kind = AuthorityObligationKind::Field;
+                        output.push((
+                            kind,
+                            AuthoritySiteId::new(kind, &node.span),
+                            format!("field access '{name}'"),
+                            node.span.clone(),
+                            dependencies([node.ty.clone(), receiver.ty.clone()], engine),
+                        ));
+                    }
+                }
+                expr(receiver, engine, output, false);
+            }
+            HirExprKind::Try {
+                expr: operand,
+                branch_method,
+                from_residual_target,
+                output_ty,
+                residual_ty,
+                return_ty,
+                ..
+            } => {
+                if branch_method.is_none() || from_residual_target.is_none() {
+                    let kind = AuthorityObligationKind::Try;
+                    output.push((
+                        kind,
+                        AuthoritySiteId::new(kind, &node.span),
+                        "Try::branch and FromResidual::from_residual".to_string(),
+                        node.span.clone(),
+                        dependencies(
+                            [
+                                operand.ty.clone(),
+                                output_ty.clone(),
+                                residual_ty.clone(),
+                                return_ty.clone(),
+                            ],
+                            engine,
+                        ),
+                    ));
+                }
+                expr(operand, engine, output, false);
+            }
+            HirExprKind::Deref(inner)
+            | HirExprKind::Ref(_, inner)
+            | HirExprKind::Cast(inner, _)
+            | HirExprKind::TupleIndex(inner, _)
+            | HirExprKind::UnaryOp(_, inner)
+            | HirExprKind::ArrayRepeat(inner, _) => expr(inner, engine, output, false),
+            HirExprKind::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                expr(condition, engine, output, false);
+                block(then_branch, engine, output);
+                if let Some(else_branch) = else_branch {
+                    block(else_branch, engine, output);
+                }
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                expr(scrutinee, engine, output, false);
+                for arm in arms {
+                    if let Some(guard) = &arm.guard {
+                        expr(guard, engine, output, false);
+                    }
+                    block(&arm.body, engine, output);
+                }
+            }
+            HirExprKind::While { condition, body } => {
+                expr(condition, engine, output, false);
+                block(body, engine, output);
+            }
+            HirExprKind::For { iter, body, .. } => {
+                expr(iter, engine, output, false);
+                block(body, engine, output);
+            }
+            HirExprKind::Block(body)
+            | HirExprKind::Loop(body)
+            | HirExprKind::UnsafeBlock(body)
+            | HirExprKind::Lambda { body, .. } => block(body, engine, output),
+            HirExprKind::Assign(left, right)
+            | HirExprKind::BinOp(_, left, right)
+            | HirExprKind::Range(left, right) => {
+                expr(left, engine, output, false);
+                expr(right, engine, output, false);
+            }
+            HirExprKind::Intrinsic { args, .. }
+            | HirExprKind::TupleLiteral(args)
+            | HirExprKind::ArrayLiteral(args)
+            | HirExprKind::EnumVariant(_, _, args, _) => {
+                for arg in args {
+                    expr(arg, engine, output, false);
+                }
+            }
+            HirExprKind::StructLiteral(_, _, fields) => {
+                for field in fields {
+                    expr(&field.value, engine, output, false);
+                }
+            }
+            HirExprKind::Var(_)
+            | HirExprKind::ResolvedVar(_)
+            | HirExprKind::IntLiteral(_)
+            | HirExprKind::FloatLiteral(_)
+            | HirExprKind::BoolLiteral(_)
+            | HirExprKind::StringLiteral(_)
+            | HirExprKind::CharLiteral(_)
+            | HirExprKind::Unit => {}
+        }
+    }
+
+    block(root, engine, output);
+}
+
+fn materialize_authority_site(
+    hir: &mut PartialHir,
+    owner: ConstraintOwner,
+    site: AuthoritySiteId,
+    strict: bool,
+    try_strict: bool,
+) -> Result<AuthorityPassResult, Vec<ResolveError>> {
+    let owners = HashSet::from([owner]);
+    let before_generation = hir.engine.rigid_substitution_generation();
+    let before_counts = authority_counts(hir, Some(&owners));
+    let ambiguous =
+        materialize_pending(hir, strict, try_strict, Some(&owners), Some(site.clone()))?;
+    let mut result = authority_pass_result(hir, before_generation, before_counts, Some(&owners));
+    result.pending = function_for_owner(hir, owner).is_some_and(|function| {
+        let mut sites = Vec::new();
+        collect_authority_sites(&function.body, &hir.engine, &mut sites);
+        sites.iter().any(|(_, candidate, ..)| *candidate == site)
+    });
+    result.ambiguous = ambiguous;
+    Ok(result)
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct AuthorityCounts {
+    methods: usize,
+    pending_methods: usize,
+    residuals: usize,
+    pending_residuals: usize,
+    fields: usize,
+    pending_fields: usize,
+}
+
+pub(super) fn pending_authority_error(
+    hir: &PartialHir,
+    owners: Option<&HashSet<ConstraintOwner>>,
+) -> ResolveError {
+    let error = if authority_counts(hir, owners).pending_residuals > 0 {
+        ResolveError::new(
+            "cannot resolve '?' because its carrier or enclosing residual remains unresolved"
+                .to_string(),
+        )
+    } else if authority_counts(hir, owners).pending_methods > 0 {
+        ResolveError::new(
+            "cannot resolve method authority because the receiver remains unresolved".to_string(),
+        )
+    } else if let Some((member, receiver)) = first_pending_field(hir, owners) {
+        ResolveError::new(format!(
+            "cannot resolve member '{member}' because receiver type {receiver} remains unresolved"
+        ))
+    } else {
+        ResolveError::new(
+            "cannot resolve field authority because the receiver remains unresolved".to_string(),
+        )
+    };
+    if let Some(span) = pending_authority_span(hir, owners) {
+        ResolveError::with_span(error.message, span)
+    } else {
+        error
+    }
+}
+
+fn pending_authority_span(
+    hir: &PartialHir,
+    owners: Option<&HashSet<ConstraintOwner>>,
+) -> Option<crate::lexer::Span> {
+    let selected = owners.cloned().unwrap_or_else(|| {
+        hir.functions
+            .keys()
+            .copied()
+            .map(ConstraintOwner::Body)
+            .collect()
+    });
+    authority_obligations(hir, &selected)
+        .into_iter()
+        .find(|obligation| obligation.kind != AuthorityObligationKind::Propagation)
+        .map(|obligation| obligation.span)
+}
+
+pub(super) fn pending_authority_context(obligations: &[AuthorityObligation]) -> Option<&str> {
+    obligations
+        .iter()
+        .find(|obligation| {
+            obligation.kind != AuthorityObligationKind::Propagation
+                && obligation.state != ObligationState::Solved
+        })
+        .map(|obligation| obligation.context.as_str())
+}
+
+fn first_pending_field(
+    hir: &PartialHir,
+    owners: Option<&HashSet<ConstraintOwner>>,
+) -> Option<(String, Type)> {
+    fn block(block: &HirBlock, engine: &crate::infer::InferenceEngine) -> Option<(String, Type)> {
+        block.stmts.iter().find_map(|statement| match statement {
+            HirStmt::Let { value, .. }
+            | HirStmt::Expr(value)
+            | HirStmt::Return(Some(value))
+            | HirStmt::Break(Some(value)) => expr(value, engine),
+            HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => None,
+        })
+    }
+
+    fn expr(node: &HirExpr, engine: &crate::infer::InferenceEngine) -> Option<(String, Type)> {
+        match &node.kind {
+            HirExprKind::FieldAccess(receiver, name, None) => {
+                Some((name.clone(), engine.resolve(&receiver.ty)))
+            }
+            HirExprKind::FieldAccess(receiver, _, Some(_)) => expr(receiver, engine),
+            HirExprKind::Call(callee, args, _) => {
+                expr(callee, engine).or_else(|| args.iter().find_map(|arg| expr(arg, engine)))
+            }
+            HirExprKind::MethodCall(receiver, _, args, _, _) => {
+                expr(receiver, engine).or_else(|| args.iter().find_map(|arg| expr(arg, engine)))
+            }
+            HirExprKind::Try { expr: operand, .. }
+            | HirExprKind::Deref(operand)
+            | HirExprKind::Ref(_, operand)
+            | HirExprKind::Cast(operand, _)
+            | HirExprKind::TupleIndex(operand, _)
+            | HirExprKind::UnaryOp(_, operand)
+            | HirExprKind::ArrayRepeat(operand, _) => expr(operand, engine),
+            HirExprKind::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => expr(condition, engine)
+                .or_else(|| block(then_branch, engine))
+                .or_else(|| else_branch.as_ref().and_then(|body| block(body, engine))),
+            HirExprKind::Match { scrutinee, arms } => expr(scrutinee, engine).or_else(|| {
+                arms.iter().find_map(|arm| {
+                    arm.guard
+                        .as_ref()
+                        .and_then(|guard| expr(guard, engine))
+                        .or_else(|| block(&arm.body, engine))
+                })
+            }),
+            HirExprKind::While { condition, body } => {
+                expr(condition, engine).or_else(|| block(body, engine))
+            }
+            HirExprKind::For { iter, body, .. } => {
+                expr(iter, engine).or_else(|| block(body, engine))
+            }
+            HirExprKind::Block(body)
+            | HirExprKind::Loop(body)
+            | HirExprKind::UnsafeBlock(body)
+            | HirExprKind::Lambda { body, .. } => block(body, engine),
+            HirExprKind::Assign(left, right)
+            | HirExprKind::BinOp(_, left, right)
+            | HirExprKind::Range(left, right) => expr(left, engine).or_else(|| expr(right, engine)),
+            HirExprKind::Intrinsic { args, .. }
+            | HirExprKind::TupleLiteral(args)
+            | HirExprKind::ArrayLiteral(args)
+            | HirExprKind::EnumVariant(_, _, args, _) => {
+                args.iter().find_map(|arg| expr(arg, engine))
+            }
+            HirExprKind::StructLiteral(_, _, fields) => {
+                fields.iter().find_map(|field| expr(&field.value, engine))
+            }
+            HirExprKind::Var(_)
+            | HirExprKind::ResolvedVar(_)
+            | HirExprKind::IntLiteral(_)
+            | HirExprKind::FloatLiteral(_)
+            | HirExprKind::BoolLiteral(_)
+            | HirExprKind::StringLiteral(_)
+            | HirExprKind::CharLiteral(_)
+            | HirExprKind::Unit => None,
+        }
+    }
+
+    hir.functions
+        .iter()
+        .filter(|(id, _)| owner_selected(owners, ConstraintOwner::Body(**id)))
+        .map(|(_, function)| function)
+        .chain(
+            hir.traits
+                .values()
+                .flat_map(|trait_def| trait_def.methods.values())
+                .filter(|function| owner_selected(owners, ConstraintOwner::Body(function.id))),
+        )
+        .chain(
+            hir.impls
+                .values()
+                .flat_map(|imp| imp.methods.values())
+                .filter(|function| owner_selected(owners, ConstraintOwner::Body(function.id))),
+        )
+        .find_map(|function| block(&function.body, &hir.engine))
+}
+
+pub(super) fn propagate_function_instances_for_owners_with_progress(
+    hir: &mut PartialHir,
+    owners: Option<&HashSet<ConstraintOwner>>,
+) -> Result<AuthorityPassResult, Vec<ResolveError>> {
+    let before_generation = hir.engine.rigid_substitution_generation();
+    let before_counts = authority_counts(hir, owners);
+    let mut constrained_vars = HashMap::new();
+    for function in hir
+        .functions
+        .values()
+        .chain(
+            hir.traits
+                .values()
+                .flat_map(|trait_def| trait_def.methods.values()),
+        )
+        .chain(hir.impls.values().flat_map(|imp| imp.methods.values()))
+    {
+        let shared = constrained_signature_vars(hir, function);
+        if !shared.is_empty() {
+            constrained_vars.insert(function.id, shared);
+        }
+    }
     let mut errors = Vec::new();
     let mut function_ids = hir.functions.keys().copied().collect::<Vec<_>>();
     function_ids.sort();
-    for _ in 0..3 {
-        for id in &function_ids {
-            if let Some(mut body) = hir.functions.get(id).map(|function| function.body.clone()) {
-                propagate_block(hir, &mut body, &monomorphic, &mut errors);
-                if let Some(function) = hir.functions.get_mut(id) {
-                    let _ = hir.engine.unify(&function.ret_type, &body.ty);
-                    function.ret_type = hir.engine.resolve(&function.ret_type);
-                    function.body = body;
-                }
+    for id in &function_ids {
+        if !owner_selected(owners, ConstraintOwner::Body(*id)) {
+            continue;
+        }
+        if let Some(mut body) = hir.functions.get(id).map(|function| function.body.clone()) {
+            propagate_block(hir, &mut body, &constrained_vars, &mut errors);
+            if let Some(function) = hir.functions.get_mut(id) {
+                let _ = hir.engine.unify(&function.ret_type, &body.ty);
+                function.ret_type = hir.engine.resolve(&function.ret_type);
+                function.body = body;
             }
         }
     }
@@ -60,13 +715,17 @@ pub(super) fn propagate_function_instances(hir: &mut PartialHir) -> Result<(), V
             .collect::<Vec<_>>();
         method_names.sort();
         for method_name in method_names {
+            let method_id = hir.impls[&impl_id].methods[&method_name].id;
+            if !owner_selected(owners, ConstraintOwner::Body(method_id)) {
+                continue;
+            }
             if let Some(mut body) = hir
                 .impls
                 .get(&impl_id)
                 .and_then(|imp| imp.methods.get(&method_name))
                 .map(|method| method.body.clone())
             {
-                propagate_block(hir, &mut body, &monomorphic, &mut errors);
+                propagate_block(hir, &mut body, &constrained_vars, &mut errors);
                 if let Some(method) = hir
                     .impls
                     .get_mut(&impl_id)
@@ -79,10 +738,190 @@ pub(super) fn propagate_function_instances(hir: &mut PartialHir) -> Result<(), V
     }
 
     if errors.is_empty() {
-        Ok(())
+        let mut result = authority_pass_result(hir, before_generation, before_counts, owners);
+        // Instance propagation may create fresh call-site variables without
+        // changing any authority; that is not observable progress for the
+        // driver and must not keep waking the same call forever.
+        result.progress = authority_counts(hir, owners) != before_counts;
+        Ok(result)
     } else {
         Err(errors)
     }
+}
+
+fn owner_selected(owners: Option<&HashSet<ConstraintOwner>>, owner: ConstraintOwner) -> bool {
+    owners.is_none_or(|owners| owners.contains(&owner))
+}
+
+fn authority_pass_result(
+    hir: &PartialHir,
+    before_generation: u64,
+    before_counts: AuthorityCounts,
+    owners: Option<&HashSet<ConstraintOwner>>,
+) -> AuthorityPassResult {
+    let after_counts = authority_counts(hir, owners);
+    AuthorityPassResult {
+        progress: before_generation != hir.engine.rigid_substitution_generation()
+            || before_counts != after_counts,
+        pending: after_counts.pending_methods > 0
+            || after_counts.pending_residuals > 0
+            || after_counts.pending_fields > 0,
+        ambiguous: false,
+    }
+}
+
+fn authority_counts(
+    hir: &PartialHir,
+    owners: Option<&HashSet<ConstraintOwner>>,
+) -> AuthorityCounts {
+    fn block(block: &HirBlock, counts: &mut AuthorityCounts) {
+        for statement in &block.stmts {
+            match statement {
+                HirStmt::Let { value, .. }
+                | HirStmt::Expr(value)
+                | HirStmt::Return(Some(value))
+                | HirStmt::Break(Some(value)) => expr(value, counts),
+                HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => {}
+            }
+        }
+    }
+
+    fn expr(node: &HirExpr, counts: &mut AuthorityCounts) {
+        match &node.kind {
+            HirExprKind::MethodCall(receiver, _, args, _, target) => {
+                if target.is_some() {
+                    counts.methods += 1;
+                } else {
+                    counts.pending_methods += 1;
+                }
+                expr(receiver, counts);
+                for arg in args {
+                    expr(arg, counts);
+                }
+            }
+            HirExprKind::Try {
+                expr: operand,
+                branch_method,
+                from_residual_target,
+                ..
+            } => {
+                if branch_method.is_some() {
+                    counts.methods += 1;
+                } else {
+                    counts.pending_residuals += 1;
+                }
+                if from_residual_target.is_some() {
+                    counts.residuals += 1;
+                } else {
+                    counts.pending_residuals += 1;
+                }
+                expr(operand, counts);
+            }
+            HirExprKind::FieldAccess(receiver, _, location) => {
+                if location.is_some() {
+                    counts.fields += 1;
+                } else {
+                    counts.pending_fields += 1;
+                }
+                expr(receiver, counts);
+            }
+            HirExprKind::Call(callee, args, _) => {
+                expr(callee, counts);
+                for arg in args {
+                    expr(arg, counts);
+                }
+            }
+            HirExprKind::Deref(inner)
+            | HirExprKind::Ref(_, inner)
+            | HirExprKind::Cast(inner, _)
+            | HirExprKind::TupleIndex(inner, _)
+            | HirExprKind::UnaryOp(_, inner)
+            | HirExprKind::ArrayRepeat(inner, _) => expr(inner, counts),
+            HirExprKind::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                expr(condition, counts);
+                block(then_branch, counts);
+                if let Some(else_branch) = else_branch {
+                    block(else_branch, counts);
+                }
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                expr(scrutinee, counts);
+                for arm in arms {
+                    if let Some(guard) = &arm.guard {
+                        expr(guard, counts);
+                    }
+                    block(&arm.body, counts);
+                }
+            }
+            HirExprKind::While { condition, body } => {
+                expr(condition, counts);
+                block(body, counts);
+            }
+            HirExprKind::For { iter, body, .. } => {
+                expr(iter, counts);
+                block(body, counts);
+            }
+            HirExprKind::Block(body) | HirExprKind::Loop(body) | HirExprKind::UnsafeBlock(body) => {
+                block(body, counts)
+            }
+            HirExprKind::Lambda { body, .. } => block(body, counts),
+            HirExprKind::Assign(left, right) | HirExprKind::BinOp(_, left, right) => {
+                expr(left, counts);
+                expr(right, counts);
+            }
+            HirExprKind::Intrinsic { args, .. }
+            | HirExprKind::TupleLiteral(args)
+            | HirExprKind::ArrayLiteral(args)
+            | HirExprKind::EnumVariant(_, _, args, _) => {
+                for arg in args {
+                    expr(arg, counts);
+                }
+            }
+            HirExprKind::StructLiteral(_, _, fields) => {
+                for field in fields {
+                    expr(&field.value, counts);
+                }
+            }
+            HirExprKind::Range(start, end) => {
+                expr(start, counts);
+                expr(end, counts);
+            }
+            HirExprKind::Var(_)
+            | HirExprKind::ResolvedVar(_)
+            | HirExprKind::IntLiteral(_)
+            | HirExprKind::FloatLiteral(_)
+            | HirExprKind::BoolLiteral(_)
+            | HirExprKind::StringLiteral(_)
+            | HirExprKind::CharLiteral(_)
+            | HirExprKind::Unit => {}
+        }
+    }
+
+    let mut counts = AuthorityCounts::default();
+    for (id, function) in &hir.functions {
+        if owner_selected(owners, ConstraintOwner::Body(*id)) {
+            block(&function.body, &mut counts);
+        }
+    }
+    for trait_def in hir.traits.values() {
+        for function in trait_def.methods.values() {
+            if owner_selected(owners, ConstraintOwner::Body(function.id)) {
+                block(&function.body, &mut counts);
+            }
+        }
+    }
+    for impl_def in hir.impls.values() {
+        for function in impl_def.methods.values() {
+            if owner_selected(owners, ConstraintOwner::Body(function.id)) {
+                block(&function.body, &mut counts);
+            }
+        }
+    }
+    counts
 }
 
 fn collect_type_vars(ty: &Type, vars: &mut HashSet<crate::ids::TypeVarId>) {
@@ -93,10 +932,185 @@ fn collect_type_vars(ty: &Type, vars: &mut HashSet<crate::ids::TypeVarId>) {
     });
 }
 
+fn collect_block_type_vars(
+    block: &HirBlock,
+    engine: &crate::infer::InferenceEngine,
+    output: &mut HashSet<crate::ids::TypeVarId>,
+) {
+    fn expr(
+        node: &HirExpr,
+        engine: &crate::infer::InferenceEngine,
+        output: &mut HashSet<crate::ids::TypeVarId>,
+    ) {
+        collect_type_vars(&engine.resolve(&node.ty), output);
+        match &node.kind {
+            HirExprKind::Call(callee, args, _) | HirExprKind::MethodCall(callee, _, args, _, _) => {
+                expr(callee, engine, output);
+                for arg in args {
+                    expr(arg, engine, output);
+                }
+            }
+            HirExprKind::Try {
+                expr: operand,
+                output_ty,
+                residual_ty,
+                return_ty,
+                ..
+            } => {
+                expr(operand, engine, output);
+                for ty in [output_ty, residual_ty, return_ty] {
+                    collect_type_vars(&engine.resolve(ty), output);
+                }
+            }
+            HirExprKind::FieldAccess(inner, _, _)
+            | HirExprKind::Deref(inner)
+            | HirExprKind::Ref(_, inner)
+            | HirExprKind::Cast(inner, _)
+            | HirExprKind::TupleIndex(inner, _)
+            | HirExprKind::UnaryOp(_, inner)
+            | HirExprKind::ArrayRepeat(inner, _) => expr(inner, engine, output),
+            HirExprKind::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                expr(condition, engine, output);
+                collect_block_type_vars(then_branch, engine, output);
+                if let Some(else_branch) = else_branch {
+                    collect_block_type_vars(else_branch, engine, output);
+                }
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                expr(scrutinee, engine, output);
+                for arm in arms {
+                    if let Some(guard) = &arm.guard {
+                        expr(guard, engine, output);
+                    }
+                    collect_block_type_vars(&arm.body, engine, output);
+                }
+            }
+            HirExprKind::While { condition, body } => {
+                expr(condition, engine, output);
+                collect_block_type_vars(body, engine, output);
+            }
+            HirExprKind::For { iter, body, .. } => {
+                expr(iter, engine, output);
+                collect_block_type_vars(body, engine, output);
+            }
+            HirExprKind::Block(body) | HirExprKind::Loop(body) | HirExprKind::UnsafeBlock(body) => {
+                collect_block_type_vars(body, engine, output)
+            }
+            HirExprKind::Lambda { params, body, .. } => {
+                for param in params {
+                    collect_type_vars(&engine.resolve(&param.ty), output);
+                }
+                collect_block_type_vars(body, engine, output);
+            }
+            HirExprKind::Assign(left, right)
+            | HirExprKind::BinOp(_, left, right)
+            | HirExprKind::Range(left, right) => {
+                expr(left, engine, output);
+                expr(right, engine, output);
+            }
+            HirExprKind::Intrinsic { args, .. }
+            | HirExprKind::TupleLiteral(args)
+            | HirExprKind::ArrayLiteral(args)
+            | HirExprKind::EnumVariant(_, _, args, _) => {
+                for arg in args {
+                    expr(arg, engine, output);
+                }
+            }
+            HirExprKind::StructLiteral(_, _, fields) => {
+                for field in fields {
+                    expr(&field.value, engine, output);
+                }
+            }
+            HirExprKind::Var(_)
+            | HirExprKind::ResolvedVar(_)
+            | HirExprKind::IntLiteral(_)
+            | HirExprKind::FloatLiteral(_)
+            | HirExprKind::BoolLiteral(_)
+            | HirExprKind::StringLiteral(_)
+            | HirExprKind::CharLiteral(_)
+            | HirExprKind::Unit => {}
+        }
+    }
+
+    collect_type_vars(&engine.resolve(&block.ty), output);
+    for statement in &block.stmts {
+        match statement {
+            HirStmt::Let { ty, value, .. } => {
+                collect_type_vars(&engine.resolve(ty), output);
+                expr(value, engine, output);
+            }
+            HirStmt::Expr(value) | HirStmt::Return(Some(value)) | HirStmt::Break(Some(value)) => {
+                expr(value, engine, output)
+            }
+            HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => {}
+        }
+    }
+}
+
+fn constrained_signature_vars(
+    hir: &PartialHir,
+    function: &HirFunction,
+) -> HashSet<crate::ids::TypeVarId> {
+    let mut signature_vars = HashSet::new();
+    for ty in function
+        .params
+        .iter()
+        .map(|param| &param.ty)
+        .chain(std::iter::once(&function.ret_type))
+    {
+        collect_type_vars(&hir.engine.resolve(ty), &mut signature_vars);
+    }
+    let mut shared = HashSet::new();
+    for (obligation, constraint) in hir.constraint_store.iter() {
+        if hir.constraint_store.owner(obligation) != Some(ConstraintOwner::Body(function.id)) {
+            continue;
+        }
+        let mut obligation_vars = HashSet::new();
+        match constraint {
+            Constraint::Trait { ty, bound, .. } => {
+                collect_type_vars(&hir.engine.resolve(ty), &mut obligation_vars);
+                for arg in &bound.type_args {
+                    collect_type_vars(&hir.engine.resolve(arg), &mut obligation_vars);
+                }
+            }
+            Constraint::Equality { left, right, .. } => {
+                collect_type_vars(&hir.engine.resolve(left), &mut obligation_vars);
+                collect_type_vars(&hir.engine.resolve(right), &mut obligation_vars);
+            }
+            Constraint::Try {
+                carrier,
+                output,
+                residual,
+                return_ty,
+                ..
+            } => {
+                for ty in [carrier, output, residual, return_ty] {
+                    collect_type_vars(&hir.engine.resolve(ty), &mut obligation_vars);
+                }
+            }
+            Constraint::IntLiteral { var, .. } | Constraint::FloatLiteral { var, .. } => {
+                collect_type_vars(
+                    &hir.engine.resolve(&Type::TypeVar(*var)),
+                    &mut obligation_vars,
+                );
+            }
+        }
+        shared.extend(signature_vars.intersection(&obligation_vars).copied());
+    }
+    let mut authority_vars = HashSet::new();
+    collect_unresolved_authority_vars(&function.body, &hir.engine, &mut authority_vars);
+    shared.extend(signature_vars.intersection(&authority_vars).copied());
+    shared
+}
+
 fn propagate_block(
     hir: &mut PartialHir,
     block: &mut HirBlock,
-    monomorphic: &HashSet<DefId>,
+    constrained_vars: &HashMap<DefId, HashSet<crate::ids::TypeVarId>>,
     errors: &mut Vec<ResolveError>,
 ) {
     for stmt in &mut block.stmts {
@@ -104,7 +1118,7 @@ fn propagate_block(
             HirStmt::Let { value, .. }
             | HirStmt::Expr(value)
             | HirStmt::Return(Some(value))
-            | HirStmt::Break(Some(value)) => propagate_expr(hir, value, monomorphic, errors),
+            | HirStmt::Break(Some(value)) => propagate_expr(hir, value, constrained_vars, errors),
             HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => {}
         }
     }
@@ -114,99 +1128,133 @@ fn propagate_block(
 fn propagate_expr(
     hir: &mut PartialHir,
     expr: &mut HirExpr,
-    monomorphic: &HashSet<DefId>,
+    constrained_vars: &HashMap<DefId, HashSet<crate::ids::TypeVarId>>,
     errors: &mut Vec<ResolveError>,
 ) {
+    if let HirExprKind::ResolvedVar(HirVarRef {
+        target: HirVarTarget::Function(function_id),
+        ..
+    }) = &expr.kind
+    {
+        propagate_function_value_instance(hir, expr.ty.clone(), *function_id, constrained_vars);
+    }
     match &mut expr.kind {
         HirExprKind::Call(callee, args, _) => {
             // Establish the call-site scheme before descending into deferred
             // arguments so their method authority can use the parameter type.
-            propagate_call_instance(hir, &expr.ty, callee, args, monomorphic, errors);
-            propagate_expr(hir, callee, monomorphic, errors);
-            for arg in args.iter_mut() {
-                propagate_expr(hir, arg, monomorphic, errors);
+            propagate_call_instance(hir, &expr.ty, callee, args, constrained_vars, errors);
+            if !matches!(
+                callee.kind,
+                HirExprKind::ResolvedVar(HirVarRef {
+                    target: HirVarTarget::Function(_),
+                    ..
+                })
+            ) {
+                propagate_expr(hir, callee, constrained_vars, errors);
             }
-            propagate_call_instance(hir, &expr.ty, callee, args, monomorphic, errors);
+            for arg in args.iter_mut() {
+                propagate_expr(hir, arg, constrained_vars, errors);
+            }
+            propagate_call_instance(hir, &expr.ty, callee, args, constrained_vars, errors);
         }
         HirExprKind::MethodCall(receiver, _, args, _, target) => {
             if let Some(target) = target.as_ref() {
                 propagate_method_arguments(hir, receiver, args, target);
             }
-            propagate_expr(hir, receiver, monomorphic, errors);
+            propagate_expr(hir, receiver, constrained_vars, errors);
             for arg in args {
-                propagate_expr(hir, arg, monomorphic, errors);
+                propagate_expr(hir, arg, constrained_vars, errors);
             }
             if let Some(target) = target {
                 propagate_method_result(hir, expr.ty.clone(), target, errors);
             }
         }
-        HirExprKind::Try { expr, .. } => propagate_expr(hir, expr, monomorphic, errors),
+        HirExprKind::Try { expr, .. } => propagate_expr(hir, expr, constrained_vars, errors),
         HirExprKind::FieldAccess(receiver, _, _)
         | HirExprKind::Deref(receiver)
         | HirExprKind::Ref(_, receiver)
-        | HirExprKind::Cast(receiver, _)
-        | HirExprKind::TupleIndex(receiver, _) => {
-            propagate_expr(hir, receiver, monomorphic, errors)
+        | HirExprKind::Cast(receiver, _) => propagate_expr(hir, receiver, constrained_vars, errors),
+        HirExprKind::TupleIndex(receiver, index) => {
+            propagate_expr(hir, receiver, constrained_vars, errors);
+            if let Type::Tuple(elements) = hir.engine.resolve(&receiver.ty) {
+                if let Some(element) = elements.get(*index as usize) {
+                    let _ = hir.engine.unify(&expr.ty, element);
+                }
+            }
         }
         HirExprKind::If {
             condition,
             then_branch,
             else_branch,
         } => {
-            propagate_expr(hir, condition, monomorphic, errors);
-            propagate_block(hir, then_branch, monomorphic, errors);
+            propagate_expr(hir, condition, constrained_vars, errors);
+            propagate_block(hir, then_branch, constrained_vars, errors);
             if let Some(else_branch) = else_branch {
-                propagate_block(hir, else_branch, monomorphic, errors);
+                propagate_block(hir, else_branch, constrained_vars, errors);
             }
         }
         HirExprKind::Match { scrutinee, arms } => {
-            propagate_expr(hir, scrutinee, monomorphic, errors);
+            propagate_expr(hir, scrutinee, constrained_vars, errors);
             for arm in arms {
                 if let Some(guard) = &mut arm.guard {
-                    propagate_expr(hir, guard, monomorphic, errors);
+                    propagate_expr(hir, guard, constrained_vars, errors);
                 }
-                propagate_block(hir, &mut arm.body, monomorphic, errors);
+                propagate_block(hir, &mut arm.body, constrained_vars, errors);
             }
         }
         HirExprKind::While { condition, body } => {
-            propagate_expr(hir, condition, monomorphic, errors);
-            propagate_block(hir, body, monomorphic, errors);
+            propagate_expr(hir, condition, constrained_vars, errors);
+            propagate_block(hir, body, constrained_vars, errors);
         }
         HirExprKind::For { iter, body, .. } => {
-            propagate_expr(hir, iter, monomorphic, errors);
-            propagate_block(hir, body, monomorphic, errors);
+            propagate_expr(hir, iter, constrained_vars, errors);
+            propagate_block(hir, body, constrained_vars, errors);
         }
         HirExprKind::Block(body) | HirExprKind::Loop(body) | HirExprKind::UnsafeBlock(body) => {
-            propagate_block(hir, body, monomorphic, errors)
+            propagate_block(hir, body, constrained_vars, errors)
         }
-        HirExprKind::Lambda { body, .. } => propagate_block(hir, body, monomorphic, errors),
+        HirExprKind::Lambda { params, body, .. } => {
+            if let Type::Function {
+                params: expected_params,
+                ret,
+                ..
+            } = hir.engine.resolve(&expr.ty)
+            {
+                for (param, expected) in params.iter_mut().zip(expected_params) {
+                    let _ = hir.engine.unify(&param.ty, &expected);
+                    param.ty = hir.engine.resolve(&param.ty);
+                }
+                let _ = hir.engine.unify(&body.ty, ret.as_ref());
+            }
+            propagate_block(hir, body, constrained_vars, errors);
+        }
         HirExprKind::Assign(left, right) | HirExprKind::BinOp(_, left, right) => {
-            propagate_expr(hir, left, monomorphic, errors);
-            propagate_expr(hir, right, monomorphic, errors);
+            propagate_expr(hir, left, constrained_vars, errors);
+            propagate_expr(hir, right, constrained_vars, errors);
         }
         HirExprKind::UnaryOp(_, inner) | HirExprKind::ArrayRepeat(inner, _) => {
-            propagate_expr(hir, inner, monomorphic, errors)
+            propagate_expr(hir, inner, constrained_vars, errors)
         }
         HirExprKind::Intrinsic { args, .. }
         | HirExprKind::TupleLiteral(args)
         | HirExprKind::ArrayLiteral(args) => {
             for arg in args {
-                propagate_expr(hir, arg, monomorphic, errors);
+                propagate_expr(hir, arg, constrained_vars, errors);
             }
         }
         HirExprKind::StructLiteral(_, _, fields) => {
             for field in fields {
-                propagate_expr(hir, &mut field.value, monomorphic, errors);
+                propagate_expr(hir, &mut field.value, constrained_vars, errors);
             }
         }
         HirExprKind::EnumVariant(_, _, args, _) => {
             for arg in args {
-                propagate_expr(hir, arg, monomorphic, errors);
+                propagate_expr(hir, arg, constrained_vars, errors);
             }
         }
         HirExprKind::Range(start, end) => {
-            propagate_expr(hir, start, monomorphic, errors);
-            propagate_expr(hir, end, monomorphic, errors);
+            propagate_expr(hir, start, constrained_vars, errors);
+            propagate_expr(hir, end, constrained_vars, errors);
         }
         HirExprKind::Var(_)
         | HirExprKind::ResolvedVar(_)
@@ -218,6 +1266,54 @@ fn propagate_expr(
         | HirExprKind::Unit => {}
     }
     expr.ty = hir.engine.resolve(&expr.ty);
+}
+
+fn propagate_function_value_instance(
+    hir: &mut PartialHir,
+    value_ty: Type,
+    function_id: DefId,
+    constrained_vars: &HashMap<DefId, HashSet<crate::ids::TypeVarId>>,
+) {
+    let Some(function) = hir
+        .functions
+        .get(&function_id)
+        .cloned()
+        .or_else(|| find_method(hir, Some(function_id)))
+    else {
+        return;
+    };
+    if !function.generic_params.is_empty() {
+        return;
+    }
+    let source = Type::function_with_safety(
+        function
+            .params
+            .iter()
+            .map(|param| param.ty.clone())
+            .collect(),
+        function.ret_type.clone(),
+        FunctionSafety::from_is_unsafe(function.is_unsafe),
+    );
+    let shared_vars = constrained_vars
+        .get(&function_id)
+        .cloned()
+        .unwrap_or_default();
+    let mut source_vars = HashSet::new();
+    collect_type_vars(&hir.engine.resolve(&source), &mut source_vars);
+    if shared_vars.is_empty() && !source_vars.is_empty() {
+        return;
+    }
+    let substitution = source_vars
+        .into_iter()
+        .filter(|id| !shared_vars.contains(id))
+        .map(|id| {
+            let kind = hir.engine.kind_of_type_var(id);
+            (id, hir.engine.fresh_type_var_of_kind(kind))
+        })
+        .collect::<HashMap<_, _>>();
+    let _ = hir
+        .engine
+        .unify(&value_ty, &source.substitute(&substitution));
 }
 
 fn propagate_method_arguments(
@@ -262,7 +1358,7 @@ fn propagate_call_instance(
     result_ty: &Type,
     callee: &HirExpr,
     args: &mut [HirExpr],
-    monomorphic: &HashSet<DefId>,
+    constrained_vars: &HashMap<DefId, HashSet<crate::ids::TypeVarId>>,
     _errors: &mut Vec<ResolveError>,
 ) {
     let HirExprKind::ResolvedVar(reference) = &callee.kind else {
@@ -271,42 +1367,113 @@ fn propagate_call_instance(
     let crate::hir::HirVarTarget::Function(function_id) = reference.target else {
         return;
     };
-    let Some(function) = hir.functions.get(&function_id).cloned() else {
+    let Some(function) = hir
+        .functions
+        .get(&function_id)
+        .cloned()
+        .or_else(|| find_method(hir, Some(function_id)))
+    else {
         return;
     };
-    if function.is_method
-        || hir
-            .impls
-            .values()
-            .any(|imp| imp.methods.values().any(|method| method.id == function_id))
-    {
-        return;
-    }
     if !function.generic_params.is_empty() {
+        let source_ret = hir.engine.resolve(&function.ret_type);
+        if !matches!(source_ret, Type::Generic(_)) {
+            let resolved_callee = hir.engine.resolve(&callee.ty);
+            if let Type::Function { params, ret, .. } = resolved_callee {
+                for (arg, expected) in args.iter().zip(params.iter()) {
+                    propagate_argument_type(&mut hir.engine, &arg.ty, expected);
+                }
+                propagate_generic_scheme_type(&mut hir.engine, &source_ret, ret.as_ref());
+                let resolved_ret = hir.engine.resolve(ret.as_ref());
+                let call_result = if args.len() < params.len() {
+                    Type::function_with_safety(
+                        params[args.len()..].to_vec(),
+                        resolved_ret,
+                        FunctionSafety::from_is_unsafe(function.is_unsafe),
+                    )
+                } else {
+                    resolved_ret
+                };
+                let _ = hir.engine.unify(result_ty, &call_result);
+            }
+        }
         return;
     }
     if function.params.iter().any(|param| param.is_ref) {
         return;
     }
-    if monomorphic.contains(&function_id) {
-        let source_params = function
+    let shared_vars = constrained_vars
+        .get(&function_id)
+        .cloned()
+        .unwrap_or_default();
+    let source_type = Type::function_with_safety(
+        function
             .params
             .iter()
-            .map(|param| param.ty.clone())
-            .collect::<Vec<_>>();
-        for (arg, expected) in args.iter().zip(source_params.iter()) {
-            let _ = hir.engine.unify(&arg.ty, expected);
-        }
-        let source_type = Type::function_with_safety(
-            function
-                .params
-                .iter()
-                .map(|param| param.ty.clone())
-                .collect(),
-            function.ret_type.clone(),
-            crate::types::FunctionSafety::from_is_unsafe(function.is_unsafe),
-        );
+            .map(|param| hir.engine.resolve(&param.ty))
+            .collect(),
+        hir.engine.resolve(&function.ret_type),
+        crate::types::FunctionSafety::from_is_unsafe(function.is_unsafe),
+    );
+    if !contains_recovery_type(&source_type) {
         let _ = hir.engine.unify(&callee.ty, &source_type);
+    }
+    let resolved_callee = hir.engine.resolve(&callee.ty);
+    let resolved_result = hir.engine.resolve(result_ty);
+    if let Type::Function { params, ret, .. } = resolved_callee {
+        let mut source_partial_result = None;
+        if let Type::Function {
+            params: source_params,
+            ret: source_ret,
+            ..
+        } = source_type
+        {
+            for (instance, source) in params.iter().zip(source_params.iter()) {
+                if contains_recovery_type(source) {
+                    propagate_shared_type_vars(&mut hir.engine, source, instance, &shared_vars);
+                } else {
+                    let _ = hir.engine.unify(instance, source);
+                }
+            }
+            if contains_recovery_type(source_ret.as_ref()) {
+                propagate_shared_type_vars(
+                    &mut hir.engine,
+                    source_ret.as_ref(),
+                    ret.as_ref(),
+                    &shared_vars,
+                );
+            } else {
+                let _ = hir.engine.unify(ret.as_ref(), source_ret.as_ref());
+            }
+            if args.len() < source_params.len() {
+                source_partial_result = Some(Type::function_with_safety(
+                    source_params[args.len()..].to_vec(),
+                    *source_ret,
+                    FunctionSafety::from_is_unsafe(function.is_unsafe),
+                ));
+            }
+        }
+        for (arg, expected) in args.iter().zip(params.iter()) {
+            propagate_argument_type(&mut hir.engine, &arg.ty, expected);
+        }
+        if let Some(source_result) = source_partial_result {
+            let _ = hir.engine.unify(result_ty, &source_result);
+        }
+        let _ = hir.engine.unify(
+            result_ty,
+            &if args.len() < params.len() {
+                Type::function_with_safety(
+                    params[args.len()..].to_vec(),
+                    *ret,
+                    FunctionSafety::Safe,
+                )
+            } else {
+                *ret
+            },
+        );
+        return;
+    }
+    if !contains_recovery_type(&resolved_callee) && !contains_recovery_type(&resolved_result) {
         return;
     }
     let source_params = function
@@ -325,6 +1492,7 @@ fn propagate_call_instance(
     }
     let fresh_substitution = source_vars
         .into_iter()
+        .filter(|id| !shared_vars.contains(id))
         .map(|id| {
             let kind = hir.engine.kind_of_type_var(id);
             (id, hir.engine.fresh_type_var_of_kind(kind))
@@ -340,13 +1508,14 @@ fn propagate_call_instance(
         instance_ret,
         crate::types::FunctionSafety::from_is_unsafe(function.is_unsafe),
     );
+    let before = hir.engine.substitution_generation();
     let _ = hir.engine.unify(&callee.ty, &instance_type);
     let Type::Function { params, ret, .. } = instance_type else {
         return;
     };
     let instance_ret = *ret;
     for (arg, expected) in args.iter().zip(params.iter()) {
-        let _ = hir.engine.unify(&arg.ty, expected);
+        propagate_argument_type(&mut hir.engine, &arg.ty, expected);
     }
     let result_type = if args.len() < params.len() {
         Type::function_with_safety(
@@ -358,6 +1527,222 @@ fn propagate_call_instance(
         instance_ret
     };
     let _ = hir.engine.unify(result_ty, &result_type);
+    if before == hir.engine.substitution_generation() {
+        return;
+    }
+}
+
+fn propagate_argument_type(
+    engine: &mut crate::infer::InferenceEngine,
+    actual: &Type,
+    expected: &Type,
+) {
+    if let (
+        Type::Function {
+            ret: actual_ret, ..
+        },
+        Type::Function {
+            ret: expected_ret, ..
+        },
+    ) = (engine.resolve(actual), engine.resolve(expected))
+    {
+        let _ = engine.unify(&actual_ret, &expected_ret);
+    }
+    let _ = engine.unify(actual, expected);
+}
+
+fn propagate_shared_type_vars(
+    engine: &mut crate::infer::InferenceEngine,
+    source: &Type,
+    instance: &Type,
+    shared: &HashSet<crate::ids::TypeVarId>,
+) {
+    let source = engine.resolve(source);
+    let instance = engine.resolve(instance);
+    match (&source, &instance) {
+        (Type::TypeVar(id), _) if shared.contains(id) => {
+            let _ = engine.unify(&source, &instance);
+        }
+        (
+            Type::Reference { inner: source, .. },
+            Type::Reference {
+                inner: instance, ..
+            },
+        )
+        | (Type::Pointer(source), Type::Pointer(instance))
+        | (Type::Slice(source), Type::Slice(instance)) => {
+            propagate_shared_type_vars(engine, source, instance, shared);
+        }
+        (Type::Array(source, source_len), Type::Array(instance, instance_len))
+            if source_len == instance_len =>
+        {
+            propagate_shared_type_vars(engine, source, instance, shared);
+        }
+        (Type::Tuple(source), Type::Tuple(instance)) => {
+            for (source, instance) in source.iter().zip(instance) {
+                propagate_shared_type_vars(engine, source, instance, shared);
+            }
+        }
+        (
+            Type::Function {
+                params: source_params,
+                ret: source_ret,
+                ..
+            },
+            Type::Function {
+                params: instance_params,
+                ret: instance_ret,
+                ..
+            },
+        ) => {
+            for (source, instance) in source_params.iter().zip(instance_params) {
+                propagate_shared_type_vars(engine, source, instance, shared);
+            }
+            propagate_shared_type_vars(engine, source_ret, instance_ret, shared);
+        }
+        (
+            Type::Struct {
+                id: source_id,
+                args: source_args,
+            },
+            Type::Struct {
+                id: instance_id,
+                args: instance_args,
+            },
+        )
+        | (
+            Type::Enum {
+                id: source_id,
+                args: source_args,
+            },
+            Type::Enum {
+                id: instance_id,
+                args: instance_args,
+            },
+        ) if source_id == instance_id => {
+            for (source, instance) in source_args.iter().zip(instance_args) {
+                propagate_shared_type_vars(engine, source, instance, shared);
+            }
+        }
+        (
+            Type::Apply {
+                constructor: source_constructor,
+                args: source_args,
+            },
+            Type::Apply {
+                constructor: instance_constructor,
+                args: instance_args,
+            },
+        ) => {
+            propagate_shared_type_vars(engine, source_constructor, instance_constructor, shared);
+            for (source, instance) in source_args.iter().zip(instance_args) {
+                propagate_shared_type_vars(engine, source, instance, shared);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn propagate_generic_scheme_type(
+    engine: &mut crate::infer::InferenceEngine,
+    source: &Type,
+    instance: &Type,
+) {
+    let source = engine.resolve(source);
+    let instance = engine.resolve(instance);
+    if matches!(source, Type::Generic(_)) {
+        return;
+    }
+    match (&source, &instance) {
+        (Type::TypeVar(_), _) => {}
+        (Type::Apply { constructor, .. }, _)
+            if matches!(constructor.as_ref(), Type::Generic(_)) => {}
+        (
+            Type::Reference {
+                mutable: source_mutable,
+                inner: source_inner,
+            },
+            Type::Reference {
+                mutable: instance_mutable,
+                inner: instance_inner,
+            },
+        ) if source_mutable == instance_mutable => {
+            propagate_generic_scheme_type(engine, source_inner, instance_inner);
+        }
+        (Type::Pointer(source), Type::Pointer(instance))
+        | (Type::Slice(source), Type::Slice(instance)) => {
+            propagate_generic_scheme_type(engine, source, instance);
+        }
+        (Type::Array(source, source_len), Type::Array(instance, instance_len))
+            if source_len == instance_len =>
+        {
+            propagate_generic_scheme_type(engine, source, instance);
+        }
+        (Type::Tuple(source), Type::Tuple(instance)) if source.len() == instance.len() => {
+            for (source, instance) in source.iter().zip(instance) {
+                propagate_generic_scheme_type(engine, source, instance);
+            }
+        }
+        (
+            Type::Function {
+                params: source_params,
+                ret: source_ret,
+                ..
+            },
+            Type::Function {
+                params: instance_params,
+                ret: instance_ret,
+                ..
+            },
+        ) => {
+            for (source, instance) in source_params.iter().zip(instance_params) {
+                propagate_generic_scheme_type(engine, source, instance);
+            }
+            propagate_generic_scheme_type(engine, source_ret, instance_ret);
+        }
+        (
+            Type::Struct {
+                id: source_id,
+                args: source_args,
+            },
+            Type::Struct {
+                id: instance_id,
+                args: instance_args,
+            },
+        )
+        | (
+            Type::Enum {
+                id: source_id,
+                args: source_args,
+            },
+            Type::Enum {
+                id: instance_id,
+                args: instance_args,
+            },
+        ) if source_id == instance_id => {
+            for (source, instance) in source_args.iter().zip(instance_args) {
+                propagate_generic_scheme_type(engine, source, instance);
+            }
+        }
+        (
+            Type::Apply {
+                constructor: source_constructor,
+                args: source_args,
+            },
+            Type::Apply {
+                constructor: instance_constructor,
+                args: instance_args,
+            },
+        ) if source_args.len() == instance_args.len() => {
+            propagate_generic_scheme_type(engine, source_constructor, instance_constructor);
+            for (source, instance) in source_args.iter().zip(instance_args) {
+                propagate_generic_scheme_type(engine, source, instance);
+            }
+        }
+        _ => {
+            let _ = engine.unify(&source, &instance);
+        }
+    }
 }
 
 fn propagate_method_result(
@@ -403,124 +1788,128 @@ fn find_method(hir: &PartialHir, method_id: Option<DefId>) -> Option<HirFunction
         })
 }
 
-fn has_ambiguous_deferred_method(hir: &PartialHir, block: &HirBlock) -> bool {
-    block.stmts.iter().any(|stmt| match stmt {
-        HirStmt::Let { value, .. }
-        | HirStmt::Expr(value)
-        | HirStmt::Return(Some(value))
-        | HirStmt::Break(Some(value)) => has_ambiguous_deferred_method_expr(hir, value),
-        HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => false,
-    })
-}
-
-fn has_ambiguous_deferred_method_expr(hir: &PartialHir, expr: &HirExpr) -> bool {
-    let direct = match &expr.kind {
-        HirExprKind::Call(callee, _, None) => match &callee.kind {
-            HirExprKind::FieldAccess(receiver, method_name, None)
-                if contains_recovery_type(&receiver.ty) =>
-            {
-                let bounds = HirGenericBounds::new();
-                let selected = SelectionService::new(
-                    &hir.traits,
-                    &hir.impls,
-                    hir.language_items
-                        .sized
-                        .as_ref()
-                        .map(|items| items.trait_id),
-                    None,
-                    &bounds,
-                )
-                .with_effective_trait_methods(&hir.imported_effective_trait_methods)
-                .select_inferred_method_candidates(receiver, method_name, |ty| ty.clone());
-                selected.len() > 1
+fn collect_unresolved_authority_vars(
+    block: &HirBlock,
+    engine: &crate::infer::InferenceEngine,
+    output: &mut HashSet<crate::ids::TypeVarId>,
+) {
+    fn expr(
+        node: &HirExpr,
+        engine: &crate::infer::InferenceEngine,
+        output: &mut HashSet<crate::ids::TypeVarId>,
+    ) {
+        match &node.kind {
+            HirExprKind::Call(callee, args, target) => {
+                if target.is_none() {
+                    if let HirExprKind::FieldAccess(receiver, _, None) = &callee.kind {
+                        collect_type_vars(&engine.resolve(&receiver.ty), output);
+                    }
+                }
+                expr(callee, engine, output);
+                for arg in args {
+                    expr(arg, engine, output);
+                }
             }
-            _ => false,
-        },
-        _ => false,
-    };
-    if direct {
-        return true;
+            HirExprKind::Try {
+                expr: operand,
+                branch_method,
+                from_residual_target,
+                return_ty,
+                ..
+            } => {
+                if branch_method.is_none() {
+                    collect_type_vars(&engine.resolve(&operand.ty), output);
+                }
+                if from_residual_target.is_none() {
+                    collect_type_vars(&engine.resolve(return_ty), output);
+                }
+                expr(operand, engine, output);
+            }
+            HirExprKind::MethodCall(receiver, _, args, _, _) => {
+                expr(receiver, engine, output);
+                for arg in args {
+                    expr(arg, engine, output);
+                }
+            }
+            HirExprKind::FieldAccess(inner, _, _)
+            | HirExprKind::Deref(inner)
+            | HirExprKind::Ref(_, inner)
+            | HirExprKind::Cast(inner, _)
+            | HirExprKind::TupleIndex(inner, _)
+            | HirExprKind::UnaryOp(_, inner)
+            | HirExprKind::ArrayRepeat(inner, _) => expr(inner, engine, output),
+            HirExprKind::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                expr(condition, engine, output);
+                collect_unresolved_authority_vars(then_branch, engine, output);
+                if let Some(else_branch) = else_branch {
+                    collect_unresolved_authority_vars(else_branch, engine, output);
+                }
+            }
+            HirExprKind::Match { scrutinee, arms } => {
+                expr(scrutinee, engine, output);
+                for arm in arms {
+                    if let Some(guard) = &arm.guard {
+                        expr(guard, engine, output);
+                    }
+                    collect_unresolved_authority_vars(&arm.body, engine, output);
+                }
+            }
+            HirExprKind::While { condition, body } => {
+                expr(condition, engine, output);
+                collect_unresolved_authority_vars(body, engine, output);
+            }
+            HirExprKind::For { iter, body, .. } => {
+                expr(iter, engine, output);
+                collect_unresolved_authority_vars(body, engine, output);
+            }
+            HirExprKind::Block(body)
+            | HirExprKind::Loop(body)
+            | HirExprKind::UnsafeBlock(body)
+            | HirExprKind::Lambda { body, .. } => {
+                collect_unresolved_authority_vars(body, engine, output)
+            }
+            HirExprKind::Assign(left, right)
+            | HirExprKind::BinOp(_, left, right)
+            | HirExprKind::Range(left, right) => {
+                expr(left, engine, output);
+                expr(right, engine, output);
+            }
+            HirExprKind::Intrinsic { args, .. }
+            | HirExprKind::TupleLiteral(args)
+            | HirExprKind::ArrayLiteral(args)
+            | HirExprKind::EnumVariant(_, _, args, _) => {
+                for arg in args {
+                    expr(arg, engine, output);
+                }
+            }
+            HirExprKind::StructLiteral(_, _, fields) => {
+                for field in fields {
+                    expr(&field.value, engine, output);
+                }
+            }
+            HirExprKind::Var(_)
+            | HirExprKind::ResolvedVar(_)
+            | HirExprKind::IntLiteral(_)
+            | HirExprKind::FloatLiteral(_)
+            | HirExprKind::BoolLiteral(_)
+            | HirExprKind::StringLiteral(_)
+            | HirExprKind::CharLiteral(_)
+            | HirExprKind::Unit => {}
+        }
     }
 
-    match &expr.kind {
-        HirExprKind::Call(callee, args, _) => {
-            has_ambiguous_deferred_method_expr(hir, callee)
-                || args
-                    .iter()
-                    .any(|arg| has_ambiguous_deferred_method_expr(hir, arg))
+    for statement in &block.stmts {
+        match statement {
+            HirStmt::Let { value, .. }
+            | HirStmt::Expr(value)
+            | HirStmt::Return(Some(value))
+            | HirStmt::Break(Some(value)) => expr(value, engine, output),
+            HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => {}
         }
-        HirExprKind::MethodCall(receiver, _, args, _, _) => {
-            has_ambiguous_deferred_method_expr(hir, receiver)
-                || args
-                    .iter()
-                    .any(|arg| has_ambiguous_deferred_method_expr(hir, arg))
-        }
-        HirExprKind::Try { expr, .. }
-        | HirExprKind::FieldAccess(expr, _, _)
-        | HirExprKind::Deref(expr)
-        | HirExprKind::Ref(_, expr)
-        | HirExprKind::Cast(expr, _)
-        | HirExprKind::TupleIndex(expr, _) => has_ambiguous_deferred_method_expr(hir, expr),
-        HirExprKind::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => {
-            has_ambiguous_deferred_method_expr(hir, condition)
-                || has_ambiguous_deferred_method(hir, then_branch)
-                || else_branch
-                    .as_ref()
-                    .is_some_and(|branch| has_ambiguous_deferred_method(hir, branch))
-        }
-        HirExprKind::Match { scrutinee, arms } => {
-            has_ambiguous_deferred_method_expr(hir, scrutinee)
-                || arms.iter().any(|arm| {
-                    arm.guard
-                        .as_ref()
-                        .is_some_and(|guard| has_ambiguous_deferred_method_expr(hir, guard))
-                        || has_ambiguous_deferred_method(hir, &arm.body)
-                })
-        }
-        HirExprKind::While { condition, body } => {
-            has_ambiguous_deferred_method_expr(hir, condition)
-                || has_ambiguous_deferred_method(hir, body)
-        }
-        HirExprKind::For { iter, body, .. } => {
-            has_ambiguous_deferred_method_expr(hir, iter)
-                || has_ambiguous_deferred_method(hir, body)
-        }
-        HirExprKind::Block(body) | HirExprKind::Loop(body) | HirExprKind::UnsafeBlock(body) => {
-            has_ambiguous_deferred_method(hir, body)
-        }
-        HirExprKind::Lambda { body, .. } => has_ambiguous_deferred_method(hir, body),
-        HirExprKind::Assign(left, right) | HirExprKind::BinOp(_, left, right) => {
-            has_ambiguous_deferred_method_expr(hir, left)
-                || has_ambiguous_deferred_method_expr(hir, right)
-        }
-        HirExprKind::UnaryOp(_, inner) | HirExprKind::ArrayRepeat(inner, _) => {
-            has_ambiguous_deferred_method_expr(hir, inner)
-        }
-        HirExprKind::Intrinsic { args, .. }
-        | HirExprKind::TupleLiteral(args)
-        | HirExprKind::ArrayLiteral(args)
-        | HirExprKind::EnumVariant(_, _, args, _) => args
-            .iter()
-            .any(|arg| has_ambiguous_deferred_method_expr(hir, arg)),
-        HirExprKind::StructLiteral(_, _, fields) => fields
-            .iter()
-            .any(|field| has_ambiguous_deferred_method_expr(hir, &field.value)),
-        HirExprKind::Range(start, end) => {
-            has_ambiguous_deferred_method_expr(hir, start)
-                || has_ambiguous_deferred_method_expr(hir, end)
-        }
-        HirExprKind::Var(_)
-        | HirExprKind::ResolvedVar(_)
-        | HirExprKind::IntLiteral(_)
-        | HirExprKind::FloatLiteral(_)
-        | HirExprKind::BoolLiteral(_)
-        | HirExprKind::StringLiteral(_)
-        | HirExprKind::CharLiteral(_)
-        | HirExprKind::Unit => false,
     }
 }
 
@@ -528,7 +1917,9 @@ fn materialize_pending(
     hir: &mut PartialHir,
     strict: bool,
     try_strict: bool,
-) -> Result<(), Vec<ResolveError>> {
+    owners: Option<&HashSet<ConstraintOwner>>,
+    selected_site: Option<AuthoritySiteId>,
+) -> Result<bool, Vec<ResolveError>> {
     let struct_ids = hir
         .structs
         .values()
@@ -564,6 +1955,8 @@ fn materialize_pending(
         mutable_locals: HashSet::new(),
         local_bindings: HashMap::new(),
         next_local_id: 0,
+        ambiguous: false,
+        selected_site,
         strict,
         try_strict,
     };
@@ -572,6 +1965,9 @@ fn materialize_pending(
     let mut function_ids = hir.functions.keys().copied().collect::<Vec<_>>();
     function_ids.sort();
     for id in function_ids {
+        if !owner_selected(owners, ConstraintOwner::Body(id)) {
+            continue;
+        }
         if let Some(function) = hir.functions.get_mut(&id) {
             context.materialize_function(function, &mut errors);
             context.functions.insert(id, function.clone());
@@ -588,6 +1984,9 @@ fn materialize_pending(
                 .collect::<Vec<_>>();
             methods.sort_by_key(|(method_id, _)| *method_id);
             for (_, name) in methods {
+                if !owner_selected(owners, ConstraintOwner::Body(trait_def.methods[&name].id)) {
+                    continue;
+                }
                 if let Some(function) = trait_def.methods.get_mut(&name) {
                     context.materialize_function(function, &mut errors);
                 }
@@ -605,6 +2004,9 @@ fn materialize_pending(
                 .collect::<Vec<_>>();
             methods.sort_by_key(|(method_id, _)| *method_id);
             for (_, name) in methods {
+                if !owner_selected(owners, ConstraintOwner::Body(imp.methods[&name].id)) {
+                    continue;
+                }
                 if let Some(function) = imp.methods.get_mut(&name) {
                     context.materialize_function(function, &mut errors);
                 }
@@ -613,7 +2015,7 @@ fn materialize_pending(
     }
 
     if errors.is_empty() {
-        Ok(())
+        Ok(context.ambiguous)
     } else {
         Err(errors)
     }
@@ -642,6 +2044,8 @@ struct MethodAuthorityContext<'a> {
     mutable_locals: HashSet<HirLocalId>,
     local_bindings: HashMap<HirLocalId, (String, Type, bool)>,
     next_local_id: u32,
+    ambiguous: bool,
+    selected_site: Option<AuthoritySiteId>,
     strict: bool,
     try_strict: bool,
 }
@@ -675,6 +2079,17 @@ impl MethodAuthorityContext<'_> {
         self.unsafe_context.set(previous);
     }
 
+    fn visit_authority_slot(
+        &self,
+        kind: AuthorityObligationKind,
+        span: &crate::lexer::Span,
+    ) -> bool {
+        let current = AuthoritySiteId::new(kind, span);
+        self.selected_site
+            .as_ref()
+            .is_none_or(|selected| *selected == current)
+    }
+
     fn materialize_direct_function_call(
         &mut self,
         result_ty: &Type,
@@ -689,6 +2104,35 @@ impl MethodAuthorityContext<'_> {
             || !function.generic_params.is_empty()
             || function.params.iter().any(|param| param.is_ref)
         {
+            return;
+        }
+        let source_type = Type::function_with_safety(
+            function
+                .params
+                .iter()
+                .map(|param| self.resolved_type(&param.ty))
+                .collect(),
+            self.resolved_type(&function.ret_type),
+            FunctionSafety::from_is_unsafe(function.is_unsafe),
+        );
+        if !contains_recovery_type(&source_type) {
+            let _ = self.engine.borrow_mut().unify(&callee.ty, &source_type);
+        }
+        if let Type::Function { params, ret, .. } = self.resolved_type(&callee.ty) {
+            let mut engine = self.engine.borrow_mut();
+            for (arg, expected) in args.iter().zip(params.iter()) {
+                let _ = engine.unify(&arg.ty, expected);
+            }
+            let result = if args.len() < params.len() {
+                Type::function_with_safety(
+                    params[args.len()..].to_vec(),
+                    *ret,
+                    FunctionSafety::from_is_unsafe(function.is_unsafe),
+                )
+            } else {
+                *ret
+            };
+            let _ = engine.unify(result_ty, &result);
             return;
         }
         let source_params = function
@@ -877,7 +2321,10 @@ impl MethodAuthorityContext<'_> {
     }
 
     fn resolved_type(&self, ty: &Type) -> Type {
-        self.engine.borrow().resolve(ty)
+        let engine = self.engine.borrow();
+        engine
+            .normalize_resolved_type(ty)
+            .unwrap_or_else(|_| engine.resolve(ty))
     }
 
     fn expr_can_autoref_mut_receiver(&self, expr: &HirExpr) -> bool {
@@ -1306,6 +2753,7 @@ impl MethodAuthorityContext<'_> {
         &mut self,
         receiver: &HirExpr,
         method_name: &str,
+        args: &[HirExpr],
         _expected_ty: Option<&Type>,
         errors: &mut Vec<ResolveError>,
     ) -> Option<SelectedMethod> {
@@ -1344,7 +2792,8 @@ impl MethodAuthorityContext<'_> {
                 }
             }
         }
-        let mut deferred = None;
+        let mut proven = Vec::new();
+        let mut deferred = Vec::new();
         for candidate in &receiver_candidates {
             let mut selected = self.service().select_concrete_method_candidates(
                 std::slice::from_ref(candidate),
@@ -1359,22 +2808,26 @@ impl MethodAuthorityContext<'_> {
             }
             match selected.len() {
                 0 => {}
-                1 if selected[0].pending_impl_bounds.is_empty() => {
-                    let mut selected = selected.pop();
-                    if let Some(selected) = selected.as_mut() {
+                1 => {
+                    if let Some(mut selected) = selected.pop() {
                         if candidate.adjustment != ReceiverAdjustment::None {
                             selected.receiver_adjustment = candidate.adjustment;
                         }
-                    }
-                    return selected;
-                }
-                1 => {
-                    if deferred.is_none() {
-                        deferred = selected.pop();
+                        let destination = if selected.pending_impl_bounds.is_empty() {
+                            &mut proven
+                        } else {
+                            &mut deferred
+                        };
+                        if destination.iter().all(|existing: &SelectedMethod| {
+                            existing.target.target != selected.target.target
+                        }) {
+                            destination.push(selected);
+                        }
                     }
                 }
                 _ => {
                     if !self.strict && contains_recovery_type(&candidate.expr.ty) {
+                        self.ambiguous = true;
                         continue;
                     }
                     errors.push(ResolveError::new(format!(
@@ -1385,7 +2838,21 @@ impl MethodAuthorityContext<'_> {
                 }
             }
         }
-        if deferred.is_none()
+        if proven.len() == 1 {
+            return proven.pop();
+        }
+        if proven.len() > 1 {
+            if !self.strict && contains_recovery_type(&receiver.ty) {
+                self.ambiguous = true;
+                return None;
+            }
+            errors.push(ResolveError::new(format!(
+                "Ambiguous selection for '{}' on type {}",
+                method_name, receiver.ty
+            )));
+            return None;
+        }
+        if deferred.is_empty()
             && (contains_recovery_type(&self.resolved_type(&receiver.ty))
                 || matches!(self.resolved_type(&receiver.ty), Type::Generic(_)))
         {
@@ -1394,6 +2861,21 @@ impl MethodAuthorityContext<'_> {
                     .select_inferred_method_candidates(receiver, method_name, |ty| {
                         self.resolved_type(ty)
                     });
+            inferred.retain(|candidate| {
+                if candidate.substituted_params.len() != args.len() {
+                    return false;
+                }
+                let mut substitution = candidate.owner_substitution.clone();
+                candidate
+                    .substituted_params
+                    .iter()
+                    .zip(args)
+                    .all(|(param, arg)| {
+                        let actual = self.resolved_type(&arg.ty);
+                        contains_recovery_type(&actual)
+                            || type_pattern_matches(&param.ty, &actual, &mut substitution)
+                    })
+            });
             if let Some(expected) = _expected_ty.map(|ty| self.resolved_type(ty)) {
                 if !contains_recovery_type(&expected) {
                     inferred.retain(|candidate| {
@@ -1434,6 +2916,7 @@ impl MethodAuthorityContext<'_> {
             }
             if inferred.len() > 1 {
                 if !self.strict && contains_recovery_type(&receiver.ty) {
+                    self.ambiguous = true;
                     return None;
                 }
                 if let Some(expected) = _expected_ty.map(|ty| self.resolved_type(ty)) {
@@ -1461,8 +2944,19 @@ impl MethodAuthorityContext<'_> {
                 return None;
             }
         }
-        if deferred.is_some() {
-            return deferred;
+        if deferred.len() == 1 {
+            return deferred.pop();
+        }
+        if deferred.len() > 1 {
+            if !self.strict {
+                self.ambiguous = true;
+                return None;
+            }
+            errors.push(ResolveError::new(format!(
+                "Ambiguous selection for '{}' on type {}",
+                method_name, receiver.ty
+            )));
+            return None;
         }
         if self
             .service()
@@ -1483,15 +2977,25 @@ impl MethodAuthorityContext<'_> {
     fn materialize_expr(&mut self, expr: &mut HirExpr, errors: &mut Vec<ResolveError>) {
         match &mut expr.kind {
             HirExprKind::Call(callee, args, target) => {
-                for arg in args.iter_mut() {
-                    self.materialize_expr(arg, errors);
-                }
+                let deferred_member = matches!(callee.kind, HirExprKind::FieldAccess(_, _, _));
+                let selected_site = deferred_member.then(|| {
+                    self.visit_authority_slot(AuthorityObligationKind::DeferredCall, &expr.span)
+                });
                 if target.is_some() {
                     if let Some(crate::hir::HirCallTarget::Function(function_id)) = target.as_ref()
                     {
                         self.materialize_direct_function_call(&expr.ty, callee, args, *function_id);
                     }
-                    self.materialize_expr(callee, errors);
+                    if deferred_member {
+                        if let HirExprKind::FieldAccess(receiver, _, _) = &mut callee.kind {
+                            self.materialize_expr(receiver, errors);
+                        }
+                    } else {
+                        self.materialize_expr(callee, errors);
+                    }
+                    for arg in args.iter_mut() {
+                        self.materialize_expr(arg, errors);
+                    }
                     return;
                 }
                 let (mut receiver, method_name) = match &callee.kind {
@@ -1500,13 +3004,30 @@ impl MethodAuthorityContext<'_> {
                     }
                     _ => {
                         self.materialize_expr(callee, errors);
+                        for arg in args.iter_mut() {
+                            self.materialize_expr(arg, errors);
+                        }
                         return;
                     }
                 };
+                if selected_site == Some(false) {
+                    self.materialize_expr(&mut receiver, errors);
+                    for arg in args.iter_mut() {
+                        self.materialize_expr(arg, errors);
+                    }
+                    return;
+                }
                 self.materialize_expr(&mut receiver, errors);
-                let Some(mut selected) =
-                    self.select_deferred_method(&receiver, &method_name, Some(&expr.ty), errors)
-                else {
+                for arg in args.iter_mut() {
+                    self.materialize_expr(arg, errors);
+                }
+                let Some(mut selected) = self.select_deferred_method(
+                    &receiver,
+                    &method_name,
+                    args,
+                    Some(&expr.ty),
+                    errors,
+                ) else {
                     if !self.strict && contains_recovery_type(&receiver.ty) {
                         return;
                     }
@@ -1539,9 +3060,61 @@ impl MethodAuthorityContext<'_> {
                 }
 
                 let mut substitution = selected.owner_substitution.clone();
-                for (param, arg) in selected.substituted_params.iter().zip(args.iter()) {
-                    let actual = self.engine.borrow().resolve(&arg.ty);
-                    if !type_pattern_matches(&param.ty, &actual, &mut substitution) {
+                for (param, arg) in selected.substituted_params.iter().zip(args.iter_mut()) {
+                    let mut actual = self.engine.borrow().resolve(&arg.ty);
+                    let expected = param.ty.substitute_generics(&substitution);
+                    if matches!(expected, Type::Reference { mutable: false, .. })
+                        && !matches!(actual, Type::Reference { .. })
+                    {
+                        let borrowed = HirExpr {
+                            ty: Type::Reference {
+                                mutable: false,
+                                inner: Box::new(actual.clone()),
+                            },
+                            kind: HirExprKind::Ref(false, Box::new(arg.clone())),
+                            span: arg.span.clone(),
+                        };
+                        *arg = borrowed;
+                        actual = self.engine.borrow().resolve(&arg.ty);
+                    }
+                    let mut matches = type_pattern_matches(&param.ty, &actual, &mut substitution);
+                    if !matches {
+                        if !contains_inference_type(&expected) {
+                            if let (
+                                Type::Reference {
+                                    mutable: expected_mutable,
+                                    inner: expected_inner,
+                                },
+                                Type::Reference {
+                                    mutable: actual_mutable,
+                                    inner: actual_inner,
+                                },
+                            ) = (&expected, &actual)
+                            {
+                                if (!expected_mutable || *actual_mutable)
+                                    && matches!(expected_inner.as_ref(), Type::Slice(_))
+                                    && matches!(actual_inner.as_ref(), Type::Array(_, _))
+                                {
+                                    if let Some(coerced) =
+                                        self.array_ref_to_slice_ref(arg.clone(), *expected_mutable)
+                                    {
+                                        if self
+                                            .engine
+                                            .borrow_mut()
+                                            .unify(&coerced.ty, &expected)
+                                            .is_ok()
+                                        {
+                                            *arg = coerced;
+                                        }
+                                    }
+                                }
+                            }
+                            let _ = self.engine.borrow_mut().unify(&arg.ty, &expected);
+                            actual = self.engine.borrow().resolve(&arg.ty);
+                            matches = type_pattern_matches(&param.ty, &actual, &mut substitution);
+                        }
+                    }
+                    if !matches {
                         if !self.strict {
                             return;
                         }
@@ -1607,17 +3180,25 @@ impl MethodAuthorityContext<'_> {
                 );
             }
             HirExprKind::MethodCall(receiver, _, args, _, target) => {
+                let selected_site =
+                    self.visit_authority_slot(AuthorityObligationKind::MethodCall, &expr.span);
                 self.materialize_expr(receiver, errors);
                 for arg in args {
                     self.materialize_expr(arg, errors);
                 }
-                if self.strict && target.is_none() {
+                if selected_site && self.strict && target.is_none() {
                     errors.push(ResolveError::new(
                         "accepted HIR method call has no selected authority".to_string(),
                     ));
                 }
             }
-            HirExprKind::FieldAccess(_, _, _) => self.materialize_field_access(expr, errors),
+            HirExprKind::FieldAccess(receiver, _, _) => {
+                if self.visit_authority_slot(AuthorityObligationKind::Field, &expr.span) {
+                    self.materialize_field_access(expr, errors);
+                } else {
+                    self.materialize_expr(receiver, errors);
+                }
+            }
             HirExprKind::Deref(receiver)
             | HirExprKind::Ref(_, receiver)
             | HirExprKind::Cast(receiver, _)
@@ -1690,7 +3271,13 @@ impl MethodAuthorityContext<'_> {
                 self.materialize_expr(start, errors);
                 self.materialize_expr(end, errors);
             }
-            HirExprKind::Try { .. } => self.materialize_try(expr, errors),
+            HirExprKind::Try { .. } => {
+                if self.visit_authority_slot(AuthorityObligationKind::Try, &expr.span) {
+                    self.materialize_try(expr, errors);
+                } else if let HirExprKind::Try { expr: operand, .. } = &mut expr.kind {
+                    self.materialize_expr(operand, errors);
+                }
+            }
             HirExprKind::Var(_)
             | HirExprKind::ResolvedVar(_)
             | HirExprKind::IntLiteral(_)
@@ -1718,6 +3305,11 @@ impl MethodAuthorityContext<'_> {
         };
 
         self.materialize_expr(operand, errors);
+        {
+            let mut engine = self.engine.borrow_mut();
+            let _ = engine.unify(&expr.ty, output_ty);
+            expr.ty = engine.resolve(&expr.ty);
+        }
         let Some(protocol) = self.try_protocol.as_ref() else {
             if self.try_strict && self.strict {
                 errors.push(ResolveError::new(
@@ -1738,7 +3330,7 @@ impl MethodAuthorityContext<'_> {
         };
 
         if branch_method.is_none() {
-            let carrier_ty = self.engine.borrow().resolve(&operand.ty);
+            let carrier_ty = self.resolved_type(&operand.ty);
             if try_carrier_has_unknown_head(&carrier_ty) {
                 if self.try_strict {
                     errors.push(ResolveError::new(
@@ -1814,18 +3406,6 @@ impl MethodAuthorityContext<'_> {
                 return;
             };
 
-            if try_type_contains_unresolved(&selected_output)
-                || try_type_contains_unresolved(&selected_residual)
-            {
-                if self.try_strict && self.strict {
-                    errors.push(ResolveError::new(
-                        "Cannot use '?' because its Try output or residual type is unresolved or generic"
-                            .to_string(),
-                    ));
-                }
-                return;
-            }
-
             {
                 let mut engine = self.engine.borrow_mut();
                 if let Err(error) = engine.unify(output_ty, &selected_output) {
@@ -1836,6 +3416,7 @@ impl MethodAuthorityContext<'_> {
                     }
                     return;
                 }
+                expr.ty = engine.resolve(output_ty);
                 if let Err(error) = engine.unify(residual_ty, &selected_residual) {
                     if self.try_strict && self.strict {
                         errors.push(ResolveError::new(format!(
@@ -1844,6 +3425,16 @@ impl MethodAuthorityContext<'_> {
                     }
                     return;
                 }
+            }
+            let selected_residual = self.resolved_type(&selected_residual);
+            if try_type_head_is_unresolved(&selected_residual) {
+                if self.try_strict && self.strict {
+                    errors.push(ResolveError::new(
+                        "Cannot use '?' because its Try residual type is unresolved or generic"
+                            .to_string(),
+                    ));
+                }
+                return;
             }
 
             let method_substitution = selected
@@ -1864,7 +3455,7 @@ impl MethodAuthorityContext<'_> {
         }
 
         if from_residual_target.is_none() {
-            let resolved_return_ty = self.engine.borrow().resolve(return_ty);
+            let resolved_return_ty = self.resolved_type(return_ty);
             if try_type_head_is_unresolved(&resolved_return_ty) {
                 if self.try_strict && self.strict {
                     errors.push(ResolveError::new(
@@ -1874,7 +3465,7 @@ impl MethodAuthorityContext<'_> {
                 }
                 return;
             }
-            let resolved_residual_ty = self.engine.borrow().resolve(residual_ty);
+            let resolved_residual_ty = self.resolved_type(residual_ty);
             let return_owner = HirExpr {
                 ty: resolved_return_ty.clone(),
                 kind: HirExprKind::Unit,
@@ -2200,7 +3791,6 @@ impl MethodAuthorityContext<'_> {
         if location.is_some() {
             return;
         }
-
         receiver.ty = self.engine.borrow().resolve(&receiver.ty);
         let receiver_ty = match &receiver.ty {
             Type::Reference { inner, .. } => inner.as_ref(),
@@ -2278,22 +3868,6 @@ fn contains_inference_type(ty: &Type) -> bool {
     })
 }
 
-fn try_type_contains_unresolved(ty: &Type) -> bool {
-    crate::type_services::visit::type_any(ty, |nested| {
-        matches!(
-            nested,
-            Type::TypeVar(_)
-                | Type::Generic(_)
-                | Type::Projection { .. }
-                | Type::Apply { .. }
-                | Type::Constructor { .. }
-                | Type::Lambda { .. }
-                | Type::BoundVar { .. }
-                | Type::Error
-        )
-    })
-}
-
 fn try_carrier_has_unknown_head(ty: &Type) -> bool {
     matches!(
         ty,
@@ -2305,7 +3879,7 @@ fn try_carrier_has_unknown_head(ty: &Type) -> bool {
             | Type::Lambda { .. }
             | Type::BoundVar { .. }
             | Type::Error
-    ) || try_type_contains_unresolved(ty)
+    )
 }
 
 fn try_type_head_is_unresolved(ty: &Type) -> bool {
@@ -2320,4 +3894,187 @@ fn try_type_head_is_unresolved(ty: &Type) -> bool {
             | Type::BoundVar { .. }
             | Type::Error
     )
+}
+
+#[cfg(test)]
+mod worklist_tests {
+    use super::*;
+    use crate::collect::resolver::ResolverTables;
+    use crate::hir::HirLanguageItems;
+    use crate::ids::{CrateId, IdGen, LocalDefId};
+
+    fn function(id: DefId, var: crate::ids::TypeVarId) -> HirFunction {
+        HirFunction {
+            id,
+            name: format!("f{}", id.local.0),
+            generic_params: Vec::new(),
+            generic_bounds: HashMap::new().into(),
+            params: vec![crate::hir::HirParam {
+                name: "value".to_string(),
+                local_id: HirLocalId(0),
+                ty: Type::TypeVar(var),
+                mutable: false,
+                is_ref: false,
+            }],
+            ret_type: Type::TypeVar(var),
+            body: HirBlock {
+                stmts: Vec::new(),
+                ty: Type::TypeVar(var),
+            },
+            is_curried: false,
+            is_method: false,
+            self_receiver: None,
+            is_unsafe: false,
+        }
+    }
+
+    fn hir(functions: HashMap<DefId, HirFunction>) -> PartialHir {
+        PartialHir {
+            functions,
+            structs: HashMap::new(),
+            enums: HashMap::new(),
+            traits: HashMap::new(),
+            impls: HashMap::new(),
+            externs: HashMap::new(),
+            type_aliases: HashMap::new(),
+            engine: crate::infer::InferenceEngine::new(),
+            function_type_vars: HashMap::new(),
+            import_aliases: HashMap::new(),
+            loaded_module_paths: Vec::new(),
+            constraint_store: ConstraintStore::new(),
+            resolver: ResolverTables::default(),
+            current_def_ids: std::collections::BTreeSet::new(),
+            root_crate_id: CrateId(0),
+            local_def_ids: IdGen::new(),
+            language_items: HirLanguageItems::default(),
+            imported_effective_trait_methods: HashMap::new(),
+            inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn authority_obligations_have_stable_owner_order_and_context() {
+        let first = DefId::new(CrateId(0), LocalDefId(1));
+        let second = DefId::new(CrateId(0), LocalDefId(2));
+        let hir = hir(HashMap::from([
+            (second, function(second, crate::ids::TypeVarId(1))),
+            (first, function(first, crate::ids::TypeVarId(0))),
+        ]));
+        let owners = HashSet::from([ConstraintOwner::Body(second), ConstraintOwner::Body(first)]);
+
+        let obligations = authority_obligations(&hir, &owners);
+
+        assert_eq!(obligations.len(), 2);
+        assert_eq!(obligations[0].id.raw(), 0);
+        assert_eq!(obligations[0].owner, ConstraintOwner::Body(first));
+        assert_eq!(obligations[0].kind, AuthorityObligationKind::Propagation);
+        assert!(obligations[0].context.contains("call and type propagation"));
+        assert_eq!(obligations[1].owner, ConstraintOwner::Body(second));
+    }
+
+    #[test]
+    fn authority_obligation_wakes_only_for_dependent_representative() {
+        let id = DefId::new(CrateId(0), LocalDefId(1));
+        let hir = hir(HashMap::from([(
+            id,
+            function(id, crate::ids::TypeVarId(0)),
+        )]));
+        let owners = HashSet::from([ConstraintOwner::Body(id)]);
+        let obligations = authority_obligations(&hir, &owners);
+
+        assert!(obligations[0].depends_on_any(&HashSet::from([crate::ids::TypeVarId(0)])));
+        assert!(!obligations[0].depends_on_any(&HashSet::from([crate::ids::TypeVarId(1)])));
+    }
+
+    #[test]
+    fn authority_source_site_identity_targets_only_the_selected_expression() {
+        let function_id = DefId::new(CrateId(0), LocalDefId(1));
+        let struct_id = DefId::new(CrateId(0), LocalDefId(2));
+        let receiver = || HirExpr {
+            kind: HirExprKind::Var("record".to_string()),
+            ty: Type::Struct {
+                id: struct_id,
+                args: Vec::new(),
+            },
+            span: Default::default(),
+        };
+        let field = |name: &str, start| HirExpr {
+            kind: HirExprKind::FieldAccess(Box::new(receiver()), name.to_string(), None),
+            ty: Type::I64,
+            span: crate::lexer::Span {
+                file_path: "test.rk".into(),
+                start,
+                end: start + name.len(),
+            },
+        };
+        let mut caller = function(function_id, crate::ids::TypeVarId(0));
+        caller.body = HirBlock {
+            stmts: vec![HirStmt::Expr(HirExpr {
+                kind: HirExprKind::Call(
+                    Box::new(HirExpr {
+                        kind: HirExprKind::Var("consume".to_string()),
+                        ty: Type::Error,
+                        span: Default::default(),
+                    }),
+                    vec![field("first", 10), field("second", 20)],
+                    None,
+                ),
+                ty: Type::Unit,
+                span: Default::default(),
+            })],
+            ty: Type::Unit,
+        };
+        let mut hir = hir(HashMap::from([(function_id, caller)]));
+        hir.structs.insert(
+            struct_id,
+            crate::hir::HirStruct {
+                id: struct_id,
+                name: "Record".to_string(),
+                generic_params: Vec::new(),
+                fields: vec![
+                    crate::hir::HirField {
+                        id: crate::ids::FieldId(0),
+                        name: "first".to_string(),
+                        ty: Type::I64,
+                        public: true,
+                    },
+                    crate::hir::HirField {
+                        id: crate::ids::FieldId(1),
+                        name: "second".to_string(),
+                        ty: Type::I64,
+                        public: true,
+                    },
+                ],
+            },
+        );
+        let owners = HashSet::from([ConstraintOwner::Body(function_id)]);
+        let mut obligations = authority_obligations(&hir, &owners);
+        let second = obligations
+            .iter_mut()
+            .find(|obligation| obligation.context == "field access 'second'")
+            .expect("second field obligation");
+
+        run_authority_obligation(&mut hir, second, false, false).unwrap();
+
+        let HirStmt::Expr(HirExpr {
+            kind: HirExprKind::Call(_, args, _),
+            ..
+        }) = &hir.functions[&function_id].body.stmts[0]
+        else {
+            panic!("expected call expression");
+        };
+        let locations = args
+            .iter()
+            .map(|arg| match &arg.kind {
+                HirExprKind::FieldAccess(_, _, location) => location.as_ref(),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(locations[0].is_none());
+        assert_eq!(
+            locations[1].map(|location| location.field_id),
+            Some(crate::ids::FieldId(1))
+        );
+    }
 }

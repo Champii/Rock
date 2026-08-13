@@ -334,7 +334,7 @@ pub(crate) fn type_pattern_matches_after_subst(pattern: &Type, actual: &Type) ->
             let safety_matches = !matches!(actual_safety, FunctionSafety::Unsafe)
                 || !matches!(expected_safety, FunctionSafety::Safe);
             safety_matches
-                && actual_kind <= expected_kind
+                && (expected_captures.is_empty() || actual_kind <= expected_kind)
                 && (expected_captures.is_empty() || expected_captures == actual_captures)
                 && expected_params.len() == actual_params.len()
                 && expected_params
@@ -711,6 +711,25 @@ mod tests {
                 Type::I64,
             ]),
             &Type::Tuple(vec![Type::function(vec![Type::I64], Type::Bool), Type::I64,]),
+        ));
+    }
+
+    #[test]
+    fn type_pattern_matches_treats_empty_capture_signature_metadata_as_wildcard() {
+        let actual = Type::function_with_metadata(
+            vec![Type::I64],
+            Type::Bool,
+            FunctionSafety::Safe,
+            crate::types::CallableKind::FnMut,
+            vec![crate::types::FunctionCapture::new(
+                crate::types::CaptureKind::MutableBorrow,
+                Type::I64,
+            )],
+        );
+
+        assert!(type_pattern_matches_after_subst(
+            &Type::function(vec![Type::I64], Type::Bool),
+            &actual,
         ));
     }
 

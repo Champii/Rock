@@ -8,12 +8,12 @@
 //!
 //! Trait bound violations on concrete types are hard errors.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::hir::{HirEnum, HirImpl, HirImplReceiverPattern, HirStruct, HirVariantFields};
 use crate::ids::DefId;
 use crate::ids::{Idx, TypeVarId};
-use crate::infer::constraints::{Constraint, ConstraintStore};
+use crate::infer::constraints::{Constraint, ConstraintOwner, ConstraintStore, ObligationState};
 use crate::infer::InferenceEngine;
 use crate::language_items::LanguageItems;
 use crate::type_services::facts::TypeFacts;
@@ -51,6 +51,8 @@ pub struct SolveResult {
     pub errors: Vec<String>,
     /// TypeVar ids that remain free but have at least one trait bound attached.
     pub generic_bounds: HashMap<TypeVarId, Vec<TraitBound>>,
+    /// Representatives changed while this worklist invocation was running.
+    pub changed_type_vars: Vec<TypeVarId>,
 }
 
 /// Solve all constraints in `store`.
@@ -66,12 +68,103 @@ pub fn solve_constraints(
     traits: &HashMap<DefId, crate::hir::HirTrait>,
     language_items: &LanguageItems<DefId>,
 ) -> SolveResult {
+    let mut store = store.clone();
+    solve_constraints_in_place(
+        engine,
+        &mut store,
+        impls,
+        structs,
+        enums,
+        traits,
+        language_items,
+    )
+}
+
+pub fn solve_constraints_in_place(
+    engine: &mut InferenceEngine,
+    store: &mut ConstraintStore,
+    impls: &HashMap<DefId, HirImpl>,
+    structs: &HashMap<DefId, HirStruct>,
+    enums: &HashMap<DefId, HirEnum>,
+    traits: &HashMap<DefId, crate::hir::HirTrait>,
+    language_items: &LanguageItems<DefId>,
+) -> SolveResult {
+    solve_constraints_in_place_mode(
+        engine,
+        store,
+        impls,
+        structs,
+        enums,
+        traits,
+        language_items,
+        true,
+        None,
+    )
+}
+
+pub(crate) fn solve_constraints_in_place_for_owners(
+    engine: &mut InferenceEngine,
+    store: &mut ConstraintStore,
+    impls: &HashMap<DefId, HirImpl>,
+    structs: &HashMap<DefId, HirStruct>,
+    enums: &HashMap<DefId, HirEnum>,
+    traits: &HashMap<DefId, crate::hir::HirTrait>,
+    language_items: &LanguageItems<DefId>,
+    owners: &HashSet<ConstraintOwner>,
+    finalize_pending: bool,
+) -> SolveResult {
+    solve_constraints_in_place_mode(
+        engine,
+        store,
+        impls,
+        structs,
+        enums,
+        traits,
+        language_items,
+        finalize_pending,
+        Some(owners),
+    )
+}
+
+fn solve_constraints_in_place_mode(
+    engine: &mut InferenceEngine,
+    store: &mut ConstraintStore,
+    impls: &HashMap<DefId, HirImpl>,
+    structs: &HashMap<DefId, HirStruct>,
+    enums: &HashMap<DefId, HirEnum>,
+    traits: &HashMap<DefId, crate::hir::HirTrait>,
+    language_items: &LanguageItems<DefId>,
+    finalize_pending: bool,
+    owners: Option<&HashSet<ConstraintOwner>>,
+) -> SolveResult {
     let builtin_traits = BuiltinTraitIds::from_language_items(language_items);
     let mut warnings = Vec::new();
     let mut errors = Vec::new();
     let mut generic_bounds: HashMap<TypeVarId, Vec<TraitBound>> = HashMap::new();
+    let mut changed_type_vars = HashSet::new();
 
-    for constraint in &store.constraints {
+    solve_structural_constraints_to_fixed_point(
+        engine,
+        store,
+        impls,
+        structs,
+        enums,
+        builtin_traits,
+        finalize_pending,
+        owners,
+        &mut changed_type_vars,
+    );
+
+    // Validate equality failures only after structural propagation reaches
+    // quiescence, so temporarily unresolved constructor equations can settle.
+    for (id, constraint) in store
+        .iter()
+        .map(|(id, value)| (id, value.clone()))
+        .collect::<Vec<_>>()
+    {
+        if !store.includes_owner(id, owners) {
+            continue;
+        }
         let Constraint::Equality {
             left,
             right,
@@ -81,53 +174,38 @@ pub fn solve_constraints(
         else {
             continue;
         };
-        let resolved_left = engine.resolve(left);
-        let resolved_right = engine.resolve(right);
-        if let Err(error) = engine.unify(&resolved_left, &resolved_right) {
-            if contains_unresolved_type(&resolved_left) || contains_unresolved_type(&resolved_right)
+        let resolved_left = engine.resolve(&left);
+        let resolved_right = engine.resolve(&right);
+        let mut probe = engine.clone_for_probe();
+        if let Err(error) = probe.unify(&resolved_left, &resolved_right) {
+            if !contains_unresolved_type(&resolved_left)
+                && !contains_unresolved_type(&resolved_right)
             {
-                continue;
-            }
-            errors.push(format!("{context}: {error}"));
-        }
-    }
-
-    // Callable bounds relate a callable's argument and return types to generic
-    // parameters. Establish those equalities before validating any bounds so
-    // constraint iteration order cannot leave `Ret` unconstrained.
-    for constraint in &store.constraints {
-        let Constraint::Trait { ty, bound, .. } = constraint else {
-            continue;
-        };
-        let is_callable = builtin_traits.fn_once == Some(bound.trait_id)
-            || builtin_traits.fn_mut == Some(bound.trait_id)
-            || builtin_traits.fn_trait == Some(bound.trait_id);
-        if !is_callable || bound.type_args.len() != 2 {
-            continue;
-        }
-        let resolved = engine.resolve(ty);
-        if let Type::Function { params, ret, .. } = resolved {
-            let args = match params.as_slice() {
-                [] => Type::Unit,
-                [param] => param.clone(),
-                params => Type::Tuple(params.to_vec()),
-            };
-            let _ = engine.unify(&bound.type_args[0], &args);
-            if !try_unify_bound_constructor_application(
-                engine,
-                store,
-                impls,
-                &bound.type_args[1],
-                &ret,
-            ) {
-                let _ = engine.unify(&bound.type_args[1], &ret);
+                errors.push(format!("{context}: {error}"));
+                store.set_state(id, ObligationState::Failed);
             }
         } else {
-            infer_explicit_impl_trait_args(engine, &resolved, bound, impls, structs, enums);
+            store.set_state(
+                id,
+                if contains_unresolved_type(&probe.resolve(&left))
+                    || contains_unresolved_type(&probe.resolve(&right))
+                {
+                    ObligationState::Pending
+                } else {
+                    ObligationState::Solved
+                },
+            );
         }
     }
 
-    for constraint in &store.constraints {
+    for (id, constraint) in store
+        .iter()
+        .map(|(id, value)| (id, value.clone()))
+        .collect::<Vec<_>>()
+    {
+        if !store.includes_owner(id, owners) {
+            continue;
+        }
         match constraint {
             Constraint::Trait {
                 ty,
@@ -136,12 +214,12 @@ pub fn solve_constraints(
                 context,
             } => {
                 let normalization_env = engine.normalization_env();
-                let resolved_ty = engine.resolve(ty);
+                let resolved_ty = engine.resolve(&ty);
                 let resolved = TypeNormalizer::new(&normalization_env)
                     .normalize(&resolved_ty)
                     .unwrap_or(resolved_ty);
                 if !matches!(resolved, Type::TypeVar(_) | Type::Generic(_))
-                    && contains_unresolved_type(&resolved)
+                    && contains_inference_pending_type(&resolved)
                 {
                     continue;
                 }
@@ -151,7 +229,7 @@ pub fn solve_constraints(
                         .type_args
                         .iter()
                         .map(|arg| {
-                            let resolved = engine.resolve(arg);
+                            let resolved = engine.resolve(&arg);
                             TypeNormalizer::new(&normalization_env)
                                 .normalize(&resolved)
                                 .unwrap_or(resolved)
@@ -159,14 +237,23 @@ pub fn solve_constraints(
                         .collect(),
                 };
                 match &resolved {
-                    Type::TypeVar(id) => {
+                    Type::TypeVar(type_var) => {
                         // Still a free variable — will become a Generic param.
-                        generic_bounds.entry(*id).or_default().extend(
+                        generic_bounds.entry(*type_var).or_default().extend(
                             trait_bounds_with_supertraits(&resolved, &resolved_bound, traits),
                         );
+                        if finalize_pending
+                            && engine.kind_of_type_var(*type_var)
+                                == crate::type_services::kind::Kind::Type
+                        {
+                            store.set_state(id, ObligationState::Solved);
+                        }
                     }
                     Type::Generic(_) => {
                         // Already a generic parameter — bound satisfied at mono time.
+                        if finalize_pending {
+                            store.set_state(id, ObligationState::Solved);
+                        }
                     }
                     concrete_ty => {
                         if context == "try operator"
@@ -174,19 +261,7 @@ pub fn solve_constraints(
                                 .try_protocol
                                 .as_ref()
                                 .is_some_and(|protocol| bound.trait_id == protocol.try_trait_id)
-                            && crate::type_services::visit::type_any(concrete_ty, |nested| {
-                                matches!(
-                                    nested,
-                                    Type::TypeVar(_)
-                                        | Type::Generic(_)
-                                        | Type::Projection { .. }
-                                        | Type::Apply { .. }
-                                        | Type::Constructor { .. }
-                                        | Type::Lambda { .. }
-                                        | Type::BoundVar { .. }
-                                        | Type::Error
-                                )
-                            })
+                            && contains_inference_pending_type(concrete_ty)
                         {
                             continue;
                         }
@@ -218,6 +293,9 @@ pub fn solve_constraints(
                                 context
                             );
                             errors.push(msg);
+                            store.set_state(id, ObligationState::Failed);
+                        } else if finalize_pending {
+                            store.set_state(id, ObligationState::Solved);
                         }
                     }
                 }
@@ -226,7 +304,7 @@ pub fn solve_constraints(
             // Integer literal constraints: unresolved literals default later, but a
             // resolved literal must still be an integer type.
             Constraint::IntLiteral { var, span: _ } => {
-                let resolved = engine.resolve(&Type::TypeVar(*var));
+                let resolved = engine.resolve(&Type::TypeVar(var));
                 match &resolved {
                     Type::TypeVar(_) => {}
                     Type::Generic(_) | Type::Projection { .. } => {}
@@ -236,12 +314,13 @@ pub fn solve_constraints(
                             "integer literal resolved to non-integer type `{}`",
                             other
                         ));
+                        store.set_state(id, ObligationState::Failed);
                     }
                 }
             }
 
             Constraint::FloatLiteral { var, span: _ } => {
-                let resolved = engine.resolve(&Type::TypeVar(*var));
+                let resolved = engine.resolve(&Type::TypeVar(var));
                 match &resolved {
                     Type::TypeVar(_) => {
                         warnings.push(format!(
@@ -259,14 +338,389 @@ pub fn solve_constraints(
                     }
                 }
             }
-            Constraint::Equality { .. } => {}
+            Constraint::Equality { .. } | Constraint::Try { .. } => {}
         }
     }
 
+    if finalize_pending {
+        for id in store.obligation_ids().collect::<Vec<_>>() {
+            if !store.includes_owner(id, owners)
+                || store.state(id) != Some(ObligationState::Ambiguous)
+            {
+                continue;
+            }
+            let Some(constraint) = store.constraint(id) else {
+                continue;
+            };
+            let context = match constraint {
+                Constraint::Equality { context, .. } | Constraint::Trait { context, .. } => {
+                    context.as_str()
+                }
+                Constraint::Try { .. } => "try operator",
+                Constraint::IntLiteral { .. } | Constraint::FloatLiteral { .. } => continue,
+            };
+            errors.push(format!(
+                "ambiguous constraint at quiescence: {context}; add type information to select one canonical solution"
+            ));
+        }
+    }
+
+    for (representative, bounds) in &generic_bounds {
+        for bound in bounds {
+            if !engine.get_bounds(*representative).contains(bound) {
+                engine.add_bound(*representative, bound.clone());
+            }
+        }
+    }
+
+    let mut changed_type_vars = changed_type_vars.into_iter().collect::<Vec<_>>();
+    changed_type_vars.sort_by_key(|id| id.raw());
     SolveResult {
         warnings,
         errors,
         generic_bounds,
+        changed_type_vars,
+    }
+}
+
+fn solve_structural_constraints_to_fixed_point(
+    engine: &mut InferenceEngine,
+    store: &mut ConstraintStore,
+    impls: &HashMap<DefId, HirImpl>,
+    structs: &HashMap<DefId, HirStruct>,
+    enums: &HashMap<DefId, HirEnum>,
+    builtin_traits: BuiltinTraitIds,
+    finalize_pending: bool,
+    owners: Option<&HashSet<ConstraintOwner>>,
+    changed_type_vars: &mut HashSet<TypeVarId>,
+) {
+    store.rebuild_dependencies(engine);
+    let mut queue = store.obligation_ids().collect::<VecDeque<_>>();
+    let mut queued = queue.iter().copied().collect::<HashSet<_>>();
+
+    while let Some(id) = queue.pop_front() {
+        queued.remove(&id);
+        if !store.includes_owner(id, owners) {
+            continue;
+        }
+        if store.state(id) == Some(ObligationState::Ambiguous) {
+            store.reopen_ambiguous(id);
+        }
+        if store.state(id) != Some(ObligationState::Pending) {
+            continue;
+        }
+        let generation = engine.substitution_generation();
+        if store.last_generation(id) == Some(generation) {
+            continue;
+        }
+        let Some(constraint) = store.constraint(id).cloned() else {
+            continue;
+        };
+        let state = match constraint {
+            Constraint::Equality { left, right, .. } => {
+                let mut probe = engine.clone_for_probe();
+                match probe.unify(&left, &right) {
+                    Ok(()) => {
+                        *engine = probe;
+                        if contains_unresolved_type(&engine.resolve(&left))
+                            || contains_unresolved_type(&engine.resolve(&right))
+                        {
+                            ObligationState::Pending
+                        } else {
+                            ObligationState::Solved
+                        }
+                    }
+                    Err(_) => {
+                        if contains_unresolved_type(&engine.resolve(&left))
+                            || contains_unresolved_type(&engine.resolve(&right))
+                        {
+                            ObligationState::Pending
+                        } else {
+                            ObligationState::Failed
+                        }
+                    }
+                }
+            }
+            Constraint::Trait { ty, bound, .. }
+                if matches!(engine.resolve(&ty), Type::TypeVar(_))
+                    && engine
+                        .kind_of(&ty)
+                        .map(|kind| kind != crate::type_services::kind::Kind::Type)
+                        .unwrap_or(false) =>
+            {
+                infer_constructor_trait_obligation(
+                    engine,
+                    &ty,
+                    &bound,
+                    impls,
+                    structs,
+                    enums,
+                    builtin_traits,
+                )
+            }
+            Constraint::Trait { ty, bound, .. }
+                if bound.type_args.len() == 2
+                    && (builtin_traits.fn_once == Some(bound.trait_id)
+                        || builtin_traits.fn_mut == Some(bound.trait_id)
+                        || builtin_traits.fn_trait == Some(bound.trait_id)) =>
+            {
+                let resolved = engine.resolve(&ty);
+                let (params, ret) = match resolved {
+                    Type::Function { params, ret, .. } => (params, ret),
+                    concrete => {
+                        let state = infer_explicit_impl_trait_args(
+                            engine,
+                            &concrete,
+                            &bound,
+                            impls,
+                            structs,
+                            enums,
+                            builtin_traits,
+                        );
+                        store.mark_attempt(id, engine.substitution_generation());
+                        store.set_state(id, state);
+                        continue;
+                    }
+                };
+                let args = match params.as_slice() {
+                    [] => Type::Unit,
+                    [param] => param.clone(),
+                    params => Type::Tuple(params.to_vec()),
+                };
+                let mut probe = engine.clone_for_probe();
+                if probe.unify(&bound.type_args[0], &args).is_err()
+                    || probe.unify(&bound.type_args[1], &ret).is_err()
+                {
+                    if contains_unresolved_type(&engine.resolve(&bound.type_args[0]))
+                        || contains_unresolved_type(&engine.resolve(&bound.type_args[1]))
+                    {
+                        ObligationState::Pending
+                    } else {
+                        ObligationState::Failed
+                    }
+                } else {
+                    *engine = probe;
+                    if contains_unresolved_type(&engine.resolve(&bound.type_args[0]))
+                        || contains_unresolved_type(&engine.resolve(&bound.type_args[1]))
+                    {
+                        ObligationState::Pending
+                    } else {
+                        ObligationState::Solved
+                    }
+                }
+            }
+            Constraint::Trait { ty, .. } => {
+                if contains_unresolved_type(&engine.resolve(&ty)) {
+                    ObligationState::Pending
+                } else {
+                    ObligationState::Solved
+                }
+            }
+            Constraint::IntLiteral { var, .. } | Constraint::FloatLiteral { var, .. } => {
+                if matches!(engine.resolve(&Type::TypeVar(var)), Type::TypeVar(_)) {
+                    ObligationState::Pending
+                } else {
+                    ObligationState::Solved
+                }
+            }
+            Constraint::Try {
+                carrier,
+                residual,
+                return_ty,
+                ..
+            } => {
+                if [carrier, residual, return_ty]
+                    .iter()
+                    .any(|ty| try_head_is_pending(&engine.resolve(ty)))
+                {
+                    ObligationState::Pending
+                } else {
+                    ObligationState::Solved
+                }
+            }
+        };
+        store.mark_attempt(id, engine.substitution_generation());
+        store.set_state(id, state);
+
+        let changed = engine.take_changed_type_vars();
+        changed_type_vars.extend(changed.iter().copied());
+        for var in changed {
+            for dependent in store.dependents_for(var).to_vec() {
+                if !store.includes_owner(dependent, owners) {
+                    continue;
+                }
+                if store.state(dependent) == Some(ObligationState::Ambiguous) {
+                    store.reopen_ambiguous(dependent);
+                }
+                if store.state(dependent) == Some(ObligationState::Pending)
+                    && queued.insert(dependent)
+                {
+                    queue.push_back(dependent);
+                }
+            }
+        }
+        store.refresh_dependencies(id, engine);
+    }
+    if finalize_pending {
+        for id in store.obligation_ids().collect::<Vec<_>>() {
+            if store.includes_owner(id, owners) && store.state(id) == Some(ObligationState::Pending)
+            {
+                store.set_state(id, ObligationState::Ambiguous);
+            }
+        }
+    }
+}
+
+fn try_head_is_pending(ty: &Type) -> bool {
+    match ty {
+        Type::TypeVar(_) | Type::Projection { .. } | Type::Error => true,
+        Type::Apply { constructor, .. } => try_head_is_pending(constructor),
+        _ => false,
+    }
+}
+
+fn infer_explicit_impl_trait_args(
+    engine: &mut InferenceEngine,
+    ty: &Type,
+    bound: &TraitBound,
+    impls: &HashMap<DefId, HirImpl>,
+    structs: &HashMap<DefId, HirStruct>,
+    enums: &HashMap<DefId, HirEnum>,
+    builtin_traits: BuiltinTraitIds,
+) -> ObligationState {
+    let mut candidates = Vec::new();
+    let mut impl_ids = impls.keys().copied().collect::<Vec<_>>();
+    impl_ids.sort();
+    for id in impl_ids {
+        let Some(imp) = impls.get(&id) else {
+            continue;
+        };
+        if imp.trait_id != Some(bound.trait_id)
+            || imp.trait_arg_types.len() != bound.type_args.len()
+            || !impl_receiver_owner_matches(ty, imp, structs, enums)
+        {
+            continue;
+        }
+        let Some(subst) =
+            crate::selection::receiver_pattern_substitution(&imp.receiver_pattern, ty)
+        else {
+            continue;
+        };
+        let mut probe = engine.clone_for_probe();
+        if imp
+            .trait_arg_types
+            .iter()
+            .zip(&bound.type_args)
+            .any(|(expected, actual)| {
+                probe
+                    .unify(actual, &expected.substitute_generics(&subst))
+                    .is_err()
+            })
+        {
+            continue;
+        }
+        if !impl_bounds_satisfied(imp, &subst, impls, structs, enums, builtin_traits) {
+            continue;
+        }
+        let authority = (
+            imp.id,
+            bound
+                .type_args
+                .iter()
+                .map(|arg| probe.resolve(arg))
+                .collect::<Vec<_>>(),
+        );
+        if candidates
+            .iter()
+            .all(|(existing, _)| existing != &authority)
+        {
+            candidates.push((authority, probe));
+        }
+    }
+
+    match candidates.as_slice() {
+        [] => ObligationState::Pending,
+        [(_, selected)] => {
+            engine.commit_probe(selected.clone_for_commit());
+            ObligationState::Solved
+        }
+        _ => ObligationState::Ambiguous,
+    }
+}
+
+fn infer_constructor_trait_obligation(
+    engine: &mut InferenceEngine,
+    ty: &Type,
+    bound: &TraitBound,
+    impls: &HashMap<DefId, HirImpl>,
+    structs: &HashMap<DefId, HirStruct>,
+    enums: &HashMap<DefId, HirEnum>,
+    builtin_traits: BuiltinTraitIds,
+) -> ObligationState {
+    let Type::TypeVar(var) = engine.resolve(ty) else {
+        return ObligationState::Solved;
+    };
+    let mut candidates = Vec::new();
+    let mut impl_ids = impls.keys().copied().collect::<Vec<_>>();
+    impl_ids.sort();
+    for impl_id in impl_ids {
+        let Some(imp) = impls.get(&impl_id) else {
+            continue;
+        };
+        if imp.trait_id != Some(bound.trait_id) {
+            continue;
+        }
+        let receiver = match &imp.receiver_pattern {
+            HirImplReceiverPattern::Constructor(receiver)
+            | HirImplReceiverPattern::Exact(receiver) => receiver,
+            HirImplReceiverPattern::SliceFamily { .. } => continue,
+        };
+        let mut probe = engine.clone_for_probe();
+        let subst = imp
+            .type_generics
+            .iter()
+            .map(|param| (param.id, probe.fresh_type_var_of_kind(param.kind.clone())))
+            .collect::<HashMap<_, _>>();
+        let candidate = receiver.substitute_generics(&subst);
+        if probe.unify(&Type::TypeVar(var), &candidate).is_err() {
+            continue;
+        }
+        if imp.trait_arg_types.len() != bound.type_args.len()
+            || imp
+                .trait_arg_types
+                .iter()
+                .zip(&bound.type_args)
+                .any(|(expected, actual)| {
+                    probe
+                        .unify(actual, &expected.substitute_generics(&subst))
+                        .is_err()
+                })
+        {
+            continue;
+        }
+        if !impl_bounds_satisfied(imp, &subst, impls, structs, enums, builtin_traits) {
+            continue;
+        }
+        let trait_args = imp
+            .trait_arg_types
+            .iter()
+            .map(|arg| probe.resolve(&arg.substitute_generics(&subst)))
+            .collect::<Vec<_>>();
+        let authority_key = (imp.id, trait_args);
+        if candidates
+            .iter()
+            .all(|(existing, _)| existing != &authority_key)
+        {
+            candidates.push((authority_key, probe));
+        }
+    }
+    match candidates.as_slice() {
+        [] => ObligationState::Pending,
+        [(_, selected)] => {
+            engine.commit_probe(selected.clone_for_commit());
+            ObligationState::Solved
+        }
+        _ => ObligationState::Ambiguous,
     }
 }
 
@@ -277,97 +731,21 @@ fn contains_unresolved_type(ty: &Type) -> bool {
             Type::TypeVar(_)
                 | Type::Generic(_)
                 | Type::Projection { .. }
-                | Type::Apply { .. }
-                | Type::Constructor { .. }
-                | Type::Lambda { .. }
                 | Type::BoundVar { .. }
                 | Type::Error
         )
     })
 }
 
-fn try_unify_bound_constructor_application(
-    engine: &mut InferenceEngine,
-    store: &ConstraintStore,
-    impls: &HashMap<DefId, HirImpl>,
-    pattern: &Type,
-    actual: &Type,
-) -> bool {
-    let resolved_pattern = engine.resolve(pattern);
-    let Type::Apply { constructor, args } = &resolved_pattern else {
-        return false;
-    };
-    let Type::TypeVar(constructor_var) = constructor.as_ref() else {
-        return false;
-    };
-
-    let bounded_traits = store
-        .constraints
-        .iter()
-        .filter_map(|constraint| {
-            let Constraint::Trait { ty, bound, .. } = constraint else {
-                return None;
-            };
-            matches!(engine.resolve(ty), Type::TypeVar(id) if id == *constructor_var)
-                .then_some(bound.trait_id)
-        })
-        .collect::<Vec<_>>();
-    if bounded_traits.is_empty() {
-        return false;
-    }
-
-    let mut candidates: Vec<(Type, InferenceEngine)> = Vec::new();
-    for imp in impls.values() {
-        if !imp
-            .trait_id
-            .is_some_and(|trait_id| bounded_traits.contains(&trait_id))
-        {
-            continue;
+fn contains_inference_pending_type(ty: &Type) -> bool {
+    crate::type_services::visit::type_any(ty, |nested| match nested {
+        Type::TypeVar(_) | Type::Projection { .. } | Type::Error => true,
+        Type::Apply { constructor, args } => {
+            contains_inference_pending_type(constructor)
+                || args.iter().any(contains_inference_pending_type)
         }
-        let receiver = match &imp.receiver_pattern {
-            HirImplReceiverPattern::Constructor(receiver)
-            | HirImplReceiverPattern::Exact(receiver) => receiver,
-            HirImplReceiverPattern::SliceFamily { .. } => continue,
-        };
-        let mut probe = engine.clone_for_probe();
-        let impl_substitution = imp
-            .type_generics
-            .iter()
-            .map(|param| (param.id, probe.fresh_type_var_of_kind(param.kind.clone())))
-            .collect::<HashMap<_, _>>();
-        let candidate = receiver.substitute_generics(&impl_substitution);
-        let applied = Type::Apply {
-            constructor: Box::new(candidate.clone()),
-            args: args.clone(),
-        };
-        if probe.unify(&applied, actual).is_err() {
-            continue;
-        }
-        let resolved_candidate = probe.resolve(&candidate);
-        let normalization_env = probe.normalization_env();
-        let resolved_candidate = TypeNormalizer::new(&normalization_env)
-            .normalize(&resolved_candidate)
-            .unwrap_or(resolved_candidate);
-        if probe
-            .unify(&Type::TypeVar(*constructor_var), &resolved_candidate)
-            .is_err()
-        {
-            continue;
-        }
-        if candidates
-            .iter()
-            .all(|(existing, _)| existing != &resolved_candidate)
-        {
-            candidates.push((resolved_candidate, probe));
-        }
-    }
-
-    if candidates.len() != 1 {
-        return false;
-    }
-    let (_, selected) = candidates.pop().expect("one bounded constructor candidate");
-    *engine = selected;
-    true
+        _ => false,
+    })
 }
 
 fn trait_bounds_with_supertraits(
@@ -521,48 +899,6 @@ fn explicit_impl_exists_for(
         impl_trait_args_match(&imp.trait_arg_types, trait_args, &mut subst)
             && impl_bounds_satisfied(imp, &subst, impls, structs, enums, builtin_traits)
     })
-}
-
-fn infer_explicit_impl_trait_args(
-    engine: &mut InferenceEngine,
-    ty: &Type,
-    bound: &TraitBound,
-    impls: &HashMap<DefId, HirImpl>,
-    structs: &HashMap<DefId, HirStruct>,
-    enums: &HashMap<DefId, HirEnum>,
-) {
-    let mut impl_ids = impls.keys().copied().collect::<Vec<_>>();
-    impl_ids.sort();
-    for id in impl_ids {
-        let Some(imp) = impls.get(&id) else {
-            continue;
-        };
-        if imp.trait_id != Some(bound.trait_id)
-            || imp.trait_arg_types.len() != bound.type_args.len()
-            || !impl_receiver_owner_matches(ty, imp, structs, enums)
-        {
-            continue;
-        }
-        let Some(subst) =
-            crate::selection::receiver_pattern_substitution(&imp.receiver_pattern, ty)
-        else {
-            continue;
-        };
-        let mut probe = engine.clone_for_probe();
-        let matches = imp
-            .trait_arg_types
-            .iter()
-            .zip(&bound.type_args)
-            .all(|(expected, actual)| {
-                probe
-                    .unify(actual, &expected.substitute_generics(&subst))
-                    .is_ok()
-            });
-        if matches {
-            *engine = probe;
-            return;
-        }
-    }
 }
 
 fn impl_bounds_satisfied(
@@ -915,7 +1251,8 @@ mod tests {
     use super::*;
 
     use crate::hir::HirImplOwner;
-    use crate::ids::{CrateId, LocalDefId, TypeVarId};
+    use crate::ids::{AssocTypeId, CrateId, LocalDefId, TypeVarId};
+    use crate::language_items::FnOnceLanguageItems;
     use crate::lexer::Span;
     use crate::types::TraitBound;
 
@@ -957,9 +1294,9 @@ mod tests {
             "test",
         );
 
-        let result = solve_constraints(
+        let result = solve_constraints_in_place(
             &mut engine,
-            &store,
+            &mut store,
             &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
@@ -1042,9 +1379,9 @@ mod tests {
             "constructor bound",
         );
 
-        let result = solve_constraints(
+        let result = solve_constraints_in_place(
             &mut InferenceEngine::new(),
-            &store,
+            &mut store,
             &impls,
             &HashMap::new(),
             &enums,
@@ -1053,6 +1390,468 @@ mod tests {
         );
 
         assert!(result.errors.is_empty(), "{:?}", result.errors);
+    }
+
+    #[test]
+    fn constructor_candidate_with_unsatisfied_impl_bound_is_not_selected() {
+        let constructor_trait = def_id(24);
+        let required_trait = def_id(25);
+        let enum_id = def_id(26);
+        let impl_id = def_id(27);
+        let generic = crate::types::GenericParamId {
+            owner: impl_id,
+            index: 0,
+        };
+        let mut imp = test_impl("Bounded", enum_id, constructor_trait);
+        imp.id = impl_id;
+        imp.type_generics = vec![crate::types::GenericParamDecl::type_param(generic, "T")];
+        imp.receiver_pattern = HirImplReceiverPattern::Constructor(Type::Constructor {
+            id: enum_id,
+            flavor: crate::types::NominalTypeKind::Enum,
+        });
+        imp.bounds = HashMap::from([(
+            generic,
+            vec![TraitBound {
+                trait_id: required_trait,
+                type_args: Vec::new(),
+            }],
+        )])
+        .into();
+        let impls = HashMap::from([(impl_id, imp)]);
+        let mut engine = InferenceEngine::new();
+        let constructor = engine.fresh_type_var_of_kind(crate::type_services::kind::Kind::arrow(
+            crate::type_services::kind::Kind::Type,
+            crate::type_services::kind::Kind::Type,
+        ));
+        let Type::TypeVar(constructor_id) = constructor else {
+            unreachable!();
+        };
+        let mut store = ConstraintStore::new();
+        store.add_trait(
+            Type::TypeVar(constructor_id),
+            TraitBound {
+                trait_id: constructor_trait,
+                type_args: Vec::new(),
+            },
+            Span::default(),
+            "bounded constructor candidate",
+        );
+
+        let result = solve_constraints_in_place(
+            &mut engine,
+            &mut store,
+            &impls,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &LanguageItems::default(),
+        );
+
+        assert!(result.errors[0].contains("bounded constructor candidate"));
+        assert_eq!(
+            engine.resolve(&Type::TypeVar(constructor_id)),
+            Type::TypeVar(constructor_id)
+        );
+    }
+
+    #[test]
+    fn structural_worklist_retries_hkt_equality_after_callable_progress() {
+        let callable_trait = def_id(40);
+        let carrier_id = def_id(41);
+        let mut engine = InferenceEngine::new();
+        let mut normalization_env = crate::type_services::normalize::TypeNormalizationEnv::new();
+        normalization_env.register_nominal(carrier_id, crate::types::NominalTypeKind::Enum, 1);
+        engine.set_normalization_env(normalization_env);
+        let constructor = engine.fresh_type_var_of_kind(crate::type_services::kind::Kind::arrow(
+            crate::type_services::kind::Kind::Type,
+            crate::type_services::kind::Kind::Type,
+        ));
+        let payload = engine.fresh_type_var();
+        let callable_result = engine.fresh_type_var();
+        let callable = Type::function(
+            vec![Type::I64],
+            Type::Enum {
+                id: carrier_id,
+                args: vec![Type::Bool],
+            },
+        );
+        let application = Type::Apply {
+            constructor: Box::new(constructor.clone()),
+            args: vec![payload.clone()],
+        };
+        let mut store = ConstraintStore::new();
+        store.add_equality(
+            application,
+            callable_result.clone(),
+            Span::default(),
+            "deferred HKT equality",
+        );
+        store.add_trait(
+            callable,
+            TraitBound {
+                trait_id: callable_trait,
+                type_args: vec![Type::I64, callable_result.clone()],
+            },
+            Span::default(),
+            "callable result",
+        );
+        let language_items = LanguageItems {
+            fn_once: Some(FnOnceLanguageItems {
+                trait_id: callable_trait,
+                output_id: AssocTypeId(0),
+                method_id: def_id(42),
+            }),
+            ..LanguageItems::default()
+        };
+
+        let result = solve_constraints_in_place(
+            &mut engine,
+            &mut store,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &language_items,
+        );
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            engine.resolve(&callable_result).to_string(),
+            Type::Enum {
+                id: carrier_id,
+                args: vec![Type::Bool],
+            }
+            .to_string()
+        );
+        assert_eq!(
+            engine.resolve(&constructor),
+            Type::Constructor {
+                id: carrier_id,
+                flavor: crate::types::NominalTypeKind::Enum,
+            }
+        );
+        assert_eq!(engine.resolve(&payload), Type::Bool);
+    }
+
+    #[test]
+    fn structural_worklist_wakes_try_after_carrier_progress() {
+        let mut engine = InferenceEngine::new();
+        let carrier = engine.fresh_type_var();
+        let mut store = ConstraintStore::new();
+        let try_obligation = store.add_try(
+            carrier.clone(),
+            Type::Bool,
+            Type::I64,
+            Type::I64,
+            Span::default(),
+        );
+        store.add_equality(
+            carrier.clone(),
+            Type::I64,
+            Span::default(),
+            "deferred carrier equality",
+        );
+
+        let result = solve_constraints_in_place(
+            &mut engine,
+            &mut store,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &LanguageItems::default(),
+        );
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(engine.resolve(&carrier), Type::I64);
+        assert_eq!(
+            store.obligation_state(try_obligation),
+            Some(ObligationState::Solved)
+        );
+        assert_eq!(store.obligation_attempts(try_obligation), Some(2));
+    }
+
+    #[test]
+    fn try_obligation_accepts_generalized_constructor_heads() {
+        let engine = &mut InferenceEngine::new();
+        let generic = Type::Generic(GenericParamId {
+            owner: def_id(49),
+            index: 0,
+        });
+        let carrier = Type::Apply {
+            constructor: Box::new(generic.clone()),
+            args: vec![Type::I64],
+        };
+        let mut store = ConstraintStore::new();
+        let obligation = store.add_try(
+            carrier.clone(),
+            Type::I64,
+            Type::I64,
+            carrier,
+            Span::default(),
+        );
+
+        let result = solve_constraints_in_place(
+            engine,
+            &mut store,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &LanguageItems::default(),
+        );
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            store.obligation_state(obligation),
+            Some(ObligationState::Solved)
+        );
+    }
+
+    #[test]
+    fn structural_worklist_wakes_only_dependent_obligations() {
+        let callable_trait = def_id(50);
+        let carrier_id = def_id(51);
+        let mut engine = InferenceEngine::new();
+        let mut normalization_env = crate::type_services::normalize::TypeNormalizationEnv::new();
+        normalization_env.register_nominal(carrier_id, crate::types::NominalTypeKind::Enum, 1);
+        engine.set_normalization_env(normalization_env);
+        let constructor = engine.fresh_type_var_of_kind(crate::type_services::kind::Kind::arrow(
+            crate::type_services::kind::Kind::Type,
+            crate::type_services::kind::Kind::Type,
+        ));
+        let payload = engine.fresh_type_var();
+        let callable_result = engine.fresh_type_var();
+        let unrelated = engine.fresh_type_var();
+        let application = Type::Apply {
+            constructor: Box::new(constructor),
+            args: vec![payload],
+        };
+        let mut store = ConstraintStore::new();
+        let dependent = store.add_equality(
+            application,
+            callable_result.clone(),
+            Span::default(),
+            "dependent equality",
+        );
+        let callable = Type::function(
+            vec![Type::I64],
+            Type::Enum {
+                id: carrier_id,
+                args: vec![Type::Bool],
+            },
+        );
+        let callable_id = store.add_trait(
+            callable,
+            TraitBound {
+                trait_id: callable_trait,
+                type_args: vec![Type::I64, callable_result],
+            },
+            Span::default(),
+            "callable result",
+        );
+        let unrelated_id = store.add_int_literal(
+            match unrelated {
+                Type::TypeVar(id) => id,
+                _ => unreachable!(),
+            },
+            Span::default(),
+        );
+        let language_items = LanguageItems {
+            fn_once: Some(FnOnceLanguageItems {
+                trait_id: callable_trait,
+                output_id: AssocTypeId(0),
+                method_id: def_id(52),
+            }),
+            ..LanguageItems::default()
+        };
+
+        let result = solve_constraints_in_place(
+            &mut engine,
+            &mut store,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &language_items,
+        );
+
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(store.obligation_attempts(dependent), Some(2));
+        assert_eq!(store.obligation_attempts(callable_id), Some(1));
+        assert_eq!(store.obligation_attempts(unrelated_id), Some(1));
+    }
+
+    #[test]
+    fn unknown_constructor_heads_remain_ambiguous_at_quiescence() {
+        let mut engine = InferenceEngine::new();
+        let kind = crate::type_services::kind::Kind::arrow(
+            crate::type_services::kind::Kind::Type,
+            crate::type_services::kind::Kind::Type,
+        );
+        let left = engine.fresh_type_var_of_kind(kind.clone());
+        let right = engine.fresh_type_var_of_kind(kind);
+        let mut store = ConstraintStore::new();
+        let id = store.add_equality(
+            Type::Apply {
+                constructor: Box::new(left),
+                args: vec![Type::I64],
+            },
+            Type::Apply {
+                constructor: Box::new(right),
+                args: vec![Type::Bool],
+            },
+            Span::default(),
+            "unknown constructor heads",
+        );
+
+        let result = solve_constraints_in_place(
+            &mut engine,
+            &mut store,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &LanguageItems::default(),
+        );
+
+        assert!(result.errors[0].contains("unknown constructor heads"));
+        assert_eq!(store.obligation_state(id), Some(ObligationState::Ambiguous));
+    }
+
+    #[test]
+    fn multiple_constructor_candidates_remain_ambiguous() {
+        let trait_id = def_id(60);
+        let first_id = def_id(61);
+        let second_id = def_id(62);
+        let make_impl = |id: DefId, owner: DefId| HirImpl {
+            id,
+            owner: HirImplOwner::Named(format!("Constructor{id:?}")),
+            type_name: format!("Constructor{id:?}"),
+            type_generics: Vec::new(),
+            receiver_pattern: HirImplReceiverPattern::Constructor(Type::Constructor {
+                id: owner,
+                flavor: crate::types::NominalTypeKind::Enum,
+            }),
+            trait_name: None,
+            trait_id: Some(trait_id),
+            trait_generics: Vec::new(),
+            trait_arg_types: Vec::new(),
+            associated_types: Vec::new(),
+            bounds: std::collections::HashMap::new().into(),
+            methods: HashMap::new(),
+        };
+        let impls = HashMap::from([
+            (first_id, make_impl(first_id, first_id)),
+            (second_id, make_impl(second_id, second_id)),
+        ]);
+        let mut engine = InferenceEngine::new();
+        let mut normalization_env = crate::type_services::normalize::TypeNormalizationEnv::new();
+        normalization_env.register_nominal(first_id, crate::types::NominalTypeKind::Enum, 0);
+        normalization_env.register_nominal(second_id, crate::types::NominalTypeKind::Enum, 0);
+        engine.set_normalization_env(normalization_env);
+        let constructor = engine.fresh_type_var_of_kind(crate::type_services::kind::Kind::arrow(
+            crate::type_services::kind::Kind::Type,
+            crate::type_services::kind::Kind::Type,
+        ));
+        let Type::TypeVar(constructor_id) = constructor else {
+            unreachable!();
+        };
+        let mut store = ConstraintStore::new();
+        let obligation = store.add_trait(
+            Type::TypeVar(constructor_id),
+            TraitBound {
+                trait_id,
+                type_args: Vec::new(),
+            },
+            Span::default(),
+            "constructor candidates",
+        );
+
+        let result = solve_constraints_in_place(
+            &mut engine,
+            &mut store,
+            &impls,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &LanguageItems::default(),
+        );
+
+        assert!(result.errors[0].contains("constructor candidates"));
+        assert_eq!(
+            store.obligation_state(obligation),
+            Some(ObligationState::Ambiguous)
+        );
+        assert_eq!(
+            engine.resolve(&Type::TypeVar(constructor_id)),
+            Type::TypeVar(constructor_id)
+        );
+    }
+
+    #[test]
+    fn ambiguous_obligation_reopens_after_new_evidence() {
+        let trait_id = def_id(70);
+        let first_id = def_id(71);
+        let second_id = def_id(72);
+        let make_impl = |id: DefId| HirImpl {
+            id,
+            owner: crate::hir::HirImplOwner::Named(format!("Constructor{id:?}")),
+            type_name: format!("Constructor{id:?}"),
+            type_generics: Vec::new(),
+            receiver_pattern: HirImplReceiverPattern::Constructor(Type::Constructor {
+                id,
+                flavor: crate::types::NominalTypeKind::Enum,
+            }),
+            trait_name: None,
+            trait_id: Some(trait_id),
+            trait_generics: Vec::new(),
+            trait_arg_types: Vec::new(),
+            associated_types: Vec::new(),
+            bounds: HashMap::new().into(),
+            methods: HashMap::new(),
+        };
+        let impls = HashMap::from([
+            (first_id, make_impl(first_id)),
+            (second_id, make_impl(second_id)),
+        ]);
+        let mut engine = InferenceEngine::new();
+        let variable = engine.fresh_type_var_of_kind(crate::type_services::kind::Kind::arrow(
+            crate::type_services::kind::Kind::Type,
+            crate::type_services::kind::Kind::Type,
+        ));
+        let Type::TypeVar(variable_id) = variable else {
+            unreachable!();
+        };
+        let mut store = ConstraintStore::new();
+        let obligation = store.add_trait(
+            Type::TypeVar(variable_id),
+            TraitBound {
+                trait_id,
+                type_args: Vec::new(),
+            },
+            Span::default(),
+            "ambiguity reopening",
+        );
+        let result = solve_constraints_in_place(
+            &mut engine,
+            &mut store,
+            &impls,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &LanguageItems::default(),
+        );
+        assert!(result.errors[0].contains("ambiguity reopening"));
+        assert_eq!(
+            store.obligation_state(obligation),
+            Some(ObligationState::Ambiguous)
+        );
+        store.reopen_ambiguous(obligation);
+        assert_eq!(
+            store.obligation_state(obligation),
+            Some(ObligationState::Pending)
+        );
     }
 
     #[test]
@@ -1096,9 +1895,9 @@ mod tests {
             "recursive test",
         );
 
-        let result = solve_constraints(
+        let result = solve_constraints_in_place(
             &mut engine,
-            &store,
+            &mut store,
             &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),

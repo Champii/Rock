@@ -87,23 +87,24 @@ impl SharedServerState
         guard.remove id
 
 broadcast = state, bytes, len ->
-    payload: &[U8] = bytes
-    count: I64 = len
+    payload = bytes
+    count = len
     guard = state.inner.lock!
-    guard.snapshot!.for_each_owned target !-> target.send_all payload, count
-    Result::Ok count
+    guard.snapshot!.try_for_each (target ->
+        target.send_all payload, count <&> (_ !-> 0))
+        <&> _ -> len
 
 receive_with = stream, mut target, write ->
-    client_stream: Arc TcpStream = stream
-    mut buff: [U8; 1024] = [0; 1024]
-    mut total: I64 = 0
+    client_stream = stream
+    mut buff = [0; 1024]
+    mut total = 0
     while true
         match client_stream.recv &mut buff
             Result::Ok count =>
                 if count <= 0
                     return total
                 else
-                    written_result: Result I64, IoError = write &mut target, &buff, count
+                    written_result = write &mut target, &buff, count
                     match written_result
                         Result::Ok written => total = total + written
                         Result::Err _ => return total
@@ -130,12 +131,12 @@ run_listener = listener ->
         clients: Vec::new!
         next_id: 0
     mut handlers = Vec::new!
-    mut accepted: I64 = 0
+    mut accepted = 0
 
     while true
-        accepted_client: Result (Option (JoinHandle I64)), IoError = listener.accept! <&> start_client state.clone!
+        accepted_client = listener.accept! <&> start_client state.clone!
         handler = accepted_client?
-        started: I64 = handler.fold
+        started = handler.fold
             0
             handle ->
                 handlers.push handle
@@ -176,19 +177,19 @@ run_connection = stream ->
         >>= finish_connection (shared.clone!)
 
 finish_connection = stream, handle ~>
-    client_stream: Arc TcpStream = stream
-    join_handle: JoinHandle I64 = handle
-    total_result: Result I64, IoError = pump_stdin client_stream.clone!
+    client_stream = stream
+    join_handle = handle
+    total_result = pump_stdin &client_stream
     total = total_result?
-    stopped_result: Result Unit, IoError = client_stream.shutdown_write!
+    stopped_result = client_stream.shutdown_write!
     stopped = stopped_result?
-    result: Result I64, IoError = join_handle.join!
+    result = join_handle.join!
         <!> thread_error_to_io
         <&> _ -> total
     result
 
 pump_stdin = stream ->
-    stdin! |>> &stream
+    stdin! |>> stream
 
 thread_error_to_io = _ -> IoError::Os 1
 
@@ -201,7 +202,7 @@ run_mode = mode ->
 main = ->
     values = args!
     values.println!
-    res: Result I64, IoError = values.get 1 .fold
+    res = values.get 1 .fold
         Result::Err IoError::Os 1
         run_mode
 

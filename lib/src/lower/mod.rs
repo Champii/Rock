@@ -47,6 +47,7 @@ use crate::collect::item_index::ItemIndex;
 use crate::collect::resolver::ResolverTables;
 use crate::hir::*;
 use crate::ids::{CrateId, DefId, HirLocalId, IdGen, LocalDefId, TypeVarId};
+use crate::infer::constraints::ConstraintOwner;
 use crate::lexer::Span;
 use crate::types::{GenericParamId, Type};
 
@@ -60,6 +61,7 @@ pub struct Lowerer {
     pub(crate) prelude: LowerPreludeService,
     pub(crate) function_type_vars: HashMap<DefId, HashSet<TypeVarId>>,
     pub(crate) inference_sccs: HashMap<DefId, DefId>,
+    pub(crate) inference_scc_order: Vec<DefId>,
     pub(crate) current_trait: Option<String>,
     pub(crate) current_trait_id: Option<DefId>,
     pub(crate) current_trait_generics: Vec<String>,
@@ -100,6 +102,7 @@ impl Lowerer {
             prelude: services.prelude,
             function_type_vars: HashMap::new(),
             inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
             current_trait: None,
             current_trait_id: None,
             current_trait_generics: Vec::new(),
@@ -162,6 +165,12 @@ impl Lowerer {
         context.replace_scope(previous_scope.clone());
         self.scope =
             LowerScopeService::new(context.replace_scope(crate::lower::scope::Scope::new()));
+        let owner = match context.owner() {
+            BodyOwner::Function(id)
+            | BodyOwner::ImplMethod { method_id: id, .. }
+            | BodyOwner::TraitMethod { method_id: id, .. } => ConstraintOwner::Body(*id),
+        };
+        let previous_constraint_owner = self.constraint_store.replace_owner(owner);
         self.body_context = Some(context);
 
         let result = f(self);
@@ -170,6 +179,8 @@ impl Lowerer {
             context.replace_scope((*self.scope).clone());
         }
         self.scope = LowerScopeService::new(previous_scope);
+        self.constraint_store
+            .replace_owner(previous_constraint_owner);
         self.body_context = previous_context;
 
         result

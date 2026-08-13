@@ -151,6 +151,7 @@ impl CallableKind {
             .map(|capture| match capture.kind {
                 CaptureKind::SharedBorrow => Self::Fn,
                 CaptureKind::MutableBorrow => Self::FnMut,
+                CaptureKind::Move if TypeFacts::is_copy(&capture.ty) => Self::Fn,
                 CaptureKind::Move => Self::FnOnce,
             })
             .max()
@@ -1172,6 +1173,16 @@ mod tests {
         assert!(CallableKind::FnMut < CallableKind::FnOnce);
         assert_eq!(
             CallableKind::from_captures(&[FunctionCapture::new(CaptureKind::Move, Type::I64)]),
+            CallableKind::Fn
+        );
+        assert_eq!(
+            CallableKind::from_captures(&[FunctionCapture::new(
+                CaptureKind::Move,
+                Type::Struct {
+                    id: def_id(91),
+                    args: Vec::new(),
+                }
+            )]),
             CallableKind::FnOnce
         );
     }

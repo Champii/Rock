@@ -1,15 +1,18 @@
 //! Type finalization: apply inference engine substitutions to all HIR nodes.
 
 use crate::hir::*;
+use crate::ids::DefId;
 use crate::lower::ResolveError;
 use crate::type_services::facts::TypeFacts;
-use crate::types::Type;
+use crate::types::{GenericParamId, Type};
 
 use super::{InferenceEngine, PartialHir};
 
 /// Finalization context carrying the engine and error list.
 pub(super) struct FinalizeCtx<'a> {
     engine: &'a InferenceEngine,
+    method_generic_params:
+        std::collections::HashMap<DefId, std::collections::HashSet<GenericParamId>>,
     errors: Vec<String>,
 }
 
@@ -72,6 +75,16 @@ fn finalize_predicates(ctx: &mut FinalizeCtx<'_>, predicates: &mut [crate::types
 }
 
 fn finalize_method_target(ctx: &mut FinalizeCtx<'_>, target: &mut HirMethodCallTarget) {
+    if let Some(method_id) = target.method_id() {
+        let declared = ctx
+            .method_generic_params
+            .get(&method_id)
+            .cloned()
+            .unwrap_or_default();
+        target
+            .method_substitution
+            .retain(|binding| declared.contains(&binding.param));
+    }
     target.for_each_type_mut(|ty| *ty = ctx.finalize(ty));
 }
 
@@ -94,8 +107,37 @@ fn finalize_impl_receiver_pattern(ctx: &mut FinalizeCtx<'_>, pattern: &mut HirIm
 
 /// Apply strict finalization to every type-bearing HIR payload.
 pub(super) fn apply_finalization(hir: &mut PartialHir) -> Vec<ResolveError> {
+    let method_generic_params = hir
+        .traits
+        .values()
+        .flat_map(|trait_def| {
+            trait_def
+                .methods
+                .values()
+                .map(|method| (method.id, method.generic_params.as_slice()))
+                .chain(
+                    trait_def
+                        .signatures
+                        .values()
+                        .map(|signature| (signature.id, signature.generic_params.as_slice())),
+                )
+        })
+        .chain(
+            hir.impls
+                .values()
+                .flat_map(|imp| imp.methods.values())
+                .map(|method| (method.id, method.generic_params.as_slice())),
+        )
+        .map(|(method_id, generic_params)| {
+            (
+                method_id,
+                generic_params.iter().map(|param| param.id).collect(),
+            )
+        })
+        .collect();
     let mut ctx = FinalizeCtx {
         engine: &hir.engine,
+        method_generic_params,
         errors: Vec::new(),
     };
 
@@ -454,6 +496,8 @@ mod tests {
             local_def_ids: IdGen::new(),
             language_items: HirLanguageItems::default(),
             imported_effective_trait_methods: HashMap::new(),
+            inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
         }
     }
 

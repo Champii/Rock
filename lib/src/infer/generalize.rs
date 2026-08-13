@@ -8,7 +8,6 @@ use crate::types::{GenericParamDecl, GenericParamId, Type};
 
 use super::type_vars::{
     replace_type_vars_in_block_composite, replace_type_vars_with_generics_composite,
-    uses_constrained_ops,
 };
 use super::{ConstraintStore, InferenceEngine, PartialHir};
 
@@ -23,12 +22,16 @@ fn collect_type_vars_in_order(ty: &Type, out: &mut Vec<TypeVarId>) {
 }
 
 /// Generalize all functions by converting unconstrained type variables to generic parameters.
-pub(super) fn generalize_all_functions(hir: &mut PartialHir) {
-    let root_entrypoint_id = hir.resolver.item_paths.get("main").copied();
-    let mut function_ids: Vec<DefId> = hir.functions.keys().copied().collect();
-    function_ids.sort();
+pub(super) fn generalize_methods_only(hir: &mut PartialHir) {
+    generalize_methods(hir);
+}
 
-    for id in function_ids {
+pub(super) fn generalize_functions(
+    hir: &mut PartialHir,
+    function_ids: &[DefId],
+    root_entrypoint_id: Option<DefId>,
+) {
+    for id in function_ids.iter().copied() {
         if root_entrypoint_id == Some(id) {
             continue;
         }
@@ -48,7 +51,9 @@ pub(super) fn generalize_all_functions(hir: &mut PartialHir) {
             hir.functions.insert(id, generalized);
         }
     }
+}
 
+fn generalize_methods(hir: &mut PartialHir) {
     let mut trait_methods_to_generalize = Vec::new();
     let mut trait_ids = hir.traits.keys().copied().collect::<Vec<_>>();
     trait_ids.sort();
@@ -158,10 +163,6 @@ pub fn generalize_single_function_with_exclusions(
         return func;
     }
 
-    if uses_constrained_ops(&func.body) {
-        return func;
-    }
-
     let mut resolved_signature_type_vars = Vec::new();
     for param in &func.params {
         collect_type_vars_in_order(
@@ -249,6 +250,29 @@ pub fn generalize_single_function_with_exclusions(
     for (alias, representative) in header_aliases {
         if let Some(generic_id) = rep_to_generic.get(&representative) {
             var_to_generic.insert(alias, *generic_id);
+        }
+    }
+
+    for (representative, generic_id) in &rep_to_generic {
+        let mut inferred_bounds = engine.get_bounds(*representative);
+        for header_var in &func_header_vars {
+            if engine.resolve(&Type::TypeVar(*header_var)) == Type::TypeVar(*representative) {
+                inferred_bounds.extend(engine.get_bounds(*header_var));
+            }
+        }
+        let destination = func.generic_bounds.entry(*generic_id).or_default();
+        for mut bound in inferred_bounds {
+            for arg in &mut bound.type_args {
+                *arg = replace_type_vars_with_generics_composite(
+                    engine,
+                    arg,
+                    &var_to_generic,
+                    &composite_types,
+                );
+            }
+            if !destination.contains(&bound) {
+                destination.push(bound);
+            }
         }
     }
 
@@ -466,6 +490,42 @@ mod tests {
                 id: option_id,
                 args: vec![generic],
             }
+        );
+    }
+
+    #[test]
+    fn generalize_transports_inferred_trait_bounds_to_generic_parameters() {
+        let id = def_id(43);
+        let trait_id = def_id(44);
+        let var = TypeVarId(0);
+        let mut engine = InferenceEngine::new();
+        engine.add_bound(
+            var,
+            crate::types::TraitBound {
+                trait_id,
+                type_args: vec![Type::I64],
+            },
+        );
+        let function = function_with_type_vars(id, &[var]);
+        let function_type_vars = HashMap::from([(id, HashSet::from([var]))]);
+
+        let generalized = generalize_single_function(
+            &engine,
+            &ConstraintStore::default(),
+            &function_type_vars,
+            function,
+        );
+        let generic = GenericParamId {
+            owner: id,
+            index: 0,
+        };
+
+        assert_eq!(
+            generalized.generic_bounds.get(&generic),
+            Some(&vec![crate::types::TraitBound {
+                trait_id,
+                type_args: vec![Type::I64],
+            }])
         );
     }
 

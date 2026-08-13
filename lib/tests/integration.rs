@@ -6070,6 +6070,59 @@ main = ->
 }
 
 #[test]
+fn test_try_cross_residual_conversion_uses_distinct_return_carrier() {
+    let output = compile_and_run(
+        r#"
+enum Inner T
+    Value T
+    Stop I64
+
+enum Outer T
+    Value T
+    Stop I64
+
+enum InnerResidual
+    Stop I64
+
+impl Try for Inner T
+    type Output = T
+    type Residual = InnerResidual
+
+    ~@branch = ->
+        match self
+            Inner::Value value => ControlFlow::Continue value
+            Inner::Stop code => ControlFlow::Break (InnerResidual::Stop code)
+
+impl FromResidual InnerResidual for Outer T
+    from_residual = residual ->
+        match residual
+            InnerResidual::Stop code => Outer::Stop code
+
+source = ok ->
+    if ok
+        Inner::Value 41
+    else
+        Inner::Stop 7
+
+compute = ok ->
+    value = source ok?
+    Outer::Value (value + 1)
+
+main = ->
+    match compute true
+        Outer::Value value => value.println!
+        Outer::Stop code => code.println!
+    match compute false
+        Outer::Value value => value.println!
+        Outer::Stop code => code.println!
+    0
+"#,
+    );
+
+    assert_eq!(output.trim().lines().collect::<Vec<_>>(), vec!["42", "7"]);
+}
+
+#[test]
 fn test_try_uses_complete_renamed_language_item_protocol() {
     let exit_code = compile_and_run_without_stdlib(
         r#"
@@ -6461,6 +6514,33 @@ main = ->
 }
 
 #[test]
+fn test_signatureless_curried_partial_application_propagates_nested_return() {
+    compile_should_pass(
+        r#"
+enum Wrapped
+    Value I64
+    Empty
+
+impl Wrapped
+    ~@unwrap_or_zero = ->
+        match self
+            Wrapped::Value value => value
+            Wrapped::Empty => 0
+
+wrap = state, value ~>
+    Wrapped::Value (state + value)
+
+apply = value, mapper -> mapper value
+
+main = ->
+    wrapped = apply 42, (wrap 0)
+    wrapped.unwrap_or_zero!.println!
+    0
+"#,
+    );
+}
+
+#[test]
 fn test_signatureless_callback_infers_mut_reference_parameter() {
     let output = compile_and_run(
         r#"
@@ -6510,6 +6590,32 @@ main = ->
 }
 
 #[test]
+fn test_signatureless_chained_hkt_operators_defer_unknown_constructor_heads() {
+    let output = compile_and_run(
+        r#"
+source = ->
+    if true
+        Result::Ok 41
+    else
+        Result::Err 0
+convert_error = value -> value == 0
+
+finish = ->
+    total = 1
+    source!
+        <!> convert_error
+        <&> _ -> total + 41
+
+main = ->
+    finish!.println!
+    0
+"#,
+    );
+
+    assert_eq!(output.trim(), "Ok(42)");
+}
+
+#[test]
 fn test_signatureless_deferred_method_argument_uses_call_parameter_type() {
     let output = compile_and_run(
         r#"
@@ -6535,6 +6641,49 @@ main = ->
 "#,
     );
     assert_eq!(output.trim(), "Ok(41)");
+}
+
+#[test]
+fn test_signatureless_deferred_method_constrains_argument_from_concrete_parameter() {
+    let output = compile_and_run(
+        r#"
+struct Sink
+
+impl Sink
+    @write: I64 -> I64
+    @write = value -> value
+
+    @write_bytes: &mut [U8] -> I64
+    @write_bytes = _ -> 42
+
+struct Wrapper
+    < sink: Sink
+
+impl Wrapper
+    @forward = value -> self.sink.write value
+
+    @forward_bytes = ->
+        mut bytes = [0; 4]
+        self.sink.write_bytes &mut bytes
+
+forward_unknown = sink ->
+    mut bytes = [0; 4]
+    sink.write_bytes &mut bytes
+
+main = ->
+    wrapper = Wrapper
+        sink: Sink
+    wrapper.forward 41 .println!
+    wrapper.forward_bytes!.println!
+    forward_unknown Sink .println!
+    0
+"#,
+    );
+
+    assert_eq!(
+        output.trim().lines().collect::<Vec<_>>(),
+        vec!["41", "42", "42"]
+    );
 }
 
 #[test]

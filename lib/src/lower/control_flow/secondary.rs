@@ -2029,7 +2029,6 @@ impl Lowerer {
         if matches!(carrier_ty, Type::TypeVar(_)) {
             let output_ty = self.engine.fresh_type_var();
             let residual_ty = self.engine.fresh_type_var();
-            self.record_try_trait_bound(&carrier_ty, &try_protocol, span.clone());
             return self.build_try_expression(
                 expr,
                 None,
@@ -2357,6 +2356,16 @@ impl Lowerer {
             variant_id: continue_variant_info.id,
             name: continue_variant_info.name.clone(),
         };
+
+        let carrier_ty = expr.ty.clone();
+        self.record_try_trait_bound(&carrier_ty, protocol, span.clone());
+        self.constraint_store.add_try(
+            carrier_ty,
+            output_ty.clone(),
+            residual_ty.clone(),
+            return_ty.clone(),
+            span.clone(),
+        );
 
         HirExpr {
             ty: output_ty.clone(),

@@ -10,11 +10,11 @@ mod helpers;
 pub mod solve;
 mod type_vars;
 
-pub use constraints::ConstraintStore;
+pub use constraints::{ConstraintOwner, ConstraintStore, ObligationId, ObligationState};
 pub use engine::InferenceEngine;
 pub use generalize::{generalize_single_function, generalize_single_function_with_exclusions};
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 
 use crate::collect::resolver::ResolverTables;
@@ -135,6 +135,10 @@ pub struct PartialHir {
     pub local_def_ids: IdGen<LocalDefId>,
     pub language_items: HirLanguageItems,
     pub imported_effective_trait_methods: HashMap<(DefId, DefId), DefId>,
+    /// Function-to-SCC membership computed before body lowering.
+    pub inference_sccs: HashMap<DefId, DefId>,
+    /// Dependency-first SCC order, including isolated components.
+    pub inference_scc_order: Vec<DefId>,
 }
 
 impl PartialHir {
@@ -391,6 +395,8 @@ fn hir_program_from_partial(
         local_def_ids,
         language_items,
         imported_effective_trait_methods,
+        inference_sccs: _,
+        inference_scc_order: _,
     } = hir;
 
     let names = hir_name_tables(
@@ -434,34 +440,17 @@ fn hir_program_from_partial(
 pub fn finalize(mut hir: PartialHir) -> Result<ResolvedHirProgram, Vec<ResolveError>> {
     hir.validate_item_ids()?;
     validate_method_ids(&hir)?;
-    // Phase 4: solve accumulated constraints; trait violations on concrete types are hard errors.
-    solve_pending_constraints(&mut hir)?;
+    drive_inference_to_quiescence(&mut hir)?;
 
-    // Phase 4.5: apply numeric defaults only where literal constraints provide evidence.
-    hir.engine.apply_numeric_defaults(&hir.constraint_store);
-
-    // First materialize obligations whose rigid heads are already known.  This
-    // resolves inferred callees before propagating their solved schemes into
-    // call-site instances, while leaving genuinely deferred Try obligations
-    // for the fixed-point pass below.
-    authority::materialize_pending_authorities(&mut hir, false, false)?;
-    authority::propagate_function_instances(&mut hir)?;
-
-    solve_pending_constraints(&mut hir)?;
-    hir.engine.apply_numeric_defaults(&hir.constraint_store);
-
-    authority::materialize_pending_authorities(&mut hir, false, true)?;
-
-    // Phase 5: generalize free type variables into generic parameters
-    generalize::generalize_all_functions(&mut hir);
+    // Methods are not represented in the standalone function SCC map; finish
+    // their component-local generalization after all body SCCs quiesce.
+    generalize::generalize_methods_only(&mut hir);
 
     // Phase 6: finalize — replace all remaining TypeVars
     let errors = finalize::apply_finalization(&mut hir);
     if !errors.is_empty() {
         return Err(errors);
     }
-    authority::materialize_pending_authorities(&mut hir, true, true)?;
-
     let canonical_names_by_id = canonical_names_for_hir(&hir);
     let normalization_env = hir.engine.normalization_env();
     let (program, resolver, current_def_ids, root_crate_id, local_def_ids) =
@@ -489,28 +478,215 @@ pub fn finalize(mut hir: PartialHir) -> Result<ResolvedHirProgram, Vec<ResolveEr
     ))
 }
 
-fn solve_pending_constraints(hir: &mut PartialHir) -> Result<(), Vec<ResolveError>> {
-    let solve_result = solve::solve_constraints(
-        &mut hir.engine,
-        &hir.constraint_store,
-        &hir.impls,
-        &hir.structs,
-        &hir.enums,
-        &hir.traits,
-        &hir.language_items,
-    );
-    for warning in &solve_result.warnings {
-        eprintln!("{}", warning);
+fn drive_inference_to_quiescence(hir: &mut PartialHir) -> Result<(), Vec<ResolveError>> {
+    #[derive(Clone, Copy)]
+    enum WorkItem {
+        Structural,
+        Authority(authority::AuthorityObligationId),
     }
-    if solve_result.errors.is_empty() {
+
+    fn solve_component_worklist(
+        hir: &mut PartialHir,
+        owners: &HashSet<ConstraintOwner>,
+        authority_obligations: &mut [authority::AuthorityObligation],
+        strict: bool,
+    ) -> Result<(), Vec<ResolveError>> {
+        if strict {
+            for obligation in authority_obligations.iter_mut() {
+                obligation.wake();
+            }
+        }
+        let mut queue = VecDeque::from([WorkItem::Structural]);
+        queue.extend(
+            authority_obligations
+                .iter()
+                .map(|obligation| WorkItem::Authority(obligation.id)),
+        );
+        let mut structural_queued = true;
+        let mut authority_queued = authority_obligations
+            .iter()
+            .map(|obligation| obligation.id)
+            .collect::<HashSet<_>>();
+
+        while let Some(item) = queue.pop_front() {
+            match item {
+                WorkItem::Structural => {
+                    structural_queued = false;
+                    let solved = solve::solve_constraints_in_place_for_owners(
+                        &mut hir.engine,
+                        &mut hir.constraint_store,
+                        &hir.impls,
+                        &hir.structs,
+                        &hir.enums,
+                        &hir.traits,
+                        &hir.language_items,
+                        owners,
+                        false,
+                    );
+                    if !solved.errors.is_empty() {
+                        return Err(solved.errors.into_iter().map(ResolveError::new).collect());
+                    }
+                    let changed = solved.changed_type_vars.into_iter().collect::<HashSet<_>>();
+                    for obligation in authority_obligations.iter_mut() {
+                        if obligation.depends_on_any(&changed) {
+                            obligation.wake();
+                            if authority_queued.insert(obligation.id) {
+                                queue.push_back(WorkItem::Authority(obligation.id));
+                            }
+                        }
+                    }
+                }
+                WorkItem::Authority(id) => {
+                    authority_queued.remove(&id);
+                    let index = id.raw() as usize;
+                    let constraint_count = hir.constraint_store.iter().count();
+                    let result = authority::run_authority_obligation(
+                        hir,
+                        &mut authority_obligations[index],
+                        strict,
+                        strict,
+                    )?;
+                    let changed = hir
+                        .engine
+                        .take_changed_type_vars()
+                        .into_iter()
+                        .collect::<HashSet<_>>();
+                    let added_constraints = hir.constraint_store.iter().count() != constraint_count;
+                    if (!changed.is_empty() || added_constraints) && !structural_queued {
+                        structural_queued = true;
+                        queue.push_back(WorkItem::Structural);
+                    }
+                    let completed_owner = authority_obligations[index].owner;
+                    for obligation in authority_obligations.iter_mut() {
+                        let same_owner_progress = (result.progress || !changed.is_empty())
+                            && obligation.owner == completed_owner;
+                        if same_owner_progress || obligation.depends_on_any(&changed) {
+                            obligation.wake();
+                            if authority_queued.insert(obligation.id) {
+                                queue.push_back(WorkItem::Authority(obligation.id));
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Ok(())
-    } else {
-        Err(solve_result
-            .errors
-            .into_iter()
-            .map(ResolveError::new)
-            .collect())
     }
+
+    let root_entrypoint_id = hir.resolver.item_paths.get("main").copied();
+    let mut components = hir.inference_scc_order.clone();
+    if components.is_empty() {
+        components = hir
+            .functions
+            .keys()
+            .filter_map(|id| hir.inference_sccs.get(id).copied().or(Some(*id)))
+            .collect();
+        components.sort();
+        components.dedup();
+    }
+    let mut remaining_components = hir.inference_sccs.values().copied().collect::<Vec<_>>();
+    remaining_components.sort();
+    remaining_components.dedup();
+    for component in remaining_components {
+        if !components.contains(&component) {
+            components.push(component);
+        }
+    }
+    if components.is_empty() {
+        components.push(DefId::new(hir.root_crate_id, crate::ids::LocalDefId(0)));
+    }
+    let mut first_component = true;
+    let mut component_work = Vec::with_capacity(components.len());
+    for component in components {
+        let mut ids = hir
+            .inference_sccs
+            .iter()
+            .filter_map(|(id, representative)| (*representative == component).then_some(*id))
+            .collect::<Vec<_>>();
+        if ids.is_empty() && hir.functions.contains_key(&component) {
+            ids.push(component);
+        }
+        ids.sort();
+        let mut owners = ids
+            .iter()
+            .copied()
+            .map(ConstraintOwner::Body)
+            .collect::<HashSet<_>>();
+        if first_component {
+            owners.insert(ConstraintOwner::Global);
+            first_component = false;
+        }
+        let authority_obligations = authority::authority_obligations(hir, &owners);
+        component_work.push((ids, owners, authority_obligations));
+    }
+
+    // Seed inferred headers from caller context before dependency-first body
+    // solving can commit an otherwise underconstrained rigid type.
+    for (_, owners, _) in component_work.iter().rev() {
+        authority::propagate_function_instances_for_owners_with_progress(hir, Some(owners))?;
+    }
+
+    loop {
+        let generation = hir.engine.substitution_generation();
+        for (_, owners, authority_obligations) in &mut component_work {
+            solve_component_worklist(hir, &owners, authority_obligations, false)?;
+        }
+        if generation == hir.engine.substitution_generation() {
+            break;
+        }
+    }
+    let all_owners = component_work
+        .iter()
+        .flat_map(|(_, owners, _)| owners.iter().copied())
+        .collect::<HashSet<_>>();
+    hir.engine
+        .apply_numeric_defaults_for_owners(&hir.constraint_store, Some(&all_owners));
+
+    loop {
+        let generation = hir.engine.substitution_generation();
+        for (_, owners, authority_obligations) in &mut component_work {
+            solve_component_worklist(hir, &owners, authority_obligations, false)?;
+        }
+        if generation == hir.engine.substitution_generation() {
+            break;
+        }
+    }
+
+    for (_, owners, authority_obligations) in &mut component_work {
+        solve_component_worklist(hir, &owners, authority_obligations, true)?;
+        if authority_obligations.iter().any(|obligation| {
+            obligation.kind != authority::AuthorityObligationKind::Propagation
+                && obligation.state != ObligationState::Solved
+        }) {
+            let mut error = authority::pending_authority_error(hir, Some(&owners));
+            if let Some(context) = authority::pending_authority_context(&authority_obligations) {
+                error.message = format!("{} ({context})", error.message);
+            }
+            return Err(vec![error]);
+        }
+    }
+
+    for (_, owners, _) in &component_work {
+        let solved = solve::solve_constraints_in_place_for_owners(
+            &mut hir.engine,
+            &mut hir.constraint_store,
+            &hir.impls,
+            &hir.structs,
+            &hir.enums,
+            &hir.traits,
+            &hir.language_items,
+            &owners,
+            true,
+        );
+        if !solved.errors.is_empty() {
+            return Err(solved.errors.into_iter().map(ResolveError::new).collect());
+        }
+    }
+
+    for (ids, _, _) in component_work {
+        generalize::generalize_functions(hir, &ids, root_entrypoint_id);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -562,6 +738,8 @@ mod tests {
             local_def_ids: crate::ids::IdGen::<crate::ids::LocalDefId>::new(),
             language_items: HirLanguageItems::default(),
             imported_effective_trait_methods: HashMap::new(),
+            inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
         }
     }
 
@@ -646,13 +824,20 @@ mod tests {
         }));
 
         let mut partial = partial_hir_with_traits(HashMap::from([(trait_id, trait_def)]));
-        partial.functions.insert(function.id, function);
+        let function_id = function.id;
+        partial.functions.insert(function_id, function);
         partial.impls.insert(impl_id, imp);
         partial
             .imported_effective_trait_methods
             .insert((impl_id, member_id), method_id);
 
-        let errors = authority::materialize_pending_authorities(&mut partial, true, true)
+        let owners = HashSet::from([ConstraintOwner::Body(function_id)]);
+        let mut obligations = authority::authority_obligations(&partial, &owners);
+        let obligation = obligations
+            .iter_mut()
+            .find(|obligation| obligation.kind != authority::AuthorityObligationKind::Propagation)
+            .expect("targetless method call must register an authority obligation");
+        let errors = authority::run_authority_obligation(&mut partial, obligation, true, true)
             .expect_err("strict inference must reject targetless method dispatch");
         assert!(errors.iter().any(|error| {
             error
@@ -742,9 +927,11 @@ mod tests {
             local_def_ids: crate::ids::IdGen::<crate::ids::LocalDefId>::new(),
             language_items: HirLanguageItems::default(),
             imported_effective_trait_methods: HashMap::new(),
+            inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
         };
 
-        generalize::generalize_all_functions(&mut partial);
+        generalize::generalize_functions(&mut partial, &[main_id, nested_id], Some(main_id));
 
         assert!(partial.functions[&main_id].generic_params.is_empty());
         assert_eq!(
@@ -807,6 +994,8 @@ mod tests {
                 local_def_ids: crate::ids::IdGen::<crate::ids::LocalDefId>::new(),
                 language_items: HirLanguageItems::default(),
                 imported_effective_trait_methods: HashMap::new(),
+                inference_sccs: HashMap::new(),
+                inference_scc_order: Vec::new(),
             }
         }
 
@@ -921,6 +1110,8 @@ mod tests {
             local_def_ids: crate::ids::IdGen::<crate::ids::LocalDefId>::new(),
             language_items: HirLanguageItems::default(),
             imported_effective_trait_methods: HashMap::new(),
+            inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
         };
 
         let resolved = finalize(partial).unwrap();
@@ -991,6 +1182,8 @@ mod tests {
             local_def_ids: crate::ids::IdGen::<crate::ids::LocalDefId>::new(),
             language_items: HirLanguageItems::default(),
             imported_effective_trait_methods: HashMap::new(),
+            inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
         };
         partial.local_def_ids.fresh();
         partial.local_def_ids.fresh();
@@ -1052,6 +1245,8 @@ mod tests {
             local_def_ids: crate::ids::IdGen::<crate::ids::LocalDefId>::new(),
             language_items: HirLanguageItems::default(),
             imported_effective_trait_methods: HashMap::new(),
+            inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
         };
 
         let resolved = finalize(partial).expect("ID-keyed payload should finalize");
@@ -1090,6 +1285,8 @@ mod tests {
             local_def_ids: crate::ids::IdGen::<crate::ids::LocalDefId>::new(),
             language_items: HirLanguageItems::default(),
             imported_effective_trait_methods: HashMap::new(),
+            inference_sccs: HashMap::new(),
+            inference_scc_order: Vec::new(),
         };
 
         let errors = finalize(partial).expect_err("mismatched function IDs should be rejected");
