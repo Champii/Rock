@@ -189,6 +189,16 @@ impl ConstraintStore {
             last_generation: u64::MAX,
             attempts: 0,
         });
+        let mut vars = HashSet::new();
+        collect_constraint_vars(
+            self.constraints
+                .last()
+                .expect("an obligation is created with its constraint"),
+            &mut vars,
+        );
+        for var in vars {
+            self.dependencies.entry(var).or_default().push(id);
+        }
         id
     }
 
@@ -277,15 +287,6 @@ impl ConstraintStore {
             .get(id.raw() as usize)
             .filter(|obligation| obligation.id == id)
             .map(|obligation| obligation.last_generation)
-    }
-
-    /// Refresh dependencies for all obligations after an engine has established
-    /// the current representatives.
-    pub(crate) fn rebuild_dependencies(&mut self, engine: &crate::infer::InferenceEngine) {
-        self.dependencies.clear();
-        for id in self.obligation_ids().collect::<Vec<_>>() {
-            self.refresh_dependencies(id, engine);
-        }
     }
 
     /// Refresh one obligation after it changes its representative class.
@@ -413,9 +414,6 @@ mod tests {
             Span::default(),
             "dependency test",
         );
-        let engine = crate::infer::InferenceEngine::new();
-        store.rebuild_dependencies(&engine);
-
         assert!(store.dependencies_for(TypeVarId(0)).contains(&id));
         assert!(store.dependencies_for(TypeVarId(1)).contains(&id));
         assert!(store.dependencies_for(TypeVarId(2)).contains(&id));
@@ -431,9 +429,6 @@ mod tests {
             Type::TypeVar(TypeVarId(3)),
             Span::default(),
         );
-        let engine = crate::infer::InferenceEngine::new();
-        store.rebuild_dependencies(&engine);
-
         for var in 0..=3 {
             assert!(store.dependencies_for(TypeVarId(var)).contains(&id));
         }

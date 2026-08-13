@@ -2,8 +2,7 @@
 
 ## Status
 
-Proposed on 2026-08-12 for implementation on
-`experiment/signatureless-inference`.
+Implemented on `experiment/signatureless-inference` on 2026-08-13.
 
 This specification extends the implemented higher-kinded type model. It does
 not change Rock syntax, add compiler-owned functional operators, or relax the
@@ -250,6 +249,8 @@ root constructor failure.
 
 ### Phase 1: Progress-Aware Structural Worklist
 
+Status: complete.
+
 - Add substitution generation tracking to `InferenceEngine`.
 - Run equality and callable-derived equality obligations until no generation
   changes.
@@ -259,11 +260,15 @@ root constructor failure.
 
 ### Phase 2: First-Class Obligation States
 
+Status: complete.
+
 - Assign stable IDs and states to constraints.
 - Record dependencies from type-variable representatives to obligations.
 - Remove full rescans when only a subset needs waking.
 
 ### Phase 3: Rigid-Spine Constructor Matching
+
+Status: complete.
 
 - Extract constructor-section matching from ad hoc callable handling.
 - Normalize and solve unique aligned HKT applications.
@@ -271,11 +276,16 @@ root constructor failure.
 
 ### Phase 4: Deferred Authority Integration
 
+Status: complete.
+
 - Move call-instance, method, method-value, field, and operator propagation onto
   the worklist.
 - Remove arbitrary retry loops and duplicate eager/deferred selection logic.
 
 ### Phase 5: Try Integration
+
+Status: complete. `Try::branch` and `FromResidual::from_residual` are separate
+authority obligations with independent dependencies and wakeups.
 
 - Represent `Try` and `FromResidual` as linked obligations.
 - Wake them when carrier, residual, or enclosing return types change.
@@ -283,11 +293,17 @@ root constructor failure.
 
 ### Phase 6: SCC Finalization
 
+Status: complete. SCC component worklists are requeued only after substitution
+progress, then evidence-backed defaults and strict obligation validation run
+before the solved components are generalized.
+
 - Solve SCCs against explicit environments.
 - Generalize only after quiescence.
 - Remove obsolete staged solve/materialize sequences.
 
 ### Phase 7: Annotation-Free Acceptance
+
+Status: complete.
 
 - Remove executable local annotations from `new_new/main.rk`.
 - Build a fresh stdlib artifact.
@@ -311,6 +327,30 @@ root constructor failure.
 - Accepted HIR rejects every unresolved type or authority.
 - Full `cargo test -p rock-lib` passes.
 - Fresh stdlib artifact plus annotation-free `new_new/main.rk` passes.
+
+## Implementation Evidence
+
+- `InferenceEngine` tracks monotonic substitution generations and isolates
+  probes from production progress.
+- `ConstraintStore` assigns stable obligation IDs and records dependencies
+  incrementally when obligations are created; changed representatives wake only
+  their dependents.
+- Lowering computes function call-graph SCCs before body inference and records
+  dependency-first component order.
+- Structural, callable, method, field, operator, `Try`, and residual authority
+  progress is driven by the component worklist without fixed retry counts or
+  whole-store dependency rebuilds.
+- Rigid-spine matching infers unique constructor sections while preserving kind,
+  arity, binder-escape, repeated-hole, occurs-check, and ambiguity failures.
+- Accepted HIR validation rejects unresolved types, fields, methods, `Try`
+  branch authorities, and residual conversion authorities.
+- Instance interning reuses one canonical specialization for each
+  `InstanceKey`.
+- `test_projects/new_new/main.rk` contains no executable local type annotations;
+  its remaining annotated fields define nominal layout.
+- The fresh-stdlib integration gate compiles and runs the real annotation-free
+  `new_new` project, and the localhost TCP roundtrip test covers bounded network
+  execution.
 
 ## Rollback Gates
 

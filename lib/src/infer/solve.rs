@@ -394,7 +394,6 @@ fn solve_structural_constraints_to_fixed_point(
     owners: Option<&HashSet<ConstraintOwner>>,
     changed_type_vars: &mut HashSet<TypeVarId>,
 ) {
-    store.rebuild_dependencies(engine);
     let mut queue = store.obligation_ids().collect::<VecDeque<_>>();
     let mut queued = queue.iter().copied().collect::<HashSet<_>>();
 

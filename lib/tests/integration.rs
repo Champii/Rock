@@ -11482,7 +11482,7 @@ main = ->
     )
     .unwrap();
     let mut config = test_config(source_path, project_dir.clone());
-    config.extern_artifacts = vec![("stdlib".to_string(), artifact_path)];
+    config.extern_artifacts = vec![("stdlib".to_string(), artifact_path.clone())];
     let output = rock_lib::compile_with_products(&config)
         .expect("fixture compilation against fresh artifact failed");
     assert!(
@@ -11514,6 +11514,26 @@ main = ->
         String::from_utf8_lossy(&output.stdout).trim(),
         "Err(IoError)"
     );
+
+    let new_new_dir = dir.join("new_new");
+    fs::create_dir_all(&new_new_dir).unwrap();
+    let mut config = test_config(
+        workspace_root().join("test_projects/new_new/main.rk"),
+        new_new_dir.clone(),
+    );
+    config.extern_artifacts = vec![("stdlib".to_string(), artifact_path)];
+    rock_lib::compile_with_products(&config)
+        .expect("annotation-free new_new compilation against fresh artifact failed");
+
+    let mut command = Command::new(new_new_dir.join("main"));
+    command.arg("invalid");
+    let output = run_test_command(&mut command);
+    assert!(
+        output.status.success(),
+        "new_new invalid-mode run failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Err(IoError)"));
 }
 
 #[test]

@@ -40,7 +40,8 @@ pub(super) enum AuthorityObligationKind {
     DeferredCall,
     MethodCall,
     Field,
-    Try,
+    TryBranch,
+    FromResidual,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -182,7 +183,8 @@ pub(super) fn run_authority_obligation(
         AuthorityObligationKind::DeferredCall
         | AuthorityObligationKind::MethodCall
         | AuthorityObligationKind::Field
-        | AuthorityObligationKind::Try => materialize_authority_site(
+        | AuthorityObligationKind::TryBranch
+        | AuthorityObligationKind::FromResidual => materialize_authority_site(
             hir,
             obligation.owner,
             obligation.site.clone().expect("selection obligation site"),
@@ -387,22 +389,27 @@ fn collect_authority_sites(
                 return_ty,
                 ..
             } => {
-                if branch_method.is_none() || from_residual_target.is_none() {
-                    let kind = AuthorityObligationKind::Try;
+                if branch_method.is_none() {
+                    let kind = AuthorityObligationKind::TryBranch;
                     output.push((
                         kind,
                         AuthoritySiteId::new(kind, &node.span),
-                        "Try::branch and FromResidual::from_residual".to_string(),
+                        "Try::branch".to_string(),
                         node.span.clone(),
                         dependencies(
-                            [
-                                operand.ty.clone(),
-                                output_ty.clone(),
-                                residual_ty.clone(),
-                                return_ty.clone(),
-                            ],
+                            [operand.ty.clone(), output_ty.clone(), residual_ty.clone()],
                             engine,
                         ),
+                    ));
+                }
+                if from_residual_target.is_none() {
+                    let kind = AuthorityObligationKind::FromResidual;
+                    output.push((
+                        kind,
+                        AuthoritySiteId::new(kind, &node.span),
+                        "FromResidual::from_residual".to_string(),
+                        node.span.clone(),
+                        dependencies([residual_ty.clone(), return_ty.clone()], engine),
                     ));
                 }
                 expr(operand, engine, output, false);
@@ -3272,8 +3279,12 @@ impl MethodAuthorityContext<'_> {
                 self.materialize_expr(end, errors);
             }
             HirExprKind::Try { .. } => {
-                if self.visit_authority_slot(AuthorityObligationKind::Try, &expr.span) {
-                    self.materialize_try(expr, errors);
+                let materialize_branch =
+                    self.visit_authority_slot(AuthorityObligationKind::TryBranch, &expr.span);
+                let materialize_residual =
+                    self.visit_authority_slot(AuthorityObligationKind::FromResidual, &expr.span);
+                if materialize_branch || materialize_residual {
+                    self.materialize_try(expr, errors, materialize_branch, materialize_residual);
                 } else if let HirExprKind::Try { expr: operand, .. } = &mut expr.kind {
                     self.materialize_expr(operand, errors);
                 }
@@ -3289,7 +3300,13 @@ impl MethodAuthorityContext<'_> {
         }
     }
 
-    fn materialize_try(&mut self, expr: &mut HirExpr, errors: &mut Vec<ResolveError>) {
+    fn materialize_try(
+        &mut self,
+        expr: &mut HirExpr,
+        errors: &mut Vec<ResolveError>,
+        materialize_branch: bool,
+        materialize_residual: bool,
+    ) {
         let HirExprKind::Try {
             expr: operand,
             branch_method,
@@ -3329,7 +3346,7 @@ impl MethodAuthorityContext<'_> {
             return;
         };
 
-        if branch_method.is_none() {
+        if materialize_branch && branch_method.is_none() {
             let carrier_ty = self.resolved_type(&operand.ty);
             if try_carrier_has_unknown_head(&carrier_ty) {
                 if self.try_strict {
@@ -3454,7 +3471,7 @@ impl MethodAuthorityContext<'_> {
                 .and_then(|function| function.self_receiver);
         }
 
-        if from_residual_target.is_none() {
+        if materialize_residual && from_residual_target.is_none() {
             let resolved_return_ty = self.resolved_type(return_ty);
             if try_type_head_is_unresolved(&resolved_return_ty) {
                 if self.try_strict && self.strict {

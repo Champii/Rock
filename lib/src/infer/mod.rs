@@ -558,9 +558,10 @@ fn drive_inference_to_quiescence(hir: &mut PartialHir) -> Result<(), Vec<Resolve
                     }
                     let completed_owner = authority_obligations[index].owner;
                     for obligation in authority_obligations.iter_mut() {
-                        let same_owner_progress = (result.progress || !changed.is_empty())
-                            && obligation.owner == completed_owner;
-                        if same_owner_progress || obligation.depends_on_any(&changed) {
+                        let propagation_edge = result.progress
+                            && obligation.owner == completed_owner
+                            && obligation.kind == authority::AuthorityObligationKind::Propagation;
+                        if propagation_edge || obligation.depends_on_any(&changed) {
                             obligation.wake();
                             if authority_queued.insert(obligation.id) {
                                 queue.push_back(WorkItem::Authority(obligation.id));
@@ -626,29 +627,28 @@ fn drive_inference_to_quiescence(hir: &mut PartialHir) -> Result<(), Vec<Resolve
         authority::propagate_function_instances_for_owners_with_progress(hir, Some(owners))?;
     }
 
-    loop {
+    let mut component_queue = (0..component_work.len()).collect::<VecDeque<_>>();
+    while let Some(index) = component_queue.pop_front() {
         let generation = hir.engine.substitution_generation();
-        for (_, owners, authority_obligations) in &mut component_work {
-            solve_component_worklist(hir, &owners, authority_obligations, false)?;
-        }
-        if generation == hir.engine.substitution_generation() {
-            break;
+        let (_, owners, authority_obligations) = &mut component_work[index];
+        solve_component_worklist(hir, owners, authority_obligations, false)?;
+        if generation != hir.engine.substitution_generation() {
+            component_queue.extend(0..index);
         }
     }
-    let all_owners = component_work
-        .iter()
-        .flat_map(|(_, owners, _)| owners.iter().copied())
-        .collect::<HashSet<_>>();
-    hir.engine
-        .apply_numeric_defaults_for_owners(&hir.constraint_store, Some(&all_owners));
 
-    loop {
+    for (_, owners, _) in &component_work {
+        hir.engine
+            .apply_numeric_defaults_for_owners(&hir.constraint_store, Some(owners));
+    }
+
+    let mut component_queue = (0..component_work.len()).collect::<VecDeque<_>>();
+    while let Some(index) = component_queue.pop_front() {
         let generation = hir.engine.substitution_generation();
-        for (_, owners, authority_obligations) in &mut component_work {
-            solve_component_worklist(hir, &owners, authority_obligations, false)?;
-        }
-        if generation == hir.engine.substitution_generation() {
-            break;
+        let (_, owners, authority_obligations) = &mut component_work[index];
+        solve_component_worklist(hir, owners, authority_obligations, false)?;
+        if generation != hir.engine.substitution_generation() {
+            component_queue.extend(0..index);
         }
     }
 
