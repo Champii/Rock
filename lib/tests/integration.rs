@@ -4,6 +4,7 @@
 
 use std::fs;
 use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -11517,23 +11518,76 @@ main = ->
 
     let new_new_dir = dir.join("new_new");
     fs::create_dir_all(&new_new_dir).unwrap();
-    let mut config = test_config(
-        workspace_root().join("test_projects/new_new/main.rk"),
-        new_new_dir.clone(),
-    );
+    let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+        .expect("failed to reserve new_new test port")
+        .local_addr()
+        .unwrap()
+        .port();
+    let source = fs::read_to_string(workspace_root().join("test_projects/new_new/main.rk"))
+        .expect("failed to read annotation-free new_new fixture");
+    assert!(source.contains("9999"), "new_new fixture port changed");
+    let source_path = new_new_dir.join("main.rk");
+    fs::write(&source_path, source.replace("9999", &port.to_string())).unwrap();
+    let mut config = test_config(source_path, new_new_dir.clone());
     config.extern_artifacts = vec![("stdlib".to_string(), artifact_path)];
     rock_lib::compile_with_products(&config)
         .expect("annotation-free new_new compilation against fresh artifact failed");
 
-    let mut command = Command::new(new_new_dir.join("main"));
-    command.arg("invalid");
-    let output = run_test_command(&mut command);
-    assert!(
-        output.status.success(),
-        "new_new invalid-mode run failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(String::from_utf8_lossy(&output.stdout).contains("Err(IoError)"));
+    let mut listener = Command::new(new_new_dir.join("main"))
+        .arg("listen")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("failed to start annotation-free new_new listener");
+    let scenario = (|| -> Result<(), String> {
+        let address = ("127.0.0.1", port);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut first = loop {
+            match TcpStream::connect(address) {
+                Ok(stream) => break stream,
+                Err(_error) if Instant::now() < deadline => {
+                    if let Some(status) = listener.try_wait().map_err(|error| error.to_string())? {
+                        return Err(format!(
+                            "listener exited before accepting clients: {status}"
+                        ));
+                    }
+                    std::thread::sleep(Duration::from_millis(25));
+                }
+                Err(error) => return Err(format!("listener did not become ready: {error}")),
+            }
+        };
+        let mut second = TcpStream::connect(address)
+            .map_err(|error| format!("second client failed to connect: {error}"))?;
+        first
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .map_err(|error| error.to_string())?;
+        second
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .map_err(|error| error.to_string())?;
+        std::thread::sleep(Duration::from_millis(250));
+
+        let payload = b"annotation-free-broadcast\n";
+        first
+            .write_all(payload)
+            .map_err(|error| format!("failed to send broadcast payload: {error}"))?;
+        let mut first_received = vec![0; payload.len()];
+        let mut second_received = vec![0; payload.len()];
+        first
+            .read_exact(&mut first_received)
+            .map_err(|error| format!("sender did not receive broadcast: {error}"))?;
+        second
+            .read_exact(&mut second_received)
+            .map_err(|error| format!("peer did not receive broadcast: {error}"))?;
+        if first_received != payload || second_received != payload {
+            return Err(format!(
+                "broadcast payload mismatch: sender={first_received:?}, peer={second_received:?}"
+            ));
+        }
+        Ok(())
+    })();
+    let _ = listener.kill();
+    let _ = listener.wait();
+    scenario.expect("annotation-free new_new two-client scenario failed");
 }
 
 #[test]

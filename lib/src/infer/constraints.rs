@@ -76,6 +76,14 @@ pub enum Constraint {
         span: Span,
         context: String,
     },
+    /// An argument type must either unify directly with the expected type or
+    /// use a supported argument coercion once the expected shape is known.
+    Coercion {
+        actual: Type,
+        expected: Type,
+        span: Span,
+        context: String,
+    },
     /// Types linked by one `?` expression while canonical authorities are deferred.
     Try {
         carrier: Type,
@@ -156,6 +164,22 @@ impl ConstraintStore {
         self.constraints.push(Constraint::Equality {
             left,
             right,
+            span,
+            context: context.to_string(),
+        });
+        self.push_obligation()
+    }
+
+    pub fn add_coercion(
+        &mut self,
+        actual: Type,
+        expected: Type,
+        span: Span,
+        context: &str,
+    ) -> ObligationId {
+        self.constraints.push(Constraint::Coercion {
+            actual,
+            expected,
             span,
             context: context.to_string(),
         });
@@ -368,9 +392,10 @@ impl ConstraintStore {
             | Constraint::FloatLiteral {
                 var: constrained, ..
             } => resolve_representative(*constrained) == Some(representative),
-            Constraint::Trait { .. } | Constraint::Equality { .. } | Constraint::Try { .. } => {
-                false
-            }
+            Constraint::Trait { .. }
+            | Constraint::Equality { .. }
+            | Constraint::Coercion { .. }
+            | Constraint::Try { .. } => false,
         })
     }
 }
@@ -493,6 +518,12 @@ fn collect_constraint_vars(constraint: &Constraint, output: &mut HashSet<TypeVar
         Constraint::Equality { left, right, .. } => {
             collect_type_vars(left, output);
             collect_type_vars(right, output);
+        }
+        Constraint::Coercion {
+            actual, expected, ..
+        } => {
+            collect_type_vars(actual, output);
+            collect_type_vars(expected, output);
         }
         Constraint::Try {
             carrier,

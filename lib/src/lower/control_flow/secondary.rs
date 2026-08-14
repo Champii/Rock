@@ -1155,6 +1155,7 @@ impl Lowerer {
                 }
 
                 let resolved_expr_ty = self.engine.resolve(&expr.ty);
+                let defer_argument_coercions = matches!(resolved_expr_ty, Type::TypeVar(_));
                 if let Type::Function { params, .. } = &resolved_expr_ty {
                     if params.len() == 1 && hir_args.len() > 1 {
                         return self.fold_unary_calls(expr, hir_args, span);
@@ -1192,7 +1193,29 @@ impl Lowerer {
                 }
 
                 let ret_ty = self.engine.fresh_type_var();
-                let arg_types: Vec<Type> = hir_args.iter().map(|a| a.ty.clone()).collect();
+                let arg_types: Vec<Type> = hir_args
+                    .iter()
+                    .map(|arg| {
+                        if defer_argument_coercions
+                            && matches!(
+                                self.engine.resolve(&arg.ty),
+                                Type::Reference { inner, .. }
+                                    if matches!(inner.as_ref(), Type::Array(_, _))
+                            )
+                        {
+                            let expected = self.engine.fresh_type_var();
+                            self.constraint_store.add_coercion(
+                                arg.ty.clone(),
+                                expected.clone(),
+                                arg.span.clone(),
+                                "deferred callable argument coercion",
+                            );
+                            expected
+                        } else {
+                            arg.ty.clone()
+                        }
+                    })
+                    .collect();
                 let safety = match self.resolve_projection_type(&self.engine.resolve(&expr.ty)) {
                     Type::Function { safety, .. } => safety,
                     _ => crate::types::FunctionSafety::Safe,
@@ -1542,11 +1565,6 @@ impl Lowerer {
                                 .iter()
                                 .map(|param| self.engine.fresh_type_var_of_kind(param.kind.clone()))
                                 .collect::<Vec<_>>();
-                            let struct_ty = Type::Struct {
-                                id: structure.id,
-                                args: type_args.clone(),
-                            };
-                            let _ = self.engine.unify(&base_expr.ty, &struct_ty);
                             field_ty = self
                                 .lower_struct_field_type(struct_name, &type_args, field_name, &span)
                                 .unwrap_or(Type::Error);

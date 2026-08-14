@@ -2,9 +2,13 @@
 
 ## Status
 
-Implemented on `experiment/signatureless-inference` on 2026-08-13.
+Implemented on `experiment/signatureless-inference` on 2026-08-14.
 
-This specification extends the implemented higher-kinded type model. It does
+The fixed-point constructor, authority, `Try`, SCC worklist, and annotation-free
+higher-order callable inference are implemented. Callable instances preserve
+per-call type-variable relations, selected deferred methods reconnect their
+provisional callable constraints, and array-reference-to-slice coercions remain
+deferred until a unique expected slice type is known. This specification does
 not change Rock syntax, add compiler-owned functional operators, or relax the
 strict accepted-HIR and MIR type barriers.
 
@@ -91,6 +95,9 @@ The worklist covers:
 - type equality;
 - constructor application equality;
 - callable argument and return relationships;
+- callable ownership, reference mutability, callable kind, and ABI pass mode;
+- explicit coercion obligations, including fixed-array reference to slice
+  reference coercion;
 - trait and impl bounds;
 - associated type projections;
 - function call-site instantiation;
@@ -99,6 +106,12 @@ The worklist covers:
 - operator functions and operator methods;
 - `Try::branch` and `FromResidual::from_residual`;
 - literal defaulting after structural solving.
+
+Owned `T`, `&T`, `&mut T`, `[T; N]`, `[T]`, `&[T; N]`, and `&[T]` are distinct
+semantic shapes. Structural equality must not silently identify them. A legal
+coercion is a first-class obligation with an expected destination type; it is
+not an inference fallback and cannot alter the declared or inferred ABI of a
+named callable.
 
 ## Progress Model
 
@@ -155,10 +168,31 @@ arguments, never display names.
 
 ## Callable And Operator Propagation
 
-Callable obligations relate the callable value, argument tuple, and return
-type before HKT equality is validated. When callback inference changes a
-return type, dependent constructor equality and operator result obligations
-are woken.
+Callable obligations relate the callable value, complete argument tuple,
+return type, safety, callable kind, ownership/reference modes, and ABI pass
+modes before HKT equality is validated. When callback inference changes any of
+those facts, dependent callable, constructor equality, operator result, and
+coercion obligations are woken.
+
+Propagation is bidirectional for a signatureless named function used as a
+callback. Callback use sites constrain the named function header before its SCC
+is generalized. A call through the callback constrains the callback parameter
+and return shapes, while the named function body and all other call sites
+constrain the same monomorphic SCC header.
+
+Callable compatibility is not return-type-only. Parameter types are checked
+with function variance and exact ownership/reference shape. Fixed-array
+reference to slice-reference conversion is allowed only as an explicit
+argument coercion against an already known `&[T]` or `&mut [T]` expectation; it
+must not infer the callback itself as taking `&[T; N]` when another use requires
+`&[T]`.
+
+Every failed callable unification is a failed obligation with a source span.
+No propagation path may discard a unification error. At quiescence, accepted
+HIR must contain one semantic callable type that is compatible with the exact
+selected named function declaration and its MIR callable signature. If owned
+and borrowed solutions remain viable, inference reports ambiguity rather than
+choosing one or relying on a codegen wrapper.
 
 Functional operators remain ordinary Rock functions. Lowering records their
 function type equality and exact resolved variable target. The solver does not
@@ -238,12 +272,17 @@ identify the unresolved relationship, for example:
 
 - ambiguous constructor section with candidate canonical types;
 - callable return does not determine mapped carrier;
+- callable parameter ownership or reference mode is ambiguous;
+- named callback parameter or return type is incompatible with its expected
+  callback type;
+- fixed-array reference requires a slice expectation that was never proven;
 - `?` carrier head remains unresolved;
 - multiple method implementations remain after expected-result filtering;
-- kind, arity, occurs-check, or bound failure.
+- kind, arity, occurs-check, bound, or callable ABI failure.
 
 The solver must not emit cascades of anonymous finalization errors after one
-root constructor failure.
+root constructor failure. It must also reject a callable mismatch before MIR
+or LLVM; codegen is a defensive verifier, not a callable-type repair phase.
 
 ## Implementation Phases
 
@@ -303,11 +342,18 @@ before the solved components are generalized.
 
 ### Phase 7: Annotation-Free Acceptance
 
-Status: complete.
+Status: complete. Annotation-free `new_new/main.rk` infers borrowed callable
+parameters, reconnects provisional deferred-call constraints to selected method
+signatures, and runs the bounded two-client broadcast scenario against a fresh
+stdlib artifact.
 
-- Remove executable local annotations from `new_new/main.rk`.
+- Remove executable local annotations from `new_new/main.rk` after its inferred
+  callable signatures are ABI-compatible with the supplied named functions.
 - Build a fresh stdlib artifact.
-- Compile and run representative listener/connect paths.
+- Run a bounded listener with two connect clients and assert actual payload
+  delivery in both clients.
+- Reject incompatible named-callable propagation before accepted HIR and retain
+  the selected callable signature through MIR lowering.
 
 ## Required Tests
 
@@ -316,19 +362,33 @@ Status: complete.
 - Two unknown heads remain ambiguous.
 - Multiple matching constructor impls remain ambiguous.
 - Callback return inference propagates through `<&>` into a following `?`.
-- Annotation-free `finish_connection`, `receive_with`, `broadcast`, and
-  `run_listener` patterns compile.
+- Signatureless `broadcast` infers exactly
+  `&mut SharedServerState -> &[U8] -> I64 -> Result I64, IoError`.
+- Signatureless `receive_with` infers its callback as
+  `&mut T -> &[U8] -> I64 -> Result I64, E`, not `&[U8; N]`; each fixture call
+  specializes `E` to `IoError`.
+- Explicitly typed and signatureless variants produce ABI-compatible accepted-HIR
+  callable signatures and identical MIR pass modes; the signatureless variant
+  may validly generalize variables that its body does not constrain.
+- A named callback semantic-signature mismatch fails before LLVM generation.
+- Array-reference to slice-reference coercion occurs only against a known slice
+  expectation.
+- Ambiguous owned-versus-borrowed callback inference is diagnosed.
 - Same-name methods remain ambiguous without sufficient expected type.
 - Deferred shared, mutable, and autoderef receivers preserve adjustments.
 - Generic method and impl bounds are enforced.
 - Deferred unsafe calls require unsafe context.
 - Custom `Try` and cross-residual conversions retain exact authority.
 - Direct and mutual recursion terminate and specialize once per instance key.
-- Accepted HIR rejects every unresolved type or authority.
+- Accepted HIR rejects every unresolved type, authority, or incompatible named
+  callable signature.
 - Full `cargo test -p rock-lib` passes.
-- Fresh stdlib artifact plus annotation-free `new_new/main.rk` passes.
+- A fresh stdlib artifact plus annotation-free `new_new/main.rk` runs a bounded
+  listener and two clients and verifies payload delivery.
 
 ## Implementation Evidence
+
+Confirmed implementation evidence:
 
 - `InferenceEngine` tracks monotonic substitution generations and isolates
   probes from production progress.
@@ -337,20 +397,29 @@ Status: complete.
   their dependents.
 - Lowering computes function call-graph SCCs before body inference and records
   dependency-first component order.
-- Structural, callable, method, field, operator, `Try`, and residual authority
-  progress is driven by the component worklist without fixed retry counts or
-  whole-store dependency rebuilds.
+- Structural, constructor, method, field, operator, `Try`, and residual
+  authority progress is driven by the component worklist without fixed retry
+  counts or whole-store dependency rebuilds.
 - Rigid-spine matching infers unique constructor sections while preserving kind,
   arity, binder-escape, repeated-hole, occurs-check, and ambiguity failures.
 - Accepted HIR validation rejects unresolved types, fields, methods, `Try`
   branch authorities, and residual conversion authorities.
 - Instance interning reuses one canonical specialization for each
   `InstanceKey`.
-- `test_projects/new_new/main.rk` contains no executable local type annotations;
-  its remaining annotated fields define nominal layout.
-- The fresh-stdlib integration gate compiles and runs the real annotation-free
-  `new_new` project, and the localhost TCP roundtrip test covers bounded network
-  execution.
+- Deferred callable coercion obligations wake when selected method signatures
+  reconnect the provisional callee type, so `&mut [U8; N]` coerces to
+  `&mut [U8]` without guessing while the callee is unknown.
+- Per-call relation maps preserve repeated inferred variables across target and
+  callback parameters without globally monomorphizing polymorphic helpers.
+- Variables needed for authority inside a function body still propagate from a
+  call instance into the source signature.
+- Known borrowed field receivers materialize an explicit dereference before MIR
+  field projection.
+- Function-value and callable-argument propagation report concrete unification
+  failures instead of discarding them.
+- The fresh-stdlib integration gate compiles annotation-free `new_new/main.rk`,
+  starts its listener on a bounded dynamic port, connects two clients, and
+  verifies that both receive the same payload.
 
 ## Rollback Gates
 

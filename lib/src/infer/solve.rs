@@ -206,11 +206,46 @@ fn solve_constraints_in_place_mode(
         if !store.includes_owner(id, owners) {
             continue;
         }
+        let Constraint::Coercion {
+            actual,
+            expected,
+            context,
+            ..
+        } = constraint
+        else {
+            continue;
+        };
+        let resolved_actual = engine.resolve(&actual);
+        let resolved_expected = engine.resolve(&expected);
+        if matches!(resolved_expected, Type::TypeVar(_)) {
+            continue;
+        }
+        let mut probe = engine.clone_for_probe();
+        if let Err(error) =
+            unify_argument_coercion(&mut probe, &resolved_actual, &resolved_expected)
+        {
+            if !contains_unresolved_type(&resolved_actual)
+                && !contains_unresolved_type(&resolved_expected)
+            {
+                errors.push(format!("{context}: {error}"));
+                store.set_state(id, ObligationState::Failed);
+            }
+        }
+    }
+
+    for (id, constraint) in store
+        .iter()
+        .map(|(id, value)| (id, value.clone()))
+        .collect::<Vec<_>>()
+    {
+        if !store.includes_owner(id, owners) {
+            continue;
+        }
         match constraint {
             Constraint::Trait {
                 ty,
                 bound,
-                span: _,
+                span,
                 context,
             } => {
                 let normalization_env = engine.normalization_env();
@@ -286,11 +321,14 @@ fn solve_constraints_in_place_mode(
                                 continue;
                             }
                             let msg = format!(
-                                "type `{}` does not implement trait `trait#{}::{}` (required by {})",
+                                "type `{}` does not implement trait `trait#{}::{}` (required by {} at {}:{}-{})",
                                 concrete_ty,
                                 resolved_bound.trait_id.crate_id.0,
                                 resolved_bound.trait_id.local.0,
-                                context
+                                context,
+                                span.file_path.display(),
+                                span.start,
+                                span.end
                             );
                             errors.push(msg);
                             store.set_state(id, ObligationState::Failed);
@@ -338,7 +376,7 @@ fn solve_constraints_in_place_mode(
                     }
                 }
             }
-            Constraint::Equality { .. } | Constraint::Try { .. } => {}
+            Constraint::Equality { .. } | Constraint::Coercion { .. } | Constraint::Try { .. } => {}
         }
     }
 
@@ -354,9 +392,19 @@ fn solve_constraints_in_place_mode(
             };
             let context = match constraint {
                 Constraint::Equality { context, .. } | Constraint::Trait { context, .. } => {
-                    context.as_str()
+                    context.clone()
                 }
-                Constraint::Try { .. } => "try operator",
+                Constraint::Coercion {
+                    actual,
+                    expected,
+                    context,
+                    ..
+                } => format!(
+                    "{context}: {} -> {}",
+                    engine.resolve(actual),
+                    engine.resolve(expected)
+                ),
+                Constraint::Try { .. } => "try operator".to_string(),
                 Constraint::IntLiteral { .. } | Constraint::FloatLiteral { .. } => continue,
             };
             errors.push(format!(
@@ -436,6 +484,39 @@ fn solve_structural_constraints_to_fixed_point(
                             ObligationState::Pending
                         } else {
                             ObligationState::Failed
+                        }
+                    }
+                }
+            }
+            Constraint::Coercion {
+                actual, expected, ..
+            } => {
+                let resolved_actual = engine.resolve(&actual);
+                let resolved_expected = engine.resolve(&expected);
+                if matches!(resolved_expected, Type::TypeVar(_)) {
+                    ObligationState::Pending
+                } else {
+                    let mut probe = engine.clone_for_probe();
+                    match unify_argument_coercion(&mut probe, &resolved_actual, &resolved_expected)
+                    {
+                        Ok(()) => {
+                            *engine = probe;
+                            if contains_unresolved_type(&engine.resolve(&actual))
+                                || contains_unresolved_type(&engine.resolve(&expected))
+                            {
+                                ObligationState::Pending
+                            } else {
+                                ObligationState::Solved
+                            }
+                        }
+                        Err(_) => {
+                            if contains_unresolved_type(&resolved_actual)
+                                || contains_unresolved_type(&resolved_expected)
+                            {
+                                ObligationState::Pending
+                            } else {
+                                ObligationState::Failed
+                            }
                         }
                     }
                 }
@@ -568,6 +649,39 @@ fn solve_structural_constraints_to_fixed_point(
             }
         }
     }
+}
+
+fn unify_argument_coercion(
+    engine: &mut InferenceEngine,
+    actual: &Type,
+    expected: &Type,
+) -> Result<(), String> {
+    if let (
+        Type::Reference {
+            mutable: actual_mutable,
+            inner: actual_inner,
+        },
+        Type::Reference {
+            mutable: expected_mutable,
+            inner: expected_inner,
+        },
+    ) = (actual, expected)
+    {
+        if (!expected_mutable || *actual_mutable)
+            && matches!(actual_inner.as_ref(), Type::Array(_, _))
+            && matches!(expected_inner.as_ref(), Type::Slice(_))
+        {
+            let Type::Array(actual_element, _) = actual_inner.as_ref() else {
+                unreachable!()
+            };
+            let Type::Slice(expected_element) = expected_inner.as_ref() else {
+                unreachable!()
+            };
+            return engine.unify(actual_element, expected_element);
+        }
+    }
+
+    engine.unify(actual, expected)
 }
 
 fn try_head_is_pending(ty: &Type) -> bool {

@@ -1088,6 +1088,12 @@ fn constrained_signature_vars(
                 collect_type_vars(&hir.engine.resolve(left), &mut obligation_vars);
                 collect_type_vars(&hir.engine.resolve(right), &mut obligation_vars);
             }
+            Constraint::Coercion {
+                actual, expected, ..
+            } => {
+                collect_type_vars(&hir.engine.resolve(actual), &mut obligation_vars);
+                collect_type_vars(&hir.engine.resolve(expected), &mut obligation_vars);
+            }
             Constraint::Try {
                 carrier,
                 output,
@@ -1143,7 +1149,13 @@ fn propagate_expr(
         ..
     }) = &expr.kind
     {
-        propagate_function_value_instance(hir, expr.ty.clone(), *function_id, constrained_vars);
+        propagate_function_value_instance(
+            hir,
+            expr.ty.clone(),
+            *function_id,
+            constrained_vars,
+            errors,
+        );
     }
     match &mut expr.kind {
         HirExprKind::Call(callee, args, _) => {
@@ -1279,7 +1291,8 @@ fn propagate_function_value_instance(
     hir: &mut PartialHir,
     value_ty: Type,
     function_id: DefId,
-    constrained_vars: &HashMap<DefId, HashSet<crate::ids::TypeVarId>>,
+    _constrained_vars: &HashMap<DefId, HashSet<crate::ids::TypeVarId>>,
+    errors: &mut Vec<ResolveError>,
 ) {
     let Some(function) = hir
         .functions
@@ -1301,26 +1314,13 @@ fn propagate_function_value_instance(
         function.ret_type.clone(),
         FunctionSafety::from_is_unsafe(function.is_unsafe),
     );
-    let shared_vars = constrained_vars
-        .get(&function_id)
-        .cloned()
-        .unwrap_or_default();
-    let mut source_vars = HashSet::new();
-    collect_type_vars(&hir.engine.resolve(&source), &mut source_vars);
-    if shared_vars.is_empty() && !source_vars.is_empty() {
-        return;
-    }
-    let substitution = source_vars
-        .into_iter()
-        .filter(|id| !shared_vars.contains(id))
-        .map(|id| {
-            let kind = hir.engine.kind_of_type_var(id);
-            (id, hir.engine.fresh_type_var_of_kind(kind))
-        })
-        .collect::<HashMap<_, _>>();
-    let _ = hir
-        .engine
-        .unify(&value_ty, &source.substitute(&substitution));
+    unify_propagated_callable(
+        &mut hir.engine,
+        &value_ty,
+        &source,
+        errors,
+        &format!("named callable '{}'", function.name),
+    );
 }
 
 fn propagate_method_arguments(
@@ -1366,7 +1366,7 @@ fn propagate_call_instance(
     callee: &HirExpr,
     args: &mut [HirExpr],
     constrained_vars: &HashMap<DefId, HashSet<crate::ids::TypeVarId>>,
-    _errors: &mut Vec<ResolveError>,
+    errors: &mut Vec<ResolveError>,
 ) {
     let HirExprKind::ResolvedVar(reference) = &callee.kind else {
         return;
@@ -1388,7 +1388,7 @@ fn propagate_call_instance(
             let resolved_callee = hir.engine.resolve(&callee.ty);
             if let Type::Function { params, ret, .. } = resolved_callee {
                 for (arg, expected) in args.iter().zip(params.iter()) {
-                    propagate_argument_type(&mut hir.engine, &arg.ty, expected);
+                    propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors);
                 }
                 propagate_generic_scheme_type(&mut hir.engine, &source_ret, ret.as_ref());
                 let resolved_ret = hir.engine.resolve(ret.as_ref());
@@ -1435,18 +1435,26 @@ fn propagate_call_instance(
             ..
         } = source_type
         {
+            let mut instance_bindings = HashMap::new();
             for (instance, source) in params.iter().zip(source_params.iter()) {
                 if contains_recovery_type(source) {
-                    propagate_shared_type_vars(&mut hir.engine, source, instance, &shared_vars);
+                    propagate_instance_relation(
+                        &mut hir.engine,
+                        source,
+                        instance,
+                        &mut instance_bindings,
+                        &shared_vars,
+                    );
                 } else {
                     let _ = hir.engine.unify(instance, source);
                 }
             }
             if contains_recovery_type(source_ret.as_ref()) {
-                propagate_shared_type_vars(
+                propagate_instance_relation(
                     &mut hir.engine,
                     source_ret.as_ref(),
                     ret.as_ref(),
+                    &mut instance_bindings,
                     &shared_vars,
                 );
             } else {
@@ -1461,7 +1469,7 @@ fn propagate_call_instance(
             }
         }
         for (arg, expected) in args.iter().zip(params.iter()) {
-            propagate_argument_type(&mut hir.engine, &arg.ty, expected);
+            propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors);
         }
         if let Some(source_result) = source_partial_result {
             let _ = hir.engine.unify(result_ty, &source_result);
@@ -1489,27 +1497,8 @@ fn propagate_call_instance(
         .map(|param| hir.engine.resolve(&param.ty))
         .collect::<Vec<_>>();
     let source_ret = hir.engine.resolve(&function.ret_type);
-    let mut source_vars = HashSet::new();
-    for ty in source_params.iter().chain(std::iter::once(&source_ret)) {
-        crate::type_services::visit::visit_type(ty, &mut |nested: &Type| {
-            if let Type::TypeVar(id) = nested {
-                source_vars.insert(*id);
-            }
-        });
-    }
-    let fresh_substitution = source_vars
-        .into_iter()
-        .filter(|id| !shared_vars.contains(id))
-        .map(|id| {
-            let kind = hir.engine.kind_of_type_var(id);
-            (id, hir.engine.fresh_type_var_of_kind(kind))
-        })
-        .collect::<HashMap<_, _>>();
-    let instance_params = source_params
-        .iter()
-        .map(|ty| ty.substitute(&fresh_substitution))
-        .collect::<Vec<_>>();
-    let instance_ret = source_ret.substitute(&fresh_substitution);
+    let instance_params = source_params;
+    let instance_ret = source_ret;
     let instance_type = Type::function_with_safety(
         instance_params,
         instance_ret,
@@ -1522,7 +1511,7 @@ fn propagate_call_instance(
     };
     let instance_ret = *ret;
     for (arg, expected) in args.iter().zip(params.iter()) {
-        propagate_argument_type(&mut hir.engine, &arg.ty, expected);
+        propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors);
     }
     let result_type = if args.len() < params.len() {
         Type::function_with_safety(
@@ -1543,6 +1532,7 @@ fn propagate_argument_type(
     engine: &mut crate::infer::InferenceEngine,
     actual: &Type,
     expected: &Type,
+    errors: &mut Vec<ResolveError>,
 ) {
     if let (
         Type::Function {
@@ -1553,22 +1543,74 @@ fn propagate_argument_type(
         },
     ) = (engine.resolve(actual), engine.resolve(expected))
     {
-        let _ = engine.unify(&actual_ret, &expected_ret);
+        unify_propagated_callable(
+            engine,
+            actual_ret.as_ref(),
+            expected_ret.as_ref(),
+            errors,
+            "callable return",
+        );
     }
-    let _ = engine.unify(actual, expected);
+    unify_propagated_callable(engine, actual, expected, errors, "callable argument");
 }
 
-fn propagate_shared_type_vars(
+fn unify_propagated_callable(
+    engine: &mut crate::infer::InferenceEngine,
+    actual: &Type,
+    expected: &Type,
+    errors: &mut Vec<ResolveError>,
+    context: &str,
+) -> bool {
+    let mut probe = engine.clone_for_probe();
+    match probe.unify(actual, expected) {
+        Ok(()) => {
+            engine.commit_probe(probe);
+            true
+        }
+        Err(error)
+            if !contains_recovery_type(&engine.resolve(actual))
+                && !contains_recovery_type(&engine.resolve(expected)) =>
+        {
+            errors.push(ResolveError::new(format!(
+                "{context} type mismatch: {error}"
+            )));
+            false
+        }
+        Err(_) => false,
+    }
+}
+
+fn propagate_instance_relation(
     engine: &mut crate::infer::InferenceEngine,
     source: &Type,
     instance: &Type,
+    bindings: &mut HashMap<crate::ids::TypeVarId, Type>,
     shared: &HashSet<crate::ids::TypeVarId>,
 ) {
     let source = engine.resolve(source);
     let instance = engine.resolve(instance);
     match (&source, &instance) {
-        (Type::TypeVar(id), _) if shared.contains(id) => {
-            let _ = engine.unify(&source, &instance);
+        (Type::TypeVar(id), _) => {
+            if shared.contains(id) {
+                let _ = engine.unify(&source, &instance);
+                bindings.insert(*id, instance);
+            } else if let Some(bound) = bindings.get(id).cloned() {
+                let _ = engine.unify(&bound, &instance);
+            } else {
+                bindings.insert(*id, instance);
+            }
+        }
+        (source, Type::TypeVar(_)) if !matches!(source, Type::TypeVar(_)) => {
+            let mut source_vars = HashSet::new();
+            collect_type_vars(source, &mut source_vars);
+            for id in source_vars {
+                bindings.entry(id).or_insert_with(|| {
+                    let kind = engine.kind_of_type_var(id);
+                    engine.fresh_type_var_of_kind(kind)
+                });
+            }
+            let specialized = source.substitute(bindings);
+            let _ = engine.unify(&specialized, &instance);
         }
         (
             Type::Reference { inner: source, .. },
@@ -1578,16 +1620,16 @@ fn propagate_shared_type_vars(
         )
         | (Type::Pointer(source), Type::Pointer(instance))
         | (Type::Slice(source), Type::Slice(instance)) => {
-            propagate_shared_type_vars(engine, source, instance, shared);
+            propagate_instance_relation(engine, source, instance, bindings, shared);
         }
         (Type::Array(source, source_len), Type::Array(instance, instance_len))
             if source_len == instance_len =>
         {
-            propagate_shared_type_vars(engine, source, instance, shared);
+            propagate_instance_relation(engine, source, instance, bindings, shared);
         }
         (Type::Tuple(source), Type::Tuple(instance)) => {
             for (source, instance) in source.iter().zip(instance) {
-                propagate_shared_type_vars(engine, source, instance, shared);
+                propagate_instance_relation(engine, source, instance, bindings, shared);
             }
         }
         (
@@ -1603,9 +1645,9 @@ fn propagate_shared_type_vars(
             },
         ) => {
             for (source, instance) in source_params.iter().zip(instance_params) {
-                propagate_shared_type_vars(engine, source, instance, shared);
+                propagate_instance_relation(engine, source, instance, bindings, shared);
             }
-            propagate_shared_type_vars(engine, source_ret, instance_ret, shared);
+            propagate_instance_relation(engine, source_ret, instance_ret, bindings, shared);
         }
         (
             Type::Struct {
@@ -1628,7 +1670,7 @@ fn propagate_shared_type_vars(
             },
         ) if source_id == instance_id => {
             for (source, instance) in source_args.iter().zip(instance_args) {
-                propagate_shared_type_vars(engine, source, instance, shared);
+                propagate_instance_relation(engine, source, instance, bindings, shared);
             }
         }
         (
@@ -1641,9 +1683,15 @@ fn propagate_shared_type_vars(
                 args: instance_args,
             },
         ) => {
-            propagate_shared_type_vars(engine, source_constructor, instance_constructor, shared);
+            propagate_instance_relation(
+                engine,
+                source_constructor,
+                instance_constructor,
+                bindings,
+                shared,
+            );
             for (source, instance) in source_args.iter().zip(instance_args) {
-                propagate_shared_type_vars(engine, source, instance, shared);
+                propagate_instance_relation(engine, source, instance, bindings, shared);
             }
         }
         _ => {}
@@ -2989,10 +3037,6 @@ impl MethodAuthorityContext<'_> {
                     self.visit_authority_slot(AuthorityObligationKind::DeferredCall, &expr.span)
                 });
                 if target.is_some() {
-                    if let Some(crate::hir::HirCallTarget::Function(function_id)) = target.as_ref()
-                    {
-                        self.materialize_direct_function_call(&expr.ty, callee, args, *function_id);
-                    }
                     if deferred_member {
                         if let HirExprKind::FieldAccess(receiver, _, _) = &mut callee.kind {
                             self.materialize_expr(receiver, errors);
@@ -3002,6 +3046,11 @@ impl MethodAuthorityContext<'_> {
                     }
                     for arg in args.iter_mut() {
                         self.materialize_expr(arg, errors);
+                    }
+                    self.materialize_callable_arguments(callee, args, errors);
+                    if let Some(crate::hir::HirCallTarget::Function(function_id)) = target.as_ref()
+                    {
+                        self.materialize_direct_function_call(&expr.ty, callee, args, *function_id);
                     }
                     return;
                 }
@@ -3014,6 +3063,7 @@ impl MethodAuthorityContext<'_> {
                         for arg in args.iter_mut() {
                             self.materialize_expr(arg, errors);
                         }
+                        self.materialize_callable_arguments(callee, args, errors);
                         return;
                     }
                 };
@@ -3173,8 +3223,27 @@ impl MethodAuthorityContext<'_> {
                 let mut authority = selected.target.clone();
                 authority.method_substitution = method_substitution;
                 let selected_return = selected.return_type.substitute_generics(&substitution);
+                let selected_callable = Type::function_with_safety(
+                    selected
+                        .substituted_params
+                        .iter()
+                        .map(|param| param.ty.substitute_generics(&substitution))
+                        .collect(),
+                    selected_return.clone(),
+                    FunctionSafety::from_is_unsafe(function.is_unsafe),
+                );
                 {
                     let mut engine = self.engine.borrow_mut();
+                    if let Err(error) = engine.unify(&callee.ty, &selected_callable) {
+                        if self.strict {
+                            errors.push(ResolveError::new(format!(
+                                "selected method '{}' callable type does not match its deferred call: {error}",
+                                method_name
+                            )));
+                            return;
+                        }
+                        self.ambiguous = true;
+                    }
                     let _ = engine.unify(&expr.ty, &selected_return);
                     expr.ty = engine.resolve(&expr.ty);
                 }
@@ -3199,7 +3268,10 @@ impl MethodAuthorityContext<'_> {
                     ));
                 }
             }
-            HirExprKind::FieldAccess(receiver, _, _) => {
+            HirExprKind::FieldAccess(_, _, Some(_)) => {
+                self.materialize_field_access(expr, errors);
+            }
+            HirExprKind::FieldAccess(receiver, _, None) => {
                 if self.visit_authority_slot(AuthorityObligationKind::Field, &expr.span) {
                     self.materialize_field_access(expr, errors);
                 } else {
@@ -3297,6 +3369,68 @@ impl MethodAuthorityContext<'_> {
             | HirExprKind::StringLiteral(_)
             | HirExprKind::CharLiteral(_)
             | HirExprKind::Unit => {}
+        }
+    }
+
+    fn materialize_callable_arguments(
+        &mut self,
+        callee: &HirExpr,
+        args: &mut [HirExpr],
+        errors: &mut Vec<ResolveError>,
+    ) {
+        let Type::Function { params, .. } = self.resolved_type(&callee.ty) else {
+            return;
+        };
+        if params.len() != args.len() {
+            if self.strict {
+                errors.push(ResolveError::new(format!(
+                    "callable expects {} arguments but received {}",
+                    params.len(),
+                    args.len()
+                )));
+            }
+            return;
+        }
+
+        for (arg, expected) in args.iter_mut().zip(params) {
+            let actual = self.resolved_type(&arg.ty);
+            let expected = self.resolved_type(&expected);
+            if let (
+                Type::Reference {
+                    mutable: actual_mutable,
+                    inner: actual_inner,
+                },
+                Type::Reference {
+                    mutable: expected_mutable,
+                    inner: expected_inner,
+                },
+            ) = (&actual, &expected)
+            {
+                if (!expected_mutable || *actual_mutable)
+                    && matches!(actual_inner.as_ref(), Type::Array(_, _))
+                    && matches!(expected_inner.as_ref(), Type::Slice(_))
+                {
+                    if let Some(coerced) =
+                        self.array_ref_to_slice_ref(arg.clone(), *expected_mutable)
+                    {
+                        let mut probe = self.engine.borrow().clone_for_probe();
+                        if probe.unify(&coerced.ty, &expected).is_ok() {
+                            self.engine.borrow_mut().commit_probe(probe);
+                            *arg = coerced;
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            let mut probe = self.engine.borrow().clone_for_probe();
+            match probe.unify(&actual, &expected) {
+                Ok(()) => self.engine.borrow_mut().commit_probe(probe),
+                Err(error) if self.strict => errors.push(ResolveError::new(format!(
+                    "callable argument type {actual} does not match {expected}: {error}"
+                ))),
+                Err(_) => self.ambiguous = true,
+            }
         }
     }
 
@@ -3805,14 +3939,19 @@ impl MethodAuthorityContext<'_> {
             return;
         };
         self.materialize_expr(receiver, errors);
+        receiver.ty = self.engine.borrow().resolve(&receiver.ty);
+        if let Type::Reference { inner, .. } = &receiver.ty {
+            let dereferenced = HirExpr {
+                ty: inner.as_ref().clone(),
+                kind: HirExprKind::Deref(Box::new(receiver.as_ref().clone())),
+                span: receiver.span.clone(),
+            };
+            **receiver = dereferenced;
+        }
         if location.is_some() {
             return;
         }
-        receiver.ty = self.engine.borrow().resolve(&receiver.ty);
-        let receiver_ty = match &receiver.ty {
-            Type::Reference { inner, .. } => inner.as_ref(),
-            ty => ty,
-        };
+        let receiver_ty = &receiver.ty;
         let Type::Struct { id, args } = receiver_ty else {
             if !contains_inference_type(receiver_ty) {
                 errors.push(ResolveError::new(format!(
@@ -3968,6 +4107,63 @@ mod worklist_tests {
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
         }
+    }
+
+    #[test]
+    fn per_call_relation_preserves_repeated_source_variables() {
+        let mut engine = crate::infer::InferenceEngine::new();
+        let source = engine.fresh_type_var();
+        let Type::TypeVar(source_id) = source else {
+            unreachable!();
+        };
+        let callback_instance = engine.fresh_type_var();
+        let mut bindings = HashMap::new();
+
+        propagate_instance_relation(
+            &mut engine,
+            &Type::TypeVar(source_id),
+            &Type::I64,
+            &mut bindings,
+            &HashSet::new(),
+        );
+        propagate_instance_relation(
+            &mut engine,
+            &Type::Reference {
+                mutable: true,
+                inner: Box::new(Type::TypeVar(source_id)),
+            },
+            &Type::Reference {
+                mutable: true,
+                inner: Box::new(callback_instance.clone()),
+            },
+            &mut bindings,
+            &HashSet::new(),
+        );
+
+        assert_eq!(engine.resolve(&callback_instance), Type::I64);
+        assert_eq!(
+            engine.resolve(&Type::TypeVar(source_id)),
+            Type::TypeVar(source_id)
+        );
+    }
+
+    #[test]
+    fn constrained_relation_propagates_instance_authority_to_source() {
+        let mut engine = crate::infer::InferenceEngine::new();
+        let source = engine.fresh_type_var();
+        let Type::TypeVar(source_id) = source else {
+            unreachable!();
+        };
+
+        propagate_instance_relation(
+            &mut engine,
+            &Type::TypeVar(source_id),
+            &Type::I64,
+            &mut HashMap::new(),
+            &HashSet::from([source_id]),
+        );
+
+        assert_eq!(engine.resolve(&Type::TypeVar(source_id)), Type::I64);
     }
 
     #[test]

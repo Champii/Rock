@@ -105,6 +105,7 @@ make
 - `rockc` converts CLI args into `rock_lib::Config` and delegates to `rock_lib::compile`.
 - `rock` contains utility workflows, but some subcommands are still incomplete.
 - Operator syntax is dynamically defined by the current program and its explicit dependencies. Compiler code must not hardcode stdlib operator symbols, trait names, operator existence, or operator meanings. If the shipped stdlib wants `+`, `-`, `*`, comparisons, bitwise operators, or unary operators on primitive types, those meanings must live in stdlib impl bodies that call explicit intrinsics such as `~I64Add`, not in parser/lowerer/compiler fallback logic.
+- For annotation-free inference regressions in `test_projects/new_new/main.rk`, do not paper over failures by adding local type signatures; fix the inference authority, callable coercion, or stdlib abstraction that should infer the signatureless program.
 
 ## When Adding Language Features
 - Expect to touch more than one compiler phase.

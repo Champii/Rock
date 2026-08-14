@@ -42,12 +42,36 @@ impl<'a> BodyLowerer<'a> {
                 );
             },
         );
-        let nodes = self
+        let mut nodes = self
             .lowerer
             .items
             .functions()
             .filter_map(|(id, _)| self.lowerer.current_def_ids.contains(&id).then_some(id))
             .collect::<BTreeSet<_>>();
+        nodes.extend(
+            self.lowerer
+                .items
+                .trait_defs()
+                .flat_map(|(_, trait_def)| trait_def.methods.values())
+                .filter_map(|method| {
+                    self.lowerer
+                        .current_def_ids
+                        .contains(&method.id)
+                        .then_some(method.id)
+                }),
+        );
+        nodes.extend(
+            self.lowerer
+                .items
+                .impl_defs()
+                .flat_map(|(_, impl_def)| impl_def.methods.values())
+                .filter_map(|method| {
+                    self.lowerer
+                        .current_def_ids
+                        .contains(&method.id)
+                        .then_some(method.id)
+                }),
+        );
         self.lowerer.inference_sccs = crate::lower::inference_scc::components(&nodes, &edges);
         for (_, trait_def) in self.lowerer.items.trait_defs() {
             for method in trait_def.methods.values() {
@@ -319,6 +343,60 @@ fn collect_module_edges(
             {
                 if lowerer.items.function(target).is_some() {
                     function_edges.insert(target);
+                }
+            }
+        }
+    }
+
+    for (ordinal, top_level) in module.top_levels.iter().enumerate() {
+        let ast::TopLevel::Impl(implementation) = top_level else {
+            continue;
+        };
+        let Some(record) = lowerer.item_index.item_at_source(module_id, ordinal) else {
+            continue;
+        };
+        let Some(impl_def) = lowerer.items.impl_def(record.def_id) else {
+            continue;
+        };
+        let top_level_functions = module
+            .top_levels
+            .iter()
+            .filter_map(|top_level| match top_level {
+                ast::TopLevel::FunctionDecl(function) => Some(function.name.name.clone()),
+                _ => None,
+            })
+            .collect::<HashSet<_>>();
+        for (method_name, method) in &implementation.methods {
+            let Some(hir_method) = impl_def.methods.get(&method_name.name) else {
+                continue;
+            };
+            let mut references = FunctionReferenceCollector {
+                paths: Vec::new(),
+                scopes: Vec::new(),
+                top_level_functions: top_level_functions.clone(),
+            };
+            method.lambda.visit(&mut references);
+            let method_edges = edges.entry(hir_method.id).or_default();
+            for path in references.paths {
+                let path = path.join("::");
+                let mut candidates = Vec::new();
+                if let Some(prefix) = module_prefix {
+                    candidates.push(format!("{prefix}::{path}"));
+                }
+                candidates.push(path);
+                if let Some(target) = lowerer
+                    .resolver
+                    .resolve_item_or_alias(&candidates[0])
+                    .or_else(|| {
+                        candidates
+                            .iter()
+                            .skip(1)
+                            .find_map(|candidate| lowerer.resolver.resolve_item_or_alias(candidate))
+                    })
+                {
+                    if lowerer.items.function(target).is_some() {
+                        method_edges.insert(target);
+                    }
                 }
             }
         }

@@ -895,9 +895,10 @@ impl InferenceEngine {
                 Constraint::IntLiteral { var, .. } | Constraint::FloatLiteral { var, .. } => {
                     self.unresolved_type_var_representative(*var)
                 }
-                Constraint::Trait { .. } | Constraint::Equality { .. } | Constraint::Try { .. } => {
-                    None
-                }
+                Constraint::Trait { .. }
+                | Constraint::Equality { .. }
+                | Constraint::Coercion { .. }
+                | Constraint::Try { .. } => None,
             })
             .collect::<HashSet<_>>();
         for representative in representatives {
