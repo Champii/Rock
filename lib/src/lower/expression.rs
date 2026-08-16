@@ -450,6 +450,10 @@ impl Lowerer {
         expression: ast::Expression,
         mut trailing: Vec<ast::SecondaryExpr>,
     ) -> ast::Expression {
+        if trailing.is_empty() {
+            return expression;
+        }
+
         if let ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(mut primary)) = expression {
             primary
                 .secondaries
@@ -466,10 +470,61 @@ impl Lowerer {
     }
 
     fn apply_application_precedence(&self, expr: &ast::Expression) -> Option<ast::Expression> {
+        match expr {
+            ast::Expression::BinopExpr(lhs, operator, rhs) => {
+                if let Some(rhs) = self.apply_application_precedence(rhs) {
+                    return Some(ast::Expression::BinopExpr(
+                        lhs.clone(),
+                        operator.clone(),
+                        Box::new(rhs),
+                    ));
+                }
+
+                let lhs_expression = ast::Expression::UnaryExpr(lhs.clone());
+                if let Some(lhs) = self.apply_application_precedence(&lhs_expression) {
+                    let mut operands = Vec::new();
+                    let mut operators = Vec::new();
+                    Self::flatten_owned_binop(&lhs, &mut operands, &mut operators);
+                    operators.push(operator.clone());
+                    operands.push((**rhs).clone());
+                    return Self::build_owned_binop_chain(&operands, &operators);
+                }
+            }
+            ast::Expression::CastExpr(inner, ty) => {
+                if let Some(inner) = self.apply_application_precedence(inner) {
+                    return Some(ast::Expression::CastExpr(Box::new(inner), ty.clone()));
+                }
+            }
+            ast::Expression::UnaryExpr(_) => {}
+        }
+
         let ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(primary)) = expr else {
             return None;
         };
         let secondaries = primary.secondaries.as_ref()?;
+
+        for (secondary_index, secondary) in secondaries.iter().enumerate() {
+            let ast::SecondaryExpr::Arguments(arguments) = secondary else {
+                continue;
+            };
+
+            for (argument_index, argument) in arguments.iter().enumerate() {
+                let Some(argument) = self.apply_application_precedence(&argument.arg) else {
+                    continue;
+                };
+
+                let mut primary = primary.clone();
+                let secondaries = primary.secondaries.as_mut()?;
+                let ast::SecondaryExpr::Arguments(arguments) = &mut secondaries[secondary_index]
+                else {
+                    unreachable!();
+                };
+                arguments[argument_index].arg = argument;
+                return Some(ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(
+                    primary,
+                )));
+            }
+        }
 
         for (secondary_index, secondary) in secondaries.iter().enumerate() {
             let ast::SecondaryExpr::Arguments(arguments) = secondary else {

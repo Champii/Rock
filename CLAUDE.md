@@ -222,6 +222,8 @@ Always use agent teams , but we cannot have more than 2 agents at the same time 
 
 When running the tests, redirect the output in a file and grep what you need from this file. This is to avoid running the full testsuite multiple time in a row to extract different info/results. Also dont run multiple test suites in parallel, execute ONE then work multiple time with the output. dont use sleep to wait for the end of a run, use your tools. also maybe keep a timeout to 15mn so that it doesnt go to background
 
+Read `MEMORY.md` for durable project-specific lessons before changing compiler architecture, repository workflows, or audit/roadmap docs. Keep new durable agent lessons there; use `bd` for issue tracking, not as a replacement for project memory.
+
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:7510c1e2 -->
 ## Beads Issue Tracker

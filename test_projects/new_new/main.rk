@@ -202,9 +202,7 @@ run_mode = mode ->
 main = ->
     values = args!
     values.println!
-    res = values.get 1 .fold
-        Result::Err IoError::Os 1
-        run_mode
+    res = values.get 1 !> IoError::Os 1 >>= run_mode
 
     res.println!
     0

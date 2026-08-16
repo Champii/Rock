@@ -2,6 +2,7 @@
 
 > stdlib::show::Show
 > stdlib::string_type::String
+> stdlib::result::Result
 > stdlib::ops::ControlFlow
 > stdlib::ops::FromResidual
 > stdlib::ops::Try
@@ -86,6 +87,7 @@ impl Option T
     ~@and_then: (T -> Option U) -> Option U
     ~@map: (T -> U) -> Option U
     ~@inspect: (&T -> U) -> Option T
+    ~@ok_or: E -> Result T, E
     ~@map = f ->
         match self
             Option::Some val => Option::Some (f val)
@@ -106,6 +108,11 @@ impl Option T
             Option::Some val => f val
             Option::None => default
 
+    ~@ok_or = error ->
+        match self
+            Option::Some val => Result::Ok val
+            Option::None => Result::Err error
+
     ~@inspect = f ->
         match self
             Option::Some val =>
@@ -115,6 +122,9 @@ impl Option T
 
     ~@<|>: Option T -> Option T
     ~@<|> = other -> self.or other
+
+    ~@!>: E -> Result T, E
+    ~@!> = error -> self.ok_or error
 
     ~@unwrap_or = default ->
         match self

@@ -10376,6 +10376,8 @@ main = ->
     none_fold = Option::None
     nested = Option::Some (Option::Some 9)
     some_fold = Option::Some 41
+    some_ok_or: Result I64, I64 = Option::Some 12 .ok_or 5
+    none_ok_or: Result I64, I64 = Option::None .ok_or 7
     some_folded: I64 = some_fold.fold
         0
         x -> x + 1
@@ -10390,12 +10392,14 @@ main = ->
     (nested.flatten!).unwrap_or 0 .println!
     some_folded.println!
     none_folded.println!
+    some_ok_or.fold (x -> x), (x -> x) .println!
+    none_ok_or.fold (x -> x), (x -> x) .println!
     0
 "#,
     );
 
     let lines: Vec<&str> = output.trim().lines().collect();
-    assert_eq!(lines, vec!["42", "0", "0", "8", "9", "42", "7"]);
+    assert_eq!(lines, vec!["42", "0", "0", "8", "9", "42", "7", "12", "7"]);
 }
 
 #[test]
@@ -11474,9 +11478,7 @@ run_mode = mode ->
 
 main = ->
     values = args!
-    result: Result I64, IoError = (values.get 1).fold
-        (Result::Err (IoError::Os (1 as I32)))
-        run_mode
+    result: Result I64, IoError = values.get 1 !> IoError::Os (1 as I32) >>= run_mode
     result.println!
     0
 "#,
@@ -11612,6 +11614,8 @@ main = ->
     some = Option::Some 4
     none: Option I64 = Option::None
     fallback_none: Option I64 = Option::None
+    some_for_result: Option I64 = Option::Some 12
+    none_for_result: Option I64 = Option::None
     wrapped_inc: Option (I64 -> I64) = Option::Some inc
     ok: Result I64, I64 = Result::Ok 4
     err: Result I64, I64 = Result::Err 7
@@ -11626,6 +11630,8 @@ main = ->
     ((Option::Some 4) <&> inc).unwrap_or 0 .println!
     (wrapped_inc <*> Option::Some 4).unwrap_or 0 .println!
     (fallback_none <|> Option::Some 9).unwrap_or 0 .println!
+    (some_for_result !> 5).fold (x -> x), (x -> x) .println!
+    (none_for_result !> 7).fold (x -> x), (x -> x) .println!
 
     (ok >>= keep_even_res).unwrap_or 0 .println!
     (err >>= keep_even_res).unwrap_or 0 .println!
@@ -11640,7 +11646,7 @@ main = ->
     let lines: Vec<&str> = output.trim().lines().collect();
     assert_eq!(
         lines,
-        vec!["4", "0", "5", "5", "5", "9", "4", "0", "5", "5", "5", "9"]
+        vec!["4", "0", "5", "5", "5", "9", "12", "7", "4", "0", "5", "5", "5", "9"]
     );
 }
 

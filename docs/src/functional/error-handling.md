@@ -160,6 +160,15 @@ main = ->
 
 `mapped` is `Some 5`, `chained` is `Some 4`, and `flattened` is `Some 9`; the output is `5`, `4`, and `9`. The three source `Option` values are consumed independently and are not reused afterward.
 
+`ok_or` converts an `Option T` into a `Result T, E` by supplying the error for the `None` case:
+
+```rock
+main = ->
+    result: Result I64, I64 = Option::Some 4 .ok_or 1
+    result.unwrap_or 0 |> value -> value.println!
+    0
+```
+
 `Result` has the same shape for successful values and preserves the concrete error type.
 
 ```rock
@@ -197,13 +206,15 @@ main = ->
     mapped: Option I64 = Option::Some 4 <&> increment
     chained: Option I64 = Option::Some 4 >>= keep_even_option
     fallback: Option I64 = Option::None <|> Option::Some 9
+    converted: Result I64, I64 = Option::Some 4 !> 1
     mapped.unwrap_or 0 |> value -> value.println!
     chained.unwrap_or 0 |> value -> value.println!
     fallback.unwrap_or 0 |> value -> value.println!
+    converted.unwrap_or 0 |> value -> value.println!
     0
 ```
 
-`<&>` maps, `>>=` binds, `<|>` chooses a fallback, and `|>` passes a value to a function. The output is `5`, `4`, and `9`. These meanings are standard-library definitions, not compiler-owned special cases.
+`<&>` maps, `>>=` binds, `<|>` chooses a fallback, `!>` converts an `Option` to a `Result`, and `|>` passes a value to a function. The output is `5`, `4`, `9`, and `4`. These meanings are standard-library definitions, not compiler-owned special cases.
 
 ## Defining a Custom `?` Carrier
 

@@ -85,6 +85,7 @@
 - Unit-return function and lambda syntax uses `!->`; declarations like `myfn !-> 0` should evaluate the body for effects and return `()`.
 - Generic trait-bound method search should follow deref/deref-mut receiver adjustments, so stdlib wrapper types such as `Arc`/`Mutex` do not need ad hoc `.get!` methods or caller-side `&*value` workarounds.
 - For Task 14 / `new_new` HKT closure work, compile a fresh stdlib artifact before direct `rockc` runs instead of assuming `build/stdlib.rkca` exists. Keep deterministic fresh-artifact regression tests self-contained instead of compiling mutable projects under `test_projects/`.
+- For `test_projects/new_new/main.rk` TCP runtime probes, `rockc` links the executable at repository `build/main`; do not launch stale `test_projects/new_new/build/main` binaries. Prefer the fresh-artifact integration harness with dynamic ports and bounded socket timeouts for two-client broadcast regressions.
 - For `Vec::map_ref` and `new_new` HKT refactors, inline closures over borrowed parameters need contextual callable typing; keep the `test_stdlib_vec_map_ref_contextually_types_closure_parameter` gate when replacing named adapter functions with inline closures.
 - Treat `cargo clippy --workspace --all-targets -- -D warnings` as a separate cleanup task while the known `clippy::result_large_err` baseline remains; ordinary `cargo clippy --workspace --all-targets` can be used as the non-deny warning gate when the plan records that exception.
 
