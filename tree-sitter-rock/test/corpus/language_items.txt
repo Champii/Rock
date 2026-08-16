@@ -54,88 +54,96 @@ lang control_flow
 ---
 
 (program
+  (language_item_marker
+    role: (identifier))
   (trait_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier))
+    name: (type_identifier))
+  (language_item_marker
+    role: (identifier))
   (trait_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier)
-    (trait_member
+    name: (type_identifier)
+    body: (trait_block
       (language_item_marker
         role: (identifier))
-      (identifier)
-      (type_identifier)))
+      (function_signature
+        name: (identifier)
+        type: (type_identifier))))
+  (language_item_marker
+    role: (identifier))
   (trait_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier)
-    (trait_member
+    name: (type_identifier)
+    body: (trait_block
       (language_item_marker
         role: (identifier))
-      (type_identifier))
-    (trait_member
+      (associated_type_declaration
+        name: (type_identifier))
       (language_item_marker
         role: (identifier))
-      (identifier)
-      (type_identifier)))
+      (function_signature
+        name: (identifier)
+        type: (type_identifier))))
+  (language_item_marker
+    role: (identifier))
   (trait_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier)
-    (trait_member
+    name: (type_identifier)
+    body: (trait_block
       (language_item_marker
         role: (identifier))
-      (type_identifier))
-    (trait_member
+      (associated_type_declaration
+        name: (type_identifier))
       (language_item_marker
         role: (identifier))
-      (identifier)
-      (type_identifier)))
+      (function_signature
+        name: (identifier)
+        type: (type_identifier))))
+  (language_item_marker
+    role: (identifier))
   (trait_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier)
-    (trait_member
+    name: (type_identifier)
+    body: (trait_block
       (language_item_marker
         role: (identifier))
-      (type_identifier))
-    (trait_member
+      (associated_type_declaration
+        name: (type_identifier))
       (language_item_marker
         role: (identifier))
-      (type_identifier))
-    (trait_member
+      (associated_type_declaration
+        name: (type_identifier))
       (language_item_marker
         role: (identifier))
-      (identifier)
-      (type_identifier)))
+      (function_signature
+        name: (identifier)
+        type: (type_identifier))))
+  (language_item_marker
+    role: (identifier))
   (trait_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier)
-    (trait_member
+    name: (type_identifier)
+    body: (trait_block
       (language_item_marker
         role: (identifier))
-      (identifier)
-      (type_identifier)))
+      (function_signature
+        name: (identifier)
+        type: (type_identifier))))
+  (language_item_marker
+    role: (identifier))
   (enum_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier)
-    (enum_variant
-      (language_item_marker
-        role: (identifier))
-      (type_identifier))
-    (enum_variant
-      (language_item_marker
-        role: (identifier))
-      (type_identifier)))
-  (trait_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier))
-  (enum_declaration
-    (language_item_marker
-      role: (identifier))
-    (type_identifier)))
+    name: (type_identifier)
+    body: (enum_block
+      (enum_variant
+        (language_item_marker
+          role: (identifier))
+        name: (type_identifier))
+      (enum_variant
+        (language_item_marker
+          role: (identifier))
+        name: (type_identifier))))
+  (language_item_marker
+    role: (identifier))
+  (export_declaration
+    declaration: (trait_declaration
+      name: (type_identifier)))
+  (language_item_marker
+    role: (identifier))
+  (export_declaration
+    declaration: (enum_declaration
+      name: (type_identifier))))

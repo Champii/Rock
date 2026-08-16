@@ -9,9 +9,6 @@ discard = !-> 0
 (program
   (function_declaration
     (identifier)
-    (expression
-      (lambda_expression
-        (expression
-          (call_expression
-            (primary_expression
-              (number))))))))
+    (function_arrow)
+    (block
+      (number))))

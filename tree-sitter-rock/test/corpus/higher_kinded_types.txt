@@ -8,10 +8,11 @@ trait Functor for F _
 
 (program
   (trait_declaration
-    (type_identifier)
-    (generic_declaration
-      name: (type_identifier)
-      (type_hole))))
+    name: (type_identifier)
+    target: (generic_parameter
+      (constructor_generic_parameter
+        name: (type_identifier)
+        (type_hole)))))
 
 ==================
 binary constructor trait target
@@ -23,11 +24,12 @@ trait Bifunctor for F _, _
 
 (program
   (trait_declaration
-    (type_identifier)
-    (generic_declaration
-      name: (type_identifier)
-      (type_hole)
-      (type_hole))))
+    name: (type_identifier)
+    target: (generic_parameter
+      (constructor_generic_parameter
+        name: (type_identifier)
+        (type_hole)
+        (type_hole)))))
 
 ==================
 trait generic and constructor target
@@ -39,14 +41,16 @@ trait Natural G _ for F _
 
 (program
   (trait_declaration
-    (type_identifier)
-    (generic_declarations
-      (generic_declaration
+    name: (type_identifier)
+    (generic_parameters
+      (generic_parameter
+        (constructor_generic_parameter
+          name: (type_identifier)
+          (type_hole))))
+    target: (generic_parameter
+      (constructor_generic_parameter
         name: (type_identifier)
-        (type_hole)))
-    (generic_declaration
-      name: (type_identifier)
-      (type_hole))))
+        (type_hole)))))
 
 ==================
 adjacent constructor binders
@@ -58,15 +62,17 @@ struct Compose (F _), (G _), A
 
 (program
   (struct_declaration
-    (type_identifier)
-    (generic_declarations
-      (generic_declaration
-        name: (type_identifier)
-        (type_hole))
-      (generic_declaration
-        name: (type_identifier)
-        (type_hole))
-      (generic_declaration
+    name: (type_identifier)
+    (generic_parameters
+      (generic_parameter
+        (constructor_generic_parameter
+          name: (type_identifier)
+          (type_hole)))
+      (generic_parameter
+        (constructor_generic_parameter
+          name: (type_identifier)
+          (type_hole)))
+      (generic_parameter
         name: (type_identifier)))))
 
 ==================
@@ -78,18 +84,19 @@ type ResultWith E = \T -> Result T, E
 ---
 
 (program
-  (type_declaration
-    (type_identifier)
-    (generic_declarations
-      (generic_declaration
+  (type_alias
+    name: (type_identifier)
+    (generic_parameters
+      (generic_parameter
         name: (type_identifier)))
-    (type_lambda
-      (type_identifier)
+    value: (type_lambda
+      (generic_parameter
+        name: (type_identifier))
       (type_application
-        (type_application
+        (type_identifier)
+        arguments: (type_arguments
           (type_identifier)
-          (type_identifier))
-        (type_identifier)))))
+          (type_identifier))))))
 
 ==================
 impl constructor section
@@ -103,10 +110,10 @@ impl Functor for Result _, E
   (impl_declaration
     (type_identifier)
     (type_application
-      (type_application
-        (type_identifier)
-        (type_hole))
-        (type_identifier))))
+      (type_identifier)
+      (type_arguments
+        (type_hole)
+        (type_identifier)))))
 
 ==================
 multiple-hole type application
@@ -117,13 +124,13 @@ type Section = F _, _
 ---
 
 (program
-  (type_declaration
+  (type_alias
     (type_identifier)
     (type_application
-      (type_application
-        (type_identifier)
-        (type_hole))
-      (type_hole))))
+      (type_identifier)
+      (type_arguments
+        (type_hole)
+        (type_hole)))))
 
 ==================
 trait constructor signature
@@ -136,29 +143,34 @@ fmap: M -> F A -> F B where M: FnMut A, B
 
 (program
   (trait_declaration
-    (type_identifier)
-    (generic_declaration
-      name: (type_identifier)
-      (type_hole))
-    (trait_member
-      (identifier)
+    name: (type_identifier)
+    target: (generic_parameter
+      (constructor_generic_parameter
+        name: (type_identifier)
+        (type_hole))))
+  (function_signature
+    name: (identifier)
+    type: (function_type
+      (type_application_or_atom
+        (type_identifier))
       (function_type
-        (type_identifier)
-        (function_type
+        (type_application_or_atom
           (type_application
             (type_identifier)
-            (type_identifier))
-          (type_application
+            arguments: (type_arguments
+              (type_identifier))))
+        (type_application
+          (type_identifier)
+          arguments: (type_arguments
+            (type_identifier)))))
+    (where_clause
+      (where_predicate
+        subject: (generic_parameter
+          name: (type_identifier))
+        bound: (type_application
+          (type_identifier)
+          arguments: (type_arguments
             (type_identifier)
-            (type_identifier))))
-      (where_clause
-        (where_predicate
-          subject: (generic_declaration
-            name: (type_identifier))
-          bound: (type_application
-            (type_application
-              (type_identifier)
-              (type_identifier))
             (type_identifier)))))))
 
 ==================
@@ -170,26 +182,30 @@ fmap: M -> F A -> F B where M: FnMut A, B
 ---
 
 (program
-  (function_declaration
-    (identifier)
-    (function_type
-      (type_identifier)
+  (function_signature
+    name: (identifier)
+    type: (function_type
+      (type_application_or_atom
+        (type_identifier))
       (function_type
-        (type_application
-          (type_identifier)
-          (type_identifier))
-        (type_application
-          (type_identifier)
-          (type_identifier))))
-    (where_clause
-      (where_predicate
-        subject: (generic_declaration
-          name: (type_identifier))
-        bound: (type_application
+        (type_application_or_atom
           (type_application
             (type_identifier)
-            (type_identifier))
-          (type_identifier))))))
+            arguments: (type_arguments
+              (type_identifier))))
+        (type_application
+          (type_identifier)
+          arguments: (type_arguments
+            (type_identifier)))))
+    (where_clause
+      (where_predicate
+        subject: (generic_parameter
+          name: (type_identifier))
+        bound: (type_application
+          (type_identifier)
+          arguments: (type_arguments
+            (type_identifier)
+            (type_identifier)))))))
 
 ==================
 bounded constructor where-clause signature
@@ -200,18 +216,21 @@ apply_f: F A -> A where F _: Functor
 ---
 
 (program
-  (function_declaration
-    (identifier)
-    (function_type
-      (type_application
-        (type_identifier)
-        (type_identifier))
+  (function_signature
+    name: (identifier)
+    type: (function_type
+      (type_application_or_atom
+        (type_application
+          (type_identifier)
+          arguments: (type_arguments
+            (type_identifier))))
       (type_identifier))
     (where_clause
       (where_predicate
-        subject: (generic_declaration
-          name: (type_identifier)
-          (type_hole))
+        subject: (generic_parameter
+          (constructor_generic_parameter
+            name: (type_identifier)
+            (type_hole)))
         bound: (type_identifier)))))
 
 ==================
@@ -223,20 +242,24 @@ constructor_identity: F A -> F A where F _
 ---
 
 (program
-  (function_declaration
-    (identifier)
-    (function_type
+  (function_signature
+    name: (identifier)
+    type: (function_type
+      (type_application_or_atom
+        (type_application
+          (type_identifier)
+          arguments: (type_arguments
+            (type_identifier))))
       (type_application
         (type_identifier)
-        (type_identifier))
-      (type_application
-        (type_identifier)
-        (type_identifier)))
+        arguments: (type_arguments
+          (type_identifier))))
     (where_clause
       (where_predicate
-        subject: (generic_declaration
-          name: (type_identifier)
-          (type_hole))))))
+        subject: (generic_parameter
+          (constructor_generic_parameter
+            name: (type_identifier)
+            (type_hole)))))))
 
 ==================
 implicit ordinary generic signature
@@ -247,36 +270,29 @@ identity: T -> T
 ---
 
 (program
-  (function_declaration
+  (function_signature
     (identifier)
     (function_type
-      (type_identifier)
+      (type_application_or_atom
+        (type_identifier))
       (type_identifier))))
 
 ==================
 type-qualified constructor call
 ==================
 
-(Result _, IoError)::Applicative::pure 42
+main = -> (Result _)::Applicative::pure 42
 
 ---
 
 (program
-  (expression
-    (call_expression
-      (primary_expression
-        (type_qualified_expression
-          (type_application
-            (type_application
-              (type_identifier)
-              (type_hole))
-            (type_identifier))
-          (type_identifier)
-          (identifier)))
-      (expression
-        (call_expression
-          (primary_expression
-            (number)))))))
+  (function_declaration
+    (identifier)
+    (function_arrow)
+    (block
+      (call_expression
+        (type_qualified_constructor_expression)
+        (number)))))
 
 ==================
 nested type lambdas and application precedence
@@ -287,20 +303,23 @@ type Nested = (\T -> \U -> Pair T, U) A
 ---
 
 (program
-  (type_declaration
+  (type_alias
     (type_identifier)
     (type_application
-      (tuple_type
+      (parenthesized_type
         (type_lambda
-          (type_identifier)
+          (generic_parameter
+            (type_identifier))
           (type_lambda
-            (type_identifier)
+            (generic_parameter
+              (type_identifier))
             (type_application
-              (type_application
+              (type_identifier)
+              (type_arguments
                 (type_identifier)
-                (type_identifier))
-              (type_identifier)))))
-      (type_identifier))))
+                (type_identifier))))))
+      (type_arguments
+        (type_identifier)))))
 
 ==================
 malformed constructor section
@@ -311,9 +330,10 @@ type Broken = F _)
 ---
 
 (program
-  (type_declaration
-    (type_identifier)
-    (type_application
+  (type_alias
+    name: (type_identifier)
+    value: (type_application
       (type_identifier)
-      (type_hole)))
+      arguments: (type_arguments
+        (type_hole))))
   (ERROR))

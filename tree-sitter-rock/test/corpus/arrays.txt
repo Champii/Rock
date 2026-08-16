@@ -2,24 +2,24 @@
 fixed array type and repeat expression
 ==================
 
-make: [U8; 256] = -> [0; 256]
+make: Unit -> [U8; 256]
+make = -> [0; 256]
 
 ---
 
 (program
+  (function_signature
+    (identifier)
+    (function_type
+      (type_application_or_atom
+        (type_identifier))
+      (array_type
+        (type_identifier)
+        (number))))
   (function_declaration
     (identifier)
-    (array_type
-      (type_identifier)
-      (number))
-    (expression
-      (lambda_expression
-        (expression
-          (call_expression
-            (primary_expression
-              (array_expression
-                (expression
-                  (call_expression
-                    (primary_expression
-                      (number))))
-                (number)))))))))
+    (function_arrow)
+    (block
+      (array_expression
+        (number)
+        (number)))))

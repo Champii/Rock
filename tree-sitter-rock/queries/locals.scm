@@ -1,42 +1,18 @@
-; Scope and local variable tracking for Rock
+[
+  (function_declaration)
+  (lambda_expression)
+  (match_arm)
+  (for_expression)
+] @local.scope
 
-; Function parameters
-(lambda_expression
-  (identifier) @definition.parameter)
+(function_declaration name: (identifier) @local.definition)
+(function_signature name: (identifier) @local.definition)
+(macro_declaration name: (identifier) @local.definition)
+(struct_declaration name: (type_identifier) @local.definition.type)
+(enum_declaration name: (type_identifier) @local.definition.type)
+(trait_declaration name: (type_identifier) @local.definition.type)
+(identifier_pattern (identifier) @local.definition)
+(mutable_pattern (identifier) @local.definition)
 
-; Function declarations
-(function_declaration
-  (identifier) @definition.function)
-
-; Struct declarations
-(struct_declaration
-  (type_identifier) @definition.type)
-
-; Enum declarations
-(enum_declaration
-  (type_identifier) @definition.type)
-
-; Trait declarations
-(trait_declaration
-  (type_identifier) @definition.type)
-
-; Macro declarations
-(macro_declaration
-  (identifier) @definition.macro)
-
-; Pattern bindings in match
-(match_expression
-  (pattern) @definition.var)
-
-; For loop variables
-(for_expression
-  (identifier) @definition.var)
-
-; References to variables
-(identifier) @reference
-(type_identifier) @reference.type
-
-; Function calls
-(call_expression
-  (primary_expression
-    (identifier) @reference.call))
+(identifier) @local.reference
+(type_identifier) @local.reference.type

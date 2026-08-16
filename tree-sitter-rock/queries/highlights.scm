@@ -1,127 +1,57 @@
-; Rock language syntax highlighting - minimal working version
+(comment) @comment
 
-; Declarations - highlight keywords in declarations
-(struct_declaration
-  "struct" @keyword)
-(enum_declaration
-  "enum" @keyword)
-(trait_declaration
-  "trait" @keyword)
-(impl_declaration
-  "impl" @keyword)
-(macro_declaration
-  "macro" @keyword)
-(infix_declaration
-  "infix" @keyword)
-(module_declaration
-  "mod" @keyword)
-(extern_declaration
-  "extern" @keyword)
-(type_declaration
-  "type" @keyword)
+[
+  "struct"
+  "enum"
+  "trait"
+  "impl"
+  "macro"
+  "infix"
+  "mod"
+  "extern"
+  "type"
+  "where"
+  "for"
+  "in"
+  "if"
+  "then"
+  "else"
+  "match"
+  "while"
+  "loop"
+  "unsafe"
+  "return"
+  "break"
+  "continue"
+  "mut"
+  "as"
+  "lang"
+] @keyword
 
-; Expressions with keywords
-(if_expression) @conditional
-(for_expression) @repeat
-(while_expression) @repeat
-(loop_expression) @repeat
-(match_expression) @keyword
-(unsafe_expression) @keyword.coroutine
-
-; Control flow
-(return_expression) @keyword.return
-(break_expression) @keyword
-(continue_expression) @keyword
-
-; Visibility
-"pub" @keyword
-"for" @keyword
-
-; Operators (multi-character only)
-(operator) @operator
-"=" @operator
-"->" @operator
-"=>" @operator
-"::" @operator
-
-; Literals
+[(boolean)] @boolean
 (number) @number
-(float) @float
+(float) @number.float
 (string) @string
 (char) @character
-(boolean) @boolean
-(unit) @constant.builtin
-
-; Identifiers and types
-(identifier) @variable
+(native_operator) @function.builtin
+(operator) @operator
+(function_arrow) @operator
+(receiver) @variable.builtin
 (type_identifier) @type
+(type_hole) @type.builtin
 
-; Functions
-(function_declaration
-  (identifier) @function)
+(function_declaration name: (identifier) @function)
+(function_signature name: (identifier) @function)
+(extern_signature name: (identifier) @function)
+(macro_declaration name: (identifier) @function.macro)
+(macro_invocation name: (identifier) @function.macro)
+(struct_declaration name: (type_identifier) @type.definition)
+(enum_declaration name: (type_identifier) @type.definition)
+(trait_declaration name: (type_identifier) @type.definition)
+(type_alias name: (type_identifier) @type.definition)
+(struct_field name: (identifier) @property)
+(named_field name: (identifier) @property)
+(field_suffix field: (identifier) @property)
+(language_item_marker role: (identifier) @attribute)
 
-(macro_declaration
-  (identifier) @function.macro)
-
-(infix_declaration
-  (identifier) @function)
-
-; Function and method calls
-(call_expression
-  (primary_expression
-    (identifier) @function.call))
-
-(field_expression
-  (identifier) @method.call)
-
-; Lambda parameters
-(lambda_expression
-  (identifier) @variable.parameter
-  "->" @operator)
-
-; Types
-(base_type) @type.builtin
-(function_type) @type
-(array_type) @type
-(tuple_type) @type
-(reference_type) @type
-(pointer_type) @type
-
-; Type definitions
-(struct_declaration
-  (type_identifier) @type.definition)
-
-(enum_declaration
-  (type_identifier) @type.definition)
-
-(trait_declaration
-  (type_identifier) @type.definition)
-
-(type_declaration
-  (type_identifier) @type.definition)
-
-; Macros
-(macro_invocation
-  "%" @macro
-  (identifier) @function)
-
-; Struct instantiation
-(struct_expression
-  (type_identifier) @constructor)
-
-; Arrays
-(array_expression) @constructor
-
-; Match expressions
-(match_expression
-  "=>" @operator)
-
-; Pattern matching
-(pattern
-  (identifier) @variable)
-(pattern
-  "_") @variable.builtin
-
-; Comments
-(line_comment) @comment
-(block_comment) @comment
+(identifier) @variable
