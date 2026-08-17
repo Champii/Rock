@@ -215,8 +215,8 @@ run_connection = stream ->
 
 finish_connection: Arc TcpStream -> JoinHandle I64 -> Result I64, IoError
 finish_connection = stream, handle ~>
-    total = pump_stdin stream.clone!?
-    stopped = stream.shutdown_write!?
+    total = pump_stdin &stream?
+    stream.shutdown_write!?
 
     handle.join!
         <!> thread_error_to_io

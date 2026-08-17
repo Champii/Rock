@@ -213,9 +213,21 @@ fn move_trailing_argument_interogation_to_call(secondaries: &mut Vec<SecondaryEx
 }
 
 fn remove_trailing_interogation(expr: &mut Expression) -> bool {
-    let Expression::UnaryExpr(UnaryExpr::PrimaryExpr(primary)) = expr else {
+    let Expression::UnaryExpr(unary) = expr else {
         return false;
     };
+
+    remove_trailing_interogation_from_unary(unary)
+}
+
+fn remove_trailing_interogation_from_unary(unary: &mut UnaryExpr) -> bool {
+    let primary = match unary {
+        UnaryExpr::PrimaryExpr(primary) => primary,
+        UnaryExpr::UnaryExpr(_, inner) => {
+            return remove_trailing_interogation_from_unary(inner);
+        }
+    };
+
     let Some(secondaries) = primary.secondaries.as_mut() else {
         return false;
     };
@@ -428,8 +440,14 @@ pub fn arguments(stream: Input) -> IResult<Vec<Argument>> {
 }
 
 fn not_inline_call_operator(stream: Input) -> IResult<()> {
-    let first = stream.tokens.first().map(|token| &token.token_type);
-    let second = stream.tokens.get(1).map(|token| &token.token_type);
+    let first_token = stream.tokens.first();
+    let second_token = stream.tokens.get(1);
+    let first = first_token.map(|token| &token.token_type);
+    let second = second_token.map(|token| &token.token_type);
+    let starts_shared_reference = matches!(first, Some(TokenType::Ampersand))
+        && first_token
+            .zip(second_token)
+            .is_some_and(|(ampersand, operand)| ampersand.span.end == operand.span.start);
     let starts_mut_reference = matches!(
         (first, second),
         (
@@ -441,7 +459,7 @@ fn not_inline_call_operator(stream: Input) -> IResult<()> {
         (Some(TokenType::Ampersand), Some(TokenType::Caret))
     );
 
-    if starts_mut_reference {
+    if starts_shared_reference || starts_mut_reference {
         Ok((stream, ()))
     } else {
         not(operator_token.or(ampersand_token)).process(stream)

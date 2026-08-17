@@ -87,19 +87,17 @@ impl SharedServerState
         guard.remove id
 
 broadcast = state, bytes, len ->
-    payload = bytes
     count = len
     guard = state.inner.lock!
     guard.snapshot!.try_for_each (target ->
-        target.send_all payload, count <&> (_ !-> 0))
+        target.send_all bytes, count <&> (_ !-> 0))
         <&> _ -> len
 
 receive_with = stream, mut target, write ->
-    client_stream = stream
     mut buff = [0; 1024]
     mut total = 0
     while true
-        match client_stream.recv &mut buff
+        match stream.recv &mut buff
             Result::Ok count =>
                 if count <= 0
                     return total
@@ -121,10 +119,9 @@ impl ServerClient
 impl ClientReader
     ~@run = -> receive_with self.stream.clone!, stdout!, Stdout::write_all_prefix
 
-listen = ->
-    addr = Ipv4Addr::localhost!
-    addr2 = SocketAddrV4::new addr, 9999
-    TcpListener::bind addr2 >>= run_listener
+server_addr = -> SocketAddrV4::new Ipv4Addr::localhost!, 9999
+
+listen = -> TcpListener::bind server_addr! >>= run_listener
 
 run_listener = listener ->
     state = SharedServerState::new ServerState
@@ -156,17 +153,13 @@ start_client = state, accepted_stream ~>
             id: id
             stream: stream
             state: state.clone!
-        spawned = spawn (-> client.run!)
-        spawned.fold
+        spawn (-> client.run!) .fold
             _ ->
                 state.remove id
                 Option::None
             Option::Some _
 
-connect = ->
-    addr = Ipv4Addr::localhost!
-    addr2 = SocketAddrV4::new addr, 9999
-    TcpStream::connect addr2 >>= run_connection
+connect = -> TcpStream::connect server_addr! >>= run_connection
 
 run_connection = stream ->
     shared = Arc::new stream
@@ -177,16 +170,11 @@ run_connection = stream ->
         >>= finish_connection (shared.clone!)
 
 finish_connection = stream, handle ~>
-    client_stream = stream
-    join_handle = handle
-    total_result = pump_stdin &client_stream
-    total = total_result?
-    stopped_result = client_stream.shutdown_write!
-    stopped = stopped_result?
-    result = join_handle.join!
+    total = pump_stdin &stream?
+    stream.shutdown_write!?
+    handle.join!
         <!> thread_error_to_io
         <&> _ -> total
-    result
 
 pump_stdin = stream ->
     stdin! |>> stream

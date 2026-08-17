@@ -100,6 +100,27 @@ fn trailing_interogation_after_inline_call_applies_to_call() {
 }
 
 #[test]
+fn trailing_interogation_after_borrowed_argument_applies_to_call() {
+    let expression = parse_expr("foo &bar?");
+    let primary = match expression {
+        Expression::UnaryExpr(UnaryExpr::PrimaryExpr(primary)) => primary,
+        other => panic!("expected call expression, got {other:#?}"),
+    };
+    let secondaries = primary.secondaries.expect("expected call secondaries");
+
+    assert!(matches!(
+        secondaries.as_slice(),
+        [SecondaryExpr::Arguments(arguments), SecondaryExpr::Interogation]
+            if matches!(
+                arguments.as_slice(),
+                [Argument {
+                    arg: Expression::UnaryExpr(UnaryExpr::UnaryExpr(_, inner)),
+                }] if matches!(**inner, UnaryExpr::PrimaryExpr(_))
+            )
+    ));
+}
+
+#[test]
 fn trailing_interogation_after_bang_call_applies_to_call() {
     assert_eq!(
         parse_expr("foo!?"),

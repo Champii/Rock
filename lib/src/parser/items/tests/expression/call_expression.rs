@@ -132,6 +132,30 @@ fn call_expression_accepts_mut_reference_first_argument() {
 }
 
 #[test]
+fn call_expression_accepts_adjacent_shared_reference_argument() {
+    let tokens = lex_test("read &stream");
+    let config = Config::default();
+
+    let (rest, expression) = expression
+        .process(ParseCtx::from(&tokens, &config))
+        .unwrap();
+
+    let Expression::UnaryExpr(UnaryExpr::PrimaryExpr(primary)) = expression else {
+        panic!("expected call expression, got {expression:?}");
+    };
+    let Some(SecondaryExpr::Arguments(args)) = primary.secondaries.as_ref().and_then(|s| s.first())
+    else {
+        panic!("expected call arguments, got {primary:?}");
+    };
+    let Expression::UnaryExpr(UnaryExpr::UnaryExpr(op, _)) = &args[0].arg else {
+        panic!("expected shared reference argument, got {:?}", args[0].arg);
+    };
+
+    assert_eq!(op.value, "&");
+    assert_eq!(rest.len(), 0);
+}
+
+#[test]
 fn cast_in_call_binds_to_argument() {
     let tokens = lex_test("convert 1 as I32");
     let config = Config::default();
