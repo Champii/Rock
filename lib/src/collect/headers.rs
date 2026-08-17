@@ -89,7 +89,7 @@ fn collect_generic_names_from_parse_type<F>(
                 collect_generic_names_from_parse_type(arg, generic_params, is_known_type_name);
             }
         }
-        ast::ParseType::Unit => {}
+        ast::ParseType::Unit(_) => {}
     }
 }
 
@@ -144,7 +144,7 @@ fn collect_constructor_generic_kinds<F>(
                 collect_constructor_generic_kinds(ty, kinds, is_known_type_name);
             }
         }
-        ast::ParseType::Hole(_) | ast::ParseType::Unit => {}
+        ast::ParseType::Hole(_) | ast::ParseType::Unit(_) => {}
     }
 }
 
@@ -236,7 +236,7 @@ fn collect_declared_generic_kinds<F>(
                 collect_declared_generic_kinds(ty, kinds, conflicts, is_known_type_name);
             }
         }
-        ast::ParseType::Hole(_) | ast::ParseType::Unit => {}
+        ast::ParseType::Hole(_) | ast::ParseType::Unit(_) => {}
     }
 }
 
@@ -1566,7 +1566,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -1574,7 +1574,7 @@ mod tests {
         ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -1590,7 +1590,7 @@ mod tests {
         ast::GenericParamDecl {
             name: ident(name),
             kind: None,
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -1598,13 +1598,9 @@ mod tests {
         ast::TypeApplication {
             constructor: Box::new(named_type(name)),
             args: (0..arity)
-                .map(|_| {
-                    ast::ParseType::Hole(ast::TypeHole {
-                        span: Span::default(),
-                    })
-                })
+                .map(|_| ast::ParseType::Hole(ast::TypeHole { span: Span::test() }))
                 .collect(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -1612,7 +1608,7 @@ mod tests {
         ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -1725,7 +1721,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Buffer".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: vec![generic_param("T")],
             fields: vec![
@@ -1790,12 +1786,10 @@ mod tests {
             name: ident("F"),
             kind: Some(ast::TypeApplication {
                 constructor: Box::new(named_type("F")),
-                args: vec![ast::ParseType::Hole(ast::TypeHole {
-                    span: Span::default(),
-                })],
-                span: Span::default(),
+                args: vec![ast::ParseType::Hole(ast::TypeHole { span: Span::test() })],
+                span: Span::test(),
             }),
-            span: Span::default(),
+            span: Span::test(),
         };
         let decl = StructDecl {
             name: type_inner("Wrapper"),
@@ -1805,7 +1799,7 @@ mod tests {
                 ast::ParseType::Application(ast::TypeApplication {
                     constructor: Box::new(named_type("F")),
                     args: vec![named_type("A")],
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 true,
             )],
@@ -1864,7 +1858,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "TextHolder".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: vec![],
             fields: vec![field("text", named_type("Str"), true)],
@@ -1886,7 +1880,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "TextHolder".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: vec![],
             fields: vec![field(
@@ -1919,7 +1913,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Message".to_string(),
                 generics: vec![generic_type("T")],
-                span: Span::default(),
+                span: Span::test(),
             },
             variants: vec![
                 EnumVariant {
@@ -2143,7 +2137,10 @@ mod tests {
             "make",
             ParseType::Function(vec![
                 named_type("I64"),
-                ParseType::Function(vec![ParseType::Tuple(Vec::new()), named_type("I64")]),
+                ParseType::Function(vec![
+                    ParseType::Unit(crate::lexer::Span::test()),
+                    named_type("I64"),
+                ]),
             ]),
             None,
             Vec::new(),
@@ -2534,7 +2531,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Iterable".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: vec![generic_param("T")],
             for_: None,
@@ -2629,12 +2626,10 @@ mod tests {
             name: ident("F"),
             kind: Some(ast::TypeApplication {
                 constructor: Box::new(named_type("F")),
-                args: vec![ast::ParseType::Hole(ast::TypeHole {
-                    span: Span::default(),
-                })],
-                span: Span::default(),
+                args: vec![ast::ParseType::Hole(ast::TypeHole { span: Span::test() })],
+                span: Span::test(),
             }),
-            span: Span::default(),
+            span: Span::test(),
         };
         let declaration = TraitDecl {
             name: type_inner("Applicative"),
@@ -2725,7 +2720,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Mapper".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: vec![generic_param("T")],
             for_: None,
@@ -2776,7 +2771,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Mapper".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: vec![generic_param("T")],
             for_: None,
@@ -2876,7 +2871,7 @@ mod tests {
             ParseType::Application(ast::TypeApplication {
                 constructor: Box::new(generic_type("F")),
                 args: vec![arg],
-                span: Span::default(),
+                span: Span::test(),
             })
         };
         let mut kinds = HashMap::new();
@@ -2884,9 +2879,7 @@ mod tests {
         assert!(!kinds.contains_key("F"));
 
         collect_constructor_generic_kinds(
-            &application(ParseType::Hole(ast::TypeHole {
-                span: Span::default(),
-            })),
+            &application(ParseType::Hole(ast::TypeHole { span: Span::test() })),
             &mut kinds,
             &|_| false,
         );
@@ -2918,10 +2911,8 @@ mod tests {
         );
         let constructor_subject = ParseType::Application(ast::TypeApplication {
             constructor: Box::new(generic_type("F")),
-            args: vec![ParseType::Hole(ast::TypeHole {
-                span: Span::default(),
-            })],
-            span: Span::default(),
+            args: vec![ParseType::Hole(ast::TypeHole { span: Span::test() })],
+            span: Span::test(),
         });
         let decl = TraitDecl {
             where_clauses: vec![],
@@ -2993,7 +2984,7 @@ mod tests {
             for_: Some(ParseType::Type(ParseTypeInner {
                 name: "Vec".to_string(),
                 generics: vec![generic_type("T")],
-                span: Span::default(),
+                span: Span::test(),
             })),
             associated_types: vec![AssociatedTypeDef {
                 name: ident("Target"),
@@ -3133,7 +3124,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Show".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: Some(named_type("Point")),
             associated_types: vec![],
@@ -3251,7 +3242,7 @@ mod tests {
             for_: Some(ParseType::Type(ParseTypeInner {
                 name: "Box".to_string(),
                 generics: vec![named_type("I64")],
-                span: Span::default(),
+                span: Span::test(),
             })),
             associated_types: vec![AssociatedTypeDef {
                 name: ident("Family"),
@@ -3289,7 +3280,7 @@ mod tests {
         let receiver = ParseType::Application(ast::TypeApplication {
             constructor: Box::new(named_type("F")),
             args: vec![named_type("A")],
-            span: Span::default(),
+            span: Span::test(),
         });
         let imp = Impl {
             name: type_inner("Functor"),
@@ -3353,7 +3344,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Holder".to_string(),
                 generics: vec![generic_type("F")],
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: Some(named_type("I64")),
             associated_types: vec![],
@@ -3469,12 +3460,12 @@ mod tests {
             name: ParseTypeInner {
                 name: "Show".to_string(),
                 generics: vec![named_type("U8")],
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: Some(ParseType::Type(ParseTypeInner {
                 name: "Vec".to_string(),
                 generics: vec![generic_type("T")],
-                span: Span::default(),
+                span: Span::test(),
             })),
             associated_types: vec![],
             methods: HashMap::from([(
@@ -3549,7 +3540,7 @@ mod tests {
             for_: Some(ParseType::Type(ParseTypeInner {
                 name: "Vec".to_string(),
                 generics: vec![generic_type("T")],
-                span: Span::default(),
+                span: Span::test(),
             })),
             associated_types: vec![],
             methods: HashMap::new(),
@@ -3595,7 +3586,7 @@ mod tests {
             for_: Some(ParseType::Type(ParseTypeInner {
                 name: "Vec".to_string(),
                 generics: vec![generic_type("T")],
-                span: Span::default(),
+                span: Span::test(),
             })),
             associated_types: vec![],
             methods: HashMap::new(),

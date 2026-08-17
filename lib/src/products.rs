@@ -4102,7 +4102,7 @@ mod tests {
                             target: HirVarTarget::Function(old_function),
                         }),
                         ty: Type::I64,
-                        span: Span::default(),
+                        span: Span::test(),
                     },
                     field: Some(HirFieldLocation {
                         owner: old_struct,
@@ -4112,7 +4112,7 @@ mod tests {
                 }],
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut extern_expr = HirExpr {
             kind: crate::hir::HirExprKindFor::ResolvedVar(HirVarRef {
@@ -4120,7 +4120,7 @@ mod tests {
                 target: HirVarTarget::Extern(old_extern),
             }),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         super::remap_expr_location_product_ids(&mut struct_expr, &remap);
@@ -4164,26 +4164,26 @@ mod tests {
                 Box::new(HirExpr {
                     kind: crate::hir::HirExprKindFor::Var("make".to_string()),
                     ty: Type::function(Vec::new(), Type::I64),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 Vec::new(),
                 Some(HirCallTarget::Function(old_function)),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut extern_call = HirExpr {
             kind: crate::hir::HirExprKindFor::Call(
                 Box::new(HirExpr {
                     kind: crate::hir::HirExprKindFor::Var("puts".to_string()),
                     ty: Type::function(Vec::new(), Type::I64),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 Vec::new(),
                 Some(HirCallTarget::Extern(old_extern)),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         super::remap_expr_location_product_ids(&mut function_call, &remap);
@@ -4265,7 +4265,7 @@ mod tests {
                 scrutinee: Box::new(HirExpr {
                     kind: crate::hir::HirExprKindFor::Var("value".to_string()),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 arms: vec![crate::hir::HirMatchArm {
                     pattern: HirPattern::Enum(
@@ -4299,7 +4299,7 @@ mod tests {
                 }],
             },
             ty: Type::Unit,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         super::remap_expr_location_product_ids(&mut expr, &remap);
@@ -4398,7 +4398,7 @@ mod tests {
             stmts: vec![crate::hir::HirStmtFor::Expr(HirExpr {
                 kind: crate::hir::HirExprKindFor::IntLiteral(1),
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::I64,
         }
@@ -4629,7 +4629,7 @@ mod tests {
                 stmts: vec![crate::hir::HirStmtFor::Expr(HirExpr {
                     kind: crate::hir::HirExprKindFor::Var("value".to_string()),
                     ty: Type::Generic(method_generic),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
                 ty: Type::Generic(method_generic),
             },
@@ -5399,7 +5399,7 @@ mod tests {
                 stmts: vec![crate::hir::HirStmtFor::Expr(HirExpr {
                     kind: crate::hir::HirExprKindFor::Var("self".to_string()),
                     ty: Type::Generic(self_generic),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
                 ty: Type::Generic(self_generic),
             },
@@ -5513,7 +5513,7 @@ mod tests {
                 stmts: vec![crate::hir::HirStmtFor::Expr(HirExpr {
                     kind: crate::hir::HirExprKindFor::Var("self".to_string()),
                     ty: Type::Generic(impl_generic),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
                 ty: Type::Generic(impl_generic),
             },
@@ -5642,7 +5642,7 @@ mod tests {
                                     id: struct_id,
                                     args: vec![],
                                 },
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             "value".to_string(),
                             Some(crate::hir::HirFieldLocation {
@@ -5652,7 +5652,7 @@ mod tests {
                             }),
                         ),
                         ty: Type::I64,
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     crate::hir::HirStmtFor::Expr(HirExpr {
                         kind: crate::hir::HirExprKindFor::EnumVariant(
@@ -5669,7 +5669,7 @@ mod tests {
                             id: enum_id,
                             args: vec![],
                         },
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                 ],
                 ty: Type::Unit,
@@ -5808,13 +5808,13 @@ mod tests {
                     Box::new(HirExpr {
                         kind: crate::hir::HirExprKindFor::Var("target".to_string()),
                         ty: Type::function(Vec::new(), Type::I64),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     Vec::new(),
                     Some(HirCallTarget::Function(invalid_target)),
                 ),
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::I64,
         };
@@ -6593,12 +6593,12 @@ mod tests {
                                 Box::new(crate::hir::HirExprFor::<AcceptedHir> {
                                     kind: crate::hir::HirExprKindFor::IntLiteral(1),
                                     ty: nested_expr_ty.clone(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 }),
                                 cast_ty.clone(),
                             ),
                             ty: cast_ty.clone(),
-                            span: Span::default(),
+                            span: Span::test(),
                         },
                         mutable: false,
                     },
@@ -6616,7 +6616,7 @@ mod tests {
                                     crate::hir::HirExprFor::<AcceptedHir> {
                                         kind: crate::hir::HirExprKindFor::Unit,
                                         ty: lambda_body_ty.clone(),
-                                        span: Span::default(),
+                                        span: Span::test(),
                                     },
                                 )],
                                 ty: lambda_body_ty.clone(),
@@ -6630,7 +6630,7 @@ mod tests {
                             }],
                         },
                         ty: lambda_expr_ty.clone(),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                 ],
                 ty: block_ty.clone(),
@@ -6718,7 +6718,7 @@ mod tests {
                         scrutinee: Box::new(crate::hir::HirExprFor::<AcceptedHir> {
                             kind: crate::hir::HirExprKindFor::Var("value".to_string()),
                             ty: Type::I64,
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         arms: vec![crate::hir::HirMatchArmFor::<AcceptedHir> {
                             pattern: HirPattern::Struct(
@@ -6739,7 +6739,7 @@ mod tests {
                         }],
                     },
                     ty: Type::Unit,
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
                 ty: Type::Unit,
             };

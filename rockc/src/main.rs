@@ -598,9 +598,9 @@ fn source_load_errors_to_diagnostics(
     for error in errors {
         match error {
             rock_lib::source_loader::SourceLoadError::Io { path, message } => {
-                diagnostics.push(rock_lib::diagnostic::Diagnostic::new(
+                diagnostics.push(rock_lib::diagnostic::Diagnostic::for_file(
                     format!("Failed to read source file {}: {}", path.display(), message),
-                    Default::default(),
+                    path,
                 ));
             }
             rock_lib::source_loader::SourceLoadError::MissingModule {
@@ -608,18 +608,46 @@ fn source_load_errors_to_diagnostics(
                 searched,
                 span,
             } => {
+                let searched_path = searched.first().cloned();
                 let searched = searched
                     .iter()
                     .map(|path| path.display().to_string())
                     .collect::<Vec<_>>()
                     .join(", ");
-                diagnostics.push(rock_lib::diagnostic::Diagnostic::new(
-                    format!("Module '{}' not found; searched: {}", module, searched),
-                    span.unwrap_or_default(),
-                ));
+                let message = format!("Module '{}' not found; searched: {}", module, searched);
+                diagnostics.push(match span {
+                    Some(span) => rock_lib::diagnostic::Diagnostic::new(message, span),
+                    None => match searched_path {
+                        Some(path) => rock_lib::diagnostic::Diagnostic::for_file(message, path),
+                        None => rock_lib::diagnostic::Diagnostic::for_toolchain(message),
+                    },
+                });
             }
-            rock_lib::source_loader::SourceLoadError::Parse { error, .. } => {
-                diagnostics.merge(Diagnostics::from(error));
+            rock_lib::source_loader::SourceLoadError::Parse { error, source, .. } => {
+                let mut parsed = Diagnostics::from(error);
+                if let Some(source) = source {
+                    let origin = match source.origin {
+                        rock_lib::source_loader::SourceOrigin::FileSystem => {
+                            rock_lib::diagnostic::DiagnosticSourceOrigin::FileSystem
+                        }
+                        rock_lib::source_loader::SourceOrigin::Virtual => {
+                            rock_lib::diagnostic::DiagnosticSourceOrigin::Virtual
+                        }
+                        rock_lib::source_loader::SourceOrigin::Artifact { artifact_path } => {
+                            rock_lib::diagnostic::DiagnosticSourceOrigin::Artifact { artifact_path }
+                        }
+                    };
+                    let source = rock_lib::diagnostic::DiagnosticSource {
+                        display_path: source.display_path,
+                        text: source.text,
+                        origin,
+                        related: std::collections::BTreeMap::new(),
+                    };
+                    for diagnostic in &mut parsed.0 {
+                        diagnostic.source = Some(source.clone());
+                    }
+                }
+                diagnostics.merge(parsed);
             }
             rock_lib::source_loader::SourceLoadError::CircularModule { path, stack } => {
                 let stack = stack
@@ -627,13 +655,13 @@ fn source_load_errors_to_diagnostics(
                     .map(|path| path.display().to_string())
                     .collect::<Vec<_>>()
                     .join(" -> ");
-                diagnostics.push(rock_lib::diagnostic::Diagnostic::new(
+                diagnostics.push(rock_lib::diagnostic::Diagnostic::for_file(
                     format!(
                         "Circular module load detected at {} via {}",
                         path.display(),
                         stack
                     ),
-                    Default::default(),
+                    path,
                 ));
             }
         }
@@ -787,9 +815,8 @@ impl<'a> Visitor<'a> for ModulePrinter {
 
 fn diagnostics_from_message(message: impl Into<String>) -> Diagnostics {
     let mut diagnostics = Diagnostics::default();
-    diagnostics.push(rock_lib::diagnostic::Diagnostic::new(
+    diagnostics.push(rock_lib::diagnostic::Diagnostic::for_toolchain(
         message.into(),
-        Default::default(),
     ));
     diagnostics
 }

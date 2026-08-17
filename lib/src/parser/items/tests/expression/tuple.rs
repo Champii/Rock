@@ -22,7 +22,7 @@ fn tuple() {
                     Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                         operand: Operand::Literal(Literal {
                             kind: crate::ast::LiteralKind::Number(1),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         secondaries: None,
                         type_annotation: None,
@@ -30,7 +30,7 @@ fn tuple() {
                     Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                         operand: Operand::Literal(Literal {
                             kind: crate::ast::LiteralKind::Number(2),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         secondaries: None,
                         type_annotation: None,
@@ -38,7 +38,7 @@ fn tuple() {
                     Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                         operand: Operand::Literal(Literal {
                             kind: crate::ast::LiteralKind::Number(3),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         secondaries: None,
                         type_annotation: None,

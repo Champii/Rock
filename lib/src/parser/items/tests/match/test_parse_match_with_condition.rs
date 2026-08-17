@@ -20,7 +20,7 @@ fn test_parse_match_with_condition() {
                 operand: Operand::Ident(crate::ast::IdentifierPath {
                     path: vec![IdentOrType::Ident(Ident {
                         name: "a".to_string(),
-                        span: Span::default(),
+                        span: Span::test(),
                     })]
                 }),
                 secondaries: None,
@@ -35,7 +35,7 @@ fn test_parse_match_with_condition() {
                             kind: PatternKind::Ident(IdentPattern {
                                 name: Ident {
                                     name: "a".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 },
                                 mut_: false,
                             })
@@ -45,7 +45,7 @@ fn test_parse_match_with_condition() {
                             kind: PatternKind::Ident(IdentPattern {
                                 name: Ident {
                                     name: "b".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 },
                                 mut_: false,
                             })
@@ -56,7 +56,7 @@ fn test_parse_match_with_condition() {
                     operand: Operand::Ident(crate::ast::IdentifierPath {
                         path: vec![IdentOrType::Ident(Ident {
                             name: "a".to_string(),
-                            span: Span::default(),
+                            span: Span::test(),
                         })]
                     }),
                     secondaries: None,
@@ -68,7 +68,7 @@ fn test_parse_match_with_condition() {
                             operand: Operand::Ident(crate::ast::IdentifierPath {
                                 path: vec![IdentOrType::Ident(Ident {
                                     name: "a".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 })]
                             }),
                             secondaries: None,

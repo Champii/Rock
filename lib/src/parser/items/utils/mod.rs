@@ -19,7 +19,7 @@ pub use crate::lexer::Token;
 pub fn lex_test(input: &str) -> Vec<Token> {
     use crate::lexer::Lexer;
 
-    let mut tokens = Lexer::new(std::path::PathBuf::new(), input)
+    let mut tokens = Lexer::new(std::path::PathBuf::from("/test.rk"), input)
         .unwrap()
         .with_newline_at_end(false)
         .collect()
@@ -39,7 +39,7 @@ pub fn lex_test(input: &str) -> Vec<Token> {
 pub fn lex_test_toplevel(input: &str) -> Vec<Token> {
     use crate::lexer::Lexer;
 
-    let mut tokens = Lexer::new(std::path::PathBuf::new(), input)
+    let mut tokens = Lexer::new(std::path::PathBuf::from("/test.rk"), input)
         .unwrap()
         .collect()
         .unwrap();

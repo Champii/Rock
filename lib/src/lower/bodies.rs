@@ -81,7 +81,7 @@ fn collect_generic_names_from_parse_type<F>(
                 collect_generic_names_from_parse_type(arg, generic_params, is_known_type_name);
             }
         }
-        ast::ParseType::Unit => {}
+        ast::ParseType::Unit(_) => {}
     }
 }
 
@@ -238,8 +238,7 @@ impl Lowerer {
             None => base_name.clone(),
         };
 
-        self.diagnostics
-            .set_current_span(Some(fd.name.span.clone()));
+        self.diagnostics.set_current_span(fd.name.span.clone());
         let func = self.items.function(function_id).cloned();
         let Some(mut func) = func else {
             self.diagnostics.push_with_span(
@@ -329,9 +328,17 @@ impl Lowerer {
             lowerer.scope.push();
 
             // Register parameters in scope
-            for param in &mut func.params {
+            for (index, param) in func.params.iter_mut().enumerate() {
                 let local_id = lowerer.fresh_local_id();
                 param.local_id = local_id;
+                if let Some(span) = fd
+                    .lambda
+                    .parameters
+                    .get(index)
+                    .and_then(Lowerer::pattern_binding_span)
+                {
+                    lowerer.source_map.insert_local(func.id, local_id, span);
+                }
                 lowerer.scope.define_local(
                     param.name.clone(),
                     param.ty.clone(),
@@ -405,8 +412,7 @@ impl Lowerer {
         let mut methods = Vec::with_capacity(imp.methods.len());
         for (method_ident, fd) in &imp.methods {
             let method_name = method_ident.name.clone();
-            self.diagnostics
-                .set_current_span(Some(method_ident.span.clone()));
+            self.diagnostics.set_current_span(method_ident.span.clone());
             let Some(method_id) = self
                 .items
                 .impl_def(impl_id)
@@ -483,8 +489,21 @@ impl Lowerer {
                     fd.is_unsafe || explicit_sig_is_unsafe,
                 );
                 self.with_body_context(local_id_context, |lowerer| {
-                    for param in &mut func.params {
-                        param.local_id = lowerer.fresh_local_id();
+                    let source_start = usize::from(func.self_receiver.is_some());
+                    for (index, param) in func.params.iter_mut().enumerate() {
+                        let local_id = lowerer.fresh_local_id();
+                        param.local_id = local_id;
+                        let span = if index < source_start {
+                            Some(fd.name.span.clone())
+                        } else {
+                            fd.lambda
+                                .parameters
+                                .get(index - source_start)
+                                .and_then(Lowerer::pattern_binding_span)
+                        };
+                        if let Some(span) = span {
+                            lowerer.source_map.insert_local(func.id, local_id, span);
+                        }
                     }
                 });
 
@@ -790,7 +809,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -798,7 +817,7 @@ mod tests {
         ast::ParseType::Type(ParseTypeInner {
             name: name.to_string(),
             generics,
-            span: Span::default(),
+            span: Span::test(),
         })
     }
 
@@ -822,7 +841,7 @@ mod tests {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: LiteralKind::Number(value),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,
@@ -1125,7 +1144,7 @@ mod tests {
 
     #[test]
     fn lower_impl_bodies_resolves_current_struct_impl_by_prepared_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(40);
         let impl_id = def_id(41);
         let function_id = def_id(42);
@@ -1178,7 +1197,7 @@ mod tests {
             name: crate::ast::ParseTypeInner {
                 name: "String".to_string(),
                 generics: Vec::new(),
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: None,
             associated_types: Vec::new(),
@@ -1216,7 +1235,7 @@ mod tests {
 
     #[test]
     fn lower_impl_bodies_inherent_impl_does_not_match_trait_impl_slot() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(70);
         let inherent_impl_id = def_id(71);
         let trait_id = def_id(72);
@@ -1277,7 +1296,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Thing".to_string(),
                 generics: Vec::new(),
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: None,
             associated_types: Vec::new(),
@@ -1319,7 +1338,7 @@ mod tests {
 
     #[test]
     fn lower_impl_bodies_context_owner_matches_trait_args() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let box_id = def_id(80);
         let trait_id = def_id(81);
         let matching_impl_id = def_id(82);
@@ -1408,7 +1427,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Convert".to_string(),
                 generics: vec![parse_type("Bool", Vec::new())],
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: Some(parse_type("Box", vec![parse_type("T", Vec::new())])),
             associated_types: Vec::new(),
@@ -1443,7 +1462,7 @@ mod tests {
 
     #[test]
     fn is_known_nominal_type_name_recognizes_dependency_alias_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let dep_struct_id = DefId::new(CrateId(2), LocalDefId(10));
         lowerer.items.insert_structure(HirStruct {
             id: dep_struct_id,
@@ -1467,7 +1486,7 @@ mod tests {
 
     #[test]
     fn lower_impl_bodies_rewraps_shared_signature_self_as_concrete_receiver() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(50);
         let impl_id = def_id(51);
         let function_id = def_id(52);
@@ -1519,7 +1538,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Point".to_string(),
                 generics: Vec::new(),
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: None,
             associated_types: Vec::new(),
@@ -1570,7 +1589,7 @@ mod tests {
 
     #[test]
     fn lower_impl_bodies_rewraps_enum_self_as_enum_receiver() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let enum_id = def_id(60);
         let impl_id = def_id(61);
         let function_id = def_id(62);
@@ -1622,7 +1641,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Option".to_string(),
                 generics: Vec::new(),
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: None,
             associated_types: Vec::new(),
@@ -1637,7 +1656,7 @@ mod tests {
                                 UnaryExpr::PrimaryExpr(PrimaryExpr {
                                     operand: Operand::Literal(Literal {
                                         kind: LiteralKind::Bool(true),
-                                        span: Span::default(),
+                                        span: Span::test(),
                                     }),
                                     secondaries: None,
                                     type_annotation: None,
@@ -1672,7 +1691,7 @@ mod tests {
 
     #[test]
     fn lower_function_body_reports_provisional_generic_owner_without_mutation() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = def_id(10);
         let provisional_owner = DefId::new(CrateId(u32::MAX), LocalDefId(99));
         lowerer.items.insert_function(function_with_generic_owner(
@@ -1699,7 +1718,7 @@ mod tests {
 
     #[test]
     fn lower_function_body_reports_missing_indexed_function_payload() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         lowerer.lower_function_body_qualified(&empty_function_decl("missing"), def_id(90), None);
 
@@ -1710,7 +1729,7 @@ mod tests {
 
     #[test]
     fn lower_impl_bodies_reports_missing_indexed_method_payload() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let impl_id = def_id(91);
         lowerer
             .items
@@ -1733,7 +1752,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Missing".to_string(),
                 generics: Vec::new(),
-                span: Span::default(),
+                span: Span::test(),
             },
             for_: None,
             associated_types: Vec::new(),
@@ -1753,7 +1772,7 @@ mod tests {
 impl Lowerer {
     fn lower_function_body_block(&mut self, fd: &ast::FunctionDecl) -> crate::hir::HirBlock {
         if fd.lambda.arrow_kind == ast::LambdaArrowKind::Curried && fd.lambda.parameters.len() > 1 {
-            let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+            let span = self.diagnostics.current_span().clone();
             let remaining_params = &fd.lambda.parameters[1..];
             let curried_signature = self.current_body_return_type().and_then(|mut ty| {
                 let mut parameter_types = Vec::with_capacity(remaining_params.len());

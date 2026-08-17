@@ -522,7 +522,7 @@ pub fn walk_parse_type<'a, V: Visitor<'a>>(visitor: &mut V, ty: &'a ParseType) {
         ParseType::Pointer(pointee) => {
             visitor.visit_parse_type(pointee);
         }
-        ParseType::Unit => {}
+        ParseType::Unit(_) => {}
     }
     // walk_list!(visitor, visit_parse_type_inner, &ty.inners);
 }

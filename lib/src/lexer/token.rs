@@ -110,11 +110,12 @@ impl PartialEq for Token {
 
 impl Eq for Token {}
 
+#[cfg(test)]
 impl From<TokenType> for Token {
     fn from(token_type: TokenType) -> Self {
         Self {
             token_type,
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 }

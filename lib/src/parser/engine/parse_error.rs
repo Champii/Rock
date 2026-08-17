@@ -3,7 +3,7 @@ use crate::lexer::{Span, Token};
 #[derive(Debug, Clone)]
 pub enum ParseError {
     UnexpectedToken(String, Token), // expected, got
-    UnexpectedEOF,
+    UnexpectedEOF(Span),
     UnknownFile(String),
     Lexer(crate::lexer::LexerError),
     UnexpectedIndent(u8),
@@ -30,7 +30,7 @@ impl ParseError {
     pub fn discriminant(&self) -> &'static str {
         match self {
             ParseError::UnexpectedToken(_, _) => "UnexpectedToken",
-            ParseError::UnexpectedEOF => "UnexpectedEOF",
+            ParseError::UnexpectedEOF(_) => "UnexpectedEOF",
             ParseError::UnknownFile(_) => "UnknownFile",
             ParseError::Lexer(_) => "Lexer",
             ParseError::UnexpectedIndent(_) => "UnexpectedIndent",
@@ -50,7 +50,7 @@ impl ParseError {
     pub fn position(&self) -> usize {
         match self {
             ParseError::UnexpectedToken(_, token) => token.span.start,
-            ParseError::UnexpectedEOF => usize::MAX, // EOF errors are always at the end
+            ParseError::UnexpectedEOF(_) => usize::MAX, // EOF errors are always at the end
             ParseError::MacroNoCorrespondance { invoc_name, .. } => invoc_name.start,
             ParseError::UnexpectedIndent(_) => 0,
             ParseError::ExpectedOneOrMore => 0,

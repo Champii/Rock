@@ -402,18 +402,10 @@ impl ModuleLoweringContext {
             let module_id = match lowerer.modules.loaded_module_id(module_name) {
                 Ok(module_id) => module_id,
                 Err(reason) => {
-                    lowerer.diagnostics.push_with_span(
-                        format!(
-                            "{} for loaded module '{}' while lowering bodies",
-                            reason, module_name
-                        ),
-                        loaded_module
-                            .module
-                            .name
-                            .as_ref()
-                            .map(|name| name.span.clone())
-                            .unwrap_or_default(),
-                    );
+                    lowerer.diagnostics.push_toolchain(format!(
+                        "{} for loaded module '{}' while lowering bodies",
+                        reason, module_name
+                    ));
                     continue;
                 }
             };
@@ -568,7 +560,7 @@ mod tests {
         Module {
             name: Some(Ident {
                 name: "io".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: Vec::new(),
             is_inline: false,
@@ -583,7 +575,7 @@ mod tests {
                 .map(|name| {
                     IdentOrType::Ident(Ident {
                         name: name.to_string(),
-                        span: Span::default(),
+                        span: Span::test(),
                     })
                 })
                 .collect(),
@@ -667,7 +659,7 @@ mod tests {
         let root_path = temp_dir.join("main.rk");
         let util_path = temp_dir.join("util.rk");
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.modules = LowerModuleService::from_source_modules(vec![loaded_module(
             "demo::util",
             util_path.clone(),
@@ -714,7 +706,7 @@ mod tests {
         let alias_path = temp_dir.join("alias.rk");
         let graph_path = temp_dir.join("graph.rk");
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.modules = LowerModuleService::from_source_modules(vec![
             loaded_module("math::io", alias_path.clone()),
             loaded_module("test::math::io", graph_path.clone()),
@@ -743,7 +735,7 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).unwrap();
         let cached_path = temp_dir.join("util.rk");
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.modules = LowerModuleService::from_source_modules(vec![loaded_module(
             "other::util",
             cached_path.clone(),
@@ -772,7 +764,7 @@ mod tests {
         let root_path = temp_dir.join("main.rk");
         let module_path = temp_dir.join("util.rk");
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .modules
             .configure_current_crate(Some("demo"), Some(&root_path));
@@ -800,7 +792,7 @@ mod tests {
             top_levels: vec![TopLevel::Mod(
                 Ident {
                     name: "child".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 false,
             )],
@@ -808,7 +800,7 @@ mod tests {
             filepath: Some(root_path.clone()),
         };
         let mut ids = IndexingIds::new_root();
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.item_index = index_root_module_items(&mut ids, &root);
         lowerer.modules = LowerModuleService::from_source_modules(vec![
             loaded_module("demo", root_path.clone()),
@@ -855,7 +847,7 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).unwrap();
         let root_path = temp_dir.join("lib.rk");
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.modules =
             LowerModuleService::from_source_modules(vec![loaded_module("dep", root_path.clone())]);
 
@@ -873,7 +865,7 @@ mod tests {
                 .unwrap();
         let module = parsed.module;
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let answer_id = DefId::new(CrateId(0), LocalDefId(1));
         lowerer
             .resolver
@@ -930,7 +922,7 @@ mod tests {
         let module = Module {
             name: Some(Ident {
                 name: "helper".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![
                 import_path(&["demo", "helper", "answer"]),
@@ -942,7 +934,7 @@ mod tests {
 
         let previous_id = DefId::new(CrateId(0), LocalDefId(1));
         let answer_id = DefId::new(CrateId(0), LocalDefId(2));
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .resolver
             .module_aliases

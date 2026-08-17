@@ -21,14 +21,14 @@ fn instance_pattern_fields_nested() {
                     path: vec![IdentOrType::Type(ParseType::Type(ParseTypeInner {
                         name: "Player".to_string(),
                         generics: vec![],
-                        span: Span::default(),
+                        span: Span::test(),
                     }))]
                 },
                 args: FieldsPatternOrArgumentsPattern::Fields(vec![
                     FieldPattern {
                         name: Ident {
                             name: "foo".to_string(),
-                            span: Span::default(),
+                            span: Span::test(),
                         },
                         pattern: Pattern {
                             binding: None,
@@ -40,7 +40,7 @@ fn instance_pattern_fields_nested() {
                                             ParseTypeInner {
                                                 name: "Ok".to_string(),
                                                 generics: vec![],
-                                                span: Span::default(),
+                                                span: Span::test(),
                                             }
                                         ))]
                                     },
@@ -49,7 +49,7 @@ fn instance_pattern_fields_nested() {
                                             binding: None,
                                             kind: PatternKind::Literal(Literal {
                                                 kind: LiteralKind::Number(1),
-                                                span: Span::default(),
+                                                span: Span::test(),
                                             })
                                         }
                                     ])
@@ -60,14 +60,14 @@ fn instance_pattern_fields_nested() {
                     FieldPattern {
                         name: Ident {
                             name: "bar".to_string(),
-                            span: Span::default(),
+                            span: Span::test(),
                         },
                         pattern: Pattern {
                             binding: None,
                             kind: PatternKind::Ident(IdentPattern {
                                 name: Ident {
                                     name: "toto".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 },
                                 mut_: false,
                             })

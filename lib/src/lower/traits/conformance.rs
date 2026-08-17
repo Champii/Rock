@@ -2796,7 +2796,7 @@ mod tests {
 
     #[test]
     fn index_mut_pair_diagnostic_uses_index_mut_method_span() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let index_trait_id = def_id(40);
         let index_mut_trait_id = def_id(41);
         let index_mut_method_id = def_id(42);
@@ -2903,7 +2903,7 @@ mod tests {
 
     #[test]
     fn conformance_does_not_resolve_dependency_export_alias_without_import() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let point_id = def_id(30);
         let trait_id = DefId::new(CrateId(7), LocalDefId(31));
         register_point(&mut lowerer, point_id);
@@ -2955,7 +2955,7 @@ mod tests {
 
     #[test]
     fn conformance_requires_resolver_id_for_trait_name() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let point_id = def_id(33);
         let trait_id = def_id(34);
         register_point(&mut lowerer, point_id);
@@ -2987,7 +2987,7 @@ mod tests {
 
     #[test]
     fn auto_impl_sized_ignores_local_trait_named_sized() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let sized_id = def_id(10);
         let point_id = def_id(11);
         lowerer
@@ -3005,7 +3005,7 @@ mod tests {
 
     #[test]
     fn auto_impl_sized_uses_marked_trait_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let sized_id = def_id(20);
         let point_id = def_id(21);
         lowerer
@@ -3025,7 +3025,7 @@ mod tests {
 
     #[test]
     fn auto_impl_sized_uses_marked_renamed_trait_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let sized_id = def_id(22);
         let point_id = def_id(23);
         lowerer
@@ -3048,7 +3048,7 @@ mod tests {
 
     #[test]
     fn auto_impl_sized_does_not_run_without_marked_bundle() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(24);
         let point_id = def_id(25);
         lowerer
@@ -3063,7 +3063,7 @@ mod tests {
 
     #[test]
     fn auto_impl_sized_preserves_generic_struct_shape() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let sized_id = def_id(5);
         let struct_id = def_id(6);
         lowerer
@@ -3116,7 +3116,7 @@ mod tests {
 
     #[test]
     fn auto_impl_sized_preserves_generic_enum_shape() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let sized_id = def_id(7);
         let enum_id = def_id(8);
         lowerer
@@ -3169,7 +3169,7 @@ mod tests {
 
     #[test]
     fn auto_impl_sized_generates_impls_in_owner_def_id_order() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let sized_id = def_id(5);
         let high_id = def_id(30);
         let low_id = def_id(10);
@@ -3213,7 +3213,7 @@ mod tests {
 
     #[test]
     fn auto_impl_sized_skips_foreign_structs_without_current_provenance() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let sized_id = def_id(20);
         let foreign_point_id = DefId::new(CrateId(7), LocalDefId(21));
         lowerer
@@ -3243,7 +3243,7 @@ mod tests {
 
     #[test]
     fn conformance_preserves_empty_override_without_default_injection() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let trait_id = def_id(6);
         let impl_id = def_id(7);
@@ -3270,7 +3270,7 @@ mod tests {
                 stmts: vec![HirStmt::Expr(HirExpr {
                     kind: HirExprKind::IntLiteral(42),
                     ty: Type::I32,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 })],
                 ty: Type::I32,
             },
@@ -3359,7 +3359,7 @@ mod tests {
 
     #[test]
     fn conformance_resolves_generic_impl_self_type_from_canonical_owner() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let trait_id = def_id(60);
         let impl_id = def_id(61);
@@ -3435,7 +3435,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::Var("self".to_string()),
                             ty: trait_self.clone(),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: trait_self.clone(),
                     },
@@ -3487,7 +3487,7 @@ mod tests {
 
     #[test]
     fn conformance_resolves_signatureless_default_method_return_type_from_body() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(50);
         let impl_id = def_id(51);
         let default_method_id = def_id(52);
@@ -3522,7 +3522,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::IntLiteral(4),
                             ty: Type::I64,
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::I64,
                     },
@@ -3584,7 +3584,7 @@ mod tests {
 
     #[test]
     fn test_conformance_preserves_generic_borrowed_slice_self_param() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let self_ty = lowerer.engine.fresh_type_var();
 
         let trait_id = def_id(1);
@@ -3686,7 +3686,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_zero_based_declared_trait_generics() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(10);
         let impl_id = def_id(11);
         let method_id = def_id(12);
@@ -3790,7 +3790,7 @@ mod tests {
 
     #[test]
     fn conformance_rejects_impl_method_missing_explicit_signature_arg() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(13);
         let impl_id = def_id(14);
         let method_id = def_id(15);
@@ -3886,7 +3886,7 @@ mod tests {
 
     #[test]
     fn conformance_rejects_impl_method_receiver_mode_mismatch() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(420);
         let impl_id = def_id(421);
         let method_id = def_id(422);
@@ -3975,7 +3975,7 @@ mod tests {
 
     #[test]
     fn conformance_rejects_impl_method_return_type_mismatch() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(424);
         let impl_id = def_id(425);
         let method_id = def_id(426);
@@ -4055,7 +4055,7 @@ mod tests {
 
     #[test]
     fn conformance_does_not_recheck_dependency_impl_signatures() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(428);
         let impl_id = DefId::new(CrateId(7), LocalDefId(429));
         let method_id = DefId::new(CrateId(7), LocalDefId(430));
@@ -4132,7 +4132,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_trait_arg_types_not_display_names() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(20);
         let impl_id = def_id(21);
         let method_id = def_id(22);
@@ -4241,7 +4241,7 @@ mod tests {
 
     #[test]
     fn conformance_uses_resolved_trait_id_for_projection_substitution() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(30);
         let impl_id = def_id(31);
         let method_id = def_id(32);
@@ -4361,7 +4361,7 @@ mod tests {
 
     #[test]
     fn conformance_does_not_substitute_projection_owned_by_different_trait() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(50);
         let other_trait_id = def_id(51);
         let impl_id = def_id(52);
@@ -4471,7 +4471,7 @@ mod tests {
 
     #[test]
     fn conformance_does_not_substitute_projection_with_different_trait_args() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(55);
         let impl_id = def_id(56);
         let method_id = def_id(57);
@@ -4594,7 +4594,7 @@ mod tests {
 
     #[test]
     fn conformance_does_not_substitute_projection_on_non_self_generic_base() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(70);
         let impl_id = def_id(71);
         let method_id = def_id(72);
@@ -4662,7 +4662,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::Var("value".to_string()),
                             ty: non_self_projection.clone(),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: non_self_projection.clone(),
                     },
@@ -4713,7 +4713,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_default_method_nested_struct_trait_generic_types() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(73);
         let impl_id = def_id(74);
         let method_id = def_id(75);
@@ -4761,7 +4761,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::Var("boxed".to_string()),
                             ty: boxed_trait_generic.clone(),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: boxed_trait_generic.clone(),
                     },
@@ -4807,7 +4807,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_default_method_nested_enum_trait_generic_types() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(77);
         let impl_id = def_id(78);
         let method_id = def_id(79);
@@ -4855,7 +4855,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::Var("maybe".to_string()),
                             ty: maybe_trait_generic.clone(),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: maybe_trait_generic.clone(),
                     },
@@ -4901,7 +4901,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_default_method_call_target_trait_args() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(81);
         let impl_id = def_id(82);
         let method_id = def_id(83);
@@ -4943,7 +4943,7 @@ mod tests {
                                 Box::new(HirExpr {
                                     kind: HirExprKind::Var("self".to_string()),
                                     ty: Type::Generic(trait_self),
-                                    span: Default::default(),
+                                    span: crate::lexer::Span::test(),
                                 }),
                                 "target".to_string(),
                                 Vec::new(),
@@ -4959,7 +4959,7 @@ mod tests {
                                 )),
                             ),
                             ty: Type::I64,
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::I64,
                     },
@@ -5012,7 +5012,7 @@ mod tests {
 
     #[test]
     fn conformance_does_not_retarget_default_method_bound_non_self_receiver() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(113);
         let impl_id = def_id(114);
         let score_sig_id = def_id(115);
@@ -5071,7 +5071,7 @@ mod tests {
                                 Box::new(HirExpr {
                                     kind: HirExprKind::Var("value".to_string()),
                                     ty: Type::Generic(method_generic),
-                                    span: Default::default(),
+                                    span: crate::lexer::Span::test(),
                                 }),
                                 "score".to_string(),
                                 Vec::new(),
@@ -5084,7 +5084,7 @@ mod tests {
                                 )),
                             ),
                             ty: Type::I64,
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::I64,
                     },
@@ -5142,7 +5142,7 @@ mod tests {
                             stmts: vec![HirStmt::Expr(HirExpr {
                                 kind: HirExprKind::IntLiteral(1),
                                 ty: Type::I64,
-                                span: Default::default(),
+                                span: crate::lexer::Span::test(),
                             })],
                             ty: Type::I64,
                         },
@@ -5172,7 +5172,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_default_method_match_guard_and_pattern_types() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(85);
         let impl_id = def_id(86);
         let method_id = def_id(87);
@@ -5227,7 +5227,7 @@ mod tests {
                                 scrutinee: Box::new(HirExpr {
                                     kind: HirExprKind::Var("boxed".to_string()),
                                     ty: boxed_trait_generic.clone(),
-                                    span: Default::default(),
+                                    span: crate::lexer::Span::test(),
                                 }),
                                 arms: vec![HirMatchArm {
                                     pattern: HirPattern::Struct(
@@ -5247,20 +5247,20 @@ mod tests {
                                     guard: Some(HirExpr {
                                         kind: HirExprKind::Var("value".to_string()),
                                         ty: Type::Generic(trait_generic),
-                                        span: Default::default(),
+                                        span: crate::lexer::Span::test(),
                                     }),
                                     body: HirBlock {
                                         stmts: vec![HirStmt::Expr(HirExpr {
                                             kind: HirExprKind::Var("value".to_string()),
                                             ty: Type::Generic(trait_generic),
-                                            span: Default::default(),
+                                            span: crate::lexer::Span::test(),
                                         })],
                                         ty: Type::Generic(trait_generic),
                                     },
                                 }],
                             },
                             ty: Type::Generic(trait_generic),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::Generic(trait_generic),
                     },
@@ -5317,7 +5317,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_default_method_generic_bound_type_args() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(89);
         let impl_id = def_id(90);
         let method_id = def_id(91);
@@ -5368,7 +5368,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::IntLiteral(1),
                             ty: Type::I64,
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::I64,
                     },
@@ -5418,7 +5418,7 @@ mod tests {
 
     #[test]
     fn conformance_default_body_generic_ids_match_trait_header_order() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(95);
         let impl_id = def_id(96);
         let method_id = def_id(97);
@@ -5466,7 +5466,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::Var("value".to_string()),
                             ty: Type::Generic(trait_generic),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::Generic(trait_generic),
                     },
@@ -5518,7 +5518,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_default_method_lambda_capture_types() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(60);
         let impl_id = def_id(61);
         let default_method_id = def_id(62);
@@ -5573,7 +5573,7 @@ mod tests {
                                 }],
                             },
                             ty: lambda_ty.clone(),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: lambda_ty.clone(),
                     },
@@ -5626,7 +5626,7 @@ mod tests {
 
     #[test]
     fn conformance_substitutes_default_method_lambda_projection_carriers() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(100);
         let impl_id = def_id(101);
         let default_method_id = def_id(102);
@@ -5704,7 +5704,7 @@ mod tests {
                                 }],
                             },
                             ty: lambda_ty.clone(),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: lambda_ty.clone(),
                     },
@@ -5773,7 +5773,7 @@ mod tests {
 
     #[test]
     fn generated_default_method_is_attached_to_exact_impl_owner_and_remaps_generics() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(110);
         let impl_id = def_id(111);
         let default_method_id = def_id(112);
@@ -5829,7 +5829,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::Var("value".to_string()),
                             ty: Type::Generic(default_method_generic),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::Generic(default_method_generic),
                     },
@@ -5887,7 +5887,7 @@ mod tests {
 
     #[test]
     fn trait_conformance_service_uses_explicit_deps_for_selection_and_required_items() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(130);
         let impl_id = def_id(131);
         let assoc_id = AssocTypeId(0);
@@ -5976,7 +5976,7 @@ mod tests {
 
     #[test]
     fn lowerer_conformance_delegate_reports_required_items() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(140);
         let impl_id = def_id(141);
         let trait_self = GenericParamId {
@@ -6034,7 +6034,7 @@ mod tests {
 
     #[test]
     fn conformance_rejects_missing_supertrait_implementation() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let parent_id = def_id(700);
         let child_id = def_id(701);
         let point_id = def_id(702);

@@ -6,14 +6,14 @@ use crate::lower::ResolveError;
 use crate::type_services::facts::TypeFacts;
 use crate::types::{GenericParamId, Type};
 
-use super::{InferenceEngine, PartialHir};
+use super::{InferenceEngine, InferenceError, PartialHir};
 
 /// Finalization context carrying the engine and error list.
 pub(super) struct FinalizeCtx<'a> {
     engine: &'a InferenceEngine,
     method_generic_params:
         std::collections::HashMap<DefId, std::collections::HashSet<GenericParamId>>,
-    errors: Vec<String>,
+    errors: Vec<InferenceError>,
 }
 
 impl<'a> FinalizeCtx<'a> {
@@ -254,9 +254,9 @@ pub(super) fn apply_finalization(hir: &mut PartialHir) -> Vec<ResolveError> {
 
     ctx.errors
         .into_iter()
-        .map(|message| ResolveError {
-            message,
-            span: None,
+        .map(|error| ResolveError {
+            message: error.message,
+            span: error.span,
         })
         .collect()
 }
@@ -359,10 +359,13 @@ fn finalize_expr(ctx: &mut FinalizeCtx<'_>, expr: &mut HirExpr) {
         HirExprKind::ArrayRepeat(value, len) => {
             finalize_expr(ctx, value);
             if *len > 1 && !TypeFacts::is_copy(&value.ty) {
-                ctx.errors.push(format!(
-                    "array repeat initializer must be Copy, found '{}'",
-                    value.ty
-                ));
+                ctx.errors.push(InferenceError {
+                    message: format!(
+                        "array repeat initializer must be Copy, found '{}'",
+                        ctx.engine.display_type(&value.ty)
+                    ),
+                    span: Some(value.span.clone()),
+                });
             }
         }
         HirExprKind::StructLiteral(_, _, fields) => {
@@ -498,14 +501,15 @@ mod tests {
             imported_effective_trait_methods: HashMap::new(),
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
+            source_map: Default::default(),
         }
     }
 
     #[test]
     fn all_impl_methods_finalize_strictly_without_ownership_metadata() {
         let mut engine = InferenceEngine::new();
-        let own_ret = engine.fresh_type_var_at(Span::default());
-        let external_ret = engine.fresh_type_var_at(Span::default());
+        let own_ret = engine.fresh_type_var_at(Span::test());
+        let external_ret = engine.fresh_type_var_at(Span::test());
         let own_method_id = def_id(1);
         let external_method_id = def_id(2);
         let mut hir = partial_hir(engine);

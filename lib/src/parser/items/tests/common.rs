@@ -20,7 +20,7 @@ pub fn lex(input: &str) -> Vec<crate::lexer::Token> {
     use crate::lexer::Lexer;
     use std::path::PathBuf;
 
-    Lexer::new(PathBuf::new(), input)
+    Lexer::new(PathBuf::from("/test.rk"), input)
         .unwrap()
         .with_newline_at_end(false)
         .collect()

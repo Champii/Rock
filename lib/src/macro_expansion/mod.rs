@@ -79,7 +79,8 @@ pub fn expand_macros_with_context(
 
         if depth > context.max_depth {
             let mut diagnostics = Diagnostics::default();
-            let span = first_macro_invocation_span(&module).unwrap_or_default();
+            let span = first_macro_invocation_span(&module)
+                .expect("remaining macro invocation must retain its source span");
             let trace_expansion = context.peek_parent_expansion_for_invocation(&span);
             let mut diagnostic = context.depth_exceeded_diagnostic(span);
             if let Some(expansion_id) = trace_expansion {
@@ -140,7 +141,7 @@ fn expand_top_level(
     let expansion_id = context.record_expansion(MacroExpansionRecord {
         macro_name: macro_decl.name.name.clone(),
         invocation_span: invoc_span.clone(),
-        definition_span: macro_decl.name.span.clone(),
+        definition_span: Some(macro_decl.name.span.clone()),
         parent,
     });
     let declarative_macro = DeclarativeMacro::from_ast(macro_decl);
@@ -204,7 +205,7 @@ fn expand_proc_macro_top_level(
     let expansion_id = context.record_expansion(MacroExpansionRecord {
         macro_name: entry.export.name.clone(),
         invocation_span: invoc_span.clone(),
-        definition_span: Span::default(),
+        definition_span: None,
         parent,
     });
 
@@ -300,12 +301,18 @@ fn parse_generated_top_levels(
         last_content_token.map(|token| &token.token_type),
         Some(TokenType::MacroInvoc(_))
     ) {
-        append_generated_parse_token(&mut stream, TokenType::Eol, context, expansion_id);
-        append_generated_parse_token(&mut stream, TokenType::Indent(0), context, expansion_id);
-        append_generated_parse_token(&mut stream, TokenType::Eol, context, expansion_id);
+        append_generated_parse_token(&mut stream, TokenType::Eol, context, expansion_id, &tokens);
+        append_generated_parse_token(
+            &mut stream,
+            TokenType::Indent(0),
+            context,
+            expansion_id,
+            &tokens,
+        );
+        append_generated_parse_token(&mut stream, TokenType::Eol, context, expansion_id, &tokens);
     }
 
-    append_generated_parse_token(&mut stream, TokenType::Eof, context, expansion_id);
+    append_generated_parse_token(&mut stream, TokenType::Eof, context, expansion_id, &tokens);
 
     let module =
         generated_parser::parse_generated_module(&stream, context.config).map_err(|diags| {
@@ -332,14 +339,27 @@ fn append_generated_parse_token(
     token_type: TokenType,
     context: &MacroExpansionContext<'_>,
     expansion_id: Option<ExpansionId>,
+    existing_tokens: &[Token],
 ) {
-    let span = Span::default();
+    let expansion_id = expansion_id.expect("generated parser tokens require an expansion identity");
+    let span = existing_tokens
+        .last()
+        .filter(|token| !token.span.file_path.as_os_str().is_empty())
+        .map(|token| Span::new(token.span.file_path.clone(), token.span.end, token.span.end))
+        .unwrap_or_else(|| {
+            Span::new(
+                std::path::PathBuf::from(format!("<macro-expansion:{}>", expansion_id.0)),
+                0,
+                0,
+            )
+        });
     let token = Token {
         token_type,
         span: span.clone(),
     };
-    let origin = expansion_id
-        .and_then(|id| context.generated_source_id(id).map(|source| (id, source)))
+    let origin = context
+        .generated_source_id(expansion_id)
+        .map(|source| (expansion_id, source))
         .map_or_else(
             || TokenOrigin::Source(span.clone()),
             |(expansion, generated_source)| TokenOrigin::Generated {
@@ -474,7 +494,7 @@ mod tests {
 
     fn test_config() -> Config {
         Config {
-            entry_file: PathBuf::new(),
+            entry_file: PathBuf::from("/test.rk"),
             output_dir: PathBuf::new(),
             debug_print: Vec::new(),
             meta_files: Vec::new(),
@@ -650,7 +670,10 @@ macro repeat_b
 
         let diagnostic = diagnostics.0.first().expect("expected diagnostic");
         assert!(diagnostic.message.contains("fail_macro"));
-        assert!(diagnostic.span.end > diagnostic.span.start);
+        let crate::diagnostic::DiagnosticLocation::Source(span) = &diagnostic.location else {
+            panic!("macro diagnostic should have a source location");
+        };
+        assert!(span.end > span.start);
 
         let _ = fs::remove_dir_all(temp_dir);
     }
@@ -863,7 +886,7 @@ two = -> value"#;
             vec![Token::from(TokenType::Ident("second".to_string()))],
         );
         let captures =
-            capture_set_from_correspondance(&correspondance, ExpansionId(1), &Span::default());
+            capture_set_from_correspondance(&correspondance, ExpansionId(1), &Span::test());
         let template = declarative::MacroTemplate {
             fragments: vec![declarative::TemplateFragment::Capture {
                 name: "name".to_string(),

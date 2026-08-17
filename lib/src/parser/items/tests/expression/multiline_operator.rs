@@ -24,7 +24,7 @@ fn multiline_operator() {
                 operand: Operand::Ident(IdentifierPath {
                     path: vec![IdentOrType::Ident(Ident {
                         name: "foo".to_string(),
-                        span: Span::default(),
+                        span: Span::test(),
                     })],
                 }),
                 secondaries: None,
@@ -32,12 +32,12 @@ fn multiline_operator() {
             }),
             Operator {
                 value: "+".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Literal(Literal {
                     kind: crate::ast::LiteralKind::Number(2),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 secondaries: None,
                 type_annotation: None,
@@ -66,7 +66,7 @@ fn multiline_operator_indented() {
                 operand: Operand::Ident(IdentifierPath {
                     path: vec![IdentOrType::Ident(Ident {
                         name: "foo".to_string(),
-                        span: Span::default(),
+                        span: Span::test(),
                     })],
                 }),
                 secondaries: None,
@@ -74,12 +74,12 @@ fn multiline_operator_indented() {
             }),
             Operator {
                 value: "+".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Literal(Literal {
                     kind: crate::ast::LiteralKind::Number(2),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 secondaries: None,
                 type_annotation: None,

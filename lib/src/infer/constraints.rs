@@ -408,8 +408,8 @@ mod tests {
     #[test]
     fn obligations_have_stable_ids_and_pending_initial_state() {
         let mut store = ConstraintStore::new();
-        let first = store.add_int_literal(TypeVarId(0), Span::default());
-        let second = store.add_float_literal(TypeVarId(1), Span::default());
+        let first = store.add_int_literal(TypeVarId(0), Span::test());
+        let second = store.add_float_literal(TypeVarId(1), Span::test());
 
         assert_eq!(first.raw(), 0);
         assert_eq!(second.raw(), 1);
@@ -436,7 +436,7 @@ mod tests {
                 args: vec![Type::TypeVar(TypeVarId(1))],
             },
             Type::TypeVar(TypeVarId(2)),
-            Span::default(),
+            Span::test(),
             "dependency test",
         );
         assert!(store.dependencies_for(TypeVarId(0)).contains(&id));
@@ -452,7 +452,7 @@ mod tests {
             Type::TypeVar(TypeVarId(1)),
             Type::TypeVar(TypeVarId(2)),
             Type::TypeVar(TypeVarId(3)),
-            Span::default(),
+            Span::test(),
         );
         for var in 0..=3 {
             assert!(store.dependencies_for(TypeVarId(var)).contains(&id));
@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn obligation_state_transitions_are_stable() {
         let mut store = ConstraintStore::new();
-        let id = store.add_int_literal(TypeVarId(0), Span::default());
+        let id = store.add_int_literal(TypeVarId(0), Span::test());
 
         store.set_state(id, ObligationState::Solved);
         assert_eq!(store.obligation_state(id), Some(ObligationState::Solved));
@@ -470,7 +470,7 @@ mod tests {
         assert_eq!(store.obligation_state(id), Some(ObligationState::Solved));
         assert_eq!(store.obligation_state(id), Some(ObligationState::Solved));
 
-        let failed = store.add_int_literal(TypeVarId(1), Span::default());
+        let failed = store.add_int_literal(TypeVarId(1), Span::test());
         store.set_state(failed, ObligationState::Failed);
         store.set_state(failed, ObligationState::Ambiguous);
         assert_eq!(
@@ -482,12 +482,12 @@ mod tests {
     #[test]
     fn obligations_record_body_owner_without_cross_owner_visibility() {
         let mut store = ConstraintStore::new();
-        let first = store.add_int_literal(TypeVarId(0), Span::default());
+        let first = store.add_int_literal(TypeVarId(0), Span::test());
         let previous = store.replace_owner(ConstraintOwner::Body(crate::ids::DefId::new(
             crate::ids::CrateId(0),
             crate::ids::LocalDefId(1),
         )));
-        let second = store.add_int_literal(TypeVarId(1), Span::default());
+        let second = store.add_int_literal(TypeVarId(1), Span::test());
 
         assert_eq!(previous, ConstraintOwner::Global);
         assert_eq!(store.owner(first), Some(ConstraintOwner::Global));

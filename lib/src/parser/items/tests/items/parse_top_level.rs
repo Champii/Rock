@@ -67,7 +67,7 @@ fn language_item_marker_reports_eof_after_marker() {
 
     assert!(matches!(
         innermost_parse_error(&error),
-        ParseError::UnexpectedEOF,
+        ParseError::UnexpectedEOF(_),
     ));
 }
 
@@ -252,7 +252,7 @@ fn language_item_marker_reports_orphaned_trait_member_marker() {
 fn parse_top_level() {
     use crate::lexer::Lexer;
 
-    let mut tokens = Lexer::new(std::path::PathBuf::new(), "a = foo -> foo\n")
+    let mut tokens = Lexer::new(std::path::PathBuf::from("/test.rk"), "a = foo -> foo\n")
         .unwrap()
         .with_newline_at_end(false)
         .collect()
@@ -273,7 +273,7 @@ fn parse_top_level() {
                 span: Span {
                     start: 0,
                     end: 1,
-                    file_path: PathBuf::new(),
+                    file_path: PathBuf::from("/test.rk"),
                 },
             },
             lambda: LambdaDecl {
@@ -285,7 +285,7 @@ fn parse_top_level() {
                             span: Span {
                                 start: 4,
                                 end: 7,
-                                file_path: PathBuf::new(),
+                                file_path: PathBuf::from("/test.rk"),
                             },
                         },
                         mut_: false,
@@ -300,7 +300,7 @@ fn parse_top_level() {
                                     span: Span {
                                         start: 11,
                                         end: 14,
-                                        file_path: PathBuf::new(),
+                                        file_path: PathBuf::from("/test.rk"),
                                     },
                                 })]
                             }),

@@ -20,7 +20,7 @@ fn dot_expression_with_number() {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "some_tuple".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: Some(vec![SecondaryExpr::Dot(IdentOrNumber::Number(1))]),

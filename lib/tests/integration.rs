@@ -9576,6 +9576,47 @@ fn compile_should_fail(source: &str, expected_error: &str) {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+fn compile_should_fail_with_source_diagnostic(source: &str, expected_error: &str) {
+    let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let dir = test_temp_dir(id);
+    fs::create_dir_all(&dir).unwrap();
+    let source_path = dir.join("test.rk");
+    fs::write(&source_path, source).unwrap();
+    let config = test_config(source_path.clone(), dir.clone());
+
+    let diagnostics = rock_lib::compile(&config).expect_err("expected compilation to fail");
+    for diagnostic in &diagnostics.0 {
+        for forbidden in ["struct#", "enum#", "generic#", "trait#", "?T"] {
+            assert!(
+                !diagnostic.message.contains(forbidden),
+                "source diagnostic exposed compiler identity {forbidden:?}: {}",
+                diagnostic.message
+            );
+        }
+    }
+    let diagnostic = diagnostics
+        .0
+        .iter()
+        .find(|diagnostic| diagnostic.message.contains(expected_error))
+        .unwrap_or_else(|| panic!("expected diagnostic containing {expected_error:?}"));
+    let rock_lib::diagnostic::DiagnosticLocation::Source(span) = &diagnostic.location else {
+        panic!("source diagnostic should have a source location");
+    };
+    assert_eq!(span.file_path, source_path);
+    assert!(span.start <= span.end);
+    let attached = diagnostic
+        .source
+        .as_ref()
+        .expect("source diagnostic should carry its loaded source");
+    assert_eq!(attached.text, source);
+    assert_eq!(
+        attached.origin,
+        rock_lib::diagnostic::DiagnosticSourceOrigin::FileSystem
+    );
+
+    let _ = fs::remove_dir_all(dir);
+}
+
 fn compile_should_fail_with_exact_diagnostic(source: &str, expected_error: &str) {
     let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
     let dir = test_temp_dir(id);
@@ -12624,7 +12665,7 @@ main = ->
 
 #[test]
 fn test_generic_impl_pointer_operator_rejects_unsized_instantiation() {
-    compile_should_fail(
+    compile_should_fail_with_source_diagnostic(
         r#"
 struct PtrBox T
     < ptr: *T
@@ -12640,7 +12681,7 @@ main = ->
     unsafe boxed + 1
     0
 "#,
-        "No implementation found for operator '+' on type struct#0::0<[I64]>",
+        "No implementation found for operator '+' on type PtrBox [I64]",
     );
 }
 
@@ -13944,7 +13985,7 @@ main = ->
     boxed[0]
     0
 "#,
-        "No implementation found for operator '[]' on type Box<I64>",
+        "No implementation found for operator '[]' on type Box I64",
     );
 }
 
@@ -15965,7 +16006,7 @@ main = ->
     boxed[0]
     0
 "#,
-        "No implementation found for operator '[]' on type Box<I64>",
+        "No implementation found for operator '[]' on type Box I64",
     );
 }
 
@@ -16397,7 +16438,7 @@ fn proc_macro_token(token_type: ProcMacroTokenType) -> ProcMacroToken {
     ProcMacroToken {
         token_type,
         span: ProcMacroSpan {
-            file_path: PathBuf::new(),
+            file_path: PathBuf::from("<proc-macro-output>"),
             start: 0,
             end: 0,
         },

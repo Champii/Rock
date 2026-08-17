@@ -1,5 +1,5 @@
 use crate::{
-    lexer::{Token, TokenType},
+    lexer::{Span, Token, TokenType},
     Config,
 };
 
@@ -80,6 +80,7 @@ pub fn reset_best_error() {
 #[derive(Clone, Debug)]
 pub struct ParseCtx<'a> {
     pub tokens: &'a [Token],
+    pub eof_location: Option<(&'a std::path::PathBuf, usize)>,
     pub indent_level: usize,
     pub config: &'a Config,
     pub indent_step: usize,
@@ -94,6 +95,16 @@ pub struct ParseCtx<'a> {
 }
 
 impl ParseCtx<'_> {
+    pub fn eof_span(&self) -> Span {
+        self.eof_location
+            .map(|(path, position)| Span {
+                file_path: path.clone(),
+                start: position,
+                end: position,
+            })
+            .expect("parser input must retain its EOF source location")
+    }
+
     pub fn is_empty(&self) -> bool {
         self.tokens.is_empty()
     }
@@ -108,7 +119,7 @@ impl ParseCtx<'_> {
         }
 
         if self.tokens.is_empty() {
-            return Err(ParseError::UnexpectedEOF);
+            return Err(ParseError::UnexpectedEOF(self.eof_span()));
         }
 
         Ok((
@@ -159,7 +170,7 @@ impl ParseCtx<'_> {
         }
 
         if self.tokens.is_empty() {
-            return Err(ParseError::UnexpectedEOF);
+            return Err(ParseError::UnexpectedEOF(self.eof_span()));
         }
 
         Ok(self.tokens[0].clone())
@@ -171,7 +182,7 @@ impl ParseCtx<'_> {
         }
 
         if self.tokens.len() < n {
-            return Err(ParseError::UnexpectedEOF);
+            return Err(ParseError::UnexpectedEOF(self.eof_span()));
         }
 
         Ok(self.tokens[n].clone())
@@ -186,6 +197,9 @@ impl ParseCtx<'_> {
 
         ParseCtx {
             tokens,
+            eof_location: tokens
+                .last()
+                .map(|token| (&token.span.file_path, token.span.end)),
             indent_level: 0,
             indent_step,
             invalid_indent,

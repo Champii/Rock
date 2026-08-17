@@ -472,17 +472,14 @@ fn discover_source_module_for_indexing(
         return;
     };
 
-    let loaded_module = match context.load_module_with_prefix(
-        module_name,
-        effective_prefix.as_deref(),
-        &ident.span,
-    ) {
-        Ok(module) => module,
-        Err(err) => {
-            errors.push(ResolveError::with_span(err, ident.span.clone()));
-            return;
-        }
-    };
+    let loaded_module =
+        match context.load_module_with_prefix(module_name, effective_prefix.as_deref()) {
+            Ok(module) => module,
+            Err(err) => {
+                errors.push(ResolveError::with_span(err, ident.span.clone()));
+                return;
+            }
+        };
 
     let old_path = context.current_module_path.clone();
     context.current_module_path = file_path;
@@ -1057,7 +1054,7 @@ pub(crate) fn current_crate_canonical_fixture() -> CurrentCrateCanonicalFixture 
                         name: ast::ParseTypeInner {
                             name: "RootThing".to_string(),
                             generics: vec![],
-                            span: crate::lexer::Span::default(),
+                            span: crate::lexer::Span::test(),
                         },
                         generic_params: vec![],
                         fields: vec![],
@@ -1066,13 +1063,13 @@ pub(crate) fn current_crate_canonical_fixture() -> CurrentCrateCanonicalFixture 
                     ast::TopLevel::Module(ast::ModuleDecl(ast::Module {
                         name: Some(ast::Ident {
                             name: "math".to_string(),
-                            span: crate::lexer::Span::default(),
+                            span: crate::lexer::Span::test(),
                         }),
                         top_levels: vec![ast::TopLevel::StructDecl(ast::StructDecl {
                             name: ast::ParseTypeInner {
                                 name: "Vector".to_string(),
                                 generics: vec![],
-                                span: crate::lexer::Span::default(),
+                                span: crate::lexer::Span::test(),
                             },
                             generic_params: vec![],
                             fields: vec![],
@@ -1084,7 +1081,7 @@ pub(crate) fn current_crate_canonical_fixture() -> CurrentCrateCanonicalFixture 
                     ast::TopLevel::Mod(
                         ast::Ident {
                             name: "io".to_string(),
-                            span: crate::lexer::Span::default(),
+                            span: crate::lexer::Span::test(),
                         },
                         false,
                     ),
@@ -1129,7 +1126,7 @@ mod tests {
         ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -1137,7 +1134,7 @@ mod tests {
         ParseTypeInner {
             name: name.to_string(),
             generics,
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -1157,7 +1154,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -1354,7 +1351,7 @@ mod tests {
         crate::ast::GenericParamDecl {
             name: ident(name),
             kind: None,
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }
     }
 
@@ -4740,7 +4737,7 @@ mod tests {
                     TopLevel::InfixOperator(7, "++".to_string()),
                     TopLevel::FunctionSig(crate::ast::FunctionSig {
                         name: ident("declared_only"),
-                        sig: crate::ast::ParseType::Function(vec![]),
+                        sig: crate::ast::ParseType::Unit(crate::lexer::Span::test()),
                         where_clauses: vec![],
                         self_receiver: None,
                         is_unsafe: false,
@@ -5277,7 +5274,7 @@ mod tests {
     }
 
     #[test]
-    fn collection_rejects_supertrait_cycles_with_full_id_path() {
+    fn collection_rejects_supertrait_cycles_with_user_facing_path() {
         let program = crate::parser::parse_string(
             "trait First for F _ where F: Second\n\ntrait Second for F _ where F: First\n",
             &crate::Config::default(),
@@ -5300,7 +5297,7 @@ mod tests {
         );
         assert!(message.contains("First"));
         assert!(message.contains("Second"));
-        assert!(message.contains("trait#"));
+        assert!(!message.contains("trait#"));
     }
 
     #[test]

@@ -303,7 +303,7 @@ mod tests {
 
     fn test_config() -> crate::Config {
         crate::Config {
-            entry_file: PathBuf::new(),
+            entry_file: PathBuf::from("/test.rk"),
             output_dir: PathBuf::new(),
             debug_print: Vec::new(),
             meta_files: Vec::new(),
@@ -331,7 +331,7 @@ mod tests {
         }];
 
         let correspondance =
-            MacroArgMatcher::new(&args, matcher, Span::default(), Span::default(), &context)
+            MacroArgMatcher::new(&args, matcher, Span::test(), Span::test(), &context)
                 .run()
                 .unwrap();
 

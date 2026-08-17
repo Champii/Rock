@@ -45,7 +45,7 @@ impl Lowerer {
             body.stmts.push(HirStmt::Expr(HirExpr {
                 ty: Type::Unit,
                 kind: HirExprKind::Unit,
-                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                span: self.diagnostics.current_span().clone(),
             }));
             body.ty = Type::Unit;
         }
@@ -103,7 +103,7 @@ impl Lowerer {
                         .map(|binding| binding.ty.clone())
                         .unwrap_or_else(|| rhs.ty.clone());
                     if let Err(e) = self.engine.unify(&rhs.ty, &lhs_ty) {
-                        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+                        let span = self.diagnostics.current_span().clone();
                         self.diagnostics
                             .push_with_span(format!("Assignment type mismatch: {}", e), span);
                     }
@@ -119,12 +119,12 @@ impl Lowerer {
                     let lhs_expr = HirExpr {
                         ty: lhs_ty,
                         kind: lhs_kind,
-                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        span: self.diagnostics.current_span().clone(),
                     };
                     return HirStmt::Expr(HirExpr {
                         ty: Type::Unit,
                         kind: HirExprKind::Assign(Box::new(lhs_expr), Box::new(rhs)),
-                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        span: self.diagnostics.current_span().clone(),
                     });
                 }
 
@@ -141,6 +141,12 @@ impl Lowerer {
                 }
 
                 let local_id = self.fresh_local_id();
+                if let (Some(owner), Some(span)) = (
+                    self.current_body_def_id(),
+                    Self::pattern_binding_span(pattern),
+                ) {
+                    self.source_map.insert_local(owner, local_id, span);
+                }
                 self.scope
                     .define_local(name.clone(), ty.clone(), mutable, local_id);
 
@@ -176,7 +182,7 @@ impl Lowerer {
                 HirStmt::Expr(HirExpr {
                     ty: Type::Unit,
                     kind: HirExprKind::Assign(Box::new(lhs_expr), Box::new(rhs)),
-                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    span: self.diagnostics.current_span().clone(),
                 })
             }
         }
@@ -231,11 +237,11 @@ impl Lowerer {
                             name: tmp_name.clone(),
                             target: HirVarTarget::Local(tmp_local_id),
                         }),
-                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        span: self.diagnostics.current_span().clone(),
                     }),
                     idx as u32,
                 ),
-                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                span: self.diagnostics.current_span().clone(),
             };
 
             let local_id = self.fresh_local_id();
@@ -285,7 +291,7 @@ mod tests {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: LiteralKind::Number(value),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,
@@ -307,7 +313,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -323,7 +329,7 @@ mod tests {
 
     #[test]
     fn tuple_destructuring_temp_name_does_not_consume_type_var_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let _ = lowerer.with_test_body_context(|lowerer| {
             lowerer.lower_tuple_destructuring(&[], &number_expr(1))
@@ -334,7 +340,7 @@ mod tests {
 
     #[test]
     fn tuple_destructuring_assigns_ids_to_temp_and_bindings() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let stmts = lowerer.with_test_body_context(|lowerer| {
             lowerer.lower_tuple_destructuring(
                 &[binding_pattern("left"), binding_pattern("right")],
@@ -379,7 +385,7 @@ mod tests {
 
     #[test]
     fn reassignment_targets_shadowing_local_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let (inner, stmt) = lowerer.with_test_body_context(|lowerer| {
             let outer = lowerer.fresh_local_id();
             lowerer

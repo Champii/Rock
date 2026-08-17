@@ -440,7 +440,10 @@ impl<'a> SelectionService<'a> {
                 })
                 .collect(),
             receiver_ty,
-            format!("trait {trait_id:?}"),
+            self.traits
+                .get(&trait_id)
+                .map(|trait_def| format!("trait '{}'", trait_def.name))
+                .unwrap_or_else(|| "the requested trait".to_string()),
         )
     }
 
@@ -669,7 +672,10 @@ impl<'a> SelectionService<'a> {
                 })
                 .collect(),
             receiver_ty,
-            format!("trait {trait_id:?}"),
+            self.traits
+                .get(&trait_id)
+                .map(|trait_def| format!("trait '{}'", trait_def.name))
+                .unwrap_or_else(|| "the requested trait".to_string()),
         )
     }
 
@@ -2647,7 +2653,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("owner".to_string()),
             ty: receiver_ty,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         (
@@ -2958,12 +2964,12 @@ mod tests {
                 Ok(_) => panic!("invalid trait member ID selected a method"),
                 Err(error) => error,
             };
+            let message = error.message();
             assert_eq!(
-                error.message(),
-                format!(
-                    "Trait {trait_id:?} does not declare selected member {invalid_member_id:?}"
-                )
+                message,
+                "Trait '<unknown trait>' does not declare the selected member"
             );
+            assert!(!message.contains("DefId"));
         }
     }
 
@@ -3098,7 +3104,7 @@ mod tests {
                 args: Vec::new(),
             },
             kind: HirExprKind::Var("box".to_string()),
-            span: Span::default(),
+            span: Span::test(),
         });
 
         assert!(matches!(
@@ -3111,7 +3117,7 @@ mod tests {
                 args: Vec::new(),
             },
             kind: HirExprKind::Var("box".to_string()),
-            span: Span::default(),
+            span: Span::test(),
         };
         assert!(matches!(
             service.select_required_trait_method(&receiver, &receiver.ty, trait_id, "value"),
@@ -3176,7 +3182,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("counter".to_string()),
             ty: receiver_ty.clone(),
-            span: Span::default(),
+            span: Span::test(),
         };
         let shared_receiver = HirExpr {
             kind: HirExprKind::Var("counter_ref".to_string()),
@@ -3184,7 +3190,7 @@ mod tests {
                 mutable: false,
                 inner: Box::new(receiver_ty),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         assert!(service
@@ -3278,7 +3284,7 @@ mod tests {
                 mutable: true,
                 inner: Box::new(Type::Str),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -3360,7 +3366,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("s".to_string()),
             ty: Type::Str,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -3382,7 +3388,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("items".to_string()),
             ty: Type::Array(Box::new(Type::I64), 4),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         assert!(matches!(
@@ -3434,7 +3440,7 @@ mod tests {
                 id: owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -3480,7 +3486,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("self".to_string()),
             ty: Type::Generic(self_param),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -3539,7 +3545,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("self".to_string()),
             ty: Type::Generic(self_param),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -3603,7 +3609,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("value".to_string()),
             ty: Type::Generic(self_param),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -3670,7 +3676,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("value".to_string()),
             ty: Type::Generic(self_param),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -3738,12 +3744,12 @@ mod tests {
                 mutable: false,
                 inner: Box::new(Type::Generic(self_param)),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
         let deref_receiver = HirExpr {
             kind: HirExprKind::Deref(Box::new(receiver.clone())),
             ty: Type::Generic(self_param),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -3812,7 +3818,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("value".to_string()),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         assert!(service
@@ -3883,7 +3889,7 @@ mod tests {
                 id: owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -4058,9 +4064,7 @@ mod tests {
         assert_eq!(
             error,
             crate::selection::SelectionDiagnostic::AmbiguousCandidates {
-                operation: format!(
-                    "trait {trait_id:?} (upstream coherence invariant violation: overlapping impls reached selection)"
-                ),
+                operation: "the requested trait (upstream coherence invariant violation: overlapping impls reached selection)".to_string(),
                 receiver: Type::Struct {
                     id: owner,
                     args: Vec::new(),
@@ -4231,7 +4235,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("value".to_string()),
             ty: Type::TypeVar(TypeVarId(7)),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -4285,7 +4289,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("items".to_string()),
             ty: Type::TypeVar(TypeVarId(7)),
-            span: Span::default(),
+            span: Span::test(),
         };
         let return_type = Type::Reference {
             mutable: false,
@@ -4323,7 +4327,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("value".to_string()),
             ty: Type::TypeVar(TypeVarId(0)),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         assert!(matches!(
@@ -4399,7 +4403,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("arr".to_string()),
             ty: Type::Array(Box::new(Type::I64), 3),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let target = service
@@ -4478,7 +4482,7 @@ mod tests {
                 id: right_owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let authority = service
@@ -4553,7 +4557,7 @@ mod tests {
                 id: right_owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let authority = service
@@ -4636,7 +4640,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("box".to_string()),
             ty: receiver_ty.clone(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let authority = service
@@ -4743,7 +4747,7 @@ mod tests {
                 id: right_owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let authority = service
@@ -4801,7 +4805,7 @@ mod tests {
                 id: dependency_owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let authority = service
@@ -4847,7 +4851,7 @@ mod tests {
                 id: receiver_owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         assert!(service
@@ -4892,7 +4896,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("receiver".to_string()),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let bounds = vec![crate::types::TraitBound {
             trait_id,
@@ -4995,7 +4999,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("box".to_string()),
             ty: receiver_ty.clone(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -5061,7 +5065,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("box".to_string()),
             ty: receiver_ty.clone(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -5154,7 +5158,7 @@ mod tests {
                 id: owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -5239,7 +5243,7 @@ mod tests {
                 id: owner,
                 args: vec![Type::TypeVar(unresolved)],
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let selected = service
@@ -5325,7 +5329,7 @@ mod tests {
                 id: owner,
                 args: Vec::new(),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let authority = service
@@ -5418,7 +5422,7 @@ mod tests {
                 id: owner,
                 args: vec![Type::I64],
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         assert!(service

@@ -41,7 +41,7 @@ fn test_parse_nested_expression() {
             }),
             Operator {
                 value: "+".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::BinopExpr(
                 UnaryExpr::PrimaryExpr(PrimaryExpr {
@@ -60,7 +60,7 @@ fn test_parse_nested_expression() {
                 }),
                 Operator {
                     value: "+".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 Box::new(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                     operand: Operand::Literal(Literal {

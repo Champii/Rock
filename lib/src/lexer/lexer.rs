@@ -119,7 +119,14 @@ impl Lexer {
             tokens.push(self.token(TokenType::Eol, 1));
         }
 
-        tokens.push(self.token(TokenType::Eof, 0));
+        tokens.push(Token {
+            token_type: TokenType::Eof,
+            span: Span {
+                file_path: self.file_path.clone(),
+                start: self.input.len(),
+                end: self.input.len(),
+            },
+        });
 
         Ok(tokens)
     }
@@ -494,7 +501,7 @@ mod lexer_tests {
     use std::path::PathBuf;
 
     fn lex_input(input: &str) -> Result<Vec<Token>, LexerError> {
-        let mut lexer = Lexer::new(PathBuf::new(), input)?;
+        let mut lexer = Lexer::new(PathBuf::from("/test.rk"), input)?;
         lexer.collect()
     }
 

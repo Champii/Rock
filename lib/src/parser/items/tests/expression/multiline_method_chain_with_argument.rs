@@ -31,7 +31,7 @@ fn multiline_method_chain_with_argument() {
                 ident_path.path[0],
                 IdentOrType::Ident(Ident {
                     name: "a".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })
             );
 
@@ -84,7 +84,7 @@ fn multiline_method_chain_with_argument() {
                                         ident_path.path[0],
                                         IdentOrType::Ident(Ident {
                                             name: "toto".to_string(),
-                                            span: Span::default(),
+                                            span: Span::test(),
                                         })
                                     );
                                     assert_eq!(

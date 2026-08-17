@@ -17,7 +17,7 @@ use crate::type_context::{Ty, TypeContext, TypeView};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MoveInfo {
     /// The span where the move occurred
-    pub span: Span,
+    pub span: Option<Span>,
 }
 
 /// Initialization state of a local.
@@ -121,7 +121,7 @@ impl InitMap {
                 Some(InitState::Moved(info)) => {
                     return Err(InitError {
                         message: "use of moved value".to_string(),
-                        move_span: Some(info.span.clone()),
+                        move_span: info.span.clone(),
                     });
                 }
                 None => return Ok(()),
@@ -132,7 +132,7 @@ impl InitMap {
             if let Some(InitState::Moved(info)) = self.states.get(descendant.index()) {
                 return Err(InitError {
                     message: "use of partially moved value".to_string(),
-                    move_span: Some(info.span.clone()),
+                    move_span: info.span.clone(),
                 });
             }
         }
@@ -161,7 +161,7 @@ impl InitMap {
                 Some(InitState::Moved(info)) => {
                     return Err(InitError {
                         message: "use of moved value".to_string(),
-                        move_span: Some(info.span.clone()),
+                        move_span: info.span.clone(),
                     });
                 }
                 None => return Ok(()),
@@ -192,7 +192,7 @@ impl InitMap {
             if let Some(InitState::Moved(info)) = self.states.get(descendant.index()) {
                 return Err(InitError {
                     message: "drop of partially moved value".to_string(),
-                    move_span: Some(info.span.clone()),
+                    move_span: info.span.clone(),
                 });
             }
         }
@@ -471,7 +471,7 @@ impl Analysis for InitializationAnalysis {
             }
             StatementKind::Assign(dest, rvalue) => {
                 let move_info = MoveInfo {
-                    span: stmt.span.clone().unwrap_or(Span::default()),
+                    span: stmt.span.clone(),
                 };
                 self.apply_rvalue_moves(state, rvalue, &move_info);
 
@@ -480,7 +480,7 @@ impl Analysis for InitializationAnalysis {
             }
             StatementKind::Assert(assertion) => {
                 let move_info = MoveInfo {
-                    span: stmt.span.clone().unwrap_or(Span::default()),
+                    span: stmt.span.clone(),
                 };
                 self.move_operands(state, &assertion.operands, &move_info);
             }
@@ -495,9 +495,7 @@ impl Analysis for InitializationAnalysis {
                 destination,
                 ..
             } => {
-                let move_info = MoveInfo {
-                    span: Span::default(),
-                };
+                let move_info = MoveInfo { span: None };
                 self.move_operand_if_move(state, func, &move_info);
                 self.move_operands(state, args, &move_info);
 
@@ -539,7 +537,7 @@ impl InitializationAnalysis {
                             Operand::Move(_) => format!("use of moved value: {:?}", place.local),
                             Operand::Constant(_) => unreachable!(),
                         },
-                        move_span: Some(info.span.clone()),
+                        move_span: info.span.clone(),
                     }),
                     None => Ok(()), // Unknown local, assume OK
                 }
@@ -558,7 +556,7 @@ impl InitializationAnalysis {
             }),
             Some(InitState::Moved(info)) => Err(InitError {
                 message: format!("borrow of moved value: {:?}", place.local),
-                move_span: Some(info.span.clone()),
+                move_span: info.span.clone(),
             }),
             None => Ok(()),
         }
@@ -992,7 +990,7 @@ mod tests {
             field_place,
             &moves,
             MoveInfo {
-                span: crate::lexer::Span::default(),
+                span: Some(crate::lexer::Span::test()),
             },
         );
 
@@ -1031,7 +1029,7 @@ mod tests {
             root_place,
             &moves,
             MoveInfo {
-                span: crate::lexer::Span::default(),
+                span: Some(crate::lexer::Span::test()),
             },
         );
 
@@ -1069,7 +1067,7 @@ mod tests {
             field_place,
             &moves,
             MoveInfo {
-                span: crate::lexer::Span::default(),
+                span: Some(crate::lexer::Span::test()),
             },
         );
 
@@ -1104,7 +1102,7 @@ mod tests {
             field_place,
             &moves,
             MoveInfo {
-                span: crate::lexer::Span::default(),
+                span: Some(crate::lexer::Span::test()),
             },
         );
 

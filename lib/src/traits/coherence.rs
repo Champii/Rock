@@ -11,7 +11,7 @@ pub struct CoherencePhase;
 
 impl CoherencePhase {
     pub(crate) fn run(lowerer: &mut Lowerer) {
-        let errors = validate_coherence(
+        let errors = validate_coherence_with_ids(
             lowerer.items.trait_defs().map(|(_, trait_def)| trait_def),
             lowerer.items.impl_defs().map(|(_, imp)| imp),
             lowerer.items.structures().map(|(_, structure)| structure),
@@ -26,8 +26,17 @@ impl CoherencePhase {
                 .as_ref()
                 .map(|items| items.trait_id),
         );
-        for error in errors {
-            lowerer.diagnostics.push_once(error);
+        for (impl_id, error) in errors {
+            if impl_id.crate_id == lowerer.root_crate_id {
+                let span = lowerer
+                    .source_map
+                    .definition_span(impl_id)
+                    .cloned()
+                    .expect("current-crate coherence error requires its impl source span");
+                lowerer.diagnostics.push_with_span(error, span);
+            } else {
+                lowerer.diagnostics.push_toolchain_once(error);
+            }
         }
     }
 }
@@ -40,6 +49,20 @@ pub fn validate_coherence<'a>(
     aliases: impl IntoIterator<Item = &'a HirTypeAlias>,
     sized_trait_id: Option<DefId>,
 ) -> Vec<String> {
+    validate_coherence_with_ids(traits, impls, structs, enums, aliases, sized_trait_id)
+        .into_iter()
+        .map(|(_, message)| message)
+        .collect()
+}
+
+fn validate_coherence_with_ids<'a>(
+    traits: impl IntoIterator<Item = &'a HirTrait>,
+    impls: impl IntoIterator<Item = &'a HirImpl>,
+    structs: impl IntoIterator<Item = &'a HirStruct>,
+    enums: impl IntoIterator<Item = &'a HirEnum>,
+    aliases: impl IntoIterator<Item = &'a HirTypeAlias>,
+    sized_trait_id: Option<DefId>,
+) -> Vec<(DefId, String)> {
     let traits = traits.into_iter().collect::<Vec<_>>();
     let mut impls = impls.into_iter().collect::<Vec<_>>();
     let structs = structs.into_iter().collect::<Vec<_>>();
@@ -67,9 +90,12 @@ pub fn validate_coherence<'a>(
         let target = match normalize_target(&env, &imp.receiver_pattern) {
             Ok(target) => target,
             Err(error) => {
-                diagnostics.push(format!(
-                    "invalid impl target for {}: {error}",
-                    display_def_id(imp.id)
+                diagnostics.push((
+                    imp.id,
+                    format!(
+                        "invalid impl target for {}: {error}",
+                        display_def_id(imp.id)
+                    ),
                 ));
                 continue;
             }
@@ -82,34 +108,43 @@ pub fn validate_coherence<'a>(
         let actual_kind = match target.kind(&env) {
             Ok(kind) => kind,
             Err(error) => {
-                diagnostics.push(format!(
-                    "invalid impl target for {}: {error}",
-                    display_def_id(imp.id)
+                diagnostics.push((
+                    imp.id,
+                    format!(
+                        "invalid impl target for {}: {error}",
+                        display_def_id(imp.id)
+                    ),
                 ));
                 continue;
             }
         };
         if actual_kind != expected_kind {
-            diagnostics.push(format!(
+            diagnostics.push((imp.id, format!(
                 "constructor impl target has kind {actual_kind}, but trait {} requires {expected_kind} in {}",
                 display_def_id(trait_id),
                 display_def_id(imp.id),
-            ));
+            )));
             continue;
         }
         if target.is_constructor() != !matches!(expected_kind, Kind::Type) {
-            diagnostics.push(format!(
+            diagnostics.push((
+                imp.id,
+                format!(
                 "impl target category does not match trait {} target kind {expected_kind} in {}",
                 display_def_id(trait_id),
                 display_def_id(imp.id),
+            ),
             ));
             continue;
         }
         if let CanonicalTarget::Constructor(ty) = &target {
             if let Err(error) = validate_constructor_header(ty, &imp_generic_ids(imp)) {
-                diagnostics.push(format!(
-                    "invalid constructor impl target `{ty}` in {}: {error}",
-                    display_def_id(imp.id),
+                diagnostics.push((
+                    imp.id,
+                    format!(
+                        "invalid constructor impl target `{ty}` in {}: {error}",
+                        display_def_id(imp.id),
+                    ),
                 ));
                 continue;
             }
@@ -119,11 +154,14 @@ pub fn validate_coherence<'a>(
         if trait_id.crate_id != imp.id.crate_id
             && outer.is_none_or(|outer_id| outer_id.crate_id != imp.id.crate_id)
         {
-            diagnostics.push(format!(
+            diagnostics.push((
+                imp.id,
+                format!(
                 "orphan impl {} is illegal: trait {} and normalized target `{}` are both foreign",
                 display_def_id(imp.id),
                 display_def_id(trait_id),
                 target,
+            ),
             ));
         }
 
@@ -141,9 +179,12 @@ pub fn validate_coherence<'a>(
                 targets.insert(imp.id, target);
                 trait_args.insert(imp.id, args);
             }
-            Err(error) => diagnostics.push(format!(
-                "invalid trait arguments for {}: {error}",
-                display_def_id(imp.id)
+            Err(error) => diagnostics.push((
+                imp.id,
+                format!(
+                    "invalid trait arguments for {}: {error}",
+                    display_def_id(imp.id)
+                ),
             )),
         }
     }
@@ -177,13 +218,13 @@ pub fn validate_coherence<'a>(
             {
                 continue;
             }
-            diagnostics.push(format!(
+            diagnostics.push((left.id, format!(
                 "overlapping impls {} and {} for trait {}: normalized targets `{left_target}` and `{right_target}`; witness {}",
                 display_def_id(left.id),
                 display_def_id(right.id),
                 display_def_id(trait_id),
                 unifier.witness(),
-            ));
+            )));
         }
     }
 

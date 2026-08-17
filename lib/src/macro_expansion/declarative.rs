@@ -99,6 +99,7 @@ impl DeclarativeMacro {
 }
 
 impl MacroTemplate {
+    #[cfg(test)]
     pub fn expand(&self, captures: &CaptureSet) -> Result<TokenStream, String> {
         expand_template_fragments(&self.fragments, captures, None)
     }
@@ -119,6 +120,7 @@ impl MacroTemplate {
     }
 }
 
+#[cfg(test)]
 fn expand_template_fragments(
     fragments: &[TemplateFragment],
     captures: &CaptureSet,
@@ -260,17 +262,23 @@ fn expand_template_fragments_with_origins(
                         expansion,
                         generated_source,
                     )?;
-                    let last_token_type = expanded
-                        .to_tokens()
-                        .last()
-                        .map(|token| token.token_type.clone());
+                    let last_token = expanded.to_tokens().last().cloned();
                     trees.extend(expanded.trees);
                     if index + 1 < len {
-                        match last_token_type {
-                            Some(TokenType::Indent(_)) => {}
-                            Some(TokenType::Eol) => trees.extend(
+                        match last_token {
+                            Some(Token {
+                                token_type: TokenType::Indent(_),
+                                ..
+                            }) => {}
+                            Some(Token {
+                                token_type: TokenType::Eol,
+                                span,
+                            }) => trees.extend(
                                 TokenStream::generated_from_tokens(
-                                    vec![Token::from(TokenType::Indent(0))],
+                                    vec![Token {
+                                        token_type: TokenType::Indent(0),
+                                        span,
+                                    }],
                                     expansion,
                                     generated_source,
                                 )
@@ -383,7 +391,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 

@@ -770,7 +770,7 @@ mod tests {
     fn resolution_context_resolves_current_and_dependency_items() {
         let current_id = def_id(0, 10);
         let dep_id = def_id(2, 20);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .resolver
             .item_paths
@@ -799,7 +799,7 @@ mod tests {
     fn resolution_context_prefers_module_alias_before_root_item_when_requested() {
         let root_id = def_id(0, 30);
         let module_id = def_id(0, 31);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .resolver
             .item_paths
@@ -831,7 +831,7 @@ mod tests {
     fn resolution_context_resolves_nominals_by_module_alias_first() {
         let root_id = def_id(0, 40);
         let module_id = def_id(0, 41);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(root_id, "Thing"));
@@ -862,7 +862,7 @@ mod tests {
     fn resolution_context_resolves_enum_and_trait_by_id() {
         let enum_id = def_id(0, 50);
         let trait_id = def_id(0, 51);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_enumeration(test_enum(enum_id, "demo::Choice"));
@@ -897,7 +897,7 @@ mod tests {
         let struct_id = def_id(0, 52);
         let enum_id = def_id(0, 53);
         let trait_id = def_id(0, 54);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(struct_id, "Widget"));
@@ -918,7 +918,7 @@ mod tests {
         let struct_id = def_id(0, 55);
         let enum_id = def_id(0, 56);
         let trait_id = def_id(0, 57);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(struct_id, "pkg::Widget"));
@@ -951,7 +951,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_local_before_top_level_alias() {
         let function_id = def_id(0, 60);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "value"));
@@ -979,7 +979,7 @@ mod tests {
     fn resolution_context_keeps_nested_local_function_value_shadow_local() {
         let function_id = def_id(0, 98);
         let local_id = HirLocalId(10);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "value"));
@@ -1014,7 +1014,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_alias_to_top_level_target() {
         let function_id = def_id(0, 61);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "demo::helper::value"));
@@ -1039,7 +1039,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_scoped_function_alias_through_resolver_metadata() {
         let function_id = def_id(0, 92);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "answer"));
@@ -1067,7 +1067,7 @@ mod tests {
     #[test]
     fn resolution_context_requires_resolver_ids_for_scoped_alias_targets() {
         let function_id = def_id(0, 97);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "answer"));
@@ -1087,7 +1087,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_scoped_extern_alias_through_resolver_metadata() {
         let extern_id = def_id(0, 93);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_extern(test_extern(extern_id, "puts"));
         lowerer
             .resolver
@@ -1113,7 +1113,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_qualified_function_after_first_segment_alias() {
         let function_id = def_id(0, 70);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "demo::helper::answer"));
@@ -1143,7 +1143,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_qualified_function_through_resolver_metadata() {
         let function_id = def_id(0, 72);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "pkg::answer"));
@@ -1168,7 +1168,7 @@ mod tests {
     #[test]
     fn resolution_context_requires_resolver_ids_for_qualified_values() {
         let function_id = def_id(0, 96);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "pkg::answer"));
@@ -1184,7 +1184,7 @@ mod tests {
     fn resolution_context_resolves_static_method_target_by_canonical_owner() {
         let struct_id = def_id(0, 74);
         let method_id = def_id(0, 75);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(struct_id, "String"));
@@ -1240,7 +1240,7 @@ mod tests {
         let mut method = test_function(method_id, "value");
         method.is_method = true;
         method.self_receiver = None;
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(struct_id, "Box"));
@@ -1283,7 +1283,7 @@ mod tests {
     fn resolution_context_resolves_struct_literal_target_by_module_alias() {
         let root_id = def_id(0, 76);
         let module_id = def_id(0, 77);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(root_id, "Thing"));
@@ -1314,7 +1314,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_scoped_qualified_function_through_resolver_metadata() {
         let function_id = def_id(0, 73);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(function_id, "pkg::answer"));
@@ -1344,7 +1344,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_artifact_root_glob_targets_from_dependency_resolver_exports() {
         let export_id = def_id(3, 5);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let mut dep = ResolverTables::default();
         dep.insert_export_alias_with_name(
             "answer".to_string(),
@@ -1368,7 +1368,7 @@ mod tests {
     fn resolution_context_preserves_namespaced_dependency_export_aliases_for_root_globs() {
         let show_println_id = def_id(3, 6);
         let debug_fmt_id = def_id(3, 7);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let mut dep = ResolverTables::default();
         dep.insert_export_alias_with_name(
             "Show::println".to_string(),
@@ -1407,7 +1407,7 @@ mod tests {
     #[test]
     fn resolution_context_resolves_owner_path_by_id() {
         let owner_id = def_id(0, 81);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .resolver
             .item_paths
@@ -1428,7 +1428,7 @@ mod tests {
     #[test]
     fn resolution_context_does_not_resolve_qualified_missing_path_through_prelude_suffix() {
         let drop_id = def_id(7, 42);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         *lowerer.prelude = PreludeImports::with_exports(
             true,
             [(
@@ -1498,7 +1498,7 @@ mod tests {
     #[test]
     fn resolution_context_does_not_mark_import_alias_struct_unexported() {
         let string_id = def_id(0, 94);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(string_id, "stdlib::string::String"));
@@ -1516,7 +1516,7 @@ mod tests {
     #[test]
     fn resolution_context_marks_qualified_only_struct_unexported() {
         let hidden_id = def_id(0, 95);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(hidden_id, "pkg::Hidden"));

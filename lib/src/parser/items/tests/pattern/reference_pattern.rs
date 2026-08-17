@@ -22,7 +22,7 @@ fn reference_pattern_immutable() {
                     kind: PatternKind::Ident(IdentPattern {
                         name: Ident {
                             name: "a".to_string(),
-                            span: Span::default()
+                            span: Span::test()
                         },
                         mut_: false,
                     })
@@ -53,7 +53,7 @@ fn reference_pattern_mutable() {
                     kind: PatternKind::Ident(IdentPattern {
                         name: Ident {
                             name: "a".to_string(),
-                            span: Span::default()
+                            span: Span::test()
                         },
                         mut_: false,
                     })
@@ -84,7 +84,7 @@ fn reference_pattern_mutable_caret() {
                     kind: PatternKind::Ident(IdentPattern {
                         name: Ident {
                             name: "a".to_string(),
-                            span: Span::default()
+                            span: Span::test()
                         },
                         mut_: false,
                     })

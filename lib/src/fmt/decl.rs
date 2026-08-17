@@ -342,7 +342,7 @@ impl FormatNode for ParseType {
                 write!(f, "*")?;
                 pointee.fmt_with(context, f)
             }
-            ParseType::Unit => write!(f, "()"),
+            ParseType::Unit(_) => write!(f, "()"),
         }
     }
 }
@@ -551,7 +551,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -567,7 +567,7 @@ mod tests {
         for (self_receiver, expected) in cases {
             let sig = FunctionSig {
                 name: ident("a"),
-                sig: ParseType::Unit,
+                sig: ParseType::Unit(crate::lexer::Span::test()),
                 where_clauses: vec![],
                 self_receiver,
                 is_unsafe: false,

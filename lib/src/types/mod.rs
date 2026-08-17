@@ -677,10 +677,7 @@ pub fn validate_supertrait_graph<'a>(
                                         .get(cycle_id)
                                         .map(|(name, _)| name.as_str())
                                         .unwrap_or("<unknown>");
-                                    format!(
-                                        "{} (trait#{}::{})",
-                                        name, cycle_id.crate_id.0, cycle_id.local.0
-                                    )
+                                    name.to_string()
                                 })
                                 .collect::<Vec<_>>()
                                 .join(" -> ");
@@ -711,13 +708,10 @@ pub fn validate_supertrait_graph<'a>(
     }
 
     let mut errors = Vec::new();
-    for (id, (name, edges)) in &graph {
+    for (_id, (name, edges)) in &graph {
         for edge in edges {
             if !graph.contains_key(edge) {
-                errors.push(format!(
-                    "trait '{}' (trait#{}::{}) references missing supertrait trait#{}::{}",
-                    name, id.crate_id.0, id.local.0, edge.crate_id.0, edge.local.0
-                ));
+                errors.push(format!("trait '{}' references an unknown supertrait", name));
             }
         }
     }
@@ -873,8 +867,7 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(errors[0].contains("First"));
         assert!(errors[0].contains("Second"));
-        assert!(errors[0].contains("trait#0::20"));
-        assert!(errors[0].contains("trait#0::21"));
+        assert!(!errors[0].contains("trait#"));
     }
 
     #[test]

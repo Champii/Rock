@@ -386,7 +386,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -394,7 +394,7 @@ mod tests {
         ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -406,7 +406,7 @@ mod tests {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: LiteralKind::Number(value),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,
@@ -448,7 +448,7 @@ mod tests {
                 generic_params: vec![],
                 fields: vec![StructDeclField {
                     name: ident("value"),
-                    ty: ParseType::Unit,
+                    ty: ParseType::Unit(crate::lexer::Span::test()),
                     public: false,
                     default: None,
                 }],
@@ -487,7 +487,7 @@ mod tests {
                 generic_params: vec![],
                 fields: vec![StructDeclField {
                     name: ident("value"),
-                    ty: ParseType::Unit,
+                    ty: ParseType::Unit(crate::lexer::Span::test()),
                     public: false,
                     default: None,
                 }],
@@ -841,7 +841,7 @@ mod tests {
                 generic_params: vec![],
                 fields: vec![StructDeclField {
                     name: ident("value"),
-                    ty: ParseType::Unit,
+                    ty: ParseType::Unit(crate::lexer::Span::test()),
                     public: false,
                     default: None,
                 }],
@@ -855,7 +855,7 @@ mod tests {
                 sig: ParseType::Function(vec![
                     named_type("I64"),
                     ParseType::Function(vec![named_type("Bool"), named_type("I64")]),
-                    ParseType::Unit,
+                    ParseType::Unit(crate::lexer::Span::test()),
                 ]),
                 where_clauses: vec![],
                 self_receiver: None,

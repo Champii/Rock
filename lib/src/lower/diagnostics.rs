@@ -31,18 +31,20 @@ impl LowerDiagnosticSink {
         Self::default()
     }
 
-    pub(crate) fn set_current_span(&mut self, span: Option<Span>) {
-        self.current_span = span;
+    pub(crate) fn set_current_span(&mut self, span: Span) {
+        self.current_span = Some(span);
     }
 
-    pub(crate) fn current_span(&self) -> Option<&Span> {
-        self.current_span.as_ref()
+    pub(crate) fn current_span(&self) -> &Span {
+        self.current_span
+            .as_ref()
+            .expect("lowering operation must establish its source span")
     }
 
     pub(crate) fn push(&mut self, message: String) {
         self.diagnostics.errors.push(ResolveError {
             message,
-            span: self.current_span.clone(),
+            span: Some(self.current_span().clone()),
         });
     }
 
@@ -62,6 +64,21 @@ impl LowerDiagnosticSink {
             message,
             span: Some(span),
         });
+    }
+
+    pub(crate) fn push_toolchain(&mut self, message: String) {
+        self.diagnostics.errors.push(ResolveError::new(message));
+    }
+
+    pub(crate) fn push_toolchain_once(&mut self, message: String) {
+        if !self
+            .diagnostics
+            .errors
+            .iter()
+            .any(|error| error.message == message)
+        {
+            self.push_toolchain(message);
+        }
     }
 
     pub(crate) fn extend(&mut self, errors: Vec<ResolveError>) {
@@ -103,11 +120,11 @@ mod tests {
     #[test]
     fn diagnostics_attach_current_span_and_deduplicate_messages() {
         let mut diagnostics = LowerDiagnosticSink::new();
-        diagnostics.set_current_span(Some(Span {
+        diagnostics.set_current_span(Span {
             file_path: "main.rk".into(),
             start: 3,
             end: 9,
-        }));
+        });
 
         diagnostics.push("same message".to_string());
         diagnostics.push_once("same message".to_string());
@@ -122,11 +139,11 @@ mod tests {
     #[test]
     fn diagnostics_push_with_explicit_span_overrides_current_span() {
         let mut diagnostics = LowerDiagnosticSink::new();
-        diagnostics.set_current_span(Some(Span {
+        diagnostics.set_current_span(Span {
             file_path: "main.rk".into(),
             start: 1,
             end: 2,
-        }));
+        });
         diagnostics.push_with_span(
             "explicit".to_string(),
             Span {
@@ -146,11 +163,11 @@ mod tests {
     #[test]
     fn diagnostic_sink_finishes_to_result_without_losing_span_or_deduplication() {
         let mut sink = LowerDiagnosticSink::new();
-        sink.set_current_span(Some(Span {
+        sink.set_current_span(Span {
             file_path: "main.rk".into(),
             start: 3,
             end: 9,
-        }));
+        });
 
         sink.push("same message".to_string());
         sink.push_once("same message".to_string());

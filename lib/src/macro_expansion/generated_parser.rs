@@ -23,7 +23,7 @@ mod tests {
 
     fn test_config() -> Config {
         Config {
-            entry_file: PathBuf::new(),
+            entry_file: PathBuf::from("/test.rk"),
             output_dir: PathBuf::new(),
             debug_print: Vec::new(),
             meta_files: Vec::new(),

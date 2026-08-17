@@ -20,6 +20,18 @@ use crate::type_services::facts::TypeFacts;
 use crate::type_services::normalize::TypeNormalizer;
 use crate::types::{CallableKind, CaptureKind, GenericParamId, TraitBound, Type};
 
+#[derive(Debug, Clone)]
+pub struct SolveError {
+    pub message: String,
+    pub span: crate::lexer::Span,
+}
+
+impl SolveError {
+    pub fn contains(&self, pattern: &str) -> bool {
+        self.message.contains(pattern)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 struct BuiltinTraitIds {
     sized: Option<DefId>,
@@ -48,7 +60,7 @@ pub struct SolveResult {
     /// Warnings (non-fatal: ambiguous literals that were defaulted).
     pub warnings: Vec<String>,
     /// Hard errors: concrete type violates a required trait bound.
-    pub errors: Vec<String>,
+    pub errors: Vec<SolveError>,
     /// TypeVar ids that remain free but have at least one trait bound attached.
     pub generic_bounds: HashMap<TypeVarId, Vec<TraitBound>>,
     /// Representatives changed while this worklist invocation was running.
@@ -168,8 +180,8 @@ fn solve_constraints_in_place_mode(
         let Constraint::Equality {
             left,
             right,
+            span,
             context,
-            ..
         } = constraint
         else {
             continue;
@@ -181,7 +193,10 @@ fn solve_constraints_in_place_mode(
             if !contains_unresolved_type(&resolved_left)
                 && !contains_unresolved_type(&resolved_right)
             {
-                errors.push(format!("{context}: {error}"));
+                errors.push(SolveError {
+                    message: format!("{context}: {error}"),
+                    span,
+                });
                 store.set_state(id, ObligationState::Failed);
             }
         } else {
@@ -209,8 +224,8 @@ fn solve_constraints_in_place_mode(
         let Constraint::Coercion {
             actual,
             expected,
+            span,
             context,
-            ..
         } = constraint
         else {
             continue;
@@ -227,7 +242,10 @@ fn solve_constraints_in_place_mode(
             if !contains_unresolved_type(&resolved_actual)
                 && !contains_unresolved_type(&resolved_expected)
             {
-                errors.push(format!("{context}: {error}"));
+                errors.push(SolveError {
+                    message: format!("{context}: {error}"),
+                    span,
+                });
                 store.set_state(id, ObligationState::Failed);
             }
         }
@@ -315,22 +333,26 @@ fn solve_constraints_in_place_mode(
                                     .as_ref()
                                     .is_some_and(|protocol| bound.trait_id == protocol.try_trait_id)
                             {
-                                errors.push(format!(
-                                    "Cannot use '?' on non-carrier type {concrete_ty}"
-                                ));
+                                errors.push(SolveError {
+                                    message: format!(
+                                        "Cannot use '?' on non-carrier type {}",
+                                        engine.display_type(concrete_ty)
+                                    ),
+                                    span,
+                                });
                                 continue;
                             }
+                            let trait_name = traits
+                                .get(&resolved_bound.trait_id)
+                                .map(|trait_def| trait_def.name.as_str())
+                                .unwrap_or("<unknown trait>");
                             let msg = format!(
-                                "type `{}` does not implement trait `trait#{}::{}` (required by {} at {}:{}-{})",
-                                concrete_ty,
-                                resolved_bound.trait_id.crate_id.0,
-                                resolved_bound.trait_id.local.0,
-                                context,
-                                span.file_path.display(),
-                                span.start,
-                                span.end
+                                "type `{}` does not implement trait `{}` (required by {})",
+                                engine.display_type(concrete_ty),
+                                trait_name,
+                                context
                             );
-                            errors.push(msg);
+                            errors.push(SolveError { message: msg, span });
                             store.set_state(id, ObligationState::Failed);
                         } else if finalize_pending {
                             store.set_state(id, ObligationState::Solved);
@@ -341,17 +363,20 @@ fn solve_constraints_in_place_mode(
 
             // Integer literal constraints: unresolved literals default later, but a
             // resolved literal must still be an integer type.
-            Constraint::IntLiteral { var, span: _ } => {
+            Constraint::IntLiteral { var, span } => {
                 let resolved = engine.resolve(&Type::TypeVar(var));
                 match &resolved {
                     Type::TypeVar(_) => {}
                     Type::Generic(_) | Type::Projection { .. } => {}
                     ty if TypeFacts::is_integer(ty) => {}
                     other => {
-                        errors.push(format!(
-                            "integer literal resolved to non-integer type `{}`",
-                            other
-                        ));
+                        errors.push(SolveError {
+                            message: format!(
+                                "integer literal resolved to non-integer type `{}`",
+                                engine.display_type(other)
+                            ),
+                            span,
+                        });
                         store.set_state(id, ObligationState::Failed);
                     }
                 }
@@ -371,7 +396,7 @@ fn solve_constraints_in_place_mode(
                     other => {
                         warnings.push(format!(
                             "warning: float literal resolved to non-float type `{}`",
-                            other
+                            engine.display_type(other)
                         ));
                     }
                 }
@@ -407,9 +432,20 @@ fn solve_constraints_in_place_mode(
                 Constraint::Try { .. } => "try operator".to_string(),
                 Constraint::IntLiteral { .. } | Constraint::FloatLiteral { .. } => continue,
             };
-            errors.push(format!(
-                "ambiguous constraint at quiescence: {context}; add type information to select one canonical solution"
-            ));
+            let span = match constraint {
+                Constraint::Trait { span, .. }
+                | Constraint::IntLiteral { span, .. }
+                | Constraint::FloatLiteral { span, .. }
+                | Constraint::Equality { span, .. }
+                | Constraint::Coercion { span, .. }
+                | Constraint::Try { span, .. } => span.clone(),
+            };
+            errors.push(SolveError {
+                message: format!(
+                    "ambiguous constraint at quiescence: {context}; add type information to select one canonical solution"
+                ),
+                span,
+            });
         }
     }
 
@@ -1403,7 +1439,7 @@ mod tests {
                 trait_id: crate::ids::DefId::new(crate::ids::CrateId(0), crate::ids::LocalDefId(1)),
                 type_args: Vec::new(),
             },
-            Span::default(),
+            Span::test(),
             "test",
         );
 
@@ -1488,7 +1524,7 @@ mod tests {
                 trait_id,
                 type_args: Vec::new(),
             },
-            Span::default(),
+            Span::test(),
             "constructor bound",
         );
 
@@ -1540,13 +1576,18 @@ mod tests {
             unreachable!();
         };
         let mut store = ConstraintStore::new();
+        let origin = Span {
+            file_path: "main.rk".into(),
+            start: 14,
+            end: 21,
+        };
         store.add_trait(
             Type::TypeVar(constructor_id),
             TraitBound {
                 trait_id: constructor_trait,
                 type_args: Vec::new(),
             },
-            Span::default(),
+            origin.clone(),
             "bounded constructor candidate",
         );
 
@@ -1561,6 +1602,11 @@ mod tests {
         );
 
         assert!(result.errors[0].contains("bounded constructor candidate"));
+        assert_eq!(result.errors[0].span.file_path, origin.file_path);
+        assert_eq!(
+            (result.errors[0].span.start, result.errors[0].span.end),
+            (origin.start, origin.end)
+        );
         assert_eq!(
             engine.resolve(&Type::TypeVar(constructor_id)),
             Type::TypeVar(constructor_id)
@@ -1596,7 +1642,7 @@ mod tests {
         store.add_equality(
             application,
             callable_result.clone(),
-            Span::default(),
+            Span::test(),
             "deferred HKT equality",
         );
         store.add_trait(
@@ -1605,7 +1651,7 @@ mod tests {
                 trait_id: callable_trait,
                 type_args: vec![Type::I64, callable_result.clone()],
             },
-            Span::default(),
+            Span::test(),
             "callable result",
         );
         let language_items = LanguageItems {
@@ -1656,12 +1702,12 @@ mod tests {
             Type::Bool,
             Type::I64,
             Type::I64,
-            Span::default(),
+            Span::test(),
         );
         store.add_equality(
             carrier.clone(),
             Type::I64,
-            Span::default(),
+            Span::test(),
             "deferred carrier equality",
         );
 
@@ -1696,13 +1742,8 @@ mod tests {
             args: vec![Type::I64],
         };
         let mut store = ConstraintStore::new();
-        let obligation = store.add_try(
-            carrier.clone(),
-            Type::I64,
-            Type::I64,
-            carrier,
-            Span::default(),
-        );
+        let obligation =
+            store.add_try(carrier.clone(), Type::I64, Type::I64, carrier, Span::test());
 
         let result = solve_constraints_in_place(
             engine,
@@ -1744,7 +1785,7 @@ mod tests {
         let dependent = store.add_equality(
             application,
             callable_result.clone(),
-            Span::default(),
+            Span::test(),
             "dependent equality",
         );
         let callable = Type::function(
@@ -1760,7 +1801,7 @@ mod tests {
                 trait_id: callable_trait,
                 type_args: vec![Type::I64, callable_result],
             },
-            Span::default(),
+            Span::test(),
             "callable result",
         );
         let unrelated_id = store.add_int_literal(
@@ -1768,7 +1809,7 @@ mod tests {
                 Type::TypeVar(id) => id,
                 _ => unreachable!(),
             },
-            Span::default(),
+            Span::test(),
         );
         let language_items = LanguageItems {
             fn_once: Some(FnOnceLanguageItems {
@@ -1814,7 +1855,7 @@ mod tests {
                 constructor: Box::new(right),
                 args: vec![Type::Bool],
             },
-            Span::default(),
+            Span::test(),
             "unknown constructor heads",
         );
 
@@ -1877,7 +1918,7 @@ mod tests {
                 trait_id,
                 type_args: Vec::new(),
             },
-            Span::default(),
+            Span::test(),
             "constructor candidates",
         );
 
@@ -1943,7 +1984,7 @@ mod tests {
                 trait_id,
                 type_args: Vec::new(),
             },
-            Span::default(),
+            Span::test(),
             "ambiguity reopening",
         );
         let result = solve_constraints_in_place(
@@ -2004,7 +2045,7 @@ mod tests {
                 trait_id: first,
                 type_args: Vec::new(),
             },
-            Span::default(),
+            Span::test(),
             "recursive test",
         );
 

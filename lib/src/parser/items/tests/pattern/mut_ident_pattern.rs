@@ -19,7 +19,7 @@ fn mut_ident_pattern() {
             kind: PatternKind::Ident(IdentPattern {
                 name: Ident {
                     name: "a".to_string(),
-                    span: Span::default()
+                    span: Span::test()
                 },
                 mut_: true,
             })
@@ -44,7 +44,7 @@ fn caret_ident_pattern() {
             kind: PatternKind::Ident(IdentPattern {
                 name: Ident {
                     name: "a".to_string(),
-                    span: Span::default()
+                    span: Span::test()
                 },
                 mut_: true,
             })

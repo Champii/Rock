@@ -3657,7 +3657,7 @@ mod tests {
         SerializedHirExpr {
             kind: SerializedHirExprKind::Unit,
             ty: ProductTypeId(0),
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }
     }
 

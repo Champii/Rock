@@ -99,7 +99,7 @@ impl Lowerer {
             })
             .collect();
 
-        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let span = self.diagnostics.current_span().clone();
         let context = format!("call to generic function '{}'", func.name);
         for (generic_param, bounds) in &func.generic_bounds {
             let Some(ty) = subst.get(generic_param).cloned() else {
@@ -188,7 +188,8 @@ impl Lowerer {
                     Ok(Some(target)) => targets.push(target),
                     Ok(None) => {}
                     Err(error) => {
-                        self.diagnostics.push(error.message());
+                        let message = self.display_selection_error(&error);
+                        self.diagnostics.push(message);
                         return;
                     }
                 }
@@ -235,7 +236,7 @@ impl Lowerer {
         if matches!(expected_ty, Type::Reference { mutable: false, .. })
             && expected_ty != resolved_arg_ty
         {
-            let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+            let span = self.diagnostics.current_span().clone();
             return HirExpr {
                 ty: Type::Reference {
                     mutable: false,
@@ -601,7 +602,7 @@ impl Lowerer {
             return HirExpr {
                 ty: target_ty.clone(),
                 kind: HirExprKind::Cast(Box::new(inner_hir), target_ty),
-                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                span: self.diagnostics.current_span().clone(),
             };
         }
 
@@ -751,7 +752,7 @@ impl Lowerer {
             return HirExpr {
                 ty: Type::Unit,
                 kind: HirExprKind::Assign(Box::new(left), Box::new(right)),
-                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                span: self.diagnostics.current_span().clone(),
             };
         }
 
@@ -772,7 +773,7 @@ impl Lowerer {
             return HirExpr {
                 ty: Type::Bool,
                 kind: HirExprKind::BinOp(bin_op, Box::new(left), Box::new(right)),
-                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                span: self.diagnostics.current_span().clone(),
             };
         }
 
@@ -793,7 +794,7 @@ impl Lowerer {
                         inner: Box::new(right.ty.clone()),
                     },
                     kind: HirExprKind::Ref(false, Box::new(right)),
-                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    span: self.diagnostics.current_span().clone(),
                 };
                 let arg = params
                     .first()
@@ -834,7 +835,7 @@ impl Lowerer {
                 return HirExpr {
                     ty: self.resolve_projection_type(&self.engine.resolve(&ret_ty)),
                     kind: HirExprKind::Call(Box::new(left), vec![arg], target),
-                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    span: self.diagnostics.current_span().clone(),
                 };
             }
         }
@@ -858,7 +859,7 @@ impl Lowerer {
                     resolved_ty.clone(),
                     matches!(&left.kind, HirExprKind::Call(_, _, _)),
                 );
-            let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+            let span = self.diagnostics.current_span().clone();
             if let Some(selected) = self.handle_optional_selection(result, span) {
                 let adjusted_recv = self.apply_receiver_adjustment(
                     selected.receiver.clone(),
@@ -881,7 +882,7 @@ impl Lowerer {
                         method_func.self_receiver,
                         Some(target),
                     ),
-                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    span: self.diagnostics.current_span().clone(),
                 };
             }
         }
@@ -898,7 +899,7 @@ impl Lowerer {
                     resolved_ty.clone(),
                     matches!(&left.kind, HirExprKind::Call(_, _, _)),
                 );
-            let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+            let span = self.diagnostics.current_span().clone();
             if let Some(selected) = self.handle_optional_selection(result, span) {
                 let adjusted_recv = self.apply_receiver_adjustment(
                     selected.receiver.clone(),
@@ -921,7 +922,7 @@ impl Lowerer {
                         method_func.self_receiver,
                         Some(target),
                     ),
-                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    span: self.diagnostics.current_span().clone(),
                 };
             }
         }
@@ -957,7 +958,7 @@ impl Lowerer {
                     self.constraint_store.add_equality(
                         func_ty.clone(),
                         expected_fn_ty.clone(),
-                        self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        self.diagnostics.current_span().clone(),
                         &format!("Operator '{op_str}' function type mismatch"),
                     );
                 } else {
@@ -989,12 +990,12 @@ impl Lowerer {
                             }),
                             None => HirExprKind::Var(hir_name),
                         },
-                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        span: self.diagnostics.current_span().clone(),
                     };
                     let target = self.call_target_for_callee(&callee);
                     HirExprKind::Call(Box::new(callee), vec![left, right], target)
                 },
-                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                span: self.diagnostics.current_span().clone(),
             };
         }
 
@@ -1012,16 +1013,17 @@ impl Lowerer {
                     let callee = HirExpr {
                         ty: Type::function(vec![right.ty.clone()], result_ty.clone()),
                         kind: HirExprKind::FieldAccess(Box::new(left), method_name, None),
-                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        span: self.diagnostics.current_span().clone(),
                     };
                     return HirExpr {
                         ty: result_ty,
                         kind: HirExprKind::Call(Box::new(callee), vec![right], None),
-                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        span: self.diagnostics.current_span().clone(),
                     };
                 }
                 Err(error) => {
-                    self.diagnostics.push(error.message());
+                    let message = self.display_selection_error(&error);
+                    self.diagnostics.push(message);
                     return self.error_expression();
                 }
             }
@@ -1035,7 +1037,8 @@ impl Lowerer {
         ) {
             Ok(selected) => selected,
             Err(error) => {
-                self.diagnostics.push(error.message());
+                let message = self.display_selection_error(&error);
+                self.diagnostics.push(message);
                 return self.error_expression();
             }
         };
@@ -1062,13 +1065,14 @@ impl Lowerer {
                     method_func.self_receiver,
                     Some(target),
                 ),
-                span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                span: self.diagnostics.current_span().clone(),
             };
         }
 
+        let receiver_type = self.display_type(&resolved_ty);
         self.diagnostics.push(format!(
             "No implementation found for operator '{}' on type {}",
-            op_str, resolved_ty
+            op_str, receiver_type
         ));
 
         self.error_expression()
@@ -1311,7 +1315,7 @@ impl Lowerer {
     }
 
     pub(crate) fn error_expression(&self) -> HirExpr {
-        self.error_expression_at(self.diagnostics.current_span().cloned().unwrap_or_default())
+        self.error_expression_at(self.diagnostics.current_span().clone())
     }
 
     pub(crate) fn error_expression_at(&self, span: Span) -> HirExpr {
@@ -1372,7 +1376,7 @@ impl Lowerer {
                     return HirExpr {
                         ty: ref_ty,
                         kind: HirExprKind::Ref(op.value == "&mut", Box::new(inner_hir)),
-                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        span: self.diagnostics.current_span().clone(),
                     };
                 }
 
@@ -1385,7 +1389,7 @@ impl Lowerer {
                         return HirExpr {
                             ty: (*inner.clone()),
                             kind: HirExprKind::Deref(Box::new(inner_hir)),
-                            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                            span: self.diagnostics.current_span().clone(),
                         };
                     }
 
@@ -1400,7 +1404,7 @@ impl Lowerer {
                         return HirExpr {
                             ty: (*inner.clone()),
                             kind: HirExprKind::Deref(Box::new(inner_hir)),
-                            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                            span: self.diagnostics.current_span().clone(),
                         };
                     }
 
@@ -1413,17 +1417,15 @@ impl Lowerer {
                     }
 
                     let result_ty = resolved_inner_ty.clone();
+                    let receiver_type = self.display_type(&resolved_inner_ty);
                     self.diagnostics.push_with_span(
-                        format!(
-                            "Cannot dereference non-pointer type: {:?}",
-                            resolved_inner_ty
-                        ),
+                        format!("Cannot dereference non-pointer type: {}", receiver_type),
                         op.span.clone(),
                     );
                     return HirExpr {
                         ty: result_ty,
                         kind: HirExprKind::Deref(Box::new(inner_hir)),
-                        span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                        span: self.diagnostics.current_span().clone(),
                     };
                 }
 
@@ -1458,8 +1460,8 @@ impl Lowerer {
                                 };
                             }
                             Err(error) => {
-                                self.diagnostics
-                                    .push_with_span(error.message(), op.span.clone());
+                                let message = self.display_selection_error(&error);
+                                self.diagnostics.push_with_span(message, op.span.clone());
                                 return self.error_expression();
                             }
                         }
@@ -1528,7 +1530,7 @@ impl Lowerer {
                                 method_func.self_receiver,
                                 Some(target),
                             ),
-                            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                            span: self.diagnostics.current_span().clone(),
                         };
                     }
 
@@ -1538,8 +1540,8 @@ impl Lowerer {
                         match self.select_operator_method(&receiver_candidates, method_name, &[]) {
                             Ok(selected) => selected,
                             Err(error) => {
-                                self.diagnostics
-                                    .push_with_span(error.message(), op.span.clone());
+                                let message = self.display_selection_error(&error);
+                                self.diagnostics.push_with_span(message, op.span.clone());
                                 return self.error_expression();
                             }
                         };
@@ -1566,14 +1568,15 @@ impl Lowerer {
                                 method_func.self_receiver,
                                 Some(target),
                             ),
-                            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                            span: self.diagnostics.current_span().clone(),
                         };
                     }
 
+                    let receiver_type = self.display_type(&resolved_ty);
                     self.diagnostics.push_with_span(
                         format!(
                             "No implementation found for operator '{}' on type {}",
-                            op.value, resolved_ty
+                            op.value, receiver_type
                         ),
                         op.span.clone(),
                     );
@@ -1594,7 +1597,7 @@ impl Lowerer {
                 HirExpr {
                     ty,
                     kind: HirExprKind::UnaryOp(unary_op, Box::new(inner_hir)),
-                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    span: self.diagnostics.current_span().clone(),
                 }
             }
         }
@@ -1820,7 +1823,7 @@ impl Lowerer {
                 HirExpr {
                     ty,
                     kind: HirExprKind::UnsafeBlock(body),
-                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    span: self.diagnostics.current_span().clone(),
                 }
             }
             ast::Operand::NativeOperator(op) => {
@@ -1836,7 +1839,7 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_literal(&mut self, lit: &ast::Literal) -> HirExpr {
-        self.diagnostics.set_current_span(Some(lit.span.clone()));
+        self.diagnostics.set_current_span(lit.span.clone());
         let span = lit.span.clone();
         match &lit.kind {
             ast::LiteralKind::Bool(b) => HirExpr {
@@ -2007,7 +2010,7 @@ mod tests {
         UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: LiteralKind::Number(value),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,
@@ -2018,7 +2021,7 @@ mod tests {
         UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: LiteralKind::String(value.to_string()),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,
@@ -2030,7 +2033,7 @@ mod tests {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: name.to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: None,
@@ -2040,10 +2043,10 @@ mod tests {
 
     #[test]
     fn test_string_literal_lowers_to_borrowed_str() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let hir = lowerer.lower_literal(&Literal {
             kind: LiteralKind::String("hello".to_string()),
-            span: Span::default(),
+            span: Span::test(),
         });
 
         assert_eq!(
@@ -2057,7 +2060,7 @@ mod tests {
 
     #[test]
     fn function_valued_ampersand_records_call_target() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = def_id(3);
         let param_ty = Type::Reference {
             mutable: false,
@@ -2087,7 +2090,7 @@ mod tests {
             var_expr("borrowed"),
             Operator {
                 value: "&".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::UnaryExpr(int_expr(1))),
         );
@@ -2103,7 +2106,7 @@ mod tests {
 
     #[test]
     fn direct_function_target_does_not_require_method_payload() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = def_id(33);
         let resolved = crate::lower::resolution::LowerResolvedValue {
             name: "function".to_string(),
@@ -2122,7 +2125,7 @@ mod tests {
 
     #[test]
     fn custom_operator_import_alias_lowers_callee_to_function_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let operator_id = def_id(1);
         let inc_id = def_id(2);
         let inc_ty = Type::function(vec![Type::I64], Type::I64);
@@ -2151,7 +2154,7 @@ mod tests {
             int_expr(41),
             Operator {
                 value: "|>".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::UnaryExpr(var_expr("inc"))),
         );
@@ -2171,7 +2174,7 @@ mod tests {
 
     #[test]
     fn custom_operator_module_alias_lowers_through_resolver_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = def_id(30);
         lowerer.items.insert_function(test_function(
             function_id,
@@ -2190,7 +2193,7 @@ mod tests {
             int_expr(1),
             Operator {
                 value: "%%".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::UnaryExpr(int_expr(2))),
         );
@@ -2211,7 +2214,7 @@ mod tests {
 
     #[test]
     fn custom_operator_module_alias_shadows_root_operator_with_same_symbol() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let root_id = def_id(31);
         let module_id = def_id(32);
         lowerer.items.insert_function(test_function(
@@ -2245,7 +2248,7 @@ mod tests {
             int_expr(1),
             Operator {
                 value: "%%".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::UnaryExpr(int_expr(2))),
         );
@@ -2266,7 +2269,7 @@ mod tests {
 
     #[test]
     fn custom_operator_scope_local_lowers_callee_to_local_call_target() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let operator_local = crate::ids::HirLocalId(7);
         let operator_ty = Type::function(vec![Type::I64, Type::I64], Type::I64);
 
@@ -2279,7 +2282,7 @@ mod tests {
             int_expr(40),
             Operator {
                 value: "%%".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::UnaryExpr(int_expr(2))),
         );
@@ -2303,7 +2306,7 @@ mod tests {
 
     #[test]
     fn inherent_impl_custom_operator_call_carries_method_target() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(10);
         let impl_id = def_id(11);
         let method_id = def_id(12);
@@ -2351,12 +2354,12 @@ mod tests {
         let left = HirExpr {
             ty: receiver_ty,
             kind: HirExprKind::Var("box".to_string()),
-            span: Span::default(),
+            span: Span::test(),
         };
         let right = HirExpr {
             ty: Type::I64,
             kind: HirExprKind::IntLiteral(2),
-            span: Span::default(),
+            span: Span::test(),
         };
         let hir = lowerer.build_precedence_tree(&[left, right], &["%%".to_string()], 0, 1);
 
@@ -2373,7 +2376,7 @@ mod tests {
 
     #[test]
     fn custom_operator_impl_selection_uses_canonical_impl_method() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let option_id = def_id(20);
         let impl_id = def_id(21);
         let method_id = def_id(22);
@@ -2431,12 +2434,12 @@ mod tests {
         let left = HirExpr {
             ty: left_ty,
             kind: HirExprKind::Var("option".to_string()),
-            span: Span::default(),
+            span: Span::test(),
         };
         let right = HirExpr {
             ty: Type::I64,
             kind: HirExprKind::IntLiteral(2),
-            span: Span::default(),
+            span: Span::test(),
         };
         let hir = lowerer.build_precedence_tree(&[left, right], &["<&>".to_string()], 0, 1);
 
@@ -2451,13 +2454,13 @@ mod tests {
 
     #[test]
     fn missing_concrete_operator_impl_lowers_to_error_typed_expression() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.infix_precedence.insert("+".to_string(), 6);
         let expr = Expression::BinopExpr(
             string_expr("left"),
             Operator {
                 value: "+".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(Expression::UnaryExpr(string_expr("right"))),
         );
@@ -2476,11 +2479,11 @@ mod tests {
 
     #[test]
     fn missing_concrete_unary_operator_impl_lowers_to_error_typed_expression() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let expr = UnaryExpr::UnaryExpr(
             Operator {
                 value: "-".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             Box::new(string_expr("not numeric")),
         );
@@ -2499,7 +2502,7 @@ mod tests {
 
     #[test]
     fn unresolved_binary_operator_reports_all_ambiguous_impl_ids() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let first_impl = def_id(30);
         let second_impl = def_id(31);
         lowerer
@@ -2526,12 +2529,12 @@ mod tests {
         let left = HirExpr {
             ty: left_ty.clone(),
             kind: HirExprKind::Var("left".to_string()),
-            span: Span::default(),
+            span: Span::test(),
         };
         let right = HirExpr {
             ty: Type::I64,
             kind: HirExprKind::IntLiteral(1),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         assert_eq!(
@@ -2546,7 +2549,7 @@ mod tests {
 
     #[test]
     fn unresolved_unary_operator_reports_all_ambiguous_impl_ids() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let first_impl = def_id(40);
         let second_impl = def_id(41);
         lowerer
@@ -2573,7 +2576,7 @@ mod tests {
         let operand = HirExpr {
             ty: operand_ty.clone(),
             kind: HirExprKind::Var("operand".to_string()),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         assert_eq!(
@@ -2588,7 +2591,7 @@ mod tests {
 
     #[test]
     fn concrete_operator_does_not_select_first_compatible_impl() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let first_impl = def_id(50);
         let second_impl = def_id(51);
         lowerer
@@ -2615,12 +2618,12 @@ mod tests {
         let left = HirExpr {
             ty: Type::Bool,
             kind: HirExprKind::BoolLiteral(true),
-            span: Span::default(),
+            span: Span::test(),
         };
         let right = HirExpr {
             ty: Type::I64,
             kind: HirExprKind::IntLiteral(1),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let hir = lowerer.build_precedence_tree(&[left, right], &["%%".to_string()], 0, 1);
@@ -2628,8 +2631,8 @@ mod tests {
         assert_eq!(hir.ty, Type::Error);
         assert!(lowerer.diagnostics.errors().iter().any(|error| {
             error.message.contains("Ambiguous selection for '%%'")
-                && error.message.contains(&format!("{first_impl:?}"))
-                && error.message.contains(&format!("{second_impl:?}"))
+                && error.message.contains("multiple matching implementations")
+                && !error.message.contains("DefId")
         }));
     }
 }

@@ -29,7 +29,7 @@ fn multiline_arguments_in_method_chain() {
                 ident_path.path[0],
                 IdentOrType::Ident(Ident {
                     name: "foo".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })
             );
 

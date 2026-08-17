@@ -67,10 +67,6 @@ pub enum ProcMacroResponse {
 }
 
 impl ProcMacroResponse {
-    pub fn into_diagnostics(self, macro_name: &str) -> Diagnostics {
-        self.into_diagnostics_at(macro_name, Span::default())
-    }
-
     pub fn into_diagnostics_at(self, macro_name: &str, span: Span) -> Diagnostics {
         let mut diagnostics = Diagnostics::default();
         match self {

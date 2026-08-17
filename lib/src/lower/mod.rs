@@ -85,11 +85,124 @@ pub struct Lowerer {
     pub(crate) imported_effective_trait_methods: HashMap<(DefId, DefId), DefId>,
     pub(crate) body_context: Option<BodyLoweringContext>,
     pub(crate) tuple_temp_counter: u32,
+    pub(crate) source_map: crate::source_map::SemanticSourceMap,
 }
 
 impl Lowerer {
+    pub(crate) fn type_display_context(&self) -> crate::type_services::display::TypeDisplayContext {
+        let mut context =
+            crate::type_services::display::TypeDisplayContext::from_resolver(&self.resolver);
+        for resolver in self.dependency_resolvers.values() {
+            context.extend_resolver(resolver);
+        }
+        for (_, function) in self.items.functions() {
+            for generic in &function.generic_params {
+                context.insert_generic_name(generic.id, generic.name.clone());
+            }
+        }
+        for (_, signature) in self.items.function_sigs() {
+            for generic in &signature.generic_params {
+                context.insert_generic_name(generic.id, generic.name.clone());
+            }
+        }
+        for (_, structure) in self.items.structures() {
+            for generic in &structure.generic_params {
+                context.insert_generic_name(generic.id, generic.name.clone());
+            }
+        }
+        for (_, enumeration) in self.items.enumerations() {
+            for generic in &enumeration.generic_params {
+                context.insert_generic_name(generic.id, generic.name.clone());
+            }
+        }
+        for (_, trait_def) in self.items.trait_defs() {
+            for generic in &trait_def.generic_params {
+                context.insert_generic_name(generic.id, generic.name.clone());
+            }
+            if let Some(target) = &trait_def.target {
+                context.insert_generic_name(target.id, target.name.clone());
+            }
+            for associated in &trait_def.associated_types {
+                context.insert_associated_name(
+                    crate::types::AssociatedTypeKey {
+                        owner: trait_def.id,
+                        assoc_type_id: associated.id,
+                    },
+                    associated.name.clone(),
+                );
+            }
+            for function in trait_def.methods.values() {
+                for generic in &function.generic_params {
+                    context.insert_generic_name(generic.id, generic.name.clone());
+                }
+            }
+            for signature in trait_def.signatures.values() {
+                for generic in &signature.generic_params {
+                    context.insert_generic_name(generic.id, generic.name.clone());
+                }
+            }
+        }
+        for (_, impl_def) in self.items.impl_defs() {
+            for generic in impl_def
+                .type_generics
+                .iter()
+                .chain(&impl_def.trait_generics)
+            {
+                context.insert_generic_name(generic.id, generic.name.clone());
+            }
+            for associated in &impl_def.associated_types {
+                context.insert_associated_name(
+                    crate::types::AssociatedTypeKey {
+                        owner: impl_def.id,
+                        assoc_type_id: associated.id,
+                    },
+                    associated.name.clone(),
+                );
+            }
+            for function in impl_def.methods.values() {
+                for generic in &function.generic_params {
+                    context.insert_generic_name(generic.id, generic.name.clone());
+                }
+            }
+        }
+        context
+    }
+
+    pub(crate) fn display_type(&self, ty: &Type) -> String {
+        crate::type_services::display::display_type_with_context(ty, &self.type_display_context())
+            .to_string()
+    }
+
+    pub(crate) fn refresh_type_display_context(&mut self) {
+        let context = self.type_display_context();
+        self.engine.set_type_display_context(context);
+    }
+
+    pub(crate) fn display_selection_error(
+        &self,
+        error: &crate::selection::SelectionDiagnostic,
+    ) -> String {
+        error.message_with_names(
+            |ty| self.display_type(ty),
+            |id| {
+                crate::lower::resolution::LowerResolutionContext::new(self)
+                    .canonical_name(id)
+                    .map(str::to_string)
+            },
+        )
+    }
+
     pub fn new() -> Self {
         Self::with_options(true)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_for_test() -> Self {
+        let mut lowerer = Self::new();
+        lowerer
+            .diagnostics
+            .set_current_span(crate::lexer::Span::test());
+        lowerer
     }
 
     pub(crate) fn from_services(services: LowererServices) -> Self {
@@ -122,6 +235,7 @@ impl Lowerer {
             imported_effective_trait_methods: HashMap::new(),
             body_context: None,
             tuple_temp_counter: 0,
+            source_map: Default::default(),
         }
     }
 
@@ -198,6 +312,43 @@ impl Lowerer {
         self.body_context
             .as_ref()
             .map(|context| context.owner().clone())
+    }
+
+    pub(crate) fn current_body_def_id(&self) -> Option<DefId> {
+        match self.current_body_owner()? {
+            BodyOwner::Function(id)
+            | BodyOwner::ImplMethod { method_id: id, .. }
+            | BodyOwner::TraitMethod { method_id: id, .. } => Some(id),
+        }
+    }
+
+    pub(crate) fn pattern_binding_span(pattern: &ast::Pattern) -> Option<Span> {
+        match &pattern.kind {
+            ast::PatternKind::Ident(binding) => Some(binding.name.span.clone()),
+            ast::PatternKind::Nested(pattern) | ast::PatternKind::Reference { pattern, .. } => {
+                Self::pattern_binding_span(pattern)
+            }
+            ast::PatternKind::Tuple(patterns) => {
+                patterns.iter().find_map(Self::pattern_binding_span)
+            }
+            ast::PatternKind::Array(patterns) => {
+                patterns.iter().find_map(|pattern| match pattern {
+                    ast::ArrayPattern::Pattern(pattern) => Self::pattern_binding_span(pattern),
+                    ast::ArrayPattern::Rest(binding) => Some(binding.name.span.clone()),
+                })
+            }
+            ast::PatternKind::Instance(instance) => match &instance.args {
+                ast::FieldsPatternOrArgumentsPattern::Fields(fields) => fields
+                    .iter()
+                    .find_map(|field| Self::pattern_binding_span(&field.pattern)),
+                ast::FieldsPatternOrArgumentsPattern::Arguments(patterns) => {
+                    patterns.iter().find_map(Self::pattern_binding_span)
+                }
+            },
+            ast::PatternKind::Wildcard | ast::PatternKind::Literal(_) => {
+                pattern.binding.as_ref().map(|binding| binding.span.clone())
+            }
+        }
     }
 
     pub(crate) fn current_body_return_type(&mut self) -> Option<Type> {
@@ -592,7 +743,8 @@ impl Lowerer {
                 | crate::selection::SelectionDiagnostic::ReceiverMismatch { .. },
             ) => None,
             Err(error) => {
-                self.diagnostics.push_with_span(error.message(), span);
+                let message = self.display_selection_error(&error);
+                self.diagnostics.push_with_span(message, span);
                 None
             }
         }
@@ -767,8 +919,11 @@ impl Lowerer {
         lowerer.root_crate_id = indexing_ids.root_crate_id();
         lowerer.local_def_ids = indexing_ids.into_local_def_ids();
         lowerer.item_index = item_index;
+        lowerer.source_map =
+            crate::source_map::SemanticSourceMap::from_item_index(&lowerer.item_index);
         lowerer.language_items = language_items;
         lowerer.refresh_inference_normalization_env();
+        lowerer.refresh_type_display_context();
         Ok(lowerer)
     }
 }
@@ -851,7 +1006,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         }
     }
 
@@ -1054,7 +1209,7 @@ mod tests {
         HirStmt::Return(Some(HirExpr {
             kind: HirExprKind::IntLiteral(value),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         }))
     }
 
@@ -1097,7 +1252,7 @@ mod tests {
         let current_id = DefId::new(CrateId(0), LocalDefId(1));
         let dependency_item_id = DefId::new(CrateId(7), LocalDefId(2));
         let dependency_export_id = DefId::new(CrateId(7), LocalDefId(3));
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.resolver.insert_import_alias_with_name(
             "local_alias".to_string(),
             "demo::answer".to_string(),
@@ -1148,7 +1303,7 @@ mod tests {
     fn trait_by_name_prefers_resolver_alias_id() {
         let canonical_id = DefId::new(CrateId(0), LocalDefId(30));
         let collision_id = DefId::new(CrateId(0), LocalDefId(31));
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_trait_def(test_trait(canonical_id, "dep::Show"));
@@ -1628,7 +1783,7 @@ mod tests {
         };
         let mut db = crate::source_loader::SourceDatabase::new();
         let graph = db.load_entry(entry.clone(), &config).unwrap();
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.modules =
             crate::lower::services::LowerModuleService::from_source_modules(graph.source_modules());
         lowerer
@@ -1873,7 +2028,7 @@ mod tests {
     #[test]
     fn injected_prelude_scope_only_extern_alias_lowers_to_resolved_extern() {
         let puts_id = DefId::new(CrateId(7), LocalDefId(4));
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_extern(HirExtern {
             id: puts_id,
             name: "stdlib::libc::puts".to_string(),
@@ -1924,7 +2079,7 @@ mod tests {
             "dep::answer".to_string(),
             dependency_id,
         );
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .dependency_resolvers
             .insert("dep".to_string(), dep_resolver);
@@ -1942,7 +2097,7 @@ mod tests {
     #[test]
     fn handle_glob_import_records_dependency_resolver_export_ids() {
         let dependency_id = DefId::new(CrateId(7), LocalDefId(3));
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_function(test_function(dependency_id, "dep::answer", Vec::new()));
@@ -1975,7 +2130,7 @@ mod tests {
     #[test]
     fn injected_prelude_function_alias_remains_id_backed_view() {
         let prelude_id = DefId::new(CrateId(7), LocalDefId(3));
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.prelude.capture_loaded_prelude_exports(
             "stdlib",
             &std::collections::BTreeMap::from([(
@@ -2068,7 +2223,7 @@ mod tests {
 
     #[test]
     fn body_lowering_context_owns_body_local_ids_and_restores_lowerer_state() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let outer_owner = DefId::new(CrateId(0), LocalDefId(99));
         lowerer.generic_context = Some(crate::lower::body_context::GenericLoweringContext::new(
             outer_owner,
@@ -2108,7 +2263,7 @@ mod tests {
 
     #[test]
     fn body_owner_mismatched_method_name_and_id_does_not_rediscover_method() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let impl_id = DefId::new(CrateId(0), LocalDefId(20));
         let first_method_id = DefId::new(CrateId(0), LocalDefId(21));
         let second_method_id = DefId::new(CrateId(0), LocalDefId(22));

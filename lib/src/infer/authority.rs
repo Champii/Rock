@@ -72,7 +72,7 @@ pub(super) struct AuthorityObligation {
     pub last_generation: u64,
     pub attempts: u32,
     pub context: String,
-    pub span: crate::lexer::Span,
+    pub span: Option<crate::lexer::Span>,
     site: Option<AuthoritySiteId>,
     dependencies: HashSet<crate::ids::TypeVarId>,
 }
@@ -113,10 +113,10 @@ pub(super) fn authority_obligations(
             state: ObligationState::Pending,
             last_generation: u64::MAX,
             attempts: 0,
-            context: format!("call and type propagation for {owner:?}"),
-            span: function_for_owner(hir, owner)
-                .and_then(|function| first_block_span(&function.body))
-                .unwrap_or_default(),
+            context: function_for_owner(hir, owner)
+                .map(|function| format!("call and type propagation for '{}'", function.name))
+                .unwrap_or_else(|| "call and type propagation".to_string()),
+            span: None,
             site: None,
             dependencies: HashSet::new(),
         };
@@ -136,7 +136,7 @@ pub(super) fn authority_obligations(
                     last_generation: u64::MAX,
                     attempts: 0,
                     context,
-                    span,
+                    span: Some(span),
                     site: Some(site),
                     dependencies: dependencies
                         .into_iter()
@@ -264,16 +264,6 @@ fn function_for_owner(hir: &PartialHir, owner: ConstraintOwner) -> Option<&HirFu
                 .flat_map(|imp| imp.methods.values())
                 .find(|method| method.id == id)
         })
-}
-
-fn first_block_span(block: &HirBlock) -> Option<crate::lexer::Span> {
-    block.stmts.iter().find_map(|statement| match statement {
-        HirStmt::Let { value, .. }
-        | HirStmt::Expr(value)
-        | HirStmt::Return(Some(value))
-        | HirStmt::Break(Some(value)) => Some(value.span.clone()),
-        HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => None,
-    })
 }
 
 type AuthoritySite = (
@@ -520,47 +510,30 @@ struct AuthorityCounts {
 pub(super) fn pending_authority_error(
     hir: &PartialHir,
     owners: Option<&HashSet<ConstraintOwner>>,
+    obligations: &[AuthorityObligation],
 ) -> ResolveError {
-    let error = if authority_counts(hir, owners).pending_residuals > 0 {
-        ResolveError::new(
-            "cannot resolve '?' because its carrier or enclosing residual remains unresolved"
-                .to_string(),
-        )
+    let message = if authority_counts(hir, owners).pending_residuals > 0 {
+        "cannot resolve '?' because its carrier or enclosing residual remains unresolved"
+            .to_string()
     } else if authority_counts(hir, owners).pending_methods > 0 {
-        ResolveError::new(
-            "cannot resolve method authority because the receiver remains unresolved".to_string(),
-        )
+        "cannot resolve method authority because the receiver remains unresolved".to_string()
     } else if let Some((member, receiver)) = first_pending_field(hir, owners) {
-        ResolveError::new(format!(
-            "cannot resolve member '{member}' because receiver type {receiver} remains unresolved"
-        ))
-    } else {
-        ResolveError::new(
-            "cannot resolve field authority because the receiver remains unresolved".to_string(),
+        format!(
+            "cannot resolve member '{member}' because receiver type {} remains unresolved",
+            hir.engine.display_type(&receiver)
         )
-    };
-    if let Some(span) = pending_authority_span(hir, owners) {
-        ResolveError::with_span(error.message, span)
     } else {
-        error
-    }
-}
-
-fn pending_authority_span(
-    hir: &PartialHir,
-    owners: Option<&HashSet<ConstraintOwner>>,
-) -> Option<crate::lexer::Span> {
-    let selected = owners.cloned().unwrap_or_else(|| {
-        hir.functions
-            .keys()
-            .copied()
-            .map(ConstraintOwner::Body)
-            .collect()
-    });
-    authority_obligations(hir, &selected)
-        .into_iter()
-        .find(|obligation| obligation.kind != AuthorityObligationKind::Propagation)
-        .map(|obligation| obligation.span)
+        "cannot resolve field authority because the receiver remains unresolved".to_string()
+    };
+    let span = obligations
+        .iter()
+        .find(|obligation| {
+            obligation.kind != AuthorityObligationKind::Propagation
+                && obligation.state != ObligationState::Solved
+        })
+        .and_then(|obligation| obligation.span.clone())
+        .expect("pending source authority obligation must carry its expression span");
+    ResolveError::with_span(message, span)
 }
 
 pub(super) fn pending_authority_context(obligations: &[AuthorityObligation]) -> Option<&str> {
@@ -2003,6 +1976,7 @@ fn materialize_pending(
         bounds: HirGenericBounds::new(),
         constraint_store: &mut hir.constraint_store,
         effective_trait_methods: &hir.imported_effective_trait_methods,
+        resolver: &hir.resolver,
         structs: &struct_ids,
         engine: RefCell::new(&mut hir.engine),
         try_protocol: hir.language_items.try_protocol.clone(),
@@ -2092,6 +2066,7 @@ struct MethodAuthorityContext<'a> {
     bounds: HirGenericBounds,
     constraint_store: &'a mut ConstraintStore,
     effective_trait_methods: &'a HashMap<(DefId, DefId), DefId>,
+    resolver: &'a crate::collect::resolver::ResolverTables,
     structs: &'a HashMap<DefId, crate::hir::HirStruct>,
     engine: RefCell<&'a mut crate::infer::InferenceEngine>,
     try_protocol: Option<TryLanguageItems<DefId>>,
@@ -2106,6 +2081,17 @@ struct MethodAuthorityContext<'a> {
 }
 
 impl MethodAuthorityContext<'_> {
+    fn display_type(&self, ty: &Type) -> String {
+        self.engine.borrow().display_type(ty)
+    }
+
+    fn display_selection_error(&self, error: &crate::selection::SelectionDiagnostic) -> String {
+        error.message_with_names(
+            |ty| self.display_type(ty),
+            |id| self.resolver.canonical_name(id).map(str::to_string),
+        )
+    }
+
     fn service(&self) -> SelectionService<'_> {
         SelectionService::new(
             self.traits,
@@ -2487,6 +2473,7 @@ impl MethodAuthorityContext<'_> {
         let Type::Array(element, _) = inner.as_ref() else {
             return None;
         };
+        let span = expr.span.clone();
         Some(HirExpr {
             ty: Type::Reference {
                 mutable,
@@ -2496,7 +2483,7 @@ impl MethodAuthorityContext<'_> {
                 name: "ArrayRefToSlice".to_string(),
                 args: vec![expr],
             },
-            span: Default::default(),
+            span,
         })
     }
 
@@ -2507,13 +2494,14 @@ impl MethodAuthorityContext<'_> {
         let Type::Array(element, _) = self.resolved_type(&expr.ty) else {
             return None;
         };
+        let span = expr.span.clone();
         let borrowed = HirExpr {
             ty: Type::Reference {
                 mutable,
                 inner: Box::new(expr.ty.clone()),
             },
             kind: HirExprKind::Ref(mutable, Box::new(expr)),
-            span: Default::default(),
+            span: span.clone(),
         };
         Some(HirExpr {
             ty: Type::Reference {
@@ -2524,7 +2512,7 @@ impl MethodAuthorityContext<'_> {
                 name: "ArrayRefToSlice".to_string(),
                 args: vec![borrowed],
             },
-            span: Default::default(),
+            span,
         })
     }
 
@@ -2536,13 +2524,14 @@ impl MethodAuthorityContext<'_> {
                     return expr;
                 }
                 let mutable = matches!(adjustment, ReceiverAdjustment::AutorefMut);
+                let span = expr.span.clone();
                 HirExpr {
                     ty: Type::Reference {
                         mutable,
                         inner: Box::new(expr.ty.clone()),
                     },
                     kind: HirExprKind::Ref(mutable, Box::new(expr)),
-                    span: Default::default(),
+                    span,
                 }
             }
             ReceiverAdjustment::MutToSharedRef => {
@@ -2722,13 +2711,14 @@ impl MethodAuthorityContext<'_> {
             );
         }
         if let Some(slice_ref) = self.array_value_to_slice_ref(expr, false) {
+            let span = slice_ref.span.clone();
             let slice_value = HirExpr {
                 ty: match self.resolved_type(&slice_ref.ty) {
                     Type::Reference { inner, .. } => *inner,
                     ty => ty,
                 },
                 kind: HirExprKind::Deref(Box::new(slice_ref)),
-                span: Default::default(),
+                span,
             };
             self.push_receiver_candidate(
                 &mut candidates,
@@ -3511,9 +3501,12 @@ impl MethodAuthorityContext<'_> {
                 Err(error) => {
                     let message = match error {
                         crate::selection::SelectionDiagnostic::NoImplementation { .. } => {
-                            format!("Cannot use '?' on non-carrier type {carrier_ty}")
+                            format!(
+                                "Cannot use '?' on non-carrier type {}",
+                                self.display_type(&carrier_ty)
+                            )
                         }
-                        _ => error.message(),
+                        _ => self.display_selection_error(&error),
                     };
                     if self.try_strict && self.strict {
                         errors.push(ResolveError::new(message));
@@ -3656,11 +3649,13 @@ impl MethodAuthorityContext<'_> {
                 Err(error) => {
                     let message = match error {
                         crate::selection::SelectionDiagnostic::NoImplementation { .. } => {
+                            let return_type = self.display_type(&resolved_return_ty);
+                            let residual_type = self.display_type(&resolved_residual_ty);
                             format!(
-                                "Cannot use '?' because {resolved_return_ty} does not implement FromResidual {resolved_residual_ty}"
+                                "Cannot use '?' because {return_type} does not implement FromResidual {residual_type}"
                             )
                         }
-                        _ => error.message(),
+                        _ => self.display_selection_error(&error),
                     };
                     if self.try_strict && self.strict {
                         errors.push(ResolveError::new(message));
@@ -4106,6 +4101,7 @@ mod worklist_tests {
             imported_effective_trait_methods: HashMap::new(),
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
+            source_map: Default::default(),
         }
     }
 
@@ -4210,7 +4206,7 @@ mod worklist_tests {
                 id: struct_id,
                 args: Vec::new(),
             },
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
         let field = |name: &str, start| HirExpr {
             kind: HirExprKind::FieldAccess(Box::new(receiver()), name.to_string(), None),
@@ -4228,13 +4224,13 @@ mod worklist_tests {
                     Box::new(HirExpr {
                         kind: HirExprKind::Var("consume".to_string()),
                         ty: Type::Error,
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     }),
                     vec![field("first", 10), field("second", 20)],
                     None,
                 ),
                 ty: Type::Unit,
-                span: Default::default(),
+                span: crate::lexer::Span::test(),
             })],
             ty: Type::Unit,
         };

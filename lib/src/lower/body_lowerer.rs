@@ -486,12 +486,12 @@ mod tests {
             ast::TopLevel::Module(ast::ModuleDecl(ast::Module {
                 name: Some(ast::Ident {
                     name: "left_inline".to_string(),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 top_levels: vec![ast::TopLevel::Module(ast::ModuleDecl(ast::Module {
                     name: Some(ast::Ident {
                         name: "shared".to_string(),
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     }),
                     top_levels: left_inline_body.top_levels,
                     is_inline: true,
@@ -506,12 +506,12 @@ mod tests {
             ast::TopLevel::Module(ast::ModuleDecl(ast::Module {
                 name: Some(ast::Ident {
                     name: "right_inline".to_string(),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 top_levels: vec![ast::TopLevel::Module(ast::ModuleDecl(ast::Module {
                     name: Some(ast::Ident {
                         name: "shared".to_string(),
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     }),
                     top_levels: right_inline_body.top_levels,
                     is_inline: true,

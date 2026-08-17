@@ -19,19 +19,19 @@ fn test_parse_assignment_complex() {
                 operand: Operand::Ident(IdentifierPath {
                     path: vec![IdentOrType::Ident(Ident {
                         name: "a".to_string(),
-                        span: Span::default(),
+                        span: Span::test(),
                     })],
                 }),
                 secondaries: Some(vec![
                     SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                         name: "b".to_string(),
-                        span: Span::default(),
+                        span: Span::test(),
                     })),
                     SecondaryExpr::Indice(Box::new(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(
                         PrimaryExpr {
                             operand: Operand::Literal(Literal {
                                 kind: crate::ast::LiteralKind::Number(2),
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             secondaries: None,
                             type_annotation: None,
@@ -39,7 +39,7 @@ fn test_parse_assignment_complex() {
                     ))),),
                     SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                         name: "c".to_string(),
-                        span: Span::default(),
+                        span: Span::test(),
                     })),
                 ]),
                 type_annotation: None,
@@ -47,7 +47,7 @@ fn test_parse_assignment_complex() {
             rhs: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Literal(Literal {
                     kind: crate::ast::LiteralKind::Number(1),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 secondaries: None,
                 type_annotation: None,

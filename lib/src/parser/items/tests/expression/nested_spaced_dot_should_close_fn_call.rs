@@ -20,7 +20,7 @@ fn nested_spaced_dot_should_close_fn_call() {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "foo".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: Some(vec![
@@ -30,7 +30,7 @@ fn nested_spaced_dot_should_close_fn_call() {
                             operand: Operand::Ident(IdentifierPath {
                                 path: vec![IdentOrType::Ident(Ident {
                                     name: "a".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 })],
                             }),
                             secondaries: None,
@@ -44,13 +44,13 @@ fn nested_spaced_dot_should_close_fn_call() {
                                     operand: Operand::Ident(IdentifierPath {
                                         path: vec![IdentOrType::Ident(Ident {
                                             name: "b".to_string(),
-                                            span: Span::default(),
+                                            span: Span::test(),
                                         })],
                                     }),
                                     secondaries: Some(vec![SecondaryExpr::Dot(
                                         IdentOrNumber::Ident(Ident {
                                             name: "lol".to_string(),
-                                            span: Span::default(),
+                                            span: Span::test(),
                                         })
                                     )]),
                                     type_annotation: None,
@@ -63,7 +63,7 @@ fn nested_spaced_dot_should_close_fn_call() {
                 ]),
                 SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                     name: "toto".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })),
             ]),
             type_annotation: None,

@@ -34,6 +34,13 @@ use crate::mir::{
 use crate::type_context::{Ty, TypeView};
 use crate::types::{GenericParamId, Type};
 
+fn mir_diagnostic(message: String, span: Option<Span>) -> Diagnostic {
+    match span {
+        Some(span) => Diagnostic::new(message, span),
+        None => Diagnostic::for_toolchain(message),
+    }
+}
+
 pub struct BorrowChecker;
 
 struct MoveValidationContext<'a> {
@@ -672,12 +679,12 @@ impl<'a> MoveValidationContext<'a> {
                 Projection::Field { .. }
                     if validate_move_only_rules && self.has_direct_drop(&current_ty) =>
                 {
-                    diagnostics.push(Diagnostic::new(
+                    diagnostics.push(mir_diagnostic(
                         format!(
                             "Cannot move field out of type '{}' because it implements Drop",
                             self.type_display_name(&current_ty)
                         ),
-                        span.unwrap_or_default(),
+                        span.clone(),
                     ));
                     return;
                 }
@@ -685,9 +692,9 @@ impl<'a> MoveValidationContext<'a> {
                     if let Type::Array(elem_ty, _) = &current_ty {
                         let elem_ty = elem_ty.as_ref().clone();
                         if self.type_needs_cleanup(&elem_ty) {
-                            diagnostics.push(Diagnostic::new(
+                            diagnostics.push(mir_diagnostic(
                                 "Cannot move cleanup value out of array element".to_string(),
-                                span.unwrap_or_default(),
+                                span.clone(),
                             ));
                             return;
                         }
@@ -705,12 +712,12 @@ impl<'a> MoveValidationContext<'a> {
         }
 
         if reference_owned_path && !current_ty.is_copy() {
-            diagnostics.push(Diagnostic::new(
+            diagnostics.push(mir_diagnostic(
                 format!(
                     "Cannot move non-copy value of type '{}' out of a reference",
                     self.type_display_name(&current_ty)
                 ),
-                span.unwrap_or_default(),
+                span,
             ));
         }
     }
@@ -1673,13 +1680,13 @@ impl BorrowChecker {
                 for origin in origins {
                     match origin {
                         ReferenceOrigin::Temporary(local) => {
-                            diagnostics.push(Diagnostic::new(
+                            diagnostics.push(mir_diagnostic(
                                 "Cannot return reference to temporary value".to_string(),
                                 Self::origin_span(func, *local),
                             ));
                         }
                         ReferenceOrigin::Local(local) => {
-                            diagnostics.push(Diagnostic::new(
+                            diagnostics.push(mir_diagnostic(
                                 "Cannot return reference to local value because it does not live long enough"
                                     .to_string(),
                                 Self::origin_span(func, *local),
@@ -1735,7 +1742,7 @@ impl BorrowChecker {
         temporaries: impl IntoIterator<Item = Local>,
     ) {
         for temporary in temporaries {
-            diagnostics.push(Diagnostic::new(
+            diagnostics.push(mir_diagnostic(
                 "Cannot store reference to temporary value because it does not live long enough"
                     .to_string(),
                 Self::origin_span(func, temporary),
@@ -1743,11 +1750,10 @@ impl BorrowChecker {
         }
     }
 
-    fn origin_span(func: &MirFunction, local: Local) -> Span {
+    fn origin_span(func: &MirFunction, local: Local) -> Option<Span> {
         func.local_decls
             .get(local.0)
             .and_then(|decl| decl.span.clone())
-            .unwrap_or_default()
     }
 
     fn validate_drop_obligations(
@@ -1773,15 +1779,14 @@ impl BorrowChecker {
                 continue;
             }
 
-            diagnostics.push(Diagnostic::new(
+            diagnostics.push(mir_diagnostic(
                 format!(
                     "Missing drop glue for MIR drop of type {:?} in MIR function '{}'",
                     obligation.ty, func.name
                 ),
                 func.local_decls
                     .get(obligation.place.local.0)
-                    .and_then(|local| local.span.clone())
-                    .unwrap_or_default(),
+                    .and_then(|local| local.span.clone()),
             ));
         }
     }
@@ -1948,12 +1953,12 @@ impl BorrowChecker {
                             .name
                             .clone()
                             .unwrap_or_else(|| format!("{:?}", event.place.local));
-                        diagnostics.push(Diagnostic::new(
+                        diagnostics.push(mir_diagnostic(
                             format!(
                                 "Cannot take a mutable reference to immutable binding '{}' for mutable receiver",
                                 name
                             ),
-                            stmt.span.clone().unwrap_or_default(),
+                            stmt.span.clone(),
                         ));
                     }
 
@@ -2130,16 +2135,14 @@ impl BorrowChecker {
         if let Err(conflicting_loan_id) =
             LoanAnalysis::check_aliasing(place, kind, table, active_loans)
         {
-            let use_span = stmt_span.unwrap_or_else(|| {
+            let use_span = stmt_span.or_else(|| {
                 func.local_decls
                     .get(place.local.0)
                     .and_then(|decl| decl.span.clone())
-                    .unwrap_or_default()
             });
             let borrow_span = table
                 .get(conflicting_loan_id)
-                .and_then(|loan| loan.origin_span.clone())
-                .unwrap_or_default();
+                .and_then(|loan| loan.origin_span.clone());
             diagnostics.push(crate::mir::borrowck::diagnostics::borrow_conflict(
                 place,
                 use_span,
@@ -2154,18 +2157,15 @@ impl BorrowChecker {
         operand: &Operand,
         stmt_span: Option<Span>,
     ) -> Diagnostic {
-        let span = stmt_span.unwrap_or_else(|| match operand {
+        let span = stmt_span.or_else(|| match operand {
             Operand::Copy(place) | Operand::Move(place) => {
                 if place.local.0 < func.local_decls.len() {
-                    func.local_decls[place.local.0]
-                        .span
-                        .clone()
-                        .unwrap_or(Span::default())
+                    func.local_decls[place.local.0].span.clone()
                 } else {
-                    Span::default()
+                    None
                 }
             }
-            Operand::Constant(_) => Span::default(),
+            Operand::Constant(_) => None,
         });
 
         let msg = match operand {
@@ -2202,7 +2202,10 @@ impl BorrowChecker {
             _ => "here".to_string(),
         };
 
-        let mut diagnostic = borrow_error(msg, span.clone()).with_label(label_msg, span);
+        let mut diagnostic = match span {
+            Some(span) => borrow_error(msg, span.clone()).with_label(label_msg, span),
+            None => Diagnostic::for_toolchain(msg),
+        };
 
         if let Some(move_span) = error.move_span {
             let move_label_msg = match operand {

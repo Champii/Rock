@@ -255,6 +255,10 @@ impl SourceDatabase {
         &self.loaded_files
     }
 
+    pub fn source_files(&self) -> impl Iterator<Item = &SourceFile> {
+        self.files.values()
+    }
+
     pub fn add_virtual_source(&mut self, path: PathBuf, text: impl Into<String>) -> &mut Self {
         self.add_registered_source(path, text, SourceOrigin::Virtual)
     }
@@ -954,12 +958,12 @@ mod tests {
             top_levels: vec![TopLevel::Module(ModuleDecl(Module {
                 name: Some(Ident {
                     name: "outer".to_string(),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 top_levels: vec![TopLevel::Mod(
                     Ident {
                         name: "util".to_string(),
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     },
                     false,
                 )],

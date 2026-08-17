@@ -107,7 +107,7 @@ fn test_parse_match() {
                                 operand: Operand::Ident(crate::ast::IdentifierPath {
                                     path: vec![IdentOrType::Ident(Ident {
                                         name: "a".to_string(),
-                                        span: Span::default(),
+                                        span: Span::test(),
                                     })]
                                 }),
                                 secondaries: None,
@@ -115,13 +115,13 @@ fn test_parse_match() {
                             }),
                             Operator {
                                 value: "+".to_string(),
-                                span: Span::default(),
+                                span: Span::test(),
                             },
                             Box::new(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                                 operand: Operand::Ident(crate::ast::IdentifierPath {
                                     path: vec![IdentOrType::Ident(Ident {
                                         name: "b".to_string(),
-                                        span: Span::default(),
+                                        span: Span::test(),
                                     })]
                                 }),
                                 secondaries: None,

@@ -19,7 +19,7 @@ fn self_ident() {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::SelfIdent(Ident {
                 name: "foo".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,

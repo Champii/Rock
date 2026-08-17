@@ -5,7 +5,7 @@ use crate::types::Type;
 
 impl Lowerer {
     pub(crate) fn lower_loop(&mut self, loop_expr: &ast::Loop) -> HirExpr {
-        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let span = self.diagnostics.current_span().clone();
         match loop_expr {
             ast::Loop::While(cond, body) => {
                 let condition = self.lower_expression(&cond.expression);
@@ -88,7 +88,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -106,7 +106,7 @@ mod tests {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: LiteralKind::Number(start),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: Some(vec![SecondaryExpr::DoubleDot(IdentOrNumber::Number(end))]),
             type_annotation: None,
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn for_loop_variable_read_uses_loop_local_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let loop_expr = crate::ast::Loop::For(
             binding_pattern("item"),
             range_expr(0, 2),

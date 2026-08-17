@@ -19,7 +19,7 @@ pub enum ItemKind {
 
 impl ItemKind {
     pub fn matches_top_level(self, top_level: &ast::TopLevel) -> bool {
-        item_name_and_kind(top_level).is_some_and(|(_, kind)| kind == self)
+        item_name_and_kind(top_level).is_some_and(|(_, kind, _)| kind == self)
     }
 }
 
@@ -36,6 +36,7 @@ pub struct ItemRecord {
     pub source: ItemSourceId,
     pub name: String,
     pub kind: ItemKind,
+    pub name_span: crate::lexer::Span,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -212,7 +213,7 @@ pub fn index_module_items(
     let mut local_ids = IdGen::<LocalDefId>::new();
 
     for (top_level_index, top_level) in module.top_levels.iter().enumerate() {
-        let Some((name, kind)) = item_name_and_kind(top_level) else {
+        let Some((name, kind, name_span)) = item_name_and_kind(top_level) else {
             continue;
         };
 
@@ -226,6 +227,7 @@ pub fn index_module_items(
             },
             name,
             kind,
+            name_span,
         });
     }
 
@@ -401,7 +403,7 @@ fn index_module_contents(
     for (top_level_index, top_level) in module.top_levels.iter().enumerate() {
         match top_level {
             ast::TopLevel::Module(module_decl) => {
-                let Some((name, kind)) = item_name_and_kind(top_level) else {
+                let Some((name, kind, name_span)) = item_name_and_kind(top_level) else {
                     continue;
                 };
                 let child_module_id = ids.fresh_module_id();
@@ -415,6 +417,7 @@ fn index_module_contents(
                     },
                     name,
                     kind,
+                    name_span,
                 });
                 index.push_module(ModuleRecord {
                     module_id: child_module_id,
@@ -449,6 +452,7 @@ fn index_module_contents(
                     },
                     name: name.name.clone(),
                     kind: ItemKind::Module,
+                    name_span: name.span.clone(),
                 });
                 index.push_module(ModuleRecord {
                     module_id: child_module_id,
@@ -471,7 +475,7 @@ fn index_module_contents(
                 module_path.pop();
             }
             _ => {
-                let Some((name, kind)) = item_name_and_kind(top_level) else {
+                let Some((name, kind, name_span)) = item_name_and_kind(top_level) else {
                     continue;
                 };
 
@@ -484,30 +488,61 @@ fn index_module_contents(
                     },
                     name,
                     kind,
+                    name_span,
                 });
             }
         }
     }
 }
 
-fn item_name_and_kind(top_level: &ast::TopLevel) -> Option<(String, ItemKind)> {
+fn item_name_and_kind(top_level: &ast::TopLevel) -> Option<(String, ItemKind, crate::lexer::Span)> {
     match top_level {
         ast::TopLevel::Module(module_decl) => module_decl
             .0
             .name
             .as_ref()
-            .map(|name| (name.name.clone(), ItemKind::Module)),
-        ast::TopLevel::Mod(name, _) => Some((name.name.clone(), ItemKind::Module)),
-        ast::TopLevel::Extern(sig) => Some((sig.name.name.clone(), ItemKind::ExternFunction)),
-        ast::TopLevel::FunctionSig(sig) => {
-            Some((sig.name.name.clone(), ItemKind::FunctionSignature))
+            .map(|name| (name.name.clone(), ItemKind::Module, name.span.clone())),
+        ast::TopLevel::Mod(name, _) => {
+            Some((name.name.clone(), ItemKind::Module, name.span.clone()))
         }
-        ast::TopLevel::FunctionDecl(func) => Some((func.name.name.clone(), ItemKind::Function)),
-        ast::TopLevel::StructDecl(strukt) => Some((strukt.name.name.clone(), ItemKind::Struct)),
-        ast::TopLevel::TraitDecl(trait_) => Some((trait_.name.name.clone(), ItemKind::Trait)),
-        ast::TopLevel::EnumDecl(enum_) => Some((enum_.name.name.clone(), ItemKind::Enum)),
-        ast::TopLevel::Impl(impl_) => Some((impl_.name.name.clone(), ItemKind::Impl)),
-        ast::TopLevel::NewType(name, _) => Some((name.name.clone(), ItemKind::NewType)),
+        ast::TopLevel::Extern(sig) => Some((
+            sig.name.name.clone(),
+            ItemKind::ExternFunction,
+            sig.name.span.clone(),
+        )),
+        ast::TopLevel::FunctionSig(sig) => Some((
+            sig.name.name.clone(),
+            ItemKind::FunctionSignature,
+            sig.name.span.clone(),
+        )),
+        ast::TopLevel::FunctionDecl(func) => Some((
+            func.name.name.clone(),
+            ItemKind::Function,
+            func.name.span.clone(),
+        )),
+        ast::TopLevel::StructDecl(strukt) => Some((
+            strukt.name.name.clone(),
+            ItemKind::Struct,
+            strukt.name.span.clone(),
+        )),
+        ast::TopLevel::TraitDecl(trait_) => Some((
+            trait_.name.name.clone(),
+            ItemKind::Trait,
+            trait_.name.span.clone(),
+        )),
+        ast::TopLevel::EnumDecl(enum_) => Some((
+            enum_.name.name.clone(),
+            ItemKind::Enum,
+            enum_.name.span.clone(),
+        )),
+        ast::TopLevel::Impl(impl_) => Some((
+            impl_.name.name.clone(),
+            ItemKind::Impl,
+            impl_.name.span.clone(),
+        )),
+        ast::TopLevel::NewType(name, _) => {
+            Some((name.name.clone(), ItemKind::NewType, name.span.clone()))
+        }
         ast::TopLevel::Import(_)
         | ast::TopLevel::GlobImport(_)
         | ast::TopLevel::Export(_)
@@ -530,7 +565,7 @@ mod tests {
         ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -578,7 +613,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 

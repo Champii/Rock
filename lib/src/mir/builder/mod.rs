@@ -2925,7 +2925,7 @@ mod tests {
     type HirTrait = crate::hir::HirTraitFor<AcceptedHir>;
 
     fn span() -> Span {
-        Span::default()
+        Span::test()
     }
 
     fn expr(kind: HirExprKind, ty: Type) -> HirExpr {
@@ -5153,7 +5153,7 @@ mod tests {
                 stmts: vec![HirStmt::Expr(HirExpr {
                     kind: HirExprKind::IntLiteral(42),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 })],
                 ty: Type::I64,
             },
@@ -5404,14 +5404,14 @@ mod tests {
                     stmts: vec![HirStmt::Expr(HirExpr {
                         kind: HirExprKind::Var("x".to_string()),
                         ty: Type::I64,
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     })],
                     ty: Type::I64,
                 },
                 captures: Vec::new(),
             },
             ty: Type::function(vec![Type::I64], Type::I64),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
         let function = HirFunction {
             id: function_id,
@@ -5477,14 +5477,14 @@ mod tests {
                     stmts: vec![HirStmt::Expr(HirExpr {
                         kind: HirExprKind::Var("captured".to_string()),
                         ty: Type::I64,
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     })],
                     ty: Type::I64,
                 },
                 captures: vec![capture.clone()],
             },
             ty: Type::function(vec![], Type::I64),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
         let lambda = HirExpr {
             kind: HirExprKind::Lambda {
@@ -5501,7 +5501,7 @@ mod tests {
                         HirStmt::Expr(HirExpr {
                             kind: HirExprKind::Var("captured".to_string()),
                             ty: Type::I64,
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         }),
                     ],
                     ty: Type::I64,
@@ -5509,7 +5509,7 @@ mod tests {
                 captures: vec![capture],
             },
             ty: Type::function(vec![], Type::I64),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
         let function = HirFunction {
             id: function_id,

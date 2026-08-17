@@ -830,17 +830,13 @@ impl LocalCollector {
             .map(|prefix| format!("{}::{}", prefix, module_name))
             .unwrap_or_else(|| module_name.clone());
 
-        let loaded_module =
-            match self
-                .context
-                .load_module_with_prefix(module_name, prefix, &ident.span)
-            {
-                Ok(module) => module,
-                Err(err) => {
-                    self.context.push_error_with_span(err, ident.span.clone());
-                    return;
-                }
-            };
+        let loaded_module = match self.context.load_module_with_prefix(module_name, prefix) {
+            Ok(module) => module,
+            Err(err) => {
+                self.context.push_error_with_span(err, ident.span.clone());
+                return;
+            }
+        };
 
         let Some(file_path) = self
             .context
@@ -1054,17 +1050,13 @@ impl LocalCollector {
             .map(|prefix| format!("{}::{}", prefix, module_name))
             .unwrap_or_else(|| module_name.clone());
 
-        let loaded_module =
-            match self
-                .context
-                .load_module_with_prefix(module_name, prefix, &ident.span)
-            {
-                Ok(module) => module,
-                Err(err) => {
-                    self.context.push_error_with_span(err, ident.span.clone());
-                    return;
-                }
-            };
+        let loaded_module = match self.context.load_module_with_prefix(module_name, prefix) {
+            Ok(module) => module,
+            Err(err) => {
+                self.context.push_error_with_span(err, ident.span.clone());
+                return;
+            }
+        };
 
         let Some(file_path) = self
             .context
@@ -1852,9 +1844,9 @@ fn qualify_local_segments_with_prefix(
     segments: &[ast::IdentOrType],
     prefix: &str,
 ) -> Option<Vec<ast::IdentOrType>> {
-    let first_segment = match segments.first()? {
-        ast::IdentOrType::Ident(ident) => ident.name.as_str(),
-        ast::IdentOrType::Type(ast::ParseType::Type(inner)) => inner.name.as_str(),
+    let (first_segment, source_span) = match segments.first()? {
+        ast::IdentOrType::Ident(ident) => (ident.name.as_str(), &ident.span),
+        ast::IdentOrType::Type(ast::ParseType::Type(inner)) => (inner.name.as_str(), &inner.span),
         _ => return None,
     };
 
@@ -1867,7 +1859,7 @@ fn qualify_local_segments_with_prefix(
         .map(|segment| {
             ast::IdentOrType::Ident(ast::Ident {
                 name: segment.to_string(),
-                span: Default::default(),
+                span: source_span.clone(),
             })
         })
         .collect();
@@ -1910,18 +1902,26 @@ mod tests {
     use crate::ids::{CrateId, LocalDefId, ModuleId};
     use crate::lexer::Span;
 
+    fn test_span(text: &str) -> Span {
+        Span {
+            file_path: "/test.rk".into(),
+            start: 0,
+            end: text.len(),
+        }
+    }
+
     fn type_inner(name: &str) -> ParseTypeInner {
         ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Span::default(),
+            span: test_span(name),
         }
     }
 
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: test_span(name),
         }
     }
 
@@ -1942,7 +1942,7 @@ mod tests {
     fn function_sig(name: &str) -> FunctionSig {
         FunctionSig {
             name: ident(name),
-            sig: ParseType::Function(vec![]),
+            sig: ParseType::Unit(crate::lexer::Span::test()),
             where_clauses: vec![],
             self_receiver: None,
             is_unsafe: false,
@@ -1972,6 +1972,7 @@ mod tests {
         id_environment.current_source_items.insert(
             source,
             ItemRecord {
+                name_span: test_span("Point"),
                 def_id: DefId::new(CrateId(0), LocalDefId(0)),
                 module_id: ModuleId(0),
                 source,
@@ -2035,6 +2036,7 @@ mod tests {
             id_environment.current_source_items.insert(
                 source,
                 ItemRecord {
+                    name_span: test_span(name),
                     def_id: DefId::new(CrateId(0), LocalDefId(top_level_index)),
                     module_id: ModuleId(0),
                     source,

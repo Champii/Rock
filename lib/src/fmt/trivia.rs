@@ -294,7 +294,7 @@ impl<'a> FormatTrivia<'a> {
             | ParseType::Array { inner, .. }
             | ParseType::Reference { pointee: inner, .. }
             | ParseType::Pointer(inner) => Self::parse_type_span(inner),
-            ParseType::Unit => None,
+            ParseType::Unit(span) => Some(span),
         }
     }
 

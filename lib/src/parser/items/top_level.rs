@@ -85,7 +85,7 @@ pub(crate) fn language_item_marker(stream: Input) -> IResult<LanguageItemMarker>
     let (stream, role_token) = stream.consume()?;
     let role_name = match &role_token.token_type {
         TokenType::Ident(name) | TokenType::Keyword(name) => name,
-        TokenType::Eof => return Err(ParseError::UnexpectedEOF),
+        TokenType::Eof => return Err(ParseError::UnexpectedEOF(role_token.span.clone())),
         _ => {
             return Err(ParseError::HardError(
                 "expected a language item role".to_string(),
@@ -105,7 +105,7 @@ pub(crate) fn language_item_marker(stream: Input) -> IResult<LanguageItemMarker>
                 span: lang_token.span,
             },
         )),
-        TokenType::Eof => Err(ParseError::UnexpectedEOF),
+        TokenType::Eof => Err(ParseError::UnexpectedEOF(eol.span)),
         _ => Err(ParseError::HardError(
             "expected a newline after a language item marker".to_string(),
             eol.span,
@@ -117,7 +117,7 @@ fn language_item_top_level(stream: Input) -> IResult<TopLevel> {
     let (stream, marker) = language_item_marker(stream)?;
     let (stream, _) = empty_lines(stream)?;
     if matches!(stream.seek()?.token_type, TokenType::Eof) {
-        return Err(ParseError::UnexpectedEOF);
+        return Err(ParseError::UnexpectedEOF(stream.seek()?.span));
     }
     let (stream, _) = indent(stream)?;
 
@@ -189,7 +189,7 @@ fn language_item_top_level(stream: Input) -> IResult<TopLevel> {
             decl.language_items.root = Some(marker);
             Ok((stream, TopLevel::EnumDecl(decl)))
         }
-        TokenType::Eof => Err(ParseError::UnexpectedEOF),
+        TokenType::Eof => Err(ParseError::UnexpectedEOF(target.span)),
         _ => Err(ParseError::HardError(
             "language item marker must apply to a trait or enum declaration".to_string(),
             target.span,

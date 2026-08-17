@@ -73,7 +73,7 @@ mod tests {
         MacroDecl {
             name: Ident {
                 name: name.to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
             entries: Vec::new(),
         }

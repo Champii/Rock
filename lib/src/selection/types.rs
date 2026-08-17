@@ -228,6 +228,22 @@ pub enum SelectionDiagnostic {
 
 impl SelectionDiagnostic {
     pub fn message(&self) -> String {
+        let context = crate::type_services::display::TypeDisplayContext::default();
+        self.message_with_names(
+            |ty| crate::type_services::display::display_type_with_context(ty, &context).to_string(),
+            |_| None,
+        )
+    }
+
+    pub fn message_with(&self, display_type: impl Fn(&Type) -> String) -> String {
+        self.message_with_names(display_type, |_| None)
+    }
+
+    pub fn message_with_names(
+        &self,
+        display_type: impl Fn(&Type) -> String,
+        display_definition: impl Fn(DefId) -> Option<String>,
+    ) -> String {
         match self {
             SelectionDiagnostic::NoImplementation {
                 operation,
@@ -235,7 +251,8 @@ impl SelectionDiagnostic {
             } => {
                 format!(
                     "No implementation found for operator '{}' on type {}",
-                    operation, receiver
+                    operation,
+                    display_type(receiver)
                 )
             }
             SelectionDiagnostic::ReceiverMismatch {
@@ -244,7 +261,8 @@ impl SelectionDiagnostic {
             } => {
                 format!(
                     "No receiver adjustment for '{}' on type {}",
-                    operation, receiver
+                    operation,
+                    display_type(receiver)
                 )
             }
             SelectionDiagnostic::AmbiguousCandidates {
@@ -252,9 +270,20 @@ impl SelectionDiagnostic {
                 receiver,
                 candidates,
             } => {
+                let candidates = candidates
+                    .iter()
+                    .filter_map(|id| display_definition(*id))
+                    .collect::<Vec<_>>();
+                let candidates = if candidates.is_empty() {
+                    "multiple matching implementations".to_string()
+                } else {
+                    candidates.join(", ")
+                };
                 format!(
-                    "Ambiguous selection for '{}' on type {}: {:?}",
-                    operation, receiver, candidates
+                    "Ambiguous selection for '{}' on type {}: {}",
+                    operation,
+                    display_type(receiver),
+                    candidates
                 )
             }
             SelectionDiagnostic::SelectedTargetMissing { method_name, .. } => format!(
@@ -264,11 +293,15 @@ impl SelectionDiagnostic {
             SelectionDiagnostic::TraitMemberMissing {
                 trait_id,
                 method_name,
-            } => format!("Trait {trait_id:?} does not declare selected member '{method_name}'"),
-            SelectionDiagnostic::TraitMemberIdMissing {
-                trait_id,
-                member_id,
-            } => format!("Trait {trait_id:?} does not declare selected member {member_id:?}"),
+            } => format!(
+                "Trait '{}' does not declare selected member '{}'",
+                display_definition(*trait_id).unwrap_or_else(|| "<unknown trait>".to_string()),
+                method_name
+            ),
+            SelectionDiagnostic::TraitMemberIdMissing { trait_id, .. } => format!(
+                "Trait '{}' does not declare the selected member",
+                display_definition(*trait_id).unwrap_or_else(|| "<unknown trait>".to_string())
+            ),
         }
     }
 
@@ -315,6 +348,26 @@ mod tests {
     }
 
     #[test]
+    fn default_selection_message_hides_internal_type_ids() {
+        let diagnostic = SelectionDiagnostic::NoImplementation {
+            operation: "+".to_string(),
+            receiver: Type::Struct {
+                id: def_id(42),
+                args: vec![Type::I64],
+            },
+        };
+
+        let message = diagnostic.message();
+
+        assert_eq!(
+            message,
+            "No implementation found for operator '+' on type <unknown type> I64"
+        );
+        assert!(!message.contains("struct#"));
+        assert!(!message.contains("DefId"));
+    }
+
+    #[test]
     fn selected_method_authority_records_impl_trait_method_and_args() {
         let impl_id = def_id(20);
         let trait_id = def_id(10);
@@ -332,7 +385,7 @@ mod tests {
             receiver: HirExpr {
                 kind: crate::hir::HirExprKind::Var("value".to_string()),
                 ty: Type::I64,
-                span: crate::Span::default(),
+                span: crate::Span::test(),
             },
             function: None,
             impl_def: None,

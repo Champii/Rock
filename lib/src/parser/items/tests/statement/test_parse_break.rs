@@ -18,7 +18,7 @@ fn test_parse_break() {
             PrimaryExpr {
                 operand: Operand::Literal(Literal {
                     kind: crate::ast::LiteralKind::Number(1),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 secondaries: None,
                 type_annotation: None,

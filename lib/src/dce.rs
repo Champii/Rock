@@ -449,7 +449,7 @@ mod tests {
         function.body.stmts.push(HirStmt::Return(Some(HirExpr {
             kind: HirExprKind::Unit,
             ty: Type::Unit,
-            span: Span::default(),
+            span: Span::test(),
         })));
         function
     }
@@ -499,7 +499,7 @@ mod tests {
                 target: HirVarTarget::Instance(instance_id),
             }),
             ty: Type::function(Vec::new(), Type::Unit),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -623,7 +623,7 @@ mod tests {
                     Some(HirCallTarget::Instance(helper_instance)),
                 ),
                 ty: Type::Unit,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let mut program = monomorphized_with_instances(vec![
@@ -739,12 +739,12 @@ mod tests {
                     vec![HirExpr {
                         kind: HirExprKind::IntLiteral(1),
                         ty: Type::I64,
-                        span: Span::default(),
+                        span: Span::test(),
                     }],
                     Some(HirCallTarget::Instance(specialization)),
                 ),
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let mut program = monomorphized_with_instances(vec![
@@ -942,7 +942,7 @@ mod tests {
                     Some(HirCallTarget::Instance(object_instance)),
                 ),
                 ty: Type::Unit,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let mut program = monomorphized_with_instances(vec![
@@ -1014,7 +1014,7 @@ mod tests {
                     target: HirVarTarget::Function(helper_id),
                 }),
                 ty: Type::function(Vec::new(), Type::Unit),
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let mut program = monomorphized_with_instances(vec![
@@ -1053,7 +1053,7 @@ mod tests {
             HirExpr {
                 kind: HirExprKind::Var("helper".to_string()),
                 ty: Type::function(Vec::new(), Type::Unit),
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let mut program = monomorphized_with_instances(vec![
@@ -1124,7 +1124,7 @@ mod tests {
             HirExpr {
                 kind: HirExprKind::Var("helper".to_string()),
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let mut program = monomorphized_with_instances(vec![
@@ -1163,7 +1163,7 @@ mod tests {
             HirExpr {
                 kind: HirExprKind::Var("helper".to_string()),
                 ty: Type::function(Vec::new(), Type::Unit),
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let mut program = monomorphized_with_instances(vec![
@@ -1202,7 +1202,7 @@ mod tests {
             HirExpr {
                 kind: HirExprKind::Var("helper_backend".to_string()),
                 ty: Type::function(Vec::new(), Type::Unit),
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let mut program = monomorphized_with_instances(vec![
@@ -1244,13 +1244,13 @@ mod tests {
                     Box::new(HirExpr {
                         kind: HirExprKind::Var("String_from_str".to_string()),
                         ty: Type::function(Vec::new(), Type::Unit),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     Vec::new(),
                     None,
                 ),
                 ty: Type::Unit,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let declared = unit_return_function(method_id, "stdlib::from_str");
@@ -1298,13 +1298,13 @@ mod tests {
                     Box::new(HirExpr {
                         kind: HirExprKind::Var("String_from_str".to_string()),
                         ty: Type::function(Vec::new(), Type::Unit),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     Vec::new(),
                     None,
                 ),
                 ty: Type::Unit,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         let object_method = InstanceRecord {
@@ -1466,19 +1466,19 @@ mod tests {
                             Box::new(HirExpr {
                                 kind: HirExprKind::Var("foo".to_string()),
                                 ty: receiver_ty.clone(),
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             "println".to_string(),
                             Some(callable_field_location(struct_id, field_id, "println")),
                         ),
                         ty: Type::function(Vec::new(), Type::Unit),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     Vec::new(),
                     None,
                 ),
                 ty: Type::Unit,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         add_param(&mut main_body, "foo", receiver_ty);
@@ -1538,19 +1538,19 @@ mod tests {
                             Box::new(HirExpr {
                                 kind: HirExprKind::Var("foo".to_string()),
                                 ty: receiver_ty.clone(),
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             "println".to_string(),
                             Some(callable_field_location(struct_id, field_id, "println")),
                         ),
                         ty: Type::function(Vec::new(), Type::Unit),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     Vec::new(),
                     None,
                 ),
                 ty: Type::Unit,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         add_param(&mut main_body, "foo", receiver_ty);
@@ -1609,19 +1609,19 @@ mod tests {
                             Box::new(HirExpr {
                                 kind: HirExprKind::Var("foo".to_string()),
                                 ty: receiver_ty.clone(),
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             "show".to_string(),
                             Some(callable_field_location(struct_id, field_id, "show")),
                         ),
                         ty: Type::function(Vec::new(), Type::Unit),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     Vec::new(),
                     None,
                 ),
                 ty: Type::Unit,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         add_param(&mut main_body, "foo", receiver_ty);
@@ -1683,19 +1683,19 @@ mod tests {
                             Box::new(HirExpr {
                                 kind: HirExprKind::Var("foo".to_string()),
                                 ty: receiver_ty.clone(),
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             "show".to_string(),
                             Some(callable_field_location(struct_id, field_id, "show")),
                         ),
                         ty: Type::function(Vec::new(), Type::Unit),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     Vec::new(),
                     None,
                 ),
                 ty: Type::Unit,
-                span: Span::default(),
+                span: Span::test(),
             },
         );
         add_param(&mut main_body, "foo", receiver_ty);

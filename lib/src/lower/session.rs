@@ -57,7 +57,7 @@ impl<'a> LoweringSessionServices<'a> {
 
     fn register_crate_resolvers(&self, lowerer: &mut Lowerer) {
         for message in self.ctx.dependency_errors_for_phase("lowering") {
-            lowerer.diagnostics.push_once(message);
+            lowerer.diagnostics.push_toolchain_once(message);
         }
 
         for dep in self.ctx.extern_crates() {
@@ -88,7 +88,7 @@ impl<'a> LoweringSessionServices<'a> {
             &mut lowerer.resolver,
         );
         for error in errors {
-            lowerer.diagnostics.push_once(error);
+            lowerer.diagnostics.push_toolchain_once(error);
         }
     }
 }

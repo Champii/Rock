@@ -17,11 +17,11 @@ fn test_parse_patter_with_binding() {
         Pattern {
             binding: Some(Ident {
                 name: "a".to_string(),
-                span: Span::default()
+                span: Span::test()
             }),
             kind: PatternKind::Literal(Literal {
                 kind: LiteralKind::Number(1),
-                span: Span::default()
+                span: Span::test()
             })
         }
     );

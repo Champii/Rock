@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::ids::{IdGen, Idx, TypeVarId};
+use crate::ids::{IdGen, TypeVarId};
 use crate::infer::constraints::{Constraint, ConstraintStore};
 use crate::lexer::Span;
 use crate::type_services::facts::TypeFacts;
@@ -10,6 +10,18 @@ use crate::type_services::kind::Kind;
 use crate::type_services::normalize::{TypeNormalizationEnv, TypeNormalizer};
 use crate::type_services::visit::{fold_type, fold_type_children, TypeFolder};
 use crate::types::{TraitBound, Type};
+
+#[derive(Debug, Clone)]
+pub struct InferenceError {
+    pub message: String,
+    pub span: Option<Span>,
+}
+
+impl InferenceError {
+    pub fn contains(&self, pattern: &str) -> bool {
+        self.message.contains(pattern)
+    }
+}
 
 /// Type inference engine using unification
 pub struct InferenceEngine {
@@ -24,6 +36,7 @@ pub struct InferenceEngine {
     pub var_spans: HashMap<TypeVarId, Span>,
     var_kinds: HashMap<TypeVarId, Kind>,
     normalization_env: TypeNormalizationEnv,
+    type_display_context: crate::type_services::display::TypeDisplayContext,
 }
 
 struct ResolveFolder<'a> {
@@ -66,7 +79,7 @@ struct StrictFinalizer<'a> {
     substitutions: &'a HashMap<TypeVarId, Type>,
     var_spans: &'a HashMap<TypeVarId, Span>,
     var_kinds: &'a HashMap<TypeVarId, Kind>,
-    errors: &'a mut Vec<String>,
+    errors: &'a mut Vec<InferenceError>,
     reported: HashSet<TypeVarId>,
 }
 
@@ -78,25 +91,19 @@ impl TypeFolder for StrictFinalizer<'_> {
                     return self.fold_type(replacement);
                 }
                 if self.reported.insert(id) {
-                    let loc = self
-                        .var_spans
-                        .get(&id)
-                        .map(|span| format!(" at {}", span.file_path.display()))
-                        .unwrap_or_default();
                     let kind = self.var_kinds.get(&id).cloned().unwrap_or(Kind::Type);
-                    if kind == Kind::Type {
-                        self.errors.push(format!(
-                            "ambiguous type: cannot determine type of expression{}; \
-                             add a type annotation (e.g., `: I64`)",
-                            loc
-                        ));
+                    let message = if kind == Kind::Type {
+                        "ambiguous type: cannot determine type of expression; add a type annotation (e.g., `: I64`)".to_string()
                     } else {
-                        self.errors.push(format!(
-                            "ambiguous type constructor{}: cannot determine a value of kind {}; \
-                             add an explicit constructor section annotation",
-                            loc, kind
-                        ));
-                    }
+                        format!(
+                            "ambiguous type constructor: cannot determine a value of kind {}; add an explicit constructor section annotation",
+                            kind
+                        )
+                    };
+                    self.errors.push(InferenceError {
+                        message,
+                        span: self.var_spans.get(&id).cloned(),
+                    });
                 }
                 Type::Error
             }
@@ -403,7 +410,7 @@ mod tests {
             unreachable!();
         };
         let mut constraints = ConstraintStore::new();
-        constraints.add_int_literal(id, Span::default());
+        constraints.add_int_literal(id, Span::test());
 
         engine.apply_numeric_defaults(&constraints);
         assert_eq!(engine.resolve(&Type::TypeVar(id)), Type::TypeVar(id));
@@ -442,7 +449,7 @@ mod tests {
     #[test]
     fn fresh_type_var_at_records_span_by_typed_type_var_id() {
         let mut engine = InferenceEngine::new();
-        let span = Span::default();
+        let span = Span::test();
 
         assert_eq!(
             engine.fresh_type_var_at(span.clone()),
@@ -477,7 +484,7 @@ mod tests {
             panic!("fresh type variable must be a type variable");
         };
         let mut constraints = crate::infer::constraints::ConstraintStore::new();
-        constraints.add_int_literal(var_id, Span::default());
+        constraints.add_int_literal(var_id, Span::test());
 
         engine.apply_numeric_defaults(&constraints);
 
@@ -494,7 +501,7 @@ mod tests {
                 panic!("fresh type variables must be type variables");
             };
             let mut constraints = crate::infer::constraints::ConstraintStore::new();
-            constraints.add_int_literal(*literal_id, Span::default());
+            constraints.add_int_literal(*literal_id, Span::test());
 
             if unify_literal_with_alias {
                 engine.unify(&literal, &alias).unwrap();
@@ -518,7 +525,7 @@ mod tests {
                 panic!("fresh type variables must be type variables");
             };
             let mut constraints = crate::infer::constraints::ConstraintStore::new();
-            constraints.add_float_literal(*literal_id, Span::default());
+            constraints.add_float_literal(*literal_id, Span::test());
 
             if unify_literal_with_alias {
                 engine.unify(&literal, &alias).unwrap();
@@ -542,8 +549,8 @@ mod tests {
                 panic!("fresh type variables must be type variables");
             };
             let mut constraints = crate::infer::constraints::ConstraintStore::new();
-            constraints.add_int_literal(*first_id, Span::default());
-            constraints.add_int_literal(*second_id, Span::default());
+            constraints.add_int_literal(*first_id, Span::test());
+            constraints.add_int_literal(*second_id, Span::test());
 
             if unify_first_with_second {
                 engine.unify(&first, &second).unwrap();
@@ -567,8 +574,8 @@ mod tests {
                 panic!("fresh type variables must be type variables");
             };
             let mut constraints = crate::infer::constraints::ConstraintStore::new();
-            constraints.add_int_literal(*integer_id, Span::default());
-            constraints.add_float_literal(*float_id, Span::default());
+            constraints.add_int_literal(*integer_id, Span::test());
+            constraints.add_float_literal(*float_id, Span::test());
 
             if unify_integer_with_float {
                 engine.unify(&integer, &float).unwrap();
@@ -622,22 +629,33 @@ mod tests {
     #[test]
     fn strict_finalization_rejects_unresolved_alias_class() {
         let mut engine = InferenceEngine::new();
-        let spanned = engine.fresh_type_var_at(Span::default());
+        let origin = Span {
+            file_path: "main.rk".into(),
+            start: 12,
+            end: 17,
+        };
+        let spanned = engine.fresh_type_var_at(origin.clone());
         let unspanned = engine.fresh_type_var();
         engine.unify(&spanned, &unspanned).unwrap();
 
         let mut errors = Vec::new();
         assert_eq!(engine.finalize_strict(&spanned, &mut errors), Type::Error);
         assert_eq!(errors.len(), 1);
+        let span = errors[0].span.as_ref().expect("origin span");
+        assert_eq!(span.file_path, origin.file_path);
+        assert_eq!((span.start, span.end), (origin.start, origin.end));
 
         let mut engine = InferenceEngine::new();
-        let spanned = engine.fresh_type_var_at(Span::default());
+        let spanned = engine.fresh_type_var_at(origin.clone());
         let unspanned = engine.fresh_type_var();
         engine.unify(&unspanned, &spanned).unwrap();
 
         let mut errors = Vec::new();
         assert_eq!(engine.finalize_strict(&unspanned, &mut errors), Type::Error);
         assert_eq!(errors.len(), 1);
+        let span = errors[0].span.as_ref().expect("origin span");
+        assert_eq!(span.file_path, origin.file_path);
+        assert_eq!((span.start, span.end), (origin.start, origin.end));
     }
 
     #[test]
@@ -790,6 +808,7 @@ impl InferenceEngine {
             var_spans: HashMap::new(),
             var_kinds: HashMap::new(),
             normalization_env: TypeNormalizationEnv::new(),
+            type_display_context: Default::default(),
         }
     }
 
@@ -811,6 +830,7 @@ impl InferenceEngine {
             var_spans: HashMap::new(),
             var_kinds,
             normalization_env,
+            type_display_context: Default::default(),
         }
     }
 
@@ -825,7 +845,20 @@ impl InferenceEngine {
             var_spans: self.var_spans.clone(),
             var_kinds: self.var_kinds.clone(),
             normalization_env: self.normalization_env.clone(),
+            type_display_context: self.type_display_context.clone(),
         }
+    }
+
+    pub fn set_type_display_context(
+        &mut self,
+        context: crate::type_services::display::TypeDisplayContext,
+    ) {
+        self.type_display_context = context;
+    }
+
+    pub fn display_type(&self, ty: &Type) -> String {
+        crate::type_services::display::display_type_with_context(ty, &self.type_display_context)
+            .to_string()
     }
 
     pub(crate) fn clone_for_commit(&self) -> Self {
@@ -1009,8 +1042,10 @@ impl InferenceEngine {
             .kind_of(&b)
             .map_err(|error| error.to_string())?;
         if a_kind != b_kind {
+            let a_display = self.display_type(&a);
+            let b_display = self.display_type(&b);
             return Err(format!(
-                "kind mismatch while unifying {a} with {b}: {a_kind} vs {b_kind}"
+                "kind mismatch while unifying {a_display} with {b_display}: {a_kind} vs {b_kind}"
             ));
         }
 
@@ -1040,7 +1075,11 @@ impl InferenceEngine {
             (Type::Slice(a_inner), Type::Slice(b_inner)) => self.unify(a_inner, b_inner),
             (Type::Array(a_inner, a_len), Type::Array(b_inner, b_len)) => {
                 if a_len != b_len {
-                    return Err(format!("Type mismatch: {} vs {}", a, b));
+                    return Err(format!(
+                        "Type mismatch: {} vs {}",
+                        self.display_type(&a),
+                        self.display_type(&b)
+                    ));
                 }
                 self.unify(a_inner, b_inner)
             }
@@ -1076,7 +1115,8 @@ impl InferenceEngine {
                 {
                     return Err(format!(
                         "Unsafe function cannot be used as safe function: {} vs {}",
-                        a, b
+                        self.display_type(&a),
+                        self.display_type(&b)
                     ));
                 }
                 if a_args.len() != b_args.len() {
@@ -1114,12 +1154,16 @@ impl InferenceEngine {
                 },
             ) => {
                 if a_id != b_id {
-                    return Err(format!("Type mismatch: {} vs {}", a, b));
+                    return Err(format!(
+                        "Type mismatch: {} vs {}",
+                        self.display_type(&a),
+                        self.display_type(&b)
+                    ));
                 }
                 if a_gen.len() != b_gen.len() {
                     return Err(format!(
                         "Generic argument count mismatch for {}: {} vs {}",
-                        a,
+                        self.display_type(&a),
                         a_gen.len(),
                         b_gen.len()
                     ));
@@ -1166,7 +1210,11 @@ impl InferenceEngine {
                 },
             ) => {
                 if a_trait != b_trait || a_assoc != b_assoc || a_args.len() != b_args.len() {
-                    return Err(format!("Type mismatch: {} vs {}", a, b));
+                    return Err(format!(
+                        "Type mismatch: {} vs {}",
+                        self.display_type(&a),
+                        self.display_type(&b)
+                    ));
                 }
                 self.unify(a_ty, b_ty)?;
                 for (a_arg, b_arg) in a_args.iter().zip(b_args.iter()) {
@@ -1199,12 +1247,18 @@ impl InferenceEngine {
                 {
                     if a_id != b_id {
                         return Err(format!(
-                            "ambiguous constructor heads while unifying {a} with {b}"
+                            "ambiguous constructor heads while unifying {} with {}",
+                            self.display_type(&a),
+                            self.display_type(&b)
                         ));
                     }
                 }
                 if a_args.len() != b_args.len() {
-                    return Err(format!("Type application arity mismatch: {a} vs {b}"));
+                    return Err(format!(
+                        "Type application arity mismatch: {} vs {}",
+                        self.display_type(&a),
+                        self.display_type(&b)
+                    ));
                 }
                 self.unify(a_constructor, b_constructor)?;
                 for (a_arg, b_arg) in a_args.iter().zip(b_args) {
@@ -1223,7 +1277,11 @@ impl InferenceEngine {
                 },
             ) => {
                 if a_params != b_params {
-                    return Err(format!("Type lambda binder kind mismatch: {a} vs {b}"));
+                    return Err(format!(
+                        "Type lambda binder kind mismatch: {} vs {}",
+                        self.display_type(&a),
+                        self.display_type(&b)
+                    ));
                 }
                 self.unify(a_body, b_body)
             }
@@ -1244,7 +1302,11 @@ impl InferenceEngine {
                 // We'll allow implicit integer coercion for now
                 Ok(())
             }
-            _ => Err(format!("Type mismatch: {} vs {}", a, b)),
+            _ => Err(format!(
+                "Type mismatch: {} vs {}",
+                self.display_type(&a),
+                self.display_type(&b)
+            )),
         }
     }
 
@@ -1258,22 +1320,23 @@ impl InferenceEngine {
             .map_err(|error| error.to_string())?;
         if variable_kind != type_kind {
             return Err(format!(
-                "kind mismatch while binding ?T{} to {}: {} vs {}",
-                id.raw(),
-                ty,
+                "kind mismatch while binding an inferred type to {}: {} vs {}",
+                self.display_type(&ty),
                 variable_kind,
                 type_kind
             ));
         }
         if Self::has_escaping_bound_var(&ty, 0) {
             return Err(format!(
-                "type lambda binder escapes while binding ?T{} to {}",
-                id.raw(),
-                ty
+                "type lambda binder escapes while inferring {}",
+                self.display_type(&ty)
             ));
         }
         if self.occurs_in(id, &ty) {
-            return Err(format!("Infinite type: ?T{} = {}", id.raw(), ty));
+            return Err(format!(
+                "Infinite type: inferred type contains itself through {}",
+                self.display_type(&ty)
+            ));
         }
         if let (Type::TypeVar(target_id), Some(span)) = (&ty, self.var_spans.get(&id).cloned()) {
             self.var_spans.entry(*target_id).or_insert(span);
@@ -1566,7 +1629,11 @@ impl InferenceEngine {
             .normalize(&probe.resolve(b))
             .map_err(|error| error.to_string())?;
         if !Self::same_unification_shape(&resolved_a, &resolved_b) {
-            return Err(format!("Type mismatch: {} vs {}", resolved_a, resolved_b));
+            return Err(format!(
+                "Type mismatch: {} vs {}",
+                probe.display_type(&resolved_a),
+                probe.display_type(&resolved_b)
+            ));
         }
         *self = probe;
         Ok(())
@@ -1783,7 +1850,7 @@ impl InferenceEngine {
 
     /// Finalize a type in strict mode: unresolved TypeVars produce an error entry.
     /// Returns `Type::Error` for ambiguous TypeVars so compilation can continue.
-    pub fn finalize_strict(&self, ty: &Type, errors: &mut Vec<String>) -> Type {
+    pub fn finalize_strict(&self, ty: &Type, errors: &mut Vec<InferenceError>) -> Type {
         let finalized = fold_type(
             ty.clone(),
             &mut StrictFinalizer {
@@ -1797,9 +1864,21 @@ impl InferenceEngine {
         match TypeNormalizer::new(&self.normalization_env).normalize(&finalized) {
             Ok(normalized) => normalized,
             Err(error) => {
-                errors.push(format!(
-                    "failed to normalize finalized type {finalized}: {error}"
-                ));
+                let mut span = None;
+                crate::type_services::visit::visit_type(ty, &mut |nested: &Type| {
+                    if span.is_none() {
+                        if let Type::TypeVar(id) = nested {
+                            span = self.var_spans.get(id).cloned();
+                        }
+                    }
+                });
+                errors.push(InferenceError {
+                    message: format!(
+                        "failed to normalize finalized type {}: {error}",
+                        self.display_type(&finalized)
+                    ),
+                    span,
+                });
                 Type::Error
             }
         }

@@ -20,7 +20,7 @@ fn complex_secondaries() {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "hello".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: Some(vec![
@@ -28,7 +28,7 @@ fn complex_secondaries() {
                     PrimaryExpr {
                         operand: Operand::Literal(Literal {
                             kind: crate::ast::LiteralKind::Number(1),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         secondaries: None,
                         type_annotation: None,
@@ -36,14 +36,14 @@ fn complex_secondaries() {
                 )))),
                 SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                     name: "world".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })),
                 SecondaryExpr::Arguments(vec![
                     Argument {
                         arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                             operand: Operand::Literal(Literal {
                                 kind: crate::ast::LiteralKind::Number(1),
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             secondaries: None,
                             type_annotation: None,
@@ -53,7 +53,7 @@ fn complex_secondaries() {
                         arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                             operand: Operand::Literal(Literal {
                                 kind: crate::ast::LiteralKind::Number(2),
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             secondaries: None,
                             type_annotation: None,
@@ -63,7 +63,7 @@ fn complex_secondaries() {
                         arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                             operand: Operand::Literal(Literal {
                                 kind: crate::ast::LiteralKind::Number(3),
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             secondaries: None,
                             type_annotation: None,

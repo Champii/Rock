@@ -176,8 +176,9 @@ impl Lowerer {
             0 => return None,
             1 => candidates.pop().unwrap(),
             _ => {
+                let receiver_type = self.display_type(&expr.ty);
                 self.diagnostics.push_with_span(
-                    format!("Ambiguous auto-deref for type {}", expr.ty),
+                    format!("Ambiguous auto-deref for type {}", receiver_type),
                     expr.span.clone(),
                 );
                 return None;
@@ -565,7 +566,7 @@ impl Lowerer {
                         inner: Box::new(expr.ty.clone()),
                     },
                     kind: HirExprKind::Ref(mutable, Box::new(expr)),
-                    span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+                    span: self.diagnostics.current_span().clone(),
                 }
             }
             ReceiverAdjustment::MutToSharedRef => self
@@ -803,7 +804,7 @@ mod tests {
             mutable: false,
             inner: Box::new(Type::I64),
         };
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .resolver
             .item_names_by_id
@@ -881,7 +882,7 @@ mod tests {
         let expr = HirExpr {
             ty: receiver_ty,
             kind: HirExprKind::Var("box".to_string()),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
         let candidates = lowerer
             .selection_service()
@@ -949,7 +950,7 @@ mod tests {
 
     #[test]
     fn receiver_adjustment_coerces_resolved_local_array_to_slice_ref() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let array_ty = Type::Array(Box::new(Type::I64), 3);
         let expr = HirExpr {
             ty: array_ty,
@@ -957,7 +958,7 @@ mod tests {
                 name: "arr".to_string(),
                 target: HirVarTarget::Local(crate::ids::HirLocalId(0)),
             }),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         let candidates = lowerer.receiver_adjustment_candidates(expr);
@@ -976,7 +977,7 @@ mod tests {
         let member_id = def_id(92);
         let impl_id = def_id(93);
         let method_id = def_id(94);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let array_ty = Type::Array(Box::new(Type::I64), 3);
         let return_ty = Type::Reference {
             mutable: false,
@@ -1068,7 +1069,7 @@ mod tests {
                 name: "arr".to_string(),
                 target: HirVarTarget::Local(crate::ids::HirLocalId(0)),
             }),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         let candidates = lowerer.receiver_adjustment_candidates(expr);
@@ -1097,7 +1098,7 @@ mod tests {
             args: Vec::new(),
         };
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .resolver
             .item_names_by_id
@@ -1180,7 +1181,7 @@ mod tests {
     #[test]
     fn nominal_method_lookup_in_context_preserves_canonical_owner_name() {
         let id = def_id(42);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .resolver
             .item_names_by_id
@@ -1199,7 +1200,7 @@ mod tests {
     fn trait_impl_selection_uses_typed_receiver_pattern() {
         let id = def_id(42);
         let trait_id = def_id(44);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .resolver
             .item_names_by_id

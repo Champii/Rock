@@ -19,7 +19,7 @@ fn test_parse_ident() {
             span: Span {
                 start: 0,
                 end: 3,
-                file_path: PathBuf::new(),
+                file_path: PathBuf::from("/test.rk"),
             },
         }
     );

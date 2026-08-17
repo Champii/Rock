@@ -55,7 +55,7 @@ pub fn parse_module_tokens(
 }
 
 pub fn parse_string(input: &str, config: &Config) -> Result<Program, ParseError> {
-    parse_source(PathBuf::new(), input, config).map(|mut module| {
+    parse_source(PathBuf::from("<memory>"), input, config).map(|mut module| {
         module.filepath = None;
         Program { module }
     })

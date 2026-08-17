@@ -828,7 +828,7 @@ mod tests {
         let recv = HirExpr {
             kind: HirExprKind::Var("bytes".to_string()),
             ty: byte_slice_ty,
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -844,7 +844,7 @@ mod tests {
                 ),
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let _ = mono.monomorphize_trait_method_call("println", &[recv], &mut expr);
@@ -1353,7 +1353,7 @@ mod tests {
                 stmts: vec![HirStmt::Return(Some(HirExpr {
                     kind: HirExprKind::Var("value".to_string()),
                     ty: generic_type.clone(),
-                    span: Span::default(),
+                    span: Span::test(),
                 }))],
                 ty: generic_type,
             },
@@ -1375,17 +1375,17 @@ mod tests {
                             target: HirVarTarget::Function(generic_id),
                         }),
                         ty: Type::function(vec![Type::I32], Type::I32),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     vec![HirExpr {
                         kind: HirExprKind::IntLiteral(7),
                         ty: Type::I32,
-                        span: Span::default(),
+                        span: Span::test(),
                     }],
                     Some(HirCallTarget::Function(generic_id)),
                 ),
                 ty: Type::I32,
-                span: Span::default(),
+                span: Span::test(),
             }))],
             ty: Type::I32,
         };
@@ -1584,7 +1584,7 @@ mod tests {
                 stmts: vec![HirStmt::Return(Some(HirExpr {
                     kind: HirExprKind::Var("value".to_string()),
                     ty: Type::Generic(generic_param),
-                    span: Span::default(),
+                    span: Span::test(),
                 }))],
                 ty: Type::Generic(generic_param),
             },
@@ -1941,7 +1941,7 @@ mod tests {
                 id: DefId::new(CrateId(0), LocalDefId(10)),
                 args: vec![Type::I64],
             },
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut selected_target = HirMethodCallTarget::impl_method(
             impl_id,
@@ -1968,7 +1968,7 @@ mod tests {
                 selected_target,
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut mono = Monomorphizer::new();
         mono.resolver

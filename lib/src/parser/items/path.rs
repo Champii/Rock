@@ -2,11 +2,22 @@ use crate::parser::{
     engine::*, separated1, IdentOrType, IdentifierPath, Path, TokenType, TypePath,
 };
 
-use super::{ident, parse_type, parse_type_path_head};
+use super::{get_span, ident, parse_type, parse_type_path_head};
 
 fn path_type(stream: Input) -> IResult<crate::ast::ParseType> {
-    (TokenType::OpenParen, TokenType::CloseParen)
-        .map(|_| crate::ast::ParseType::Tuple(vec![]))
+    (
+        get_span,
+        TokenType::OpenParen,
+        get_span,
+        TokenType::CloseParen,
+    )
+        .map(|(open_span, _, close_span, _)| {
+            crate::ast::ParseType::Unit(crate::lexer::Span::new(
+                open_span.file_path,
+                open_span.start,
+                close_span.end,
+            ))
+        })
         .or((TokenType::OpenParen, parse_type, TokenType::CloseParen).map(|(_, ty, _)| ty))
         .or(parse_type_path_head)
         .process(stream)

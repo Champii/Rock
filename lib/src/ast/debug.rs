@@ -313,7 +313,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -325,7 +325,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Carrier".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: vec![],
             for_: None,
@@ -338,7 +338,7 @@ mod tests {
                 signature_name.clone(),
                 FunctionSig {
                     name: signature_name,
-                    sig: ParseType::Unit,
+                    sig: ParseType::Unit(crate::lexer::Span::test()),
                     where_clauses: vec![],
                     self_receiver: None,
                     is_unsafe: false,

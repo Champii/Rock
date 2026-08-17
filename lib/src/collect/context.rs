@@ -100,7 +100,7 @@ fn collect_generic_names_from_parse_type<F>(
                 collect_generic_names_from_parse_type(arg, generic_params, is_known_type_name);
             }
         }
-        ast::ParseType::Unit => {}
+        ast::ParseType::Unit(_) => {}
     }
 }
 
@@ -1845,7 +1845,7 @@ impl CollectContext {
                 .current_module_prefix()
                 .map(|prefix| format!("{}::{}", prefix, module_name))
                 .unwrap_or_else(|| module_name.clone());
-            let module = self.load_module(module_name, &Span::default())?;
+            let module = self.load_module(module_name)?;
             (module, resolved_prefix, 1)
         };
 
@@ -1866,20 +1866,15 @@ impl CollectContext {
         Ok((module, resolved_prefix))
     }
 
-    pub(crate) fn load_module(
-        &mut self,
-        module_name: &str,
-        span: &Span,
-    ) -> Result<ast::Module, String> {
+    pub(crate) fn load_module(&mut self, module_name: &str) -> Result<ast::Module, String> {
         let prefix = self.current_module_prefix();
-        self.load_module_with_prefix(module_name, prefix.as_deref(), span)
+        self.load_module_with_prefix(module_name, prefix.as_deref())
     }
 
     pub(crate) fn load_module_with_prefix(
         &mut self,
         module_name: &str,
         prefix: Option<&str>,
-        _span: &Span,
     ) -> Result<ast::Module, String> {
         if let Some(file_path) = self.loaded_module_path_for_prefix(module_name, prefix) {
             if let Some(cached) = self.cached_module_for_path(&file_path) {
@@ -1986,7 +1981,7 @@ mod tests {
         ParseType::Type(ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Span::default(),
+            span: Span::test(),
         })
     }
 
@@ -2010,7 +2005,7 @@ mod tests {
         let module = Module {
             name: Some(Ident {
                 name: "util".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
@@ -2048,7 +2043,7 @@ mod tests {
         let module = Module {
             name: Some(Ident {
                 name: "util".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
@@ -2059,7 +2054,7 @@ mod tests {
         context.module_file_cache.insert(util, module);
 
         let error = context
-            .load_module("util", &Span::default())
+            .load_module("util")
             .expect_err("module cache should not bypass graph-seeded module paths");
 
         assert!(error.contains("was not loaded by the source database"));
@@ -2080,7 +2075,7 @@ mod tests {
         let module = Module {
             name: Some(Ident {
                 name: "io".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
@@ -2093,7 +2088,7 @@ mod tests {
         context.module_file_cache.insert(top_level_io, module);
 
         let error = context
-            .load_module_with_prefix("io", Some("math"), &Span::default())
+            .load_module_with_prefix("io", Some("math"))
             .expect_err("prefixed lookup must not fall back to top-level io");
 
         assert!(error.contains("math::io"));
@@ -2115,7 +2110,7 @@ mod tests {
         let alias_module = Module {
             name: Some(Ident {
                 name: "io".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
@@ -2124,7 +2119,7 @@ mod tests {
         let graph_module = Module {
             name: Some(Ident {
                 name: "io".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
@@ -2144,7 +2139,7 @@ mod tests {
             .insert(graph_io.clone(), graph_module);
 
         let module = context
-            .load_module_with_prefix("io", Some("math"), &Span::default())
+            .load_module_with_prefix("io", Some("math"))
             .expect("current-crate-prefixed graph path should resolve");
 
         assert_eq!(module.filepath.as_ref(), Some(&graph_io));
@@ -2166,7 +2161,7 @@ mod tests {
         let module = Module {
             name: Some(Ident {
                 name: "util".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
@@ -2288,11 +2283,11 @@ mod tests {
             base: ParseTypeInner {
                 name: "Self".to_string(),
                 generics: vec![],
-                span: Span::default(),
+                span: Span::test(),
             },
             member: Ident {
                 name: "Item".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
         });
 

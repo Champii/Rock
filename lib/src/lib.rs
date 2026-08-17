@@ -9,7 +9,7 @@ use inkwell::OptimizationLevel;
 
 use crate::ast::Program;
 use crate::crate_system::CrateContext;
-use crate::lexer::Span;
+pub use crate::lexer::Span;
 use crate::products::{
     CompilerProducts, ProductCrateId, ProductCrateIdentity, ProductDefId,
     ProductDependencyIdentity, ProductIdRemap, ProductLinkData, ProductLinkRecord,
@@ -39,6 +39,7 @@ pub mod selection;
 #[cfg(test)]
 mod semantic_identity_audit;
 pub mod source_loader;
+pub mod source_map;
 pub mod sysroot;
 pub mod traits;
 pub mod type_context;
@@ -137,9 +138,17 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
 
     validate_extern_artifact_names(config, &effective_current_crate_name)?;
 
-    if let Err(e) = load_extern_artifacts(&mut ctx, &config.extern_artifacts) {
+    if let Err(diagnostic) = load_extern_artifacts(
+        &mut ctx,
+        &config.extern_artifacts,
+        config
+            .entry_file
+            .parent()
+            .unwrap_or(&config.entry_file)
+            .to_path_buf(),
+    ) {
         let mut diagnostics = Diagnostics::default();
-        diagnostics.push(diagnostic::Diagnostic::new(e, Span::default()));
+        diagnostics.push(diagnostic);
         return Err(diagnostics);
     }
 
@@ -152,6 +161,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
         Ok(graph) => graph,
         Err(errors) => return Err(source_load_errors_to_diagnostics(errors)),
     };
+    let mut diagnostic_sources = diagnostic::DiagnosticSourceMap::from_source_database(&source_db);
     let ast = Program {
         module: source_graph.root_module().clone(),
     };
@@ -172,8 +182,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     let ast = match macro_expansion::expand_macros_with_context(ast, &macro_context) {
         Ok(ast) => ast,
         Err(e) => {
-            e.report();
-            return Err(e);
+            return Err(e.with_sources(&diagnostic_sources));
         }
     };
 
@@ -189,6 +198,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     ) {
         return Err(source_load_errors_to_diagnostics(errors));
     }
+    diagnostic_sources = diagnostic::DiagnosticSourceMap::from_source_database(&source_db);
 
     // Phase 3a: Collect top-level declarations
     let decls = match collect::collect_with_source_graph(
@@ -200,7 +210,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     ) {
         Ok(d) => d,
         Err(errors) => {
-            return Err(Diagnostics::from(errors));
+            return Err(Diagnostics::from(errors).with_sources(&diagnostic_sources));
         }
     };
     let loaded_prelude_export_ids = decls.loaded_prelude_export_ids.clone();
@@ -216,7 +226,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     ) {
         Ok(h) => h,
         Err(errors) => {
-            return Err(Diagnostics::from(errors));
+            return Err(Diagnostics::from(errors).with_sources(&diagnostic_sources));
         }
     };
 
@@ -224,7 +234,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     let hir = match infer::finalize(partial_hir) {
         Ok(h) => h,
         Err(errors) => {
-            return Err(Diagnostics::from(errors));
+            return Err(Diagnostics::from(errors).with_sources(&diagnostic_sources));
         }
     };
     if config.has_debug_print(DebugPrint::Hir) {
@@ -256,7 +266,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
         )
         .map_err(|error| {
             let mut diagnostics = Diagnostics::default();
-            diagnostics.push(diagnostic::Diagnostic::new(error, Span::default()));
+            diagnostics.push(diagnostic::Diagnostic::for_toolchain(error));
             diagnostics
         })?;
         if config.current_crate_name.as_deref() == Some("stdlib") {
@@ -273,7 +283,8 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     };
 
     // Phase 5: Monomorphization
-    let mut monomorphized = mono::monomorphize_with_crates(hir, crate_ctx, compilation_identity)?;
+    let mut monomorphized = mono::monomorphize_with_crates(hir, crate_ctx, compilation_identity)
+        .map_err(|diagnostics| diagnostics.with_sources(&diagnostic_sources))?;
     let mut instance_bodies =
         mir::builder::MirBuilder::take_mir_instance_bodies(&mut monomorphized);
     let _dce_report = dce::prune_unreachable_instances(&mut monomorphized, &mut instance_bodies);
@@ -286,15 +297,15 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
         println!("{:#?}", mir_program);
     }
     if let Err(diagnostics) = mir::borrowck::BorrowChecker::run(&mir_program) {
-        return Err(diagnostics);
+        return Err(diagnostics.with_sources(&diagnostic_sources));
     }
     let agreement = mir::agreement::check_mir_runtime_agreement(&mir_program);
     if !agreement.is_clean() {
         let mut diagnostics = Diagnostics::default();
-        diagnostics.push(diagnostic::Diagnostic::new(
-            format!("MIR/codegen agreement failed: {:?}", agreement),
-            Span::default(),
-        ));
+        diagnostics.push(diagnostic::Diagnostic::for_toolchain(format!(
+            "MIR/codegen agreement failed: {:?}",
+            agreement
+        )));
         return Err(diagnostics);
     }
 
@@ -312,7 +323,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     let link_inputs = crate_ctx.dependency_link_inputs();
 
     if let Err(e) = codegen.compile_program_from_mir(&mir_program) {
-        let diagnostics = Diagnostics::from(vec![e]);
+        let diagnostics = Diagnostics::from(vec![e]).with_sources(&diagnostic_sources);
         return Err(diagnostics);
     }
     attach_product_link_records(
@@ -323,7 +334,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     )
     .map_err(|error| {
         let mut diagnostics = Diagnostics::default();
-        diagnostics.push(diagnostic::Diagnostic::new(error, Span::default()));
+        diagnostics.push(diagnostic::Diagnostic::for_toolchain(error));
         diagnostics
     })?;
 
@@ -339,9 +350,9 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
         let ir_path = config.output_dir.join(format!("{}.ll", module_name));
         if let Err(e) = codegen.write_ir(&ir_path) {
             let mut diagnostics = Diagnostics::default();
-            diagnostics.push(diagnostic::Diagnostic::new(
+            diagnostics.push(diagnostic::Diagnostic::for_file(
                 format!("Failed to write LLVM IR: {}", e),
-                Span::default(),
+                ir_path,
             ));
             return Err(diagnostics);
         }
@@ -400,16 +411,20 @@ struct PendingExternArtifact {
 fn load_extern_artifacts(
     ctx: &mut CrateContext,
     extern_artifacts: &[(String, PathBuf)],
-) -> Result<(), String> {
+    project_path: PathBuf,
+) -> Result<(), diagnostic::Diagnostic> {
     let mut pending = Vec::new();
     for (name, path) in extern_artifacts {
         let header =
             crate::products::ProductArtifactHeader::read_from_path_bounded(path).map_err(|e| {
-                format!(
-                    "Failed to read external artifact header '{}' from {}: {}",
-                    name,
-                    path.display(),
-                    e
+                diagnostic::Diagnostic::for_artifact(
+                    format!(
+                        "Failed to read external artifact header '{}' from {}: {}",
+                        name,
+                        path.display(),
+                        e
+                    ),
+                    path.clone(),
                 )
             })?;
         pending.push(PendingExternArtifact {
@@ -430,9 +445,12 @@ fn load_extern_artifacts(
     for artifact in &pending {
         for dependency in &artifact.dependencies {
             if !loaded_identities.contains(dependency) && !pending_identities.contains(dependency) {
-                return Err(format!(
-                    "External artifact '{}' depends on missing external artifact '{}'",
-                    artifact.name, dependency.name
+                return Err(diagnostic::Diagnostic::for_artifact(
+                    format!(
+                        "External artifact '{}' depends on missing external artifact '{}'",
+                        artifact.name, dependency.name
+                    ),
+                    artifact.path.clone(),
                 ));
             }
         }
@@ -450,9 +468,12 @@ fn load_extern_artifacts(
                 .map(|artifact| artifact.name.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
-            return Err(format!(
-                "Failed to resolve external artifact load order for: {}",
-                names
+            return Err(diagnostic::Diagnostic::for_project(
+                format!(
+                    "Failed to resolve external artifact load order for: {}",
+                    names
+                ),
+                project_path,
             ));
         };
 
@@ -465,11 +486,14 @@ fn load_extern_artifacts(
             &mut type_context,
         )
         .map_err(|e| {
-            format!(
-                "Failed to load external artifact '{}' from {}: {}",
-                artifact.name,
-                artifact.path.display(),
-                e
+            diagnostic::Diagnostic::for_artifact(
+                format!(
+                    "Failed to load external artifact '{}' from {}: {}",
+                    artifact.name,
+                    artifact.path.display(),
+                    e
+                ),
+                artifact.path.clone(),
             )
         })?;
         loaded_identities.insert(artifact.identity);
@@ -486,20 +510,28 @@ fn validate_extern_artifact_names(
     for (name, _) in &config.extern_artifacts {
         if effective_current_crate_name == name {
             let mut diagnostics = Diagnostics::default();
-            diagnostics.push(diagnostic::Diagnostic::new(
+            diagnostics.push(diagnostic::Diagnostic::for_project(
                 format!(
                     "External artifact crate name '{}' conflicts with current crate name '{}'",
                     name, name
                 ),
-                Span::default(),
+                config
+                    .entry_file
+                    .parent()
+                    .unwrap_or(&config.entry_file)
+                    .to_path_buf(),
             ));
             return Err(diagnostics);
         }
         if !seen.insert(name.clone()) {
             let mut diagnostics = Diagnostics::default();
-            diagnostics.push(diagnostic::Diagnostic::new(
+            diagnostics.push(diagnostic::Diagnostic::for_project(
                 format!("Duplicate external artifact crate name '{}'", name),
-                Span::default(),
+                config
+                    .entry_file
+                    .parent()
+                    .unwrap_or(&config.entry_file)
+                    .to_path_buf(),
             ));
             return Err(diagnostics);
         }
@@ -513,9 +545,9 @@ fn source_load_errors_to_diagnostics(errors: Vec<source_loader::SourceLoadError>
     for error in errors {
         match error {
             source_loader::SourceLoadError::Io { path, message } => {
-                diagnostics.push(diagnostic::Diagnostic::new(
+                diagnostics.push(diagnostic::Diagnostic::for_file(
                     format!("Failed to read source file {}: {}", path.display(), message),
-                    Span::default(),
+                    path,
                 ));
             }
             source_loader::SourceLoadError::MissingModule {
@@ -523,15 +555,20 @@ fn source_load_errors_to_diagnostics(errors: Vec<source_loader::SourceLoadError>
                 searched,
                 span,
             } => {
+                let searched_path = searched.first().cloned();
                 let searched = searched
                     .iter()
                     .map(|path| path.display().to_string())
                     .collect::<Vec<_>>()
                     .join(", ");
-                diagnostics.push(diagnostic::Diagnostic::new(
-                    format!("Module '{}' not found; searched: {}", module, searched),
-                    span.unwrap_or_default(),
-                ));
+                let message = format!("Module '{}' not found; searched: {}", module, searched);
+                diagnostics.push(match span {
+                    Some(span) => diagnostic::Diagnostic::new(message, span),
+                    None => match searched_path {
+                        Some(path) => diagnostic::Diagnostic::for_file(message, path),
+                        None => diagnostic::Diagnostic::for_toolchain(message),
+                    },
+                });
             }
             source_loader::SourceLoadError::Parse { error, source, .. } => {
                 let mut parse_diagnostics = Diagnostics::from(error);
@@ -551,6 +588,7 @@ fn source_load_errors_to_diagnostics(errors: Vec<source_loader::SourceLoadError>
                         display_path: source.display_path,
                         text: source.text,
                         origin,
+                        related: std::collections::BTreeMap::new(),
                     };
                     for diagnostic in &mut parse_diagnostics.0 {
                         diagnostic.source = Some(diagnostic_source.clone());
@@ -564,13 +602,13 @@ fn source_load_errors_to_diagnostics(errors: Vec<source_loader::SourceLoadError>
                     .map(|path| path.display().to_string())
                     .collect::<Vec<_>>()
                     .join(" -> ");
-                diagnostics.push(diagnostic::Diagnostic::new(
+                diagnostics.push(diagnostic::Diagnostic::for_file(
                     format!(
                         "Circular module load detected at {} via {}",
                         path.display(),
                         stack
                     ),
-                    Span::default(),
+                    path,
                 ));
             }
         }
@@ -838,7 +876,7 @@ mod tests {
                 stmts: vec![HirStmt::Return(Some(HirExpr {
                     kind: HirExprKind::Unit,
                     ty: Type::Unit,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }))],
                 ty: Type::Unit,
             },
@@ -1955,10 +1993,14 @@ mod tests {
         let error = super::load_extern_artifacts(
             &mut CrateContext::new(),
             &[("app".to_string(), artifact_path)],
+            base.clone(),
         )
         .unwrap_err();
 
-        assert!(error.contains("missing"), "unexpected error: {error}");
+        assert!(
+            error.message.contains("missing"),
+            "unexpected error: {error:?}"
+        );
 
         let _ = fs::remove_dir_all(&base);
     }

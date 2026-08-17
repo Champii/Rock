@@ -4,7 +4,7 @@ use crate::{
     parser::engine::*,
 };
 
-use super::{mut_prefix, primitives};
+use super::{get_span, mut_prefix, primitives};
 
 pub fn parse_type(stream: Input) -> IResult<ParseType> {
     let (stream, mut ty) = if matches!(peek_token(&stream), Some(TokenType::TypeLambda)) {
@@ -198,10 +198,17 @@ fn type_token_with_span(stream: Input) -> IResult<crate::ast::Ident> {
 }
 
 fn parse_parenthesized_type(stream: Input) -> IResult<ParseType> {
-    let (stream, _) = TokenType::OpenParen.process(stream)?;
+    let (stream, (open_span, _)) = (get_span, TokenType::OpenParen).process(stream)?;
     if matches!(peek_token(&stream), Some(TokenType::CloseParen)) {
-        let (stream, _) = TokenType::CloseParen.process(stream)?;
-        return Ok((stream, ParseType::Tuple(Vec::new())));
+        let (stream, (close_span, _)) = (get_span, TokenType::CloseParen).process(stream)?;
+        return Ok((
+            stream,
+            ParseType::Unit(Span::new(
+                open_span.file_path,
+                open_span.start,
+                close_span.end,
+            )),
+        ));
     }
 
     let (mut stream, first) = parse_type(stream)?;
@@ -556,21 +563,7 @@ pub fn parse_type_inner(stream: Input) -> IResult<ParseTypeInner> {
 }
 
 fn type_span(ty: &ParseType) -> Span {
-    match ty {
-        ParseType::Type(inner) => inner.span.clone(),
-        ParseType::Application(application) => application.span.clone(),
-        ParseType::Lambda(lambda) => lambda.span.clone(),
-        ParseType::Hole(hole) => hole.span.clone(),
-        ParseType::Associated { base, member } => join_spans(&base.span, &member.span),
-        ParseType::Slice(inner)
-        | ParseType::Pointer(inner)
-        | ParseType::Reference { pointee: inner, .. } => type_span(inner),
-        ParseType::Array { inner, .. } => type_span(inner),
-        ParseType::Tuple(types) | ParseType::Function(types) => {
-            types.first().map(type_span).unwrap_or_default()
-        }
-        ParseType::Unit => Span::default(),
-    }
+    ty.span()
 }
 
 fn join_spans(first: &Span, last: &Span) -> Span {

@@ -1,4 +1,4 @@
-use crate::lexer::{Span, Token, TokenType};
+use crate::lexer::{Token, TokenType};
 use crate::parser::{
     engine::*, Argument, Expression, Ident, IdentOrNumber, IdentOrType, Operand, Operator,
     PrimaryExpr, SecondaryExpr, Tuple, UnaryExpr,
@@ -298,22 +298,19 @@ pub fn monoline_tuple(stream: Input) -> IResult<Vec<Expression>> {
 }
 
 pub fn tuple(stream: Input) -> IResult<Tuple> {
-    parenthesis(multiline_tuple.or(monoline_tuple))
-        .map(|elements| Tuple { elements })
-        .process(stream)
-        .map(|(stream, tuple)| {
-            if tuple.elements.len() < 2 {
-                Err(ParseError::UnexpectedToken(
-                    TokenType::OpenParen.discriminant().to_string(),
-                    Token {
-                        token_type: TokenType::OpenParen,
-                        span: Span::default(),
-                    },
-                ))
-            } else {
-                Ok((stream, tuple))
-            }
-        })?
+    let (stream, (open_span, elements)) =
+        (get_span, parenthesis(multiline_tuple.or(monoline_tuple))).process(stream)?;
+    if elements.len() < 2 {
+        Err(ParseError::UnexpectedToken(
+            TokenType::OpenParen.discriminant().to_string(),
+            Token {
+                token_type: TokenType::OpenParen,
+                span: open_span,
+            },
+        ))
+    } else {
+        Ok((stream, Tuple { elements }))
+    }
 }
 
 pub fn self_ident(stream: Input) -> IResult<Operand> {
@@ -523,7 +520,7 @@ pub fn multiline_arguments_context_aware(stream: Input) -> IResult<Vec<Argument>
             0
         }
     } else {
-        return Err(ParseError::UnexpectedEOF);
+        return Err(ParseError::UnexpectedEOF(stream.eof_span()));
     };
 
     // Arguments must be indented MORE than the current context

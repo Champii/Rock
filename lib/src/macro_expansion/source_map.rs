@@ -45,7 +45,7 @@ impl TokenOrigin {
 pub struct MacroExpansionRecord {
     pub macro_name: String,
     pub invocation_span: Span,
-    pub definition_span: Span,
+    pub definition_span: Option<Span>,
     pub parent: Option<ExpansionId>,
 }
 
@@ -115,18 +115,14 @@ impl MacroSourceMap {
                     record.invocation_span,
                 )];
 
-                if span_has_location(&record.definition_span) {
-                    labels.push(("macro definition here".to_string(), record.definition_span));
+                if let Some(definition_span) = record.definition_span {
+                    labels.push(("macro definition here".to_string(), definition_span));
                 }
 
                 labels
             })
             .collect()
     }
-}
-
-fn span_has_location(span: &Span) -> bool {
-    !span.file_path.as_os_str().is_empty() || span.start != 0 || span.end != 0
 }
 
 #[cfg(test)]
@@ -149,13 +145,13 @@ mod tests {
         let parent = map.record_expansion(MacroExpansionRecord {
             macro_name: "outer".to_string(),
             invocation_span: span(1, 7),
-            definition_span: span(10, 20),
+            definition_span: Some(span(10, 20)),
             parent: None,
         });
         let child = map.record_expansion(MacroExpansionRecord {
             macro_name: "inner".to_string(),
             invocation_span: span(30, 36),
-            definition_span: span(40, 50),
+            definition_span: Some(span(40, 50)),
             parent: Some(parent),
         });
 
@@ -171,8 +167,8 @@ mod tests {
         let mut map = MacroSourceMap::new();
         let id = map.record_expansion(MacroExpansionRecord {
             macro_name: "make".to_string(),
-            invocation_span: Span::default(),
-            definition_span: Span::default(),
+            invocation_span: Span::test(),
+            definition_span: Some(Span::test()),
             parent: None,
         });
 
@@ -189,7 +185,7 @@ mod tests {
         let id = map.record_expansion(MacroExpansionRecord {
             macro_name: "make".to_string(),
             invocation_span: span(1, 7),
-            definition_span: Span::default(),
+            definition_span: None,
             parent: None,
         });
 
@@ -229,13 +225,13 @@ mod tests {
         let first = map.record_expansion(MacroExpansionRecord {
             macro_name: "first".to_string(),
             invocation_span: span(1, 7),
-            definition_span: span(10, 20),
+            definition_span: Some(span(10, 20)),
             parent: None,
         });
         let second = map.record_expansion(MacroExpansionRecord {
             macro_name: "second".to_string(),
             invocation_span: span(30, 36),
-            definition_span: span(40, 50),
+            definition_span: Some(span(40, 50)),
             parent: Some(first),
         });
         map.records[0].parent = Some(second);
@@ -253,7 +249,7 @@ mod tests {
         let expansion = map.record_expansion(MacroExpansionRecord {
             macro_name: "make_item".to_string(),
             invocation_span: span(1, 10),
-            definition_span: span(20, 40),
+            definition_span: Some(span(20, 40)),
             parent: None,
         });
 

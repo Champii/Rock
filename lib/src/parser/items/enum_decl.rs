@@ -89,8 +89,9 @@ fn enum_item(stream: Input) -> IResult<(EnumVariant, Option<LanguageItemMarker>)
             "language item marker must be followed by an enum variant".to_string(),
             marker
                 .as_ref()
-                .map(|marker| marker.span.clone())
-                .unwrap_or_default(),
+                .expect("guarded language item marker")
+                .span
+                .clone(),
         )),
         Err(error) => Err(error),
     }

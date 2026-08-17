@@ -20,7 +20,7 @@ fn spaced_dot_closes_fn_call() {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "foo".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: Some(vec![
@@ -30,7 +30,7 @@ fn spaced_dot_closes_fn_call() {
                             operand: Operand::Ident(IdentifierPath {
                                 path: vec![IdentOrType::Ident(Ident {
                                     name: "a".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 })],
                             }),
                             secondaries: None,
@@ -42,7 +42,7 @@ fn spaced_dot_closes_fn_call() {
                             operand: Operand::Ident(IdentifierPath {
                                 path: vec![IdentOrType::Ident(Ident {
                                     name: "b".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 })],
                             }),
                             secondaries: None,
@@ -52,7 +52,7 @@ fn spaced_dot_closes_fn_call() {
                 ]),
                 SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                     name: "bar".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 }))
             ]),
             type_annotation: None,

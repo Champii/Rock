@@ -76,13 +76,18 @@ impl TokenStream {
         Self {
             trees: tokens
                 .into_iter()
-                .map(|token| TokenTree::Leaf {
-                    origin: TokenOrigin::Generated {
-                        expansion,
-                        generated_source,
-                        definition_span: token.span.clone(),
-                    },
-                    token,
+                .map(|mut token| {
+                    if token.span.file_path.as_os_str().is_empty() {
+                        token.span.file_path = format!("<macro-expansion:{}>", expansion.0).into();
+                    }
+                    TokenTree::Leaf {
+                        origin: TokenOrigin::Generated {
+                            expansion,
+                            generated_source,
+                            definition_span: token.span.clone(),
+                        },
+                        token,
+                    }
                 })
                 .collect(),
         }
@@ -181,11 +186,11 @@ mod tests {
         let stream = TokenStream {
             trees: vec![TokenTree::Delimited {
                 delimiter: Delimiter::Paren,
-                open_origin: TokenOrigin::Source(Span::default()),
+                open_origin: TokenOrigin::Source(Span::test()),
                 inner: TokenStream::from_tokens(vec![Token::from(TokenType::Ident(
                     "x".to_string(),
                 ))]),
-                close_origin: TokenOrigin::Source(Span::default()),
+                close_origin: TokenOrigin::Source(Span::test()),
             }],
         };
 

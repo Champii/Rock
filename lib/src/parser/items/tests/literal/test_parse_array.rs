@@ -14,7 +14,7 @@ fn test_parse_array() {
                 Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                     operand: Operand::Literal(Literal {
                         kind: LiteralKind::Number(1),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     secondaries: None,
                     type_annotation: None,
@@ -22,7 +22,7 @@ fn test_parse_array() {
                 Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                     operand: Operand::Literal(Literal {
                         kind: LiteralKind::Number(2),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     type_annotation: None,
                     secondaries: None,
@@ -30,7 +30,7 @@ fn test_parse_array() {
                 Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                     operand: Operand::Literal(Literal {
                         kind: LiteralKind::Number(3),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     secondaries: None,
                     type_annotation: None,

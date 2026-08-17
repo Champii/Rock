@@ -291,17 +291,28 @@ impl Lowerer {
             )
         });
         candidates.dedup_by(|left, right| left.3 == right.3);
-        let candidate_ids = candidates
+        let mut candidate_descriptions = candidates
             .iter()
-            .filter_map(|(_, _, _, target, _, _)| {
-                target
+            .map(|(_, _, _, target, _, _)| {
+                let trait_name = target
                     .trait_id()
-                    .zip(target.method_id())
-                    .map(|(trait_id, member_id)| {
-                        format!("({trait_id:?}, {member_id:?}, {:?})", target.trait_args())
-                    })
+                    .and_then(|trait_id| self.trait_by_id(trait_id))
+                    .map(|trait_def| trait_def.name.as_str())
+                    .unwrap_or("<unknown trait>");
+                let args = target
+                    .trait_args()
+                    .iter()
+                    .map(|arg| self.display_type(arg))
+                    .collect::<Vec<_>>();
+                if args.is_empty() {
+                    trait_name.to_string()
+                } else {
+                    format!("{} {}", trait_name, args.join(", "))
+                }
             })
             .collect::<Vec<_>>();
+        candidate_descriptions.sort();
+        candidate_descriptions.dedup();
         match candidates.len() {
             0 => Ok(None),
             1 => {
@@ -341,7 +352,7 @@ impl Lowerer {
                                     .map(|arg| arg.substitute_generics(&method_subst))
                                     .collect(),
                             },
-                            self.diagnostics.current_span().cloned().unwrap_or_default(),
+                            self.diagnostics.current_span().clone(),
                             "static constructor trait member",
                         );
                     }
@@ -360,7 +371,8 @@ impl Lowerer {
                 )))
             }
             _ => Err(format!(
-                "ambiguous static bound method `{owner_name}::{method_name}`: candidates {candidate_ids:?}"
+                "ambiguous static bound method `{owner_name}::{method_name}`: matching trait bounds {}",
+                candidate_descriptions.join(", ")
             )),
         }
     }
@@ -437,7 +449,7 @@ impl Lowerer {
             if let Some(trait_id) = required_trait_id {
                 let trait_def = self
                     .trait_by_id(trait_id)
-                    .ok_or_else(|| format!("unknown constructor trait {trait_id:?}"))?;
+                    .ok_or_else(|| "unknown required constructor trait".to_string())?;
                 let expected_kind = trait_def
                     .target
                     .as_ref()
@@ -504,7 +516,7 @@ impl Lowerer {
             ) {
                 Ok(selected) => candidates.push(selected),
                 Err(crate::selection::SelectionDiagnostic::NoImplementation { .. }) => {}
-                Err(error) => return Err(error.message()),
+                Err(error) => return Err(self.display_selection_error(&error)),
             }
         }
         candidates.sort_by_key(|selected| {
@@ -598,7 +610,7 @@ impl Lowerer {
                         .map(|arg| arg.substitute_generics(&bound_substitution))
                         .collect(),
                 },
-                self.diagnostics.current_span().cloned().unwrap_or_default(),
+                self.diagnostics.current_span().clone(),
                 "constructor trait member",
             );
         }
@@ -608,7 +620,7 @@ impl Lowerer {
                 name: display_name,
                 target: HirVarTarget::Function(selected.function.id),
             }),
-            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+            span: self.diagnostics.current_span().clone(),
         };
         Ok((
             callee,
@@ -891,7 +903,7 @@ impl Lowerer {
                 name: resolved.value.name,
                 target: HirVarTarget::Function(function_id),
             }),
-            span: self.diagnostics.current_span().cloned().unwrap_or_default(),
+            span: self.diagnostics.current_span().clone(),
         };
 
         Ok((
@@ -1655,14 +1667,14 @@ impl Lowerer {
         // Set span from first segment in path (Ident or Type)
         let span = match path.path.first() {
             Some(ast::IdentOrType::Ident(ident)) => {
-                self.diagnostics.set_current_span(Some(ident.span.clone()));
+                self.diagnostics.set_current_span(ident.span.clone());
                 ident.span.clone()
             }
             Some(ast::IdentOrType::Type(ast::ParseType::Type(inner))) => {
-                self.diagnostics.set_current_span(Some(inner.span.clone()));
+                self.diagnostics.set_current_span(inner.span.clone());
                 inner.span.clone()
             }
-            _ => self.diagnostics.current_span().cloned().unwrap_or_default(),
+            _ => self.diagnostics.current_span().clone(),
         };
         // Simple case: single identifier
         if path.path.len() == 1 {
@@ -2005,7 +2017,7 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_instance(&mut self, inst: &ast::Instance) -> HirExpr {
-        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let span = self.diagnostics.current_span().clone();
         let segments = path_names(&inst.name.path);
 
         let struct_resolution = crate::lower::resolution::LowerResolutionContext::new(self)
@@ -2203,7 +2215,7 @@ impl Lowerer {
         lambda: &ast::LambdaDecl,
         expected_params: Option<&[Type]>,
     ) -> HirExpr {
-        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let span = self.diagnostics.current_span().clone();
 
         if matches!(lambda.arrow_kind, ast::LambdaArrowKind::Curried) && lambda.parameters.len() > 1
         {
@@ -2346,7 +2358,7 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_tuple(&mut self, tuple: &ast::Tuple) -> HirExpr {
-        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let span = self.diagnostics.current_span().clone();
         let elements: Vec<HirExpr> = tuple
             .elements
             .iter()
@@ -2658,7 +2670,7 @@ main = ->
 
     #[test]
     fn trait_backed_structural_static_owner_substitutes_trait_args_for_artifact_validation() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(160);
         let trait_id = def_id(159);
         let trait_member_id = def_id(1600);
@@ -2724,7 +2736,7 @@ main = ->
 
     #[test]
     fn structural_static_owner_fallback_preserves_nested_method_generic_shape() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(163);
         let impl_id = def_id(164);
         let method_id = def_id(165);
@@ -2764,7 +2776,7 @@ main = ->
 
     #[test]
     fn structural_static_owner_fallback_visits_projection_nominal_types() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(169);
         let impl_id = def_id(170);
         let method_id = def_id(171);
@@ -2815,7 +2827,7 @@ main = ->
 
     #[test]
     fn conflicting_structural_static_owner_occurrences_are_an_error() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(166);
         let impl_id = def_id(167);
         let method_id = def_id(168);
@@ -2930,7 +2942,7 @@ main = ->
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         }
     }
 
@@ -2958,7 +2970,7 @@ main = ->
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(crate::ast::Literal {
                 kind: crate::ast::LiteralKind::Number(value.parse().unwrap()),
-                span: Default::default(),
+                span: crate::lexer::Span::test(),
             }),
             secondaries: None,
             type_annotation: None,
@@ -3025,7 +3037,7 @@ main = ->
 
     #[test]
     fn local_reads_resolve_to_shadowing_local_ids() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let (inner, expr) = lowerer.with_test_body_context(|lowerer| {
             let outer = lowerer.fresh_local_id();
             lowerer
@@ -3264,7 +3276,7 @@ main = ->
 
     #[test]
     fn lower_qualified_function_reference_records_function_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let answer_id = def_id(30);
         lowerer
             .items
@@ -3284,7 +3296,7 @@ main = ->
 
     #[test]
     fn lower_static_impl_reference_records_method_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let box_id = def_id(40);
         lowerer.items.insert_structure(HirStruct {
             id: box_id,
@@ -3538,7 +3550,7 @@ main = ->
 
     #[test]
     fn generic_static_method_value_preserves_owner_generic_param_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(43);
         let impl_id = def_id(44);
         let method_id = def_id(45);
@@ -3623,7 +3635,7 @@ main = ->
 
     #[test]
     fn enum_static_method_value_preserves_exact_impl_and_method_authority() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let enum_id = def_id(50);
         let impl_id = def_id(51);
         let method_id = def_id(52);
@@ -3668,7 +3680,7 @@ main = ->
 
     #[test]
     fn canonical_static_owner_without_method_is_an_error_not_a_raw_var() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(53);
         lowerer
             .items
@@ -3687,8 +3699,8 @@ main = ->
     }
 
     #[test]
-    fn ambiguous_static_bound_method_is_an_error_with_sorted_candidate_ids() {
-        let mut lowerer = Lowerer::new();
+    fn ambiguous_static_bound_method_is_an_error_without_internal_candidate_ids() {
+        let mut lowerer = Lowerer::new_for_test();
         let generic_owner = def_id(53);
         let owner_param = GenericParamId {
             owner: generic_owner,
@@ -3752,17 +3764,14 @@ main = ->
             .iter()
             .find(|error| error.message.contains("ambiguous static bound method"))
             .expect("ambiguity diagnostic");
-        let left = format!("({left_trait:?}, {left_member:?}, [])");
-        let right = format!("({right_trait:?}, {right_member:?}, [])");
-        assert!(diagnostic.message.contains(&left));
-        assert!(diagnostic.message.contains(&right));
-        assert!(diagnostic.message.find(&left) < diagnostic.message.find(&right));
+        assert!(diagnostic.message.contains("matching trait bounds"));
+        assert!(!diagnostic.message.contains("DefId"));
         assert!(diagnostic.span.is_some());
     }
 
     #[test]
     fn static_bound_method_lookup_expands_supertraits() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let generic_owner = def_id(59);
         let owner_param = GenericParamId {
             owner: generic_owner,
@@ -3826,7 +3835,7 @@ main = ->
 
     #[test]
     fn distinct_static_bound_trait_args_remain_ambiguous() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let generic_owner = def_id(64);
         let owner_param = GenericParamId {
             owner: generic_owner,
@@ -3891,7 +3900,7 @@ main = ->
 
     #[test]
     fn generic_static_bound_method_instantiates_method_generics_without_replacing_owner() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let generic_owner = def_id(68);
         let owner_param = GenericParamId {
             owner: generic_owner,
@@ -3978,7 +3987,7 @@ main = ->
 
     #[test]
     fn identical_generic_static_bounds_select_one_fresh_method_target() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let generic_owner = def_id(72);
         let owner_param = GenericParamId {
             owner: generic_owner,
@@ -4049,7 +4058,7 @@ main = ->
 
     #[test]
     fn trait_backed_generic_static_method_preserves_member_and_trait_args() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(59);
         let trait_id = def_id(60);
         let trait_member_id = def_id(61);
@@ -4172,7 +4181,7 @@ main = ->
 
     #[test]
     fn trait_backed_static_method_with_unknown_trait_authority_is_an_error() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(46);
         let impl_id = def_id(47);
         let method_id = def_id(48);
@@ -4224,7 +4233,7 @@ main = ->
 
     #[test]
     fn module_local_enum_alias_shadows_root_enum_for_qualified_variant() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let root_id = def_id(42);
         let module_id = def_id(43);
         lowerer
@@ -4263,7 +4272,7 @@ main = ->
 
     #[test]
     fn module_local_struct_alias_shadows_root_struct_for_static_method() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let root_struct_id = def_id(44);
         let module_struct_id = def_id(45);
         let root_method_id = def_id(46);
@@ -4315,7 +4324,7 @@ main = ->
 
     #[test]
     fn import_alias_struct_resolves_static_impl_method_by_canonical_owner() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(48);
         let method_id = def_id(49);
         lowerer
@@ -4360,7 +4369,7 @@ main = ->
 
     #[test]
     fn import_alias_struct_without_canonical_name_does_not_resolve_static_impl_method_by_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(51);
         lowerer
             .items
@@ -4379,7 +4388,7 @@ main = ->
 
     #[test]
     fn import_alias_struct_uses_canonical_static_impl_owner() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(53);
         let canonical_method_id = def_id(55);
         lowerer
@@ -4413,7 +4422,7 @@ main = ->
 
     #[test]
     fn lower_import_alias_function_reference_records_function_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let answer_id = def_id(31);
         lowerer
             .items
@@ -4442,7 +4451,7 @@ main = ->
 
     #[test]
     fn module_local_alias_resolves_through_resolver_without_lowerer_string_map() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = def_id(32);
         lowerer
             .items
@@ -4474,7 +4483,7 @@ main = ->
 
     #[test]
     fn lower_identifier_path_requires_resolver_id_for_top_level_function() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = def_id(38);
         lowerer
             .items
@@ -4490,7 +4499,7 @@ main = ->
 
     #[test]
     fn module_local_alias_shadows_root_item_with_same_short_name() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let root_id = def_id(36);
         let module_id = def_id(37);
         lowerer
@@ -4534,7 +4543,7 @@ main = ->
 
     #[test]
     fn lower_nested_scope_module_local_alias_function_reference_records_function_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let answer_id = def_id(34);
         lowerer
             .items
@@ -4565,7 +4574,7 @@ main = ->
 
     #[test]
     fn lower_local_shadowing_module_local_alias_stays_var() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let answer_id = def_id(35);
         lowerer
             .items
@@ -4594,7 +4603,7 @@ main = ->
 
     #[test]
     fn lower_import_alias_extern_reference_records_extern_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let extern_id = def_id(33);
         lowerer.items.insert_extern(HirExtern {
             id: extern_id,
@@ -4628,7 +4637,7 @@ main = ->
 
     #[test]
     fn test_lower_lambda_carries_capture_metadata() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let lambda = LambdaDecl {
             parameters: vec![ident_pattern("x")],
             body: Block {
@@ -4666,7 +4675,7 @@ main = ->
 
     #[test]
     fn lower_lambda_reference_pattern_wraps_parameter_type() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let lambda = LambdaDecl {
             parameters: vec![Pattern {
                 binding: None,
@@ -4705,7 +4714,7 @@ main = ->
 
     #[test]
     fn outer_lambda_does_not_capture_local_used_by_nested_lambda() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let captures = lowerer.with_test_body_context(|lowerer| {
             let next_id = lowerer.fresh_local_id();
             lowerer
@@ -4718,7 +4727,7 @@ main = ->
                         target: HirVarTarget::Local(next_id),
                     }),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 })],
                 ty: Type::I64,
             };
@@ -4731,7 +4740,7 @@ main = ->
                         value: HirExpr {
                             kind: HirExprKind::IntLiteral(1),
                             ty: Type::I64,
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         },
                         mutable: false,
                     },
@@ -4742,7 +4751,7 @@ main = ->
                             captures: Vec::new(),
                         },
                         ty: Type::function(Vec::new(), Type::I64),
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     }),
                 ],
                 ty: Type::function(Vec::new(), Type::I64),
@@ -4756,7 +4765,7 @@ main = ->
 
     #[test]
     fn lower_lambda_captures_resolved_local_reference() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let lambda = LambdaDecl {
             parameters: vec![ident_pattern("x")],
             body: Block {
@@ -4783,7 +4792,7 @@ main = ->
 
     #[test]
     fn lambda_capture_records_captured_local_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let lambda = LambdaDecl {
             parameters: vec![ident_pattern("x")],
             body: Block {
@@ -4811,7 +4820,7 @@ main = ->
 
     #[test]
     fn lambda_captures_root_scope_lexical_function_value() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let lambda = LambdaDecl {
             parameters: vec![],
             body: Block {
@@ -4839,7 +4848,7 @@ main = ->
 
     #[test]
     fn lambda_does_not_capture_explicit_top_level_function() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let lambda = LambdaDecl {
             parameters: vec![],
             body: Block {
@@ -4863,7 +4872,7 @@ main = ->
 
     #[test]
     fn lowers_known_field_access_with_resolved_field_location() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_structure(point_struct());
         register_item_path(&mut lowerer, "Point", def_id(10));
 
@@ -4873,7 +4882,7 @@ main = ->
                 id: def_id(10),
                 args: Vec::new(),
             },
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         let field = lowerer.apply_secondary(
@@ -4896,7 +4905,7 @@ main = ->
 
     #[test]
     fn lowers_known_struct_literal_fields_with_resolved_field_locations() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_structure(point_struct());
         register_item_path(&mut lowerer, "Point", def_id(10));
 
@@ -4922,7 +4931,7 @@ main = ->
     #[test]
     fn struct_literal_resolved_fields_all_have_locations() {
         let point_id = def_id(10);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_structure(point_struct());
         register_item_path(&mut lowerer, "Point", point_id);
 
@@ -4956,7 +4965,7 @@ main = ->
 
     #[test]
     fn module_local_struct_alias_shadows_root_struct_for_instance_construction() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let root_id = def_id(48);
         let module_id = def_id(49);
         lowerer
@@ -4997,7 +5006,7 @@ main = ->
 
     #[test]
     fn struct_literal_private_field_check_matches_current_impl_by_struct_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(56);
         lowerer
             .items
@@ -5035,7 +5044,7 @@ main = ->
 
     #[test]
     fn struct_literal_private_field_check_matches_current_impl_by_pre_resolved_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(58);
         lowerer.items.insert_structure(private_field_struct(
             struct_id,
@@ -5070,7 +5079,7 @@ main = ->
 
     #[test]
     fn struct_literal_private_field_check_requires_resolved_current_impl_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = def_id(57);
         lowerer
             .items
@@ -5105,7 +5114,7 @@ main = ->
 
     #[test]
     fn lowers_known_enum_variant_constructor_with_resolved_variant_location() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_enumeration(option_enum());
         register_item_path(&mut lowerer, "Maybe", def_id(20));
 
@@ -5133,7 +5142,7 @@ main = ->
 
     #[test]
     fn lowers_named_enum_variant_fields_in_variant_definition_order() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_enumeration(record_enum());
         register_item_path(&mut lowerer, "Record", def_id(21));
 
@@ -5167,7 +5176,7 @@ main = ->
 
     #[test]
     fn leaves_unknown_struct_literal_fields_unresolved() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let literal = lowerer.lower_instance(&ast::Instance {
             name: ast::TypePath {

@@ -100,6 +100,7 @@ impl Lowerer {
 
         let mut methods = Vec::with_capacity(td.methods.len());
         for (ident, fd) in &td.methods {
+            self.diagnostics.set_current_span(ident.span.clone());
             let method_name = ident.name.clone();
             let Some(method_id) = trait_def.methods.get(&method_name).map(|method| method.id)
             else {
@@ -299,7 +300,7 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -319,7 +320,7 @@ mod tests {
         ParseType::Type(ParseTypeInner {
             name: name.to_string(),
             generics: Vec::new(),
-            span: Span::default(),
+            span: Span::test(),
         })
     }
 
@@ -333,7 +334,7 @@ mod tests {
                         UnaryExpr::PrimaryExpr(PrimaryExpr {
                             operand: Operand::Literal(Literal {
                                 kind,
-                                span: Span::default(),
+                                span: Span::test(),
                             }),
                             secondaries: None,
                             type_annotation: None,
@@ -354,7 +355,7 @@ mod tests {
             name: ParseTypeInner {
                 name: name.to_string(),
                 generics: Vec::new(),
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: Vec::new(),
             for_: None,
@@ -400,7 +401,7 @@ mod tests {
 
     #[test]
     fn trait_default_signature_stub_uses_canonical_params_without_duplicate_self() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(70);
         let signature_id = def_id(71);
         let default_id = def_id(72);
@@ -476,7 +477,7 @@ mod tests {
             name: ParseTypeInner {
                 name: "Reader".to_string(),
                 generics: Vec::new(),
-                span: Span::default(),
+                span: Span::test(),
             },
             generic_params: Vec::new(),
             for_: None,
@@ -530,7 +531,7 @@ mod tests {
 
     #[test]
     fn trait_default_bodies_report_missing_canonical_trait_name() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = def_id(73);
         let trait_decl = trait_decl(
             "Hidden",
@@ -564,7 +565,7 @@ mod tests {
 
     #[test]
     fn trait_default_bodies_restore_caller_trait_context() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let outer_trait_id = def_id(75);
         let trait_id = def_id(76);
         let trait_decl = trait_decl(
@@ -600,7 +601,7 @@ mod tests {
     #[test]
     fn trait_default_body_diagnostics_follow_method_def_id_order() {
         for _ in 0..16 {
-            let mut lowerer = Lowerer::new();
+            let mut lowerer = Lowerer::new_for_test();
             let trait_id = def_id(78);
             lowerer
                 .resolver
@@ -634,7 +635,7 @@ mod tests {
                 name: ParseTypeInner {
                     name: "Ordered".to_string(),
                     generics: Vec::new(),
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 generic_params: Vec::new(),
                 for_: None,
@@ -704,7 +705,7 @@ mod tests {
         };
         let mut indexing_ids = IndexingIds::new_root();
         let root_module_id = indexing_ids.root_module_id();
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.item_index = index_root_module_items(&mut indexing_ids, &module);
         let left_module_id = lowerer
             .item_index
@@ -777,7 +778,7 @@ mod tests {
         };
         let mut indexing_ids = IndexingIds::new_root();
         let root_module_id = indexing_ids.root_module_id();
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.item_index = index_root_module_items(&mut indexing_ids, &module);
 
         lowerer.lower_trait_default_bodies(&module, root_module_id);
@@ -809,7 +810,7 @@ mod tests {
         };
         let mut indexing_ids = IndexingIds::new_root();
         let root_module_id = indexing_ids.root_module_id();
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.item_index = index_root_module_items(&mut indexing_ids, &indexed_module);
 
         lowerer.lower_trait_default_bodies(&trait_module, root_module_id);

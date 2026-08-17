@@ -371,7 +371,7 @@ mod tests {
                 stmts: vec![HirStmt::Expr(HirExpr {
                     kind: HirExprKind::Var("param0".to_string()),
                     ty: Type::TypeVar(var_order[0]),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 })],
                 ty: Type::TypeVar(var_order[0]),
             },
@@ -583,7 +583,7 @@ mod tests {
         let function = function_with_type_vars(id, &[var]);
         let function_type_vars = HashMap::from([(id, HashSet::from([var]))]);
         let mut constraints = ConstraintStore::default();
-        constraints.add_int_literal(var, Default::default());
+        constraints.add_int_literal(var, crate::lexer::Span::test());
 
         let generalized =
             generalize_single_function(&engine, &constraints, &function_type_vars, function);

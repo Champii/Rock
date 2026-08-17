@@ -210,10 +210,33 @@ pub enum ParseType {
         pointee: Box<ParseType>,
     },
     Pointer(Box<ParseType>),
-    Unit,
+    Unit(Span),
 }
 
 impl ParseType {
+    pub fn span(&self) -> Span {
+        match self {
+            ParseType::Type(inner) => inner.span.clone(),
+            ParseType::Application(application) => application.span.clone(),
+            ParseType::Lambda(lambda) => lambda.span.clone(),
+            ParseType::Hole(hole) => hole.span.clone(),
+            ParseType::Associated { base, member } => Span::new(
+                base.span.file_path.clone(),
+                base.span.start,
+                member.span.end,
+            ),
+            ParseType::Slice(inner)
+            | ParseType::Array { inner, .. }
+            | ParseType::Reference { pointee: inner, .. }
+            | ParseType::Pointer(inner) => inner.span(),
+            ParseType::Tuple(types) | ParseType::Function(types) => types
+                .first()
+                .expect("compound parse type must retain a source element")
+                .span(),
+            ParseType::Unit(span) => span.clone(),
+        }
+    }
+
     /// Get the type name as a string for use in method lookups
     pub fn type_name(&self) -> String {
         match self {
@@ -241,7 +264,7 @@ impl ParseType {
                 .map(|a| a.type_name())
                 .collect::<Vec<_>>()
                 .join(" -> "),
-            ParseType::Unit => "()".to_string(),
+            ParseType::Unit(_) => "()".to_string(),
         }
     }
 
@@ -597,7 +620,7 @@ pub struct Argument {
     pub arg: Expression,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ident {
     pub name: String,
     pub span: Span,

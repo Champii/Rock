@@ -21,7 +21,7 @@ fn test_parse_assignment() {
                     kind: PatternKind::Ident(IdentPattern {
                         name: Ident {
                             name: "a".to_string(),
-                            span: Span::default(),
+                            span: Span::test(),
                         },
                         mut_: false,
                     })
@@ -31,7 +31,7 @@ fn test_parse_assignment() {
             rhs: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Literal(Literal {
                     kind: crate::ast::LiteralKind::Number(1),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 secondaries: None,
                 type_annotation: None,

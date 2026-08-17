@@ -19,7 +19,7 @@ fn native_operator() {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::NativeOperator(NativeOperator {
                 name: "IAdd".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,

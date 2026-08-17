@@ -4412,30 +4412,30 @@ mod product_tests {
                         Box::new(HirExpr {
                             kind: HirExprKindFor::Var("dep::answer".to_string()),
                             ty: Type::function(Vec::new(), Type::I64),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         Vec::new(),
                         Some(HirCallTarget::Function(function_id)),
                     ),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 HirExpr {
                     kind: HirExprKindFor::Call(
                         Box::new(HirExpr {
                             kind: HirExprKindFor::Var("foreign".to_string()),
                             ty: Type::function(Vec::new(), Type::I64),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         Vec::new(),
                         Some(HirCallTarget::Extern(extern_id)),
                     ),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 },
             ]),
             ty: Type::Tuple(vec![Type::I64, Type::I64]),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         super::remap_expr_child_locations(&mut expr, &remap, &child_validator, &type_validator, 0)
@@ -4483,13 +4483,13 @@ mod product_tests {
                     Box::new(HirExpr {
                         kind: HirExprKindFor::Var("local_fn".to_string()),
                         ty: Type::function(Vec::new(), Type::I64),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     Vec::new(),
                     Some(HirCallTarget::Local(crate::ids::HirLocalId(99))),
                 ),
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::I64,
         };
@@ -4532,7 +4532,7 @@ mod product_tests {
                     target: HirVarTarget::Local(crate::ids::HirLocalId(99)),
                 }),
                 ty: Type::function(Vec::new(), Type::I64),
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::function(Vec::new(), Type::I64),
         };
@@ -4587,20 +4587,20 @@ mod product_tests {
                         captures: Vec::new(),
                     },
                     ty: Type::function(Vec::new(), Type::Unit),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 HirStmt::Expr(HirExpr {
                     kind: HirExprKindFor::Call(
                         Box::new(HirExpr {
                             kind: HirExprKindFor::Var("callback".to_string()),
                             ty: Type::function(Vec::new(), Type::I64),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         Vec::new(),
                         Some(HirCallTarget::Local(lambda_local)),
                     ),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
             ],
             ty: Type::I64,
@@ -4648,13 +4648,13 @@ mod product_tests {
                         Box::new(HirExpr {
                             kind: HirExprKindFor::Var("local_fn".to_string()),
                             ty: Type::function(Vec::new(), Type::I64),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         Vec::new(),
                         Some(HirCallTarget::Local(let_local)),
                     ),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 mutable: false,
             }],
@@ -4687,7 +4687,7 @@ mod product_tests {
                 stmts: vec![HirStmt::Expr(HirExpr {
                     kind: HirExprKindFor::IntLiteral(5),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
                 ty: Type::I64,
             },
@@ -6198,7 +6198,7 @@ mod product_tests {
                 stmts: vec![HirStmt::Expr(HirExpr {
                     kind: HirExprKindFor::BoolLiteral(true),
                     ty: Type::Bool,
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
                 ty: Type::Bool,
             };
@@ -6868,7 +6868,7 @@ mod product_tests {
                             id: struct_def,
                             args: Vec::new(),
                         },
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     "value".to_string(),
                     Some(HirFieldLocation {
@@ -6878,7 +6878,7 @@ mod product_tests {
                     }),
                 ),
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             }),
             HirStmt::Expr(HirExpr {
                 kind: HirExprKindFor::EnumVariant(
@@ -6895,7 +6895,7 @@ mod product_tests {
                     id: enum_def,
                     args: Vec::new(),
                 },
-                span: Span::default(),
+                span: Span::test(),
             }),
         ];
         products.bodies.functions.insert(function_id, function);
@@ -7035,7 +7035,7 @@ mod product_tests {
                             args: Vec::new(),
                         }],
                     },
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 mutable: false,
             },
@@ -7047,7 +7047,7 @@ mod product_tests {
                             id: enum_def,
                             args: Vec::new(),
                         },
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     arms: vec![HirMatchArm {
                         pattern: HirPattern::Or(vec![
@@ -7092,14 +7092,14 @@ mod product_tests {
                             stmts: vec![HirStmt::Expr(HirExpr {
                                 kind: HirExprKindFor::IntLiteral(1),
                                 ty: Type::I64,
-                                span: Span::default(),
+                                span: Span::test(),
                             })],
                             ty: Type::I64,
                         },
                     }],
                 },
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             }),
             HirStmt::Expr(HirExpr {
                 kind: HirExprKindFor::Lambda {
@@ -7144,7 +7144,7 @@ mod product_tests {
                         args: Vec::new(),
                     },
                 ),
-                span: Span::default(),
+                span: Span::test(),
             }),
         ];
         function.ret_type = Type::Enum {
@@ -7546,7 +7546,7 @@ mod product_tests {
         let mut expr = HirExpr {
             kind: HirExprKindFor::IntLiteral(1),
             ty: Type::Error,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = super::remap_expr_child_locations(
@@ -7672,7 +7672,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -7684,7 +7684,7 @@ mod product_tests {
                 ),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let products = product_with_function("dep", ProductCrateId(0), 0, PathBuf::from("dep.o"));
         let remap = super::ProductIdentityRemap {
@@ -7812,7 +7812,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -7825,7 +7825,7 @@ mod product_tests {
                 ),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = validate_artifact_expr(&products, &mut expr).unwrap_err();
@@ -7875,7 +7875,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -7891,7 +7891,7 @@ mod product_tests {
                 ),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = validate_artifact_expr(&products, &mut expr).unwrap_err();
@@ -7939,7 +7939,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -7947,7 +7947,7 @@ mod product_tests {
                 HirMethodCallTarget::impl_method(impl_id, method_id, None),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = validate_artifact_expr(&products, &mut expr).unwrap_err();
@@ -7988,7 +7988,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "make".to_string(),
                 Vec::new(),
@@ -7996,7 +7996,7 @@ mod product_tests {
                 HirMethodCallTarget::impl_method(impl_id, method_id, None),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = validate_artifact_expr(&products, &mut expr).unwrap_err();
@@ -8040,7 +8040,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::Var("value".to_string()),
                     ty: Type::function(Vec::new(), Type::I64),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 Vec::new(),
                 Some(crate::hir::HirCallTarget::StaticMethod(
@@ -8051,7 +8051,7 @@ mod product_tests {
                 )),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = validate_artifact_expr(&products, &mut expr).unwrap_err();
@@ -8083,19 +8083,19 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::ArrayLiteral(Vec::new()),
                     ty: Type::Array(Box::new(Type::I64), 0),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "index".to_string(),
                 vec![HirExpr {
                     kind: HirExprKindFor::IntLiteral(0),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }],
                 None,
                 target,
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = validate_artifact_expr(&products, &mut expr).unwrap_err();
@@ -8167,7 +8167,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -8179,7 +8179,7 @@ mod product_tests {
                 ),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let remap = super::ProductIdentityRemap {
             local_crate: ProductCrateId(0),
@@ -8257,7 +8257,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -8273,7 +8273,7 @@ mod product_tests {
                 ),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let remap = super::ProductIdentityRemap {
             local_crate: ProductCrateId(0),
@@ -8350,7 +8350,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -8363,7 +8363,7 @@ mod product_tests {
                 ),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let remap = super::ProductIdentityRemap {
             local_crate: ProductCrateId(0),
@@ -8428,7 +8428,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -8441,7 +8441,7 @@ mod product_tests {
                 ),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let remap = super::ProductIdentityRemap {
             local_crate: ProductCrateId(0),
@@ -8473,7 +8473,7 @@ mod product_tests {
                 target: HirVarTarget::Function(DefId::new(CrateId(0), LocalDefId(99))),
             }),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let products = product_with_function("dep", ProductCrateId(0), 0, PathBuf::from("dep.o"));
         let remap = super::ProductIdentityRemap {
@@ -8522,7 +8522,7 @@ mod product_tests {
                 target: HirVarTarget::Function(extern_def),
             }),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let remap = super::ProductIdentityRemap {
             local_crate: ProductCrateId(0),
@@ -8555,7 +8555,7 @@ mod product_tests {
                 target: HirVarTarget::Extern(function_def),
             }),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let products = product_with_function("dep", ProductCrateId(0), 0, PathBuf::from("dep.o"));
         let remap = super::ProductIdentityRemap {
@@ -8590,7 +8590,7 @@ mod product_tests {
                 Vec::new(),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let products = product_with_function("dep", ProductCrateId(0), 0, PathBuf::from("dep.o"));
         let remap = super::ProductIdentityRemap {
@@ -8700,7 +8700,7 @@ mod product_tests {
                     value: HirExpr {
                         kind: HirExprKindFor::IntLiteral(1),
                         ty: Type::I64,
-                        span: Span::default(),
+                        span: Span::test(),
                     },
                     field: Some(HirFieldLocation {
                         owner: second_struct_def,
@@ -8710,7 +8710,7 @@ mod product_tests {
                 }],
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let remap = super::ProductIdentityRemap {
             local_crate: ProductCrateId(0),
@@ -8844,7 +8844,7 @@ mod product_tests {
                     target: HirVarTarget::Function(DefId::new(CrateId(1), LocalDefId(0))),
                 }),
                 ty: Type::function(Vec::new(), Type::I64),
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::function(Vec::new(), Type::I64),
         };
@@ -8907,7 +8907,7 @@ mod product_tests {
                     target: HirVarTarget::Function(DefId::new(CrateId(1), LocalDefId(7))),
                 }),
                 ty: Type::function(Vec::new(), Type::I64),
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::function(Vec::new(), Type::I64),
         };
@@ -8976,7 +8976,7 @@ mod product_tests {
                     target: HirVarTarget::Extern(DefId::new(CrateId(1), LocalDefId(7))),
                 }),
                 ty: Type::function(Vec::new(), Type::I64),
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::function(Vec::new(), Type::I64),
         };
@@ -9022,7 +9022,7 @@ mod product_tests {
                     target: HirVarTarget::Extern(DefId::new(CrateId(1), LocalDefId(0))),
                 }),
                 ty: Type::function(Vec::new(), Type::I64),
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::function(Vec::new(), Type::I64),
         };
@@ -9064,7 +9064,7 @@ mod product_tests {
                     target: HirVarTarget::Function(DefId::new(CrateId(0), LocalDefId(0))),
                 }),
                 ty: Type::function(Vec::new(), Type::I64),
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::function(Vec::new(), Type::I64),
         };
@@ -9361,7 +9361,7 @@ mod product_tests {
                 Box::new(HirExpr {
                     kind: HirExprKindFor::IntLiteral(1),
                     ty: Type::I64,
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 "value".to_string(),
                 Vec::new(),
@@ -9373,7 +9373,7 @@ mod product_tests {
                 ),
             ),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let err =
@@ -9423,7 +9423,7 @@ mod product_tests {
                     target: HirVarTarget::Extern(extern_def),
                 }),
                 ty: Type::function(Vec::new(), Type::I64),
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::function(Vec::new(), Type::I64),
         };
@@ -9464,7 +9464,7 @@ mod product_tests {
                     target: HirVarTarget::Function(DefId::new(CrateId(1), LocalDefId(0))),
                 }),
                 ty: Type::function(Vec::new(), Type::I64),
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::function(Vec::new(), Type::I64),
         };
@@ -9509,7 +9509,7 @@ mod product_tests {
                 target: HirVarTarget::Function(right_def),
             }),
             ty: Type::function(Vec::new(), Type::I64),
-            span: Span::default(),
+            span: Span::test(),
         };
         let remap = super::ProductIdentityRemap {
             local_crate: ProductCrateId(0),
@@ -9591,7 +9591,7 @@ mod product_tests {
                     Box::new(HirExpr {
                         kind: HirExprKindFor::IntLiteral(1),
                         ty: Type::I64,
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     "value".to_string(),
                     Vec::new(),
@@ -9603,7 +9603,7 @@ mod product_tests {
                     ),
                 ),
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::I64,
         };
@@ -9673,7 +9673,7 @@ mod product_tests {
                             id: dep_struct_ref,
                             args: Vec::new(),
                         },
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     "value".to_string(),
                     Some(HirFieldLocation {
@@ -9683,7 +9683,7 @@ mod product_tests {
                     }),
                 ),
                 ty: Type::I64,
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::I64,
         };
@@ -9765,7 +9765,7 @@ mod product_tests {
                     id: dep_enum_ref,
                     args: Vec::new(),
                 },
-                span: Span::default(),
+                span: Span::test(),
             })],
             ty: Type::Enum {
                 id: dep_enum_ref,
@@ -9832,7 +9832,7 @@ mod product_tests {
         let mut expr = HirExpr {
             kind: HirExprKindFor::IntLiteral(1),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let remap = super::ProductIdentityRemap {
             local_crate: ProductCrateId(0),

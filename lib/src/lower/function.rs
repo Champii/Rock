@@ -764,14 +764,14 @@ mod tests {
     fn ident(name: &str) -> Ident {
         Ident {
             name: name.to_string(),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
     fn unit_signature(name: &str) -> FunctionSig {
         FunctionSig {
             name: ident(name),
-            sig: ParseType::Function(vec![]),
+            sig: ParseType::Unit(crate::lexer::Span::test()),
             where_clauses: vec![],
             self_receiver: None,
             is_unsafe: false,
@@ -783,7 +783,7 @@ mod tests {
         ParseType::Type(ParseTypeInner {
             name: name.to_string(),
             generics: Vec::new(),
-            span: Span::default(),
+            span: Span::test(),
         })
     }
 
@@ -846,7 +846,7 @@ mod tests {
 
     #[test]
     fn lower_method_signature_injects_shared_self_receiver_type() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let signature_id = def_id(30);
         let sig = FunctionSig {
             name: ident("is_valid"),
@@ -882,7 +882,7 @@ mod tests {
 
     #[test]
     fn collect_function_sig_uses_explicit_declaration_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let declaration = single_param_function_decl("identity", "value");
         let function_id = def_id(31);
 
@@ -894,7 +894,7 @@ mod tests {
 
     #[test]
     fn lower_method_signature_injects_mut_and_move_self_receiver_types() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let mut_sig = FunctionSig {
             name: ident("set"),
             sig: ParseType::Function(vec![named_type("I64"), named_type("Unit")]),
@@ -926,7 +926,7 @@ mod tests {
 
     #[test]
     fn lower_signature_backed_mut_method_remaps_hidden_self_receiver_generic() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let signature_id = def_id(33);
         let function_id = def_id(34);
         let signature_self = GenericParamId {
@@ -978,7 +978,7 @@ mod tests {
 
     #[test]
     fn generic_param_descriptor_method_keeps_public_name_paired_after_hidden_self() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let signature_id = def_id(35);
         let function_id = def_id(36);
         let signature_self = GenericParamId {
@@ -1066,7 +1066,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "missing canonical function signature identity")]
     fn lower_function_sig_panics_without_current_trait_signature_identity() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = DefId::new(CrateId(0), LocalDefId(10));
         lowerer.current_trait = Some("Show".to_string());
         lowerer.generic_context = Some(crate::lower::body_context::GenericLoweringContext::new(
@@ -1080,7 +1080,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "missing canonical function signature identity")]
     fn lower_function_sig_rejects_top_level_collision_in_trait_context() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = DefId::new(CrateId(0), LocalDefId(10));
         let top_level_id = DefId::new(CrateId(0), LocalDefId(11));
         lowerer.current_trait = Some("Show".to_string());
@@ -1098,7 +1098,7 @@ mod tests {
 
     #[test]
     fn lower_function_sig_with_id_uses_explicit_id_for_signature_generics() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let stale_resolver_id = def_id(11);
         let signature_id = def_id(12);
         lowerer
@@ -1124,7 +1124,7 @@ mod tests {
 
     #[test]
     fn lower_function_decl_header_remaps_signature_owned_generics_to_function_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let signature_id = def_id(13);
         let function_id = def_id(14);
         let signature_generic = GenericParamId {
@@ -1162,7 +1162,7 @@ mod tests {
 
     #[test]
     fn lower_function_decl_header_drops_unused_signature_generics() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = def_id(15);
         let phantom_generic = GenericParamId {
             owner: function_id,

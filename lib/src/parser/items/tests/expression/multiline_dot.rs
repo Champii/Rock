@@ -22,17 +22,17 @@ fn multiline_dot() {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "foo".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: Some(vec![
                 SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                     name: "bar".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })),
                 SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                     name: "baz".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })),
             ]),
             type_annotation: None,

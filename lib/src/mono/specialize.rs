@@ -767,7 +767,7 @@ mod tests {
         HirExpr {
             kind: HirExprKind::Var("value".to_string()),
             ty,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         }
     }
 
@@ -912,7 +912,7 @@ mod tests {
         let args = vec![HirExpr {
             kind: HirExprKind::IntLiteral(21),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         }];
 
         let (instance_id, func_ty, ret_ty) = mono

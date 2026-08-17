@@ -568,7 +568,7 @@ fn trait_declaration_valid() {
     assert_eq!(t.signatures.len(), 1);
     assert!(t.signatures.contains_key(&Ident {
         name: "display".to_string(),
-        ..Default::default()
+        span: crate::lexer::Span::test(),
     }));
 }
 
@@ -2888,14 +2888,14 @@ main = ->
             .fields
             .get(&Ident {
                 name: "x".to_string(),
-                ..Default::default()
+                span: crate::lexer::Span::test(),
             })
             .expect("should have x");
         let y_expr = inst
             .fields
             .get(&Ident {
                 name: "y".to_string(),
-                ..Default::default()
+                span: crate::lexer::Span::test(),
             })
             .expect("should have y");
         assert_eq!(lit_number(x_expr), 10);
@@ -2924,7 +2924,7 @@ main = ->
             .fields
             .get(&Ident {
                 name: "x".to_string(),
-                ..Default::default()
+                span: crate::lexer::Span::test(),
             })
             .expect("should have x");
         // x's value should be a BinopExpr: 1 + 2
@@ -2955,7 +2955,7 @@ impl Foo
         .methods
         .get(&Ident {
             name: "get".to_string(),
-            ..Default::default()
+            span: crate::lexer::Span::test(),
         })
         .expect("should have get method");
     let body_expr = as_expr(&get.lambda.body.statements[0]);

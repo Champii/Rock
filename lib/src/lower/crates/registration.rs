@@ -160,7 +160,7 @@ mod tests {
             },
         );
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         LowerCrateRegistration::new(&crate_ctx).register_crate_functions(&mut lowerer);
 
@@ -187,7 +187,7 @@ mod tests {
                 ExternCrateLink::metadata_only(BTreeMap::new()),
             ))
             .unwrap();
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         LowerCrateRegistration::new(&crate_ctx).register_crate_functions(&mut lowerer);
 
@@ -250,7 +250,7 @@ mod tests {
             ))
             .unwrap();
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         LowerCrateRegistration::new(&crate_ctx).register_crate_functions(&mut lowerer);
 
         let method = lowerer
@@ -312,7 +312,7 @@ mod tests {
             ))
             .unwrap();
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         LowerCrateRegistration::new(&crate_ctx).register_crate_functions(&mut lowerer);
 
         assert!(lowerer

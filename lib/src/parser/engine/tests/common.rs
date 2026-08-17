@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 /// Helper function to create tokens from input string
 pub fn lex_test(input: &str) -> Vec<Token> {
-    let mut tokens = Lexer::new(PathBuf::new(), input)
+    let mut tokens = Lexer::new(PathBuf::from("/test.rk"), input)
         .unwrap()
         .with_newline_at_end(false)
         .collect()
@@ -24,7 +24,10 @@ pub fn lex_test(input: &str) -> Vec<Token> {
 pub fn make_ctx(input: &str) -> ParseCtx<'static> {
     let tokens = Box::leak(Box::new(lex_test(input)));
     let config = Box::leak(Box::new(Config::default()));
-    ParseCtx::from(tokens, config)
+    let eof_path = Box::leak(Box::new(PathBuf::from("/test.rk")));
+    let mut context = ParseCtx::from(tokens, config);
+    context.eof_location = Some((eof_path, input.len()));
+    context
 }
 
 /// Helper to create a parser that matches an identifier

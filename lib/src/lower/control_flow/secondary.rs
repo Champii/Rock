@@ -322,15 +322,11 @@ impl Lowerer {
                     ) {
                         continue;
                     }
-                    let mut targets = concrete
-                        .iter()
-                        .map(|candidate| candidate.target.clone())
-                        .collect::<Vec<_>>();
-                    targets.sort_by_key(|target| (target.impl_id(), target.method_id()));
+                    let receiver_type = self.display_type(&receiver_candidate.expr.ty);
                     self.diagnostics.push_with_span(
                         format!(
-                            "Ambiguous selection for '{}' on type {}: {:?}",
-                            method_name, receiver_candidate.expr.ty, targets
+                            "Ambiguous selection for '{}' on type {}: multiple matching implementations",
+                            method_name, receiver_type
                         ),
                         recv_span.clone(),
                     );
@@ -687,27 +683,7 @@ impl Lowerer {
     }
 
     fn index_display_type(&self, ty: &Type) -> String {
-        match ty {
-            Type::Struct { id, args } | Type::Enum { id, args } => self
-                .canonical_name_for_def_id(*id)
-                .map(|name| {
-                    let name = name.rsplit("::").next().unwrap_or(name);
-                    if args.is_empty() {
-                        name.to_string()
-                    } else {
-                        format!(
-                            "{}<{}>",
-                            name,
-                            args.iter()
-                                .map(Type::to_string)
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        )
-                    }
-                })
-                .unwrap_or_else(|| ty.to_string()),
-            _ => ty.to_string(),
-        }
+        self.display_type(ty)
     }
 
     pub(crate) fn apply_secondary(
@@ -717,7 +693,7 @@ impl Lowerer {
         use_kind: ExprUse,
         method_as_value: bool,
     ) -> HirExpr {
-        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let span = self.diagnostics.current_span().clone();
         match secondary {
             ast::SecondaryExpr::Arguments(args) => {
                 let mut expr = expr;
@@ -1033,9 +1009,11 @@ impl Lowerer {
                             if is_atomic {
                                 let resolved = self.engine.resolve(&arg.ty);
                                 if resolved != *expected_ty {
+                                    let expected = self.display_type(expected_ty);
+                                    let found = self.display_type(&resolved);
                                     self.diagnostics.push(format!(
                                         "Intrinsic '~{}' expected argument type {}, found {}",
-                                        name, expected_ty, resolved
+                                        name, expected, found
                                     ));
                                 }
                             }
@@ -1060,8 +1038,9 @@ impl Lowerer {
                                         Type::Slice(_) | Type::Array(_, _)
                                     ) => {}
                                 Type::Array(_, _) if name == "ArrPtr" => {
+                                    let actual = self.display_type(&resolved_arg_ty);
                                     self.diagnostics.push_with_span(
-                                        format!("ArrPtr expected slice, got {}", resolved_arg_ty),
+                                        format!("ArrPtr expected slice, got {}", actual),
                                         hir_args[0].span.clone(),
                                     );
                                     intrinsic_ty_error = true;
@@ -1090,11 +1069,9 @@ impl Lowerer {
                                     let resolved_arg_ty = self.resolve_projection_type(
                                         &self.engine.resolve(&hir_args[0].ty),
                                     );
+                                    let actual = self.display_type(&resolved_arg_ty);
                                     self.diagnostics.push_with_span(
-                                        format!(
-                                            "DropInPlace expected raw pointer, got {}",
-                                            resolved_arg_ty
-                                        ),
+                                        format!("DropInPlace expected raw pointer, got {}", actual),
                                         hir_args[0].span.clone(),
                                     );
                                     intrinsic_ty_error = true;
@@ -1327,10 +1304,11 @@ impl Lowerer {
                         if inferred.len() == 1 {
                             found_method = inferred.into_iter().next();
                         } else if inferred.len() > 1 {
+                            let receiver_type = self.display_type(&recv_ty);
                             self.diagnostics.push_with_span(
                                 format!(
                                     "Ambiguous selection for '{}' on type {}",
-                                    ident.name, recv_ty
+                                    ident.name, receiver_type
                                 ),
                                 span.clone(),
                             );
@@ -1823,8 +1801,8 @@ impl Lowerer {
                         return self.error_expression_at(span.clone());
                     }
                     Err(error) => {
-                        self.diagnostics
-                            .push_with_span(error.message(), span.clone());
+                        let message = self.display_selection_error(&error);
+                        self.diagnostics.push_with_span(message, span.clone());
                         return self.error_expression_at(span.clone());
                     }
                 }
@@ -2086,9 +2064,12 @@ impl Lowerer {
             Err(error) => {
                 let message = match error {
                     crate::selection::SelectionDiagnostic::NoImplementation { .. } => {
-                        format!("Cannot use '?' on non-carrier type {}", carrier_ty)
+                        format!(
+                            "Cannot use '?' on non-carrier type {}",
+                            self.display_type(&carrier_ty)
+                        )
                     }
-                    _ => error.message(),
+                    _ => self.display_selection_error(&error),
                 };
                 self.diagnostics.push_with_span(message, span.clone());
                 return HirExpr {
@@ -2211,11 +2192,15 @@ impl Lowerer {
             Ok(selected) => selected,
             Err(error) => {
                 let message = match error {
-                    crate::selection::SelectionDiagnostic::NoImplementation { .. } => format!(
-                        "Cannot use '?' because {} does not implement FromResidual {}",
-                        return_ty, residual_ty
-                    ),
-                    _ => error.message(),
+                    crate::selection::SelectionDiagnostic::NoImplementation { .. } => {
+                        let return_type = self.display_type(&return_ty);
+                        let residual_type = self.display_type(&residual_ty);
+                        format!(
+                            "Cannot use '?' because {} does not implement FromResidual {}",
+                            return_type, residual_type
+                        )
+                    }
+                    _ => self.display_selection_error(&error),
                 };
                 self.diagnostics.push_with_span(message, span.clone());
                 return self.error_expression();
@@ -2462,7 +2447,7 @@ mod tests {
     }
 
     fn lowerer_with_type_var_method_bound() -> (Lowerer, Type, DefId, DefId) {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let trait_id = DefId::new(CrateId(0), LocalDefId(10));
         let method_id = DefId::new(CrateId(0), LocalDefId(11));
@@ -2497,11 +2482,11 @@ mod tests {
 
     #[test]
     fn range_secondary_without_range_definition_lowers_without_semantic_def_id() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let start = HirExpr {
             kind: HirExprKind::IntLiteral(1),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let lowered = lowerer.apply_secondary(
@@ -2520,7 +2505,7 @@ mod tests {
 
     #[test]
     fn try_with_missing_marked_trait_id_reports_protocol_unavailable() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.language_items.try_protocol = Some(TryLanguageItems {
             try_trait_id: DefId::new(CrateId(0), LocalDefId(100)),
             output_id: AssocTypeId(0),
@@ -2548,7 +2533,7 @@ mod tests {
     }
 
     fn lowerer_with_type_var_signature_bound() -> (Lowerer, Type, DefId, DefId) {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = DefId::new(CrateId(0), LocalDefId(30));
         let signature_id = DefId::new(CrateId(0), LocalDefId(31));
         let self_param = GenericParamId {
@@ -2597,7 +2582,7 @@ mod tests {
     }
 
     fn lowerer_with_inherent_method() -> (Lowerer, DefId, DefId) {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = DefId::new(CrateId(0), LocalDefId(10));
         let impl_id = DefId::new(CrateId(0), LocalDefId(20));
         let method_id = DefId::new(CrateId(0), LocalDefId(21));
@@ -2672,7 +2657,7 @@ mod tests {
         HirExpr {
             kind: HirExprKind::Var("receiver".to_string()),
             ty,
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -2680,7 +2665,7 @@ mod tests {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: LiteralKind::Number(value),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,
@@ -2692,7 +2677,7 @@ mod tests {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: name.to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: None,
@@ -2705,7 +2690,7 @@ mod tests {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: name.to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: Some(vec![SecondaryExpr::Arguments(
@@ -2719,7 +2704,7 @@ mod tests {
 
     #[test]
     fn direct_function_call_records_call_target() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = DefId::new(CrateId(0), LocalDefId(88));
         lowerer
             .items
@@ -2758,7 +2743,7 @@ mod tests {
 
     #[test]
     fn direct_extern_call_records_call_target() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let extern_id = DefId::new(CrateId(0), LocalDefId(89));
         lowerer.items.insert_extern(HirExtern {
             id: extern_id,
@@ -2793,7 +2778,7 @@ mod tests {
 
     #[test]
     fn local_function_value_call_records_call_target() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let expr = call_expr("callback", Vec::new());
         let (local_id, hir) = lowerer.with_test_body_context(|lowerer| {
             let local_id = lowerer.fresh_local_id();
@@ -2814,7 +2799,7 @@ mod tests {
 
     #[test]
     fn arity_error_direct_call_records_call_target() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let function_id = DefId::new(CrateId(0), LocalDefId(91));
         lowerer
             .items
@@ -2847,15 +2832,13 @@ mod tests {
 
     #[test]
     fn unsupported_index_produces_error_expression() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let source_span = Span {
             file_path: "main.rk".into(),
             start: 10,
             end: 15,
         };
-        lowerer
-            .diagnostics
-            .set_current_span(Some(source_span.clone()));
+        lowerer.diagnostics.set_current_span(source_span.clone());
 
         let lowered = lowerer.apply_secondary(
             receiver_expr(Type::Str),
@@ -2884,7 +2867,7 @@ mod tests {
 
     #[test]
     fn accepted_index_is_selected_method_call() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let bag_id = DefId::new(CrateId(0), LocalDefId(50));
         let trait_id = DefId::new(CrateId(1), LocalDefId(150));
         let impl_id = DefId::new(CrateId(0), LocalDefId(52));
@@ -3036,7 +3019,7 @@ mod tests {
                 None,
             ),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let lowered = lowerer.apply_secondary(
@@ -3058,7 +3041,7 @@ mod tests {
 
     #[test]
     fn type_var_without_bounds_does_not_select_unowned_method() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let receiver_ty = lowerer.engine.fresh_type_var();
         let field = HirExpr {
             kind: HirExprKind::FieldAccess(
@@ -3067,7 +3050,7 @@ mod tests {
                 None,
             ),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let lowered = lowerer.apply_secondary(
@@ -3086,7 +3069,7 @@ mod tests {
 
     #[test]
     fn concrete_receiver_does_not_select_method_without_impl_identity() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = DefId::new(CrateId(0), LocalDefId(10));
         lowerer.items.insert_structure(HirStruct {
             id: struct_id,
@@ -3104,7 +3087,7 @@ mod tests {
                 None,
             ),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let lowered = lowerer.apply_secondary(
@@ -3132,7 +3115,7 @@ mod tests {
                 None,
             ),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let lowered = lowerer.apply_secondary(
@@ -3154,7 +3137,7 @@ mod tests {
 
     #[test]
     fn current_trait_self_signature_call_uses_signature_return_type() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_id = DefId::new(CrateId(0), LocalDefId(40));
         let signature_id = DefId::new(CrateId(0), LocalDefId(41));
         let invalid_signature_id = DefId::new(CrateId(u32::MAX), LocalDefId(u32::MAX - 1));
@@ -3224,7 +3207,7 @@ mod tests {
                 None,
             ),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let lowered = lowerer.apply_secondary(
@@ -3252,7 +3235,7 @@ mod tests {
             receiver_expr(receiver_ty),
             &SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                 name: "value".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             })),
             ExprUse::Value,
             true,
@@ -3284,7 +3267,7 @@ mod tests {
         let field = HirExpr {
             kind: HirExprKind::FieldAccess(Box::new(receiver), "value".to_string(), None),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let lowered = lowerer.apply_secondary(
@@ -3338,7 +3321,7 @@ mod tests {
             receiver,
             &SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                 name: "value".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             })),
             ExprUse::Value,
             false,
@@ -3367,7 +3350,7 @@ mod tests {
             }),
             &SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                 name: "value".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             })),
             ExprUse::Value,
             true,
@@ -3399,7 +3382,7 @@ mod tests {
         let field = HirExpr {
             kind: HirExprKind::FieldAccess(Box::new(receiver), "value".to_string(), None),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
         let lowered = lowerer.apply_secondary(
             field,
@@ -3408,7 +3391,7 @@ mod tests {
                     crate::ast::PrimaryExpr {
                         operand: crate::ast::Operand::Literal(crate::ast::Literal {
                             kind: crate::ast::LiteralKind::Number(1),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         secondaries: None,
                         type_annotation: None,
@@ -3432,7 +3415,7 @@ mod tests {
 
     #[test]
     fn type_var_field_access_uses_canonical_struct_name() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let point_id = DefId::new(CrateId(0), LocalDefId(1));
         lowerer.current_def_ids.insert(point_id);
         lowerer.items.insert_structure(HirStruct {
@@ -3458,13 +3441,13 @@ mod tests {
         let base = HirExpr {
             kind: HirExprKind::Var("point".to_string()),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
         let lowered = lowerer.apply_secondary(
             base,
             &SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                 name: "x".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             })),
             ExprUse::Value,
             false,
@@ -3476,7 +3459,7 @@ mod tests {
 
     #[test]
     fn type_var_field_access_remains_unresolved_when_multiple_structs_match() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_structure(HirStruct {
             id: DefId::new(CrateId(0), LocalDefId(1)),
             name: "First".to_string(),
@@ -3503,13 +3486,13 @@ mod tests {
         let base = HirExpr {
             kind: HirExprKind::Var("receiver".to_string()),
             ty: lowerer.engine.fresh_type_var(),
-            span: Span::default(),
+            span: Span::test(),
         };
         let lowered = lowerer.apply_secondary(
             base,
             &SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                 name: "value".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             })),
             ExprUse::Value,
             false,

@@ -518,7 +518,7 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).unwrap();
         let root = temp_dir.join("main.rk");
 
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.modules.set_current_module_path(root);
 
         let error = SourceModuleResolver::new(&mut lowerer.modules)
@@ -532,7 +532,7 @@ mod tests {
 
     #[test]
     fn import_alias_does_not_remove_current_crate_function_with_same_short_name() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let local_id = DefId::new(CrateId(0), LocalDefId(1));
         let imported_id = DefId::new(CrateId(7), LocalDefId(1));
         lowerer.current_def_ids.insert(local_id);
@@ -573,7 +573,7 @@ mod tests {
 
     #[test]
     fn import_struct_registers_resolver_alias_metadata() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let struct_id = DefId::new(CrateId(7), LocalDefId(2));
         lowerer
             .items
@@ -603,7 +603,7 @@ mod tests {
 
     #[test]
     fn import_enum_and_trait_register_resolver_alias_metadata() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let enum_id = DefId::new(CrateId(7), LocalDefId(3));
         let trait_id = DefId::new(CrateId(7), LocalDefId(4));
         lowerer
@@ -668,7 +668,7 @@ mod tests {
         let alias_module = Module {
             name: Some(Ident {
                 name: "io".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
@@ -677,13 +677,13 @@ mod tests {
         let graph_module = Module {
             name: Some(Ident {
                 name: "io".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
             filepath: Some(graph_io.clone()),
         };
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.modules = crate::lower::services::LowerModuleService::from_source_modules(vec![
             loaded_module("math::io", alias_io.clone(), alias_module),
             loaded_module("test::math::io", graph_io.clone(), graph_module),
@@ -718,13 +718,13 @@ mod tests {
         let module = Module {
             name: Some(Ident {
                 name: "util".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             top_levels: vec![],
             is_inline: false,
             filepath: Some(util.clone()),
         };
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.modules =
             crate::lower::services::LowerModuleService::from_source_modules(vec![loaded_module(
                 "dep", dep_root, module,

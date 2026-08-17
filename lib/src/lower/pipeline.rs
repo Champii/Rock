@@ -40,6 +40,7 @@ impl<'a> LoweringPipeline<'a> {
             self.program.module.filepath.as_deref(),
         );
         session.prepare_lowerer(&mut lowerer);
+        lowerer.refresh_type_display_context();
         self.prepare_traits(&session, &mut lowerer);
         self.lower_dependency_bodies(&session, &mut lowerer);
         self.lower_current_crate_bodies(&mut lowerer);
@@ -123,6 +124,7 @@ impl<'a> LoweringPipeline<'a> {
             imported_effective_trait_methods: lowerer.imported_effective_trait_methods,
             inference_sccs: lowerer.inference_sccs.clone(),
             inference_scc_order: lowerer.inference_scc_order,
+            source_map: lowerer.source_map,
         })
     }
 }
@@ -216,7 +218,7 @@ mod tests {
     fn lowering_pipeline_preserves_deferred_impl_and_extern_ids() {
         let first = DefId::new(CrateId(0), LocalDefId(1));
         let second = DefId::new(CrateId(0), LocalDefId(2));
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_impl(test_impl(second)).unwrap();
         lowerer.items.insert_impl(test_impl(first)).unwrap();
         lowerer.items.insert_extern(test_extern(second));

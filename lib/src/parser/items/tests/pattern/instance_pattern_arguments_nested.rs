@@ -21,7 +21,7 @@ fn instance_pattern_arguments_nested() {
                     path: vec![IdentOrType::Type(ParseType::Type(ParseTypeInner {
                         name: "Player".to_string(),
                         generics: vec![],
-                        span: Span::default(),
+                        span: Span::test(),
                     }))]
                 },
                 args: FieldsPatternOrArgumentsPattern::Arguments(vec![
@@ -35,7 +35,7 @@ fn instance_pattern_arguments_nested() {
                                         ParseTypeInner {
                                             name: "Ok".to_string(),
                                             generics: vec![],
-                                            span: Span::default(),
+                                            span: Span::test(),
                                         }
                                     ))]
                                 },
@@ -43,7 +43,7 @@ fn instance_pattern_arguments_nested() {
                                     binding: None,
                                     kind: PatternKind::Literal(Literal {
                                         kind: LiteralKind::Number(1),
-                                        span: Span::default(),
+                                        span: Span::test(),
                                     })
                                 }])
                             })
@@ -54,7 +54,7 @@ fn instance_pattern_arguments_nested() {
                         kind: PatternKind::Ident(IdentPattern {
                             name: Ident {
                                 name: "toto".to_string(),
-                                span: Span::default(),
+                                span: Span::test(),
                             },
                             mut_: false,
                         })

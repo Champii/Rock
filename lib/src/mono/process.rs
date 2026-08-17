@@ -320,7 +320,8 @@ impl Monomorphizer {
                             expr.ty = ret_ty;
                         }
                         Err(error) => {
-                            self.diagnostics.push(error.diagnostic());
+                            let diagnostic = error.diagnostic(&self.resolver);
+                            self.diagnostics.push(diagnostic);
                         }
                     }
                 }
@@ -453,7 +454,8 @@ impl Monomorphizer {
                         if let Err(error) =
                             self.monomorphize_trait_method_call(&method_name_clone, &all_args, expr)
                         {
-                            self.diagnostics.push(error.diagnostic());
+                            let diagnostic = error.diagnostic(&self.resolver);
+                            self.diagnostics.push(diagnostic);
                         }
                     }
                     crate::hir::HirSelectedMethodTarget::ImplMethod { .. } => {
@@ -462,7 +464,8 @@ impl Monomorphizer {
                             &all_args,
                             expr,
                         ) {
-                            self.diagnostics.push(error.diagnostic());
+                            let diagnostic = error.diagnostic(&self.resolver);
+                            self.diagnostics.push(diagnostic);
                         }
                     }
                 }
@@ -517,7 +520,8 @@ impl Monomorphizer {
                     if let Err(error) =
                         self.monomorphize_trait_method_call("branch", &args, &mut branch_call)
                     {
-                        self.diagnostics.push(error.diagnostic());
+                        let diagnostic = error.diagnostic(&self.resolver);
+                        self.diagnostics.push(diagnostic);
                     }
                     if let HirExprKind::Call(_, _, Some(HirCallTarget::Instance(instance_id))) =
                         branch_call.kind
@@ -543,7 +547,8 @@ impl Monomorphizer {
                     ) {
                         Ok((_, call_target, _)) => *from_residual_target = call_target,
                         Err(error) => {
-                            self.diagnostics.push(error.diagnostic());
+                            let diagnostic = error.diagnostic(&self.resolver);
+                            self.diagnostics.push(diagnostic);
                         }
                     }
                 }
@@ -1075,7 +1080,7 @@ mod tests {
                 stmts: vec![HirStmt::Return(Some(HirExpr {
                     kind: HirExprKind::Var("value".to_string()),
                     ty: Type::Generic(generic_id),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }))],
                 ty: Type::Generic(generic_id),
             },
@@ -1147,7 +1152,7 @@ mod tests {
                         owner: id,
                         index: 0,
                     }),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }))],
                 ty: Type::Generic(GenericParamId {
                     owner: id,
@@ -1166,17 +1171,17 @@ mod tests {
                 Box::new(HirExpr {
                     kind: HirExprKind::Var("identity".to_string()),
                     ty: Type::function(vec![Type::I64], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::IntLiteral(21),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 None,
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1200,7 +1205,7 @@ mod tests {
         let mut expr = HirExpr {
             kind: HirExprKind::Var("identity".to_string()),
             ty: Type::function(vec![Type::I64], Type::I64),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1232,7 +1237,7 @@ mod tests {
                 target: HirVarTarget::Function(identity_id),
             }),
             ty: Type::function(vec![Type::I64], Type::I64),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1276,17 +1281,17 @@ mod tests {
                         target: HirVarTarget::Function(identity_id),
                     }),
                     ty: Type::function(vec![Type::I64], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::IntLiteral(42),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(identity_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1333,7 +1338,7 @@ mod tests {
                 target: HirVarTarget::Extern(identity_id),
             }),
             ty: Type::function(vec![Type::I64], Type::I64),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1378,17 +1383,17 @@ mod tests {
                         target: HirVarTarget::Extern(identity_id),
                     }),
                     ty: Type::function(vec![Type::I64], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::IntLiteral(42),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(identity_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1434,13 +1439,13 @@ mod tests {
                         target: HirVarTarget::Function(answer_id),
                     }),
                     ty: Type::function(Vec::new(), Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 Vec::new(),
                 Some(HirCallTarget::Function(answer_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1507,7 +1512,7 @@ mod tests {
                         target: HirVarTarget::Function(method_id),
                     }),
                     ty: Type::function(Vec::new(), Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 Vec::new(),
                 Some(HirCallTarget::StaticMethod(
@@ -1518,7 +1523,7 @@ mod tests {
                 )),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1581,7 +1586,7 @@ mod tests {
                     value: HirExpr {
                         kind: HirExprKind::IntLiteral(1),
                         ty: Type::I64,
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     },
                     mutable: false,
                 },
@@ -1592,7 +1597,7 @@ mod tests {
                     value: HirExpr {
                         kind: HirExprKind::BoolLiteral(true),
                         ty: Type::Bool,
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     },
                     mutable: false,
                 },
@@ -1602,7 +1607,7 @@ mod tests {
                         target: HirVarTarget::Local(HirLocalId(0)),
                     }),
                     ty: Type::Unit,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
             ],
             ty: Type::Unit,
@@ -1637,7 +1642,7 @@ mod tests {
                     value: HirExpr {
                         kind: HirExprKind::BoolLiteral(true),
                         ty: Type::Bool,
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     },
                     mutable: false,
                 },
@@ -1647,7 +1652,7 @@ mod tests {
                         target: HirVarTarget::Local(HirLocalId(0)),
                     }),
                     ty: Type::Bool,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
             ],
             ty: Type::I64,
@@ -1700,17 +1705,17 @@ mod tests {
                         target: HirVarTarget::Function(apply_id),
                     }),
                     ty: Type::function(vec![Type::function(vec![Type::I64], Type::I64)], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::Var("identity".to_string()),
                     ty: Type::function(vec![Type::I64], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(apply_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1756,7 +1761,7 @@ mod tests {
                         target: HirVarTarget::Function(apply_id),
                     }),
                     ty: Type::function(vec![Type::function(vec![Type::I64], Type::I64)], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::ResolvedVar(HirVarRef {
@@ -1773,12 +1778,12 @@ mod tests {
                             index: 0,
                         }),
                     ),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(apply_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1830,17 +1835,17 @@ mod tests {
                         target: HirVarTarget::Function(apply_id),
                     }),
                     ty: Type::function(vec![Type::function(vec![Type::I64], Type::I64)], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::Var("identity".to_string()),
                     ty: Type::function(vec![Type::I64], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(apply_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1875,7 +1880,7 @@ mod tests {
                 Box::new(HirExpr {
                     kind: HirExprKind::Var("apply".to_string()),
                     ty: Type::function(vec![Type::function(vec![Type::I64], Type::I64)], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::ResolvedVar(HirVarRef {
@@ -1892,12 +1897,12 @@ mod tests {
                             index: 0,
                         }),
                     ),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 None,
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -1945,7 +1950,7 @@ mod tests {
                         target: HirVarTarget::Function(apply_id),
                     }),
                     ty: Type::function(vec![Type::function(vec![Type::I64], Type::I64)], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::ResolvedVar(HirVarRef {
@@ -1962,12 +1967,12 @@ mod tests {
                             index: 0,
                         }),
                     ),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(apply_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -2032,7 +2037,7 @@ mod tests {
                         vec![Type::function(vec![Type::I64], Type::I64)],
                         Type::Generic(apply_generic_id),
                     ),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::ResolvedVar(HirVarRef {
@@ -2049,12 +2054,12 @@ mod tests {
                             index: 0,
                         }),
                     ),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(apply_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -2101,17 +2106,17 @@ mod tests {
                         target: HirVarTarget::Function(free_id),
                     }),
                     ty: Type::function(vec![Type::I64], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::IntLiteral(42),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(free_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -2190,17 +2195,17 @@ mod tests {
                         target: HirVarTarget::Function(method_id),
                     }),
                     ty: Type::function(vec![Type::I64], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::IntLiteral(7),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 Some(HirCallTarget::Function(method_id)),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -2234,7 +2239,7 @@ mod tests {
                 target: HirVarTarget::Function(method_id),
             }),
             ty: Type::function(vec![Type::I64], Type::I64),
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -2273,7 +2278,7 @@ mod tests {
                 stmts: vec![HirStmt::Return(Some(HirExpr {
                     kind: HirExprKind::Var("value".to_string()),
                     ty: Type::Generic(generic_id),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }))],
                 ty: Type::Generic(generic_id),
             },
@@ -2330,17 +2335,17 @@ mod tests {
                 Box::new(HirExpr {
                     kind: HirExprKind::Var("apply_mono_0".to_string()),
                     ty: Type::function(vec![Type::I64], Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 vec![HirExpr {
                     kind: HirExprKind::Var("identity".to_string()),
                     ty: Type::function(vec![Type::Generic(generic_id)], Type::Generic(generic_id)),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }],
                 None,
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -2385,7 +2390,7 @@ mod tests {
                 id: DefId::new(CrateId(0), LocalDefId(700)),
                 args: vec![Type::I64],
             },
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
         let mut expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -2396,7 +2401,7 @@ mod tests {
                 selected_process_method_target(impl_id, inherent_method_id),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -2434,7 +2439,7 @@ mod tests {
                 id: DefId::new(CrateId(0), LocalDefId(700)),
                 args: vec![Type::I64],
             },
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
         let mut expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -2445,7 +2450,7 @@ mod tests {
                 selected_process_method_target(impl_id, method_id),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         mono.process_expr(&mut expr);
@@ -2475,6 +2480,11 @@ mod tests {
     #[test]
     fn process_targetless_generic_method_call_does_not_specialize_by_name() {
         let mut mono = Monomorphizer::new();
+        let source_span = crate::lexer::Span {
+            file_path: "/test.rk".into(),
+            start: 0,
+            end: 3,
+        };
         let impl_id = DefId::new(CrateId(0), LocalDefId(941));
         let method_id = DefId::new(CrateId(0), LocalDefId(942));
         mono.resolver
@@ -2491,7 +2501,7 @@ mod tests {
                 id: DefId::new(CrateId(0), LocalDefId(700)),
                 args: vec![Type::I64],
             },
-            span: Default::default(),
+            span: source_span.clone(),
         };
         let mut expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -2507,7 +2517,7 @@ mod tests {
                 ),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: source_span,
         };
 
         mono.process_expr(&mut expr);
@@ -2541,7 +2551,7 @@ mod tests {
                         id: DefId::new(CrateId(0), LocalDefId(700)),
                         args: vec![Type::I64],
                     },
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 "map".to_string(),
                 Vec::new(),
@@ -2549,7 +2559,7 @@ mod tests {
                 selected_process_method_target(impl_id, method_id),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
         let mut second = first.clone();
 

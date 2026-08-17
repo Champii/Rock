@@ -1,5 +1,5 @@
 use crate::{
-    lexer::{Span, Token, TokenType},
+    lexer::{Token, TokenType},
     parser::{engine::*, Ident, MacroDecl, MacroEntry, MacroFragment, MacroInvoc},
 };
 
@@ -17,7 +17,7 @@ pub fn macro_decl(stream: Input) -> IResult<MacroDecl> {
 }
 
 pub fn macro_entry(stream: Input) -> IResult<MacroEntry> {
-    (
+    let (stream, (_, _, defs, _, _, mut body)) = (
         empty_lines,
         indent,
         parse_macro_head_recursive,
@@ -25,15 +25,17 @@ pub fn macro_entry(stream: Input) -> IResult<MacroEntry> {
         TokenType::Eol,
         parse_macro_block_recursive,
     )
-        .map(|(_, _, defs, _, _, mut body)| {
-            body.push(MacroFragment::Token(Token {
-                token_type: TokenType::Eof,
-                span: Span::default(),
-            }));
+        .process(stream)?;
+    let boundary_span = stream
+        .seek()
+        .map(|token| token.span)
+        .unwrap_or_else(|_| stream.eof_span());
+    body.push(MacroFragment::Token(Token {
+        token_type: TokenType::Eof,
+        span: boundary_span,
+    }));
 
-            MacroEntry { defs, body }
-        })
-        .process(stream)
+    Ok((stream, MacroEntry { defs, body }))
 }
 
 pub fn macro_invoc(stream: Input) -> IResult<MacroInvoc> {

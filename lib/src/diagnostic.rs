@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
-use ariadne::{Color, ColorGenerator, Label, Report, ReportKind, Source};
+use ariadne::{Color, ColorGenerator, Label, Report, ReportKind};
 
 use crate::lexer::{LexerError, Span};
 use crate::parser::ParseError;
@@ -26,6 +27,15 @@ pub enum DiagnosticType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DiagnosticLocation {
+    Source(Span),
+    File(PathBuf),
+    Project(PathBuf),
+    Artifact(PathBuf),
+    Toolchain,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiagnosticSourceOrigin {
     FileSystem,
     Virtual,
@@ -37,15 +47,97 @@ pub struct DiagnosticSource {
     pub display_path: PathBuf,
     pub text: String,
     pub origin: DiagnosticSourceOrigin,
+    pub related: BTreeMap<PathBuf, DiagnosticRelatedSource>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiagnosticRelatedSource {
+    pub display_path: PathBuf,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct DiagnosticSourceMap {
+    by_path: BTreeMap<PathBuf, DiagnosticSource>,
+}
+
+impl DiagnosticSourceMap {
+    pub fn from_source_database(database: &crate::source_loader::SourceDatabase) -> Self {
+        let mut sources = Self::default();
+        for file in database.source_files() {
+            sources.insert_source_file(file);
+        }
+        sources
+    }
+
+    pub fn source_for_path(&self, path: &Path) -> Option<&DiagnosticSource> {
+        self.by_path.get(path)
+    }
+
+    pub fn attach(&self, diagnostic: &mut Diagnostic) {
+        let DiagnosticLocation::Source(primary_span) = &diagnostic.location else {
+            return;
+        };
+        let source = diagnostic
+            .source
+            .clone()
+            .or_else(|| self.source_for_path(&primary_span.file_path).cloned());
+        if let Some(mut source) = source {
+            for (_, span) in &diagnostic.labels {
+                if span.file_path != primary_span.file_path {
+                    if let Some(related) = self.source_for_path(&span.file_path) {
+                        source.related.insert(
+                            span.file_path.clone(),
+                            DiagnosticRelatedSource {
+                                display_path: related.display_path.clone(),
+                                text: related.text.clone(),
+                            },
+                        );
+                    }
+                }
+            }
+            diagnostic.source = Some(source);
+            if diagnostic.labels.is_empty() {
+                diagnostic
+                    .labels
+                    .push((diagnostic.message.clone(), primary_span.clone()));
+            }
+        }
+    }
+
+    fn insert_source_file(&mut self, file: &crate::source_loader::SourceFile) {
+        let origin = match &file.origin {
+            crate::source_loader::SourceOrigin::FileSystem => DiagnosticSourceOrigin::FileSystem,
+            crate::source_loader::SourceOrigin::Virtual => DiagnosticSourceOrigin::Virtual,
+            crate::source_loader::SourceOrigin::Artifact { artifact_path } => {
+                DiagnosticSourceOrigin::Artifact {
+                    artifact_path: artifact_path.clone(),
+                }
+            }
+        };
+        let source = DiagnosticSource {
+            display_path: file.display_path.clone(),
+            text: file.text.clone(),
+            origin,
+            related: BTreeMap::new(),
+        };
+        for path in [
+            &file.original_path,
+            &file.canonical_path,
+            &file.display_path,
+        ] {
+            self.by_path.insert(path.clone(), source.clone());
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
     pub message: String,
     pub labels: Vec<(String, Span)>,
-    pub span: Span,
     pub kind: DiagnosticType,
     pub source: Option<DiagnosticSource>,
+    pub location: DiagnosticLocation,
 }
 
 impl From<ParseError> for Diagnostic {
@@ -64,9 +156,9 @@ impl From<ParseError> for Diagnostic {
                         format!("Unexpected {}", got_display),
                         got_token.span.clone(),
                     )],
-                    span: got_token.span,
                     kind: DiagnosticType::Error,
                     source: None,
+                    location: DiagnosticLocation::Source(got_token.span.clone()),
                 }
             }
             /* ParseError::UnexpectedKeyword(token, expected) => Diagnostic {
@@ -81,9 +173,9 @@ impl From<ParseError> for Diagnostic {
             ParseError::Lexer(LexerError::UnknownToken(c, span)) => Diagnostic {
                 message: format!("Lexer: Unknown token: {:?}", c),
                 labels: vec![],
-                span,
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::Source(span.clone()),
             },
             ParseError::MacroNoCorrespondance {
                 macro_name,
@@ -102,9 +194,9 @@ impl From<ParseError> for Diagnostic {
                 Diagnostic {
                     message: "Macro: Nothing expected this token".to_string(),
                     labels,
-                    span: macro_name.clone(),
                     kind: DiagnosticType::Error,
                     source: None,
+                    location: DiagnosticLocation::Source(macro_name),
                 }
             }
             /* ParseError::InvalidPrecedence(precedence, token) => Diagnostic {
@@ -122,15 +214,14 @@ impl From<ParseError> for Diagnostic {
                     (format!("Expected indent level: {}", expected), span.clone()),
                     (format!("Got indent level: {}", got), span.clone()),
                 ],
-                span,
                 kind: DiagnosticType::Error,
             }, */
-            ParseError::UnexpectedEOF => Diagnostic {
+            ParseError::UnexpectedEOF(span) => Diagnostic {
                 message: "Unexpected end of file".to_string(),
-                labels: vec![],
-                span: Span::default(),
+                labels: vec![("Expected more input".to_string(), span.clone())],
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::Source(span.clone()),
             },
             /* ParseError::LeftoverTokens(tokens) => Diagnostic {
                 message: format!("Leftover tokens"),
@@ -141,51 +232,51 @@ impl From<ParseError> for Diagnostic {
             ParseError::UnknownFile(file) => Diagnostic {
                 message: format!("Unknown file: {:?}", file),
                 labels: vec![],
-                span: Span::default(),
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::File(PathBuf::from(file)),
             },
             ParseError::UnexpectedIndent(level) => Diagnostic {
                 message: format!("Unexpected indent level: {level}"),
                 labels: vec![],
-                span: Span::default(),
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::Toolchain,
             },
             ParseError::ExpectedOneOrMore => Diagnostic {
                 message: "Expected one or more".to_string(),
                 labels: vec![],
-                span: Span::default(),
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::Toolchain,
             },
             ParseError::Fail => Diagnostic {
                 message: "Fail".to_string(),
                 labels: vec![],
-                span: Span::default(),
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::Toolchain,
             },
             ParseError::ShortCircuit => Diagnostic {
                 message: "Short circuit, should never be printed !".to_string(),
                 labels: vec![],
-                span: Span::default(),
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::Toolchain,
             },
             ParseError::AssertFailed => Diagnostic {
                 message: "Assert failed".to_string(),
                 labels: vec![],
-                span: Span::default(),
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::Toolchain,
             },
             ParseError::HardError(msg, span) => Diagnostic {
                 message: msg.clone(),
                 labels: vec![(msg, span.clone())],
-                span,
                 kind: DiagnosticType::Error,
                 source: None,
+                location: DiagnosticLocation::Source(span.clone()),
             },
             ParseError::WithContext { context, error } => {
                 // Build the full context chain by collecting all contexts
@@ -218,17 +309,16 @@ impl From<ParseError> for Diagnostic {
                         };
                         (
                             format!("Unexpected token: {}", got_display),
-                            got_token.span.clone(),
+                            Some(got_token.span.clone()),
                         )
                     }
-                    ParseError::UnexpectedEOF => {
-                        ("Unexpected end of file".to_string(), Span::default())
+                    ParseError::UnexpectedEOF(span) => {
+                        ("Unexpected end of file".to_string(), Some(span.clone()))
                     }
-                    ParseError::UnexpectedIndent(level) => (
-                        format!("Unexpected indent level: {}", level),
-                        Span::default(),
-                    ),
-                    _ => ("Parse error".to_string(), Span::default()),
+                    ParseError::UnexpectedIndent(level) => {
+                        (format!("Unexpected indent level: {}", level), None)
+                    }
+                    _ => ("Parse error".to_string(), None),
                 };
 
                 // Create diagnostic with context
@@ -256,55 +346,22 @@ impl From<ParseError> for Diagnostic {
                             got_token.span.clone(),
                         )]
                     }
+                    ParseError::UnexpectedEOF(span) => {
+                        vec![("Expected more input".to_string(), span.clone())]
+                    }
                     _ => vec![],
                 };
 
                 Diagnostic {
                     message,
                     labels,
-                    span,
                     kind: DiagnosticType::Error,
                     source: None,
+                    location: span
+                        .map(DiagnosticLocation::Source)
+                        .unwrap_or(DiagnosticLocation::Toolchain),
                 }
-            } /* ParseError::InternalError(message) => Diagnostic {
-                  message: format!("Internal error: {:?}", message),
-                  labels: vec![],
-                  span: Span::default(),
-                  kind: DiagnosticType::Error,
-              },
-              ParseError::ShortCircuit => Diagnostic {
-                  message: format!("Short circuit, should never be printed !"),
-                  labels: vec![],
-                  span: Span::default(),
-                  kind: DiagnosticType::Error,
-              },
-              ParseError::ExpectedType(span) => Diagnostic {
-                  message: format!("Expected a type"),
-                  labels: vec![(format!("But got"), span.clone())],
-                  span,
-                  kind: DiagnosticType::Error,
-              },
-              ParseError::InvalidLHS(span) => Diagnostic {
-                  message: format!("Malformed assignment"),
-                  labels: vec![(format!("Invalid left-hand side"), span.clone())],
-                  span,
-                  kind: DiagnosticType::Error,
-              },
-              ParseError::InvalidVariant(enum_name, variant) => Diagnostic {
-                  message: format!("Invalid variant"),
-                  labels: vec![
-                      (format!("In this enum"), enum_name.clone()),
-                      (format!("Expected a variant"), variant.clone()),
-                  ],
-                  span: enum_name,
-                  kind: DiagnosticType::Error,
-              },
-              ParseError::InvalidType(span) => Diagnostic {
-                  message: format!("Invalid type"),
-                  labels: vec![(format!("Expected a type"), span.clone())],
-                  span,
-                  kind: DiagnosticType::Error,
-              }, */
+            }
         }
     }
 }
@@ -312,12 +369,47 @@ impl From<ParseError> for Diagnostic {
 impl Diagnostic {
     /// Create a new diagnostic with a message and primary span
     pub fn new(message: String, span: Span) -> Self {
+        assert!(
+            !span.file_path.as_os_str().is_empty(),
+            "source diagnostics require a source path"
+        );
+        assert!(
+            span.start <= span.end,
+            "source diagnostic span start must not exceed its end"
+        );
+        let labels = vec![(message.clone(), span.clone())];
         Self {
             message,
-            span,
-            labels: vec![],
+            location: DiagnosticLocation::Source(span),
+            labels,
             kind: DiagnosticType::Error,
             source: None,
+        }
+    }
+
+    pub fn for_file(message: String, path: PathBuf) -> Self {
+        Self::at_location(message, DiagnosticLocation::File(path))
+    }
+
+    pub fn for_project(message: String, path: PathBuf) -> Self {
+        Self::at_location(message, DiagnosticLocation::Project(path))
+    }
+
+    pub fn for_artifact(message: String, path: PathBuf) -> Self {
+        Self::at_location(message, DiagnosticLocation::Artifact(path))
+    }
+
+    pub fn for_toolchain(message: String) -> Self {
+        Self::at_location(message, DiagnosticLocation::Toolchain)
+    }
+
+    fn at_location(message: String, location: DiagnosticLocation) -> Self {
+        Self {
+            message,
+            labels: Vec::new(),
+            kind: DiagnosticType::Error,
+            source: None,
+            location,
         }
     }
 
@@ -339,51 +431,68 @@ impl Diagnostic {
 
     /// Create a diagnostic from any SpannedError
     pub fn from_spanned<E: SpannedError>(err: &E) -> Self {
-        let span = err.span().unwrap_or_default();
+        let span = err.span();
         let mut labels = err.labels();
 
-        // If no labels were provided but we have a valid span, create a default label
-        if labels.is_empty() && span.file_path.exists() {
-            labels.push((err.message(), span.clone()));
+        // Virtual and artifact sources need labels even when no filesystem path exists.
+        if labels.is_empty() {
+            if let Some(span) = &span {
+                labels.push((err.message(), span.clone()));
+            }
         }
 
         Self {
             message: err.message(),
             labels,
-            span,
+            location: span
+                .map(DiagnosticLocation::Source)
+                .unwrap_or(DiagnosticLocation::Toolchain),
             kind: DiagnosticType::Error,
             source: None,
         }
     }
 
     pub fn report(&self) {
-        let source_content = if let Some(source) = &self.source {
-            Some((
-                source.display_path.to_string_lossy().to_string(),
-                source.text.clone(),
-            ))
-        } else if self.span.file_path.exists() {
-            std::fs::read_to_string(&self.span.file_path)
-                .ok()
-                .map(|source| (self.span.file_path.to_string_lossy().to_string(), source))
-        } else {
-            None
+        let source_content = match &self.location {
+            DiagnosticLocation::Source(span) => {
+                if let Some(source) = &self.source {
+                    Some((
+                        source.display_path.to_string_lossy().to_string(),
+                        source.text.clone(),
+                        source.related.clone(),
+                        span.clone(),
+                    ))
+                } else if span.file_path.exists() {
+                    std::fs::read_to_string(&span.file_path).ok().map(|source| {
+                        (
+                            span.file_path.to_string_lossy().to_string(),
+                            source,
+                            BTreeMap::new(),
+                            span.clone(),
+                        )
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => None,
         };
 
-        if let Some((file_id, source)) = source_content {
+        if let Some((file_id, source, related_sources, primary_span)) = source_content {
             // File exists - use ariadne for pretty printing
             let mut colors = ColorGenerator::new();
 
-            let mut builder = Report::build(ReportKind::Error, file_id.clone(), self.span.start)
+            let mut builder = Report::build(ReportKind::Error, file_id.clone(), primary_span.start)
                 .with_message(self.message.clone());
 
             for (i, (message, span)) in self.labels.iter().enumerate() {
-                let label_file_id =
-                    if self.source.is_some() && span.file_path == self.span.file_path {
-                        file_id.clone()
-                    } else {
-                        span.file_path.to_string_lossy().to_string()
-                    };
+                let label_file_id = if span.file_path == primary_span.file_path {
+                    file_id.clone()
+                } else if let Some(related) = related_sources.get(&span.file_path) {
+                    related.display_path.to_string_lossy().to_string()
+                } else {
+                    span.file_path.to_string_lossy().to_string()
+                };
                 let color = if i == 0 {
                     Color::Fixed(9)
                 } else {
@@ -396,9 +505,25 @@ impl Diagnostic {
                 );
             }
 
+            let mut report_sources = BTreeMap::from([(file_id, source)]);
+            for related in related_sources.values() {
+                report_sources.insert(
+                    related.display_path.to_string_lossy().to_string(),
+                    related.text.clone(),
+                );
+            }
+            for (_, span) in &self.labels {
+                if span.file_path != primary_span.file_path
+                    && !related_sources.contains_key(&span.file_path)
+                {
+                    if let Ok(text) = std::fs::read_to_string(&span.file_path) {
+                        report_sources.insert(span.file_path.to_string_lossy().to_string(), text);
+                    }
+                }
+            }
             builder
                 .finish()
-                .print((file_id, Source::from(source)))
+                .print(ariadne::sources(report_sources))
                 .unwrap();
 
             println!();
@@ -406,14 +531,21 @@ impl Diagnostic {
             // No source available - print a simple error message with location info
             eprintln!("Error: {}", self.message);
 
-            // Show location if we have a non-empty file path
-            if !self.span.file_path.as_os_str().is_empty() {
-                eprintln!(
+            match &self.location {
+                DiagnosticLocation::Source(span) => eprintln!(
                     "  --> {}:{}-{}",
-                    self.span.file_path.display(),
-                    self.span.start,
-                    self.span.end
-                );
+                    span.file_path.display(),
+                    span.start,
+                    span.end
+                ),
+                DiagnosticLocation::File(path) => eprintln!("  --> file {}", path.display()),
+                DiagnosticLocation::Project(path) => {
+                    eprintln!("  --> project {}", path.display())
+                }
+                DiagnosticLocation::Artifact(path) => {
+                    eprintln!("  --> artifact {}", path.display())
+                }
+                DiagnosticLocation::Toolchain => eprintln!("  --> toolchain"),
             }
 
             for (message, span) in &self.labels {
@@ -461,6 +593,17 @@ impl Diagnostics {
 
     pub fn merge(&mut self, mut diagnostics: Diagnostics) {
         self.0.append(&mut diagnostics.0);
+    }
+
+    pub fn attach_sources(&mut self, sources: &DiagnosticSourceMap) {
+        for diagnostic in &mut self.0 {
+            sources.attach(diagnostic);
+        }
+    }
+
+    pub fn with_sources(mut self, sources: &DiagnosticSourceMap) -> Self {
+        self.attach_sources(sources);
+        self
     }
 
     pub fn report(&self) {
@@ -511,6 +654,8 @@ mod tests {
 
     use super::*;
 
+    use crate::{Config, SourceProvider};
+
     #[test]
     fn diagnostic_report_handles_more_than_three_labels() {
         let nonce = SystemTime::now()
@@ -539,6 +684,158 @@ mod tests {
 
         let _ = fs::remove_file(source_path);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn file_diagnostic_does_not_fabricate_a_source_range() {
+        let path = PathBuf::from("/missing/main.rk");
+
+        let diagnostic = Diagnostic::for_file("missing file".to_string(), path.clone());
+
+        assert_eq!(diagnostic.location, DiagnosticLocation::File(path));
+        assert!(diagnostic.labels.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "source diagnostics require a source path")]
+    fn source_diagnostic_rejects_an_empty_span() {
+        let _ = Diagnostic::new(
+            "invalid source diagnostic".to_string(),
+            Span {
+                file_path: PathBuf::new(),
+                start: 0,
+                end: 0,
+            },
+        );
+    }
+
+    #[test]
+    fn diagnostic_source_map_attaches_virtual_source_by_span_path() {
+        let path = PathBuf::from("/virtual/main.rk");
+        let text = "main = -> missing\n";
+        let mut database = crate::source_loader::SourceDatabase::new();
+        database.add_source_provider(&SourceProvider::Virtual {
+            path: path.clone(),
+            text: text.to_string(),
+        });
+        database
+            .load_entry(path.clone(), &Config::default())
+            .expect("virtual source should load");
+        let sources = DiagnosticSourceMap::from_source_database(&database);
+        let mut diagnostic = Diagnostic::new(
+            "unknown value".to_string(),
+            Span {
+                file_path: path.clone(),
+                start: 10,
+                end: 17,
+            },
+        );
+
+        sources.attach(&mut diagnostic);
+
+        let source = diagnostic.source.expect("source should be attached");
+        assert_eq!(source.display_path, path);
+        assert_eq!(source.text, text);
+        assert_eq!(source.origin, DiagnosticSourceOrigin::Virtual);
+    }
+
+    #[test]
+    fn diagnostic_source_map_attaches_sources_for_cross_file_labels() {
+        let primary_path = PathBuf::from("/virtual/main.rk");
+        let related_path = PathBuf::from("/virtual/dep.rk");
+        let mut database = crate::source_loader::SourceDatabase::new();
+        for (path, text) in [
+            (primary_path.clone(), "main = -> dep\n"),
+            (related_path.clone(), "dep = -> 0\n"),
+        ] {
+            database.add_source_provider(&SourceProvider::Virtual {
+                path: path.clone(),
+                text: text.to_string(),
+            });
+            database
+                .load_entry(path, &Config::default())
+                .expect("virtual source should load");
+        }
+        let sources = DiagnosticSourceMap::from_source_database(&database);
+        let mut diagnostic = Diagnostic::new(
+            "cross-file error".to_string(),
+            Span {
+                file_path: primary_path,
+                start: 10,
+                end: 13,
+            },
+        )
+        .with_label(
+            "defined here".to_string(),
+            Span {
+                file_path: related_path.clone(),
+                start: 0,
+                end: 3,
+            },
+        );
+
+        sources.attach(&mut diagnostic);
+
+        let report_result = std::panic::catch_unwind(|| diagnostic.report());
+        let source = diagnostic.source.expect("source should be attached");
+        let related = source
+            .related
+            .get(&related_path)
+            .expect("related source should be attached");
+        assert_eq!(related.display_path, related_path);
+        assert_eq!(related.text, "dep = -> 0\n");
+        assert!(report_result.is_ok());
+    }
+
+    #[test]
+    fn diagnostic_source_map_preserves_artifact_source_origin() {
+        let path = PathBuf::from("/artifact/dep/lib.rk");
+        let artifact_path = PathBuf::from("/artifact/dep.rkca");
+        let text = "answer = -> 42\n";
+        let mut database = crate::source_loader::SourceDatabase::new();
+        database.add_source_provider(&SourceProvider::Artifact {
+            path: path.clone(),
+            artifact_path: artifact_path.clone(),
+            text: text.to_string(),
+        });
+        database
+            .load_entry(path.clone(), &Config::default())
+            .expect("artifact source should load");
+        let sources = DiagnosticSourceMap::from_source_database(&database);
+        let mut diagnostic = Diagnostic::new(
+            "artifact source error".to_string(),
+            Span {
+                file_path: path,
+                start: 0,
+                end: 6,
+            },
+        );
+
+        sources.attach(&mut diagnostic);
+
+        let source = diagnostic.source.expect("source should be attached");
+        assert_eq!(source.text, text);
+        assert_eq!(
+            source.origin,
+            DiagnosticSourceOrigin::Artifact { artifact_path }
+        );
+    }
+
+    #[test]
+    fn unexpected_eof_diagnostic_points_to_actual_source_end() {
+        let path = PathBuf::from("/virtual/main.rk");
+        let text = "lang sized\n";
+        let error = crate::parser::parse_source(path.clone(), text, &Config::default())
+            .expect_err("incomplete language item should fail");
+        let diagnostic = Diagnostic::from(error);
+
+        let DiagnosticLocation::Source(span) = diagnostic.location else {
+            panic!("EOF diagnostic should have a source location");
+        };
+        assert_eq!(span.file_path, path);
+        assert_eq!(span.start, text.len());
+        assert_eq!(span.end, text.len());
+        assert!(!diagnostic.labels.is_empty());
     }
 }
 
@@ -619,7 +916,7 @@ impl From<crate::parser::ParseError> for Diagnostic {
             crate::parser::ParseError::UnexpectedEof(_token) => Diagnostic {
                 message: format!("Unexpected end of file"),
                 labels: vec![],
-                span: Span::default(),
+                span: Span::test(),
                 kind: DiagnosticType::Error,
             },
             crate::parser::ParseError::LeftoverTokens(tokens) => Diagnostic {
@@ -631,19 +928,19 @@ impl From<crate::parser::ParseError> for Diagnostic {
             crate::parser::ParseError::UnknownFile(file) => Diagnostic {
                 message: format!("Unknown file: {:?}", file),
                 labels: vec![],
-                span: Span::default(),
+                span: Span::test(),
                 kind: DiagnosticType::Error,
             },
             crate::parser::ParseError::InternalError(message) => Diagnostic {
                 message: format!("Internal error: {:?}", message),
                 labels: vec![],
-                span: Span::default(),
+                span: Span::test(),
                 kind: DiagnosticType::Error,
             },
             crate::parser::ParseError::ShortCircuit => Diagnostic {
                 message: format!("Short circuit, should never be printed !"),
                 labels: vec![],
-                span: Span::default(),
+                span: Span::test(),
                 kind: DiagnosticType::Error,
             },
             crate::parser::ParseError::ExpectedType(span) => Diagnostic {

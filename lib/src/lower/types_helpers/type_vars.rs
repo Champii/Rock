@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn resolve_all_types_in_expr_resolves_match_arm_guards() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let guard_ty = lowerer.engine.fresh_type_var();
         lowerer.engine.unify(&guard_ty, &Type::Bool).unwrap();
         let mut expr = HirExpr {
@@ -257,27 +257,27 @@ mod tests {
                 scrutinee: Box::new(HirExpr {
                     kind: HirExprKind::IntLiteral(0),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 arms: vec![HirMatchArm {
                     pattern: HirPattern::Wildcard,
                     guard: Some(HirExpr {
                         kind: HirExprKind::BoolLiteral(true),
                         ty: guard_ty,
-                        span: Default::default(),
+                        span: crate::lexer::Span::test(),
                     }),
                     body: HirBlock {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::IntLiteral(1),
                             ty: Type::I64,
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::I64,
                     },
                 }],
             },
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         lowerer.resolve_all_types_in_expr(&mut expr);
@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn resolve_all_types_in_expr_resolves_method_target_trait_args() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let trait_arg = lowerer.engine.fresh_type_var();
         lowerer.engine.unify(&trait_arg, &Type::I64).unwrap();
         let mut expr = HirExpr {
@@ -298,7 +298,7 @@ mod tests {
                 Box::new(HirExpr {
                     kind: HirExprKind::Var("value".to_string()),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 "method".to_string(),
                 Vec::new(),
@@ -311,7 +311,7 @@ mod tests {
                 )),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         lowerer.resolve_all_types_in_expr(&mut expr);
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn resolve_all_types_in_expr_resolves_static_method_substitution() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         let method_id = DefId::new(CrateId(0), LocalDefId(3));
         let method_param = GenericParamId {
             owner: method_id,
@@ -347,7 +347,7 @@ mod tests {
                 Box::new(HirExpr {
                     kind: HirExprKind::Var("generic_static".to_string()),
                     ty: Type::function(Vec::new(), Type::I64),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 Vec::new(),
                 Some(HirCallTarget::StaticMethod(HirStaticMethodTarget {
@@ -356,7 +356,7 @@ mod tests {
                 })),
             ),
             ty: Type::I64,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         };
 
         lowerer.resolve_all_types_in_expr(&mut expr);

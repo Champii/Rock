@@ -20,12 +20,12 @@ fn dot_expression() {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "hello".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: Some(vec![SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                 name: "world".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }))]),
             type_annotation: None,
         })),

@@ -32,7 +32,7 @@ fn multiline_arguments_with_nested_multiline_dots() {
                 ident_path.path[0],
                 IdentOrType::Ident(Ident {
                     name: "foo".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })
             );
 
@@ -63,7 +63,7 @@ fn multiline_arguments_with_nested_multiline_dots() {
                                 ident_path.path[0],
                                 IdentOrType::Ident(Ident {
                                     name: "arg1".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 })
                             );
                             // Should have .method1 and .method2
@@ -95,7 +95,7 @@ fn multiline_arguments_with_nested_multiline_dots() {
                                 ident_path.path[0],
                                 IdentOrType::Ident(Ident {
                                     name: "arg2".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 })
                             );
                         }

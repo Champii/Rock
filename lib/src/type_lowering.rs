@@ -210,7 +210,7 @@ impl TypeLowerer {
         binders: &mut Vec<Vec<(String, Kind)>>,
     ) -> Type {
         match parse_type {
-            ast::ParseType::Unit => Type::Unit,
+            ast::ParseType::Unit(_) => Type::Unit,
             ast::ParseType::Type(inner) => {
                 Self::lower_inner_raw(context, inner, allow_bare_slice, env, binders)
             }
@@ -333,9 +333,7 @@ impl TypeLowerer {
                 if types.len() == 1 {
                     return Self::lower_raw(context, &types[0], false, env, binders);
                 }
-                if types.len() == 2
-                    && matches!(&types[0], ast::ParseType::Tuple(elems) if elems.is_empty())
-                {
+                if types.len() == 2 && matches!(&types[0], ast::ParseType::Unit(_)) {
                     let ret = Self::lower_raw(context, &types[1], false, env, binders);
                     return Type::function(Vec::new(), ret);
                 }
@@ -602,7 +600,7 @@ mod tests {
         ParseType::Type(ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Span::default(),
+            span: Span::test(),
         })
     }
 
@@ -610,7 +608,7 @@ mod tests {
         ParseType::Application(ast::TypeApplication {
             constructor: Box::new(constructor),
             args,
-            span: Span::default(),
+            span: Span::test(),
         })
     }
 
@@ -660,9 +658,7 @@ mod tests {
         let section = application(
             named_type("Result"),
             vec![
-                ParseType::Hole(ast::TypeHole {
-                    span: Span::default(),
-                }),
+                ParseType::Hole(ast::TypeHole { span: Span::test() }),
                 named_type("E"),
             ],
         );
@@ -670,16 +666,16 @@ mod tests {
             params: vec![AstGenericParamDecl {
                 name: Ident {
                     name: "T".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 kind: None,
-                span: Span::default(),
+                span: Span::test(),
             }],
             body: Box::new(application(
                 named_type("Result"),
                 vec![named_type("T"), named_type("E")],
             )),
-            span: Span::default(),
+            span: Span::test(),
         });
 
         let section_ty = TypeLowerer::lower_parse_type(&mut context, &section);
@@ -837,11 +833,11 @@ mod tests {
                 base: ParseTypeInner {
                     name: "Self".to_string(),
                     generics: vec![],
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 member: Ident {
                     name: "Item".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 },
             },
         );
@@ -898,11 +894,11 @@ mod tests {
             base: ParseTypeInner {
                 name: "Self".to_string(),
                 generics: Vec::new(),
-                span: Span::default(),
+                span: Span::test(),
             },
             member: Ident {
                 name: "Family".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             },
         };
 

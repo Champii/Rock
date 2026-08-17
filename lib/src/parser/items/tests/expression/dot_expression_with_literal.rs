@@ -19,11 +19,11 @@ fn dot_expression_with_literal() {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: crate::ast::LiteralKind::Number(4),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: Some(vec![SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                 name: "test".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }))]),
             type_annotation: None,
         })),

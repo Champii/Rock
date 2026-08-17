@@ -11,7 +11,7 @@ pub mod solve;
 mod type_vars;
 
 pub use constraints::{ConstraintOwner, ConstraintStore, ObligationId, ObligationState};
-pub use engine::InferenceEngine;
+pub use engine::{InferenceEngine, InferenceError};
 pub use generalize::{generalize_single_function, generalize_single_function_with_exclusions};
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
@@ -38,6 +38,7 @@ pub struct ResolvedHirProgram {
     pub local_def_ids: IdGen<LocalDefId>,
     pub type_context: TypeContext,
     pub type_ids: HirTypeIds,
+    pub source_map: crate::source_map::SemanticSourceMap,
     pub(crate) normalization_env: TypeNormalizationEnv,
 }
 
@@ -75,6 +76,7 @@ impl ResolvedHirProgram {
             root_crate_id,
             local_def_ids,
             TypeNormalizationEnv::new(),
+            crate::source_map::SemanticSourceMap::default(),
         )
     }
 
@@ -85,6 +87,7 @@ impl ResolvedHirProgram {
         root_crate_id: crate::ids::CrateId,
         local_def_ids: IdGen<LocalDefId>,
         normalization_env: TypeNormalizationEnv,
+        source_map: crate::source_map::SemanticSourceMap,
     ) -> Self {
         let mut type_context = TypeContext::with_normalization_env(normalization_env.clone());
         let type_ids = collect_hir_type_ids(program.program(), &mut type_context);
@@ -96,6 +99,7 @@ impl ResolvedHirProgram {
             local_def_ids,
             type_context,
             type_ids,
+            source_map,
             normalization_env,
         }
     }
@@ -112,6 +116,18 @@ impl ResolvedHirProgram {
 
     pub fn type_at(&self, id: TypeId) -> Type {
         self.type_context.type_for(id)
+    }
+
+    pub fn type_display_context(&self) -> crate::type_services::display::TypeDisplayContext {
+        let mut context =
+            crate::type_services::display::TypeDisplayContext::from_resolver(&self.resolver);
+        context.extend_hir_program(self.program.program());
+        context
+    }
+
+    pub fn display_type(&self, ty: &Type) -> String {
+        crate::type_services::display::display_type_with_context(ty, &self.type_display_context())
+            .to_string()
     }
 }
 
@@ -139,9 +155,23 @@ pub struct PartialHir {
     pub inference_sccs: HashMap<DefId, DefId>,
     /// Dependency-first SCC order, including isolated components.
     pub inference_scc_order: Vec<DefId>,
+    pub source_map: crate::source_map::SemanticSourceMap,
 }
 
 impl PartialHir {
+    fn error_at_definition(&self, id: DefId, message: String) -> ResolveError {
+        if id.crate_id == self.root_crate_id {
+            let span = self
+                .source_map
+                .definition_span(id)
+                .cloned()
+                .expect("current-crate definition error requires its indexed source span");
+            ResolveError::with_span(message, span)
+        } else {
+            ResolveError::new(message)
+        }
+    }
+
     fn validate_item_ids(&self) -> Result<(), Vec<ResolveError>> {
         let mut mismatches = Vec::new();
         validate_item_ids(
@@ -198,10 +228,13 @@ impl PartialHir {
             Err(mismatches
                 .into_iter()
                 .map(|mismatch| {
-                    ResolveError::new(format!(
-                        "{} ID mismatch: key {:?}, payload {:?}",
-                        mismatch.category, mismatch.key, mismatch.payload_id
-                    ))
+                    self.error_at_definition(
+                        mismatch.key,
+                        format!(
+                            "{} ID mismatch: key {:?}, payload {:?}",
+                            mismatch.category, mismatch.key, mismatch.payload_id
+                        ),
+                    )
                 })
                 .collect())
         }
@@ -375,6 +408,7 @@ fn hir_program_from_partial(
     BTreeSet<DefId>,
     crate::ids::CrateId,
     IdGen<LocalDefId>,
+    crate::source_map::SemanticSourceMap,
 ) {
     let PartialHir {
         functions,
@@ -397,6 +431,7 @@ fn hir_program_from_partial(
         imported_effective_trait_methods,
         inference_sccs: _,
         inference_scc_order: _,
+        source_map,
     } = hir;
 
     let names = hir_name_tables(
@@ -432,6 +467,7 @@ fn hir_program_from_partial(
         current_def_ids,
         root_crate_id,
         local_def_ids,
+        source_map,
     )
 }
 
@@ -453,7 +489,7 @@ pub fn finalize(mut hir: PartialHir) -> Result<ResolvedHirProgram, Vec<ResolveEr
     }
     let canonical_names_by_id = canonical_names_for_hir(&hir);
     let normalization_env = hir.engine.normalization_env();
-    let (program, resolver, current_def_ids, root_crate_id, local_def_ids) =
+    let (program, resolver, current_def_ids, root_crate_id, local_def_ids, source_map) =
         hir_program_from_partial(hir, &canonical_names_by_id);
     let authority_errors = program.validate_method_authorities();
     if !authority_errors.is_empty() {
@@ -475,6 +511,7 @@ pub fn finalize(mut hir: PartialHir) -> Result<ResolvedHirProgram, Vec<ResolveEr
         root_crate_id,
         local_def_ids,
         normalization_env,
+        source_map,
     ))
 }
 
@@ -524,7 +561,11 @@ fn drive_inference_to_quiescence(hir: &mut PartialHir) -> Result<(), Vec<Resolve
                         false,
                     );
                     if !solved.errors.is_empty() {
-                        return Err(solved.errors.into_iter().map(ResolveError::new).collect());
+                        return Err(solved
+                            .errors
+                            .into_iter()
+                            .map(|error| ResolveError::with_span(error.message, error.span))
+                            .collect());
                     }
                     let changed = solved.changed_type_vars.into_iter().collect::<HashSet<_>>();
                     for obligation in authority_obligations.iter_mut() {
@@ -658,7 +699,8 @@ fn drive_inference_to_quiescence(hir: &mut PartialHir) -> Result<(), Vec<Resolve
             obligation.kind != authority::AuthorityObligationKind::Propagation
                 && obligation.state != ObligationState::Solved
         }) {
-            let mut error = authority::pending_authority_error(hir, Some(&owners));
+            let mut error =
+                authority::pending_authority_error(hir, Some(&owners), authority_obligations);
             if let Some(context) = authority::pending_authority_context(&authority_obligations) {
                 error.message = format!("{} ({context})", error.message);
             }
@@ -679,7 +721,11 @@ fn drive_inference_to_quiescence(hir: &mut PartialHir) -> Result<(), Vec<Resolve
             true,
         );
         if !solved.errors.is_empty() {
-            return Err(solved.errors.into_iter().map(ResolveError::new).collect());
+            return Err(solved
+                .errors
+                .into_iter()
+                .map(|error| ResolveError::with_span(error.message, error.span))
+                .collect());
         }
     }
 
@@ -740,6 +786,7 @@ mod tests {
             imported_effective_trait_methods: HashMap::new(),
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
+            source_map: Default::default(),
         }
     }
 
@@ -812,7 +859,7 @@ mod tests {
                 Box::new(HirExpr {
                     kind: HirExprKind::Var("owner".to_string()),
                     ty: receiver_ty.clone(),
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 "source_name".to_string(),
                 Vec::new(),
@@ -820,7 +867,7 @@ mod tests {
                 None,
             ),
             ty: Type::Unit,
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         }));
 
         let mut partial = partial_hir_with_traits(HashMap::from([(trait_id, trait_def)]));
@@ -891,10 +938,10 @@ mod tests {
         let main_id = DefId::new(CrateId(0), LocalDefId(60));
         let nested_id = DefId::new(CrateId(0), LocalDefId(61));
         let mut engine = InferenceEngine::new();
-        let Type::TypeVar(main_var) = engine.fresh_type_var_at(Default::default()) else {
+        let Type::TypeVar(main_var) = engine.fresh_type_var_at(crate::lexer::Span::test()) else {
             panic!("fresh inference variable should be a TypeVar");
         };
-        let Type::TypeVar(nested_var) = engine.fresh_type_var_at(Default::default()) else {
+        let Type::TypeVar(nested_var) = engine.fresh_type_var_at(crate::lexer::Span::test()) else {
             panic!("fresh inference variable should be a TypeVar");
         };
         let mut main = empty_function(main_id, "main");
@@ -929,6 +976,7 @@ mod tests {
             imported_effective_trait_methods: HashMap::new(),
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
+            source_map: Default::default(),
         };
 
         generalize::generalize_functions(&mut partial, &[main_id, nested_id], Some(main_id));
@@ -975,6 +1023,9 @@ mod tests {
                 fields: Vec::new(),
             };
 
+            let mut source_map = crate::source_map::SemanticSourceMap::default();
+            source_map.insert_definition(first_key, crate::lexer::Span::test());
+            source_map.insert_definition(second_key, crate::lexer::Span::test());
             PartialHir {
                 functions,
                 structs: HashMap::from([(first_key, structure)]),
@@ -996,6 +1047,7 @@ mod tests {
                 imported_effective_trait_methods: HashMap::new(),
                 inference_sccs: HashMap::new(),
                 inference_scc_order: Vec::new(),
+                source_map,
             }
         }
 
@@ -1112,6 +1164,7 @@ mod tests {
             imported_effective_trait_methods: HashMap::new(),
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
+            source_map: Default::default(),
         };
 
         let resolved = finalize(partial).unwrap();
@@ -1155,7 +1208,7 @@ mod tests {
                         stmts: vec![HirStmt::Expr(HirExpr {
                             kind: HirExprKind::Var("value".to_string()),
                             ty: Type::I64,
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         })],
                         ty: Type::I64,
                     },
@@ -1184,6 +1237,7 @@ mod tests {
             imported_effective_trait_methods: HashMap::new(),
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
+            source_map: Default::default(),
         };
         partial.local_def_ids.fresh();
         partial.local_def_ids.fresh();
@@ -1247,6 +1301,7 @@ mod tests {
             imported_effective_trait_methods: HashMap::new(),
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
+            source_map: Default::default(),
         };
 
         let resolved = finalize(partial).expect("ID-keyed payload should finalize");
@@ -1266,6 +1321,8 @@ mod tests {
     fn finalize_reports_function_key_payload_id_mismatch() {
         let key = DefId::new(CrateId(0), LocalDefId(51));
         let payload = DefId::new(CrateId(0), LocalDefId(52));
+        let mut source_map = crate::source_map::SemanticSourceMap::default();
+        source_map.insert_definition(key, crate::lexer::Span::test());
         let partial = PartialHir {
             functions: HashMap::from([(key, empty_function(payload, "payload_display"))]),
             structs: HashMap::new(),
@@ -1287,6 +1344,7 @@ mod tests {
             imported_effective_trait_methods: HashMap::new(),
             inference_sccs: HashMap::new(),
             inference_scc_order: Vec::new(),
+            source_map,
         };
 
         let errors = finalize(partial).expect_err("mismatched function IDs should be rejected");

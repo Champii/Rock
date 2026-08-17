@@ -19,7 +19,7 @@ fn empty_self_ident() {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::SelfIdent(Ident {
                 name: "self".to_string(),
-                span: Span::default(),
+                span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,

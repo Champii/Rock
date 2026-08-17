@@ -12,21 +12,21 @@ fn test_parse_array_nested_expr() {
             Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Literal(Literal {
                     kind: LiteralKind::Number(1),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 secondaries: None,
                 type_annotation: None,
             })),
             Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Literal(Literal {
-                    span: Span::default(),
+                    span: Span::test(),
                     kind: LiteralKind::Array(Array {
                         elements: vec![
                             Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                                 operand: Operand::Ident(IdentifierPath {
                                     path: vec![IdentOrType::Ident(Ident {
                                         name: "hello".to_string(),
-                                        span: Span::default(),
+                                        span: Span::test(),
                                     })],
                                 }),
                                 secondaries: None,
@@ -35,7 +35,7 @@ fn test_parse_array_nested_expr() {
                             Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                                 operand: Operand::Literal(Literal {
                                     kind: LiteralKind::Number(3),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 }),
                                 secondaries: None,
                                 type_annotation: None,
@@ -49,7 +49,7 @@ fn test_parse_array_nested_expr() {
             Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Literal(Literal {
                     kind: LiteralKind::Number(8),
-                    span: Span::default(),
+                    span: Span::test(),
                 }),
                 secondaries: None,
                 type_annotation: None,
@@ -58,19 +58,19 @@ fn test_parse_array_nested_expr() {
                 UnaryExpr::PrimaryExpr(PrimaryExpr {
                     operand: Operand::Literal(Literal {
                         kind: LiteralKind::Number(5),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     secondaries: None,
                     type_annotation: None,
                 }),
                 Operator {
                     value: "+".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 },
                 Box::new(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                     operand: Operand::Literal(Literal {
                         kind: LiteralKind::Number(4),
-                        span: Span::default(),
+                        span: Span::test(),
                     }),
                     secondaries: None,
                     type_annotation: None,

@@ -32,7 +32,7 @@ fn deeply_nested_multiline_arguments_with_multiline_dots() {
                 ident_path.path[0],
                 IdentOrType::Ident(Ident {
                     name: "foo".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })
             );
 
@@ -65,7 +65,7 @@ fn deeply_nested_multiline_arguments_with_multiline_dots() {
                         ident_path.path[0],
                         IdentOrType::Ident(Ident {
                             name: "argnested".to_string(),
-                            span: Span::default(),
+                            span: Span::test(),
                         })
                     );
 
@@ -95,7 +95,7 @@ fn deeply_nested_multiline_arguments_with_multiline_dots() {
                         ident_path.path[0],
                         IdentOrType::Ident(Ident {
                             name: "arg3".to_string(),
-                            span: Span::default(),
+                            span: Span::test(),
                         })
                     );
                 }

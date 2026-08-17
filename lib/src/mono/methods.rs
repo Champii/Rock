@@ -9,6 +9,16 @@ use crate::types::{GenericParamDecl, GenericParamId, Type};
 
 use super::Monomorphizer;
 
+fn drop_diagnostic(
+    message: String,
+    origin_span: Option<&crate::lexer::Span>,
+) -> crate::diagnostic::Diagnostic {
+    match origin_span {
+        Some(span) => crate::diagnostic::Diagnostic::new(message, span.clone()),
+        None => crate::diagnostic::Diagnostic::for_toolchain(message),
+    }
+}
+
 impl Monomorphizer {
     pub(super) fn monomorphize_drop_for_type(
         &mut self,
@@ -36,12 +46,12 @@ impl Monomorphizer {
         matching_impls.dedup_by_key(|imp| imp.id);
         let [imp] = matching_impls.as_slice() else {
             if matching_impls.len() > 1 {
-                self.diagnostics.push(crate::diagnostic::Diagnostic::new(
+                self.diagnostics.push(drop_diagnostic(
                     format!(
                         "ambiguous Drop implementation for type {ty}: {:?}",
                         matching_impls.iter().map(|imp| imp.id).collect::<Vec<_>>()
                     ),
-                    Default::default(),
+                    origin_span.as_ref(),
                 ));
             }
             return;
@@ -51,12 +61,12 @@ impl Monomorphizer {
             .get(&(imp.id, drop_method_id))
             .copied()
         else {
-            self.diagnostics.push(crate::diagnostic::Diagnostic::new(
+            self.diagnostics.push(drop_diagnostic(
                 format!(
                     "Drop implementation {:?} has no resolved @drop method",
                     imp.id
                 ),
-                Default::default(),
+                origin_span.as_ref(),
             ));
             return;
         };
@@ -66,12 +76,12 @@ impl Monomorphizer {
             .find(|method| method.id == method_id)
             .cloned()
         else {
-            self.diagnostics.push(crate::diagnostic::Diagnostic::new(
+            self.diagnostics.push(drop_diagnostic(
                 format!(
                     "Drop implementation {:?} resolves @drop to missing method {:?}",
                     imp.id, method_id
                 ),
-                Default::default(),
+                origin_span.as_ref(),
             ));
             return;
         };
@@ -79,22 +89,22 @@ impl Monomorphizer {
         let type_args = if !imp.type_generics.is_empty() || !method.generic_params.is_empty() {
             let Some(receiver_type_args) = self.extract_type_args_from_receiver_pattern(imp, ty)
             else {
-                self.diagnostics.push(crate::diagnostic::Diagnostic::new(
+                self.diagnostics.push(drop_diagnostic(
                     format!(
                         "Drop implementation {:?} could not resolve complete receiver substitution for type {ty}",
                         imp.id
                     ),
-                    Default::default(),
+                    origin_span.as_ref(),
                 ));
                 return;
             };
             if receiver_type_args.len() != imp.type_generics.len() {
-                self.diagnostics.push(crate::diagnostic::Diagnostic::new(
+                self.diagnostics.push(drop_diagnostic(
                     format!(
                         "Drop implementation {:?} could not resolve complete receiver substitution for type {ty}",
                         imp.id
                     ),
-                    Default::default(),
+                    origin_span.as_ref(),
                 ));
                 return;
             }
@@ -1650,7 +1660,7 @@ mod tests {
         );
 
         let error = mono
-            .monomorphize_static_method_call(&owner_ty, &target, &[], Span::default())
+            .monomorphize_static_method_call(&owner_ty, &target, &[], Span::test())
             .expect_err("overlapping static impls must be ambiguous");
 
         assert_ambiguous_impl_error(
@@ -1692,7 +1702,7 @@ mod tests {
         );
 
         let (_, call_target, _) = mono
-            .monomorphize_static_method_call(&owner_ty, &target, &[], Span::default())
+            .monomorphize_static_method_call(&owner_ty, &target, &[], Span::test())
             .expect("deferred constructor authority should resolve");
 
         assert!(matches!(
@@ -1736,7 +1746,7 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("owner".to_string()),
             ty: owner_ty.clone(),
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -1747,7 +1757,7 @@ mod tests {
                 target,
             ),
             ty: Type::Unit,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = mono
@@ -1972,12 +1982,12 @@ mod tests {
         let recv = HirExpr {
             kind: HirExprKind::Var("value".to_string()),
             ty: enum_ty(type_name, vec![Type::I64]),
-            span: Span::default(),
+            span: Span::test(),
         };
         let func_arg = HirExpr {
             kind: HirExprKind::Var("inc".to_string()),
             ty: Type::function(vec![Type::I64], Type::I64),
-            span: Span::default(),
+            span: Span::test(),
         };
         let expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -1993,7 +2003,7 @@ mod tests {
                 ),
             ),
             ty: enum_ty(type_name, vec![Type::I64]),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         (recv, func_arg, expr)
@@ -2095,7 +2105,7 @@ mod tests {
         let recv = HirExpr {
             kind: HirExprKind::Var("some".to_string()),
             ty: enum_ty("Option", vec![Type::I64]),
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -2111,7 +2121,7 @@ mod tests {
                 ),
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let _ = mono.monomorphize_trait_method_call("println", &[recv], &mut expr);
@@ -2160,7 +2170,7 @@ mod tests {
                 HirMethodCallTarget::impl_method(impl_id, method_id, None),
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let error = mono
@@ -2270,12 +2280,12 @@ mod tests {
         let receiver = HirExpr {
             kind: HirExprKind::Var("cell".to_string()),
             ty: cell_ty,
-            span: Span::default(),
+            span: Span::test(),
         };
         let key = HirExpr {
             kind: HirExprKind::IntLiteral(0),
             ty: Type::I64,
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut index_expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -2294,7 +2304,7 @@ mod tests {
                 mutable: false,
                 inner: Box::new(Type::I64),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut index_mut_expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -2313,7 +2323,7 @@ mod tests {
                 mutable: true,
                 inner: Box::new(Type::I64),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
 
         mono.monomorphize_trait_method_call(
@@ -2431,7 +2441,7 @@ mod tests {
         HirExpr {
             kind: HirExprKind::Var("some".to_string()),
             ty: enum_ty("stdlib::option::Option", vec![Type::I64]),
-            span: Span::default(),
+            span: Span::test(),
         }
     }
 
@@ -2640,7 +2650,7 @@ mod tests {
         let func_arg = HirExpr {
             kind: HirExprKind::Var("inc".to_string()),
             ty: Type::function(vec![Type::I64], Type::I64),
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -2651,7 +2661,7 @@ mod tests {
                 selected_map_target(impl_id, method_id, Type::I64, Type::I64),
             ),
             ty: enum_ty("stdlib::option::Option", vec![Type::I64]),
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let _ = mono.monomorphize_standalone_method_call("map", &[recv, func_arg], &mut expr);
@@ -2710,7 +2720,7 @@ mod tests {
                 selected_target,
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let _ = mono.monomorphize_trait_method_call("println", &[recv], &mut expr);
@@ -2765,7 +2775,7 @@ mod tests {
                 ),
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let _ = mono.monomorphize_trait_method_call("println", &[recv], &mut expr);
@@ -2831,7 +2841,7 @@ mod tests {
                 ),
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let _ = mono.monomorphize_trait_method_call("println", &[recv], &mut expr);
@@ -2886,7 +2896,7 @@ mod tests {
                 mutable: false,
                 inner: Box::new(Type::Str),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut expr = HirExpr {
             kind: HirExprKind::MethodCall(
@@ -2902,7 +2912,7 @@ mod tests {
                 ),
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let _ = mono.monomorphize_trait_method_call("println", &[recv], &mut expr);
@@ -3027,7 +3037,7 @@ mod tests {
                 mutable: false,
                 inner: Box::new(Type::Slice(Box::new(Type::U8))),
             },
-            span: Span::default(),
+            span: Span::test(),
         };
         let mut selected_target = selected_impl_target(impl_id, method_id, Type::U8);
         if let crate::hir::HirSelectedMethodTarget::ImplMethod { selected_trait, .. } =
@@ -3048,7 +3058,7 @@ mod tests {
                 selected_target,
             ),
             ty: Type::I32,
-            span: Span::default(),
+            span: Span::test(),
         };
 
         let _ = mono.monomorphize_trait_method_call("println", &[recv], &mut expr);
@@ -3104,7 +3114,7 @@ mod tests {
                         ),
                         index: 0,
                     }),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
                 ty: Type::I64,
             },
@@ -3169,7 +3179,7 @@ mod tests {
                 stmts: vec![HirStmt::Expr(HirExpr {
                     kind: HirExprKind::Var("self".to_string()),
                     ty: receiver,
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
                 ty: Type::I64,
             },

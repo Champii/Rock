@@ -7,7 +7,7 @@ use crate::lower::Lowerer;
 
 impl Lowerer {
     pub(crate) fn lower_if(&mut self, if_expr: &ast::If) -> HirExpr {
-        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let span = self.diagnostics.current_span().clone();
         let condition = self.lower_expression(&if_expr.condition.expression);
         let _ = self.engine.unify(&condition.ty, &Type::Bool);
 
@@ -49,7 +49,7 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_match(&mut self, match_expr: &ast::Match) -> HirExpr {
-        let span = self.diagnostics.current_span().cloned().unwrap_or_default();
+        let span = self.diagnostics.current_span().clone();
         let scrutinee = self.lower_expression(&match_expr.expr);
         let mut result_ty: Option<Type> = None;
 
@@ -216,6 +216,8 @@ impl Lowerer {
                 }
             }
             (Type::Reference { .. }, Type::Reference { .. }) => {
+                let left = self.display_type(&left);
+                let right = self.display_type(&right);
                 self.diagnostics
                     .push(format!("Type mismatch: {} vs {}", left, right));
                 Type::Error
@@ -280,6 +282,8 @@ impl Lowerer {
         if self.engine.unify_invariant(left, right).is_ok() {
             self.engine.resolve(left)
         } else {
+            let left = self.display_type(left);
+            let right = self.display_type(right);
             self.diagnostics
                 .push(format!("Type mismatch: {} vs {}", left, right));
             Type::Error

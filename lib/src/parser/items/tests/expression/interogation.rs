@@ -19,7 +19,7 @@ fn ident_expr(name: &str, secondaries: Option<Vec<SecondaryExpr>>) -> Expression
         operand: Operand::Ident(IdentifierPath {
             path: vec![IdentOrType::Ident(Ident {
                 name: name.to_string(),
-                span: Span::default(),
+                span: Span::test(),
             })],
         }),
         secondaries,
@@ -43,7 +43,7 @@ fn interogation() {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "foo".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })],
             }),
             secondaries: Some(vec![
@@ -54,7 +54,7 @@ fn interogation() {
                             operand: Operand::Ident(IdentifierPath {
                                 path: vec![IdentOrType::Ident(Ident {
                                     name: "bar".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 })],
                             }),
                             secondaries: None,
@@ -66,7 +66,7 @@ fn interogation() {
                             operand: Operand::Ident(IdentifierPath {
                                 path: vec![IdentOrType::Ident(Ident {
                                     name: "baz".to_string(),
-                                    span: Span::default(),
+                                    span: Span::test(),
                                 })],
                             }),
                             secondaries: None,
@@ -144,13 +144,13 @@ fn receiver_chain_and_call_interogation_compose() {
                 SecondaryExpr::Interogation,
                 SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                     name: "get".to_string(),
-                    span: Span::default(),
+                    span: Span::test(),
                 })),
                 SecondaryExpr::Arguments(vec![Argument {
                     arg: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                         operand: Operand::Literal(Literal {
                             kind: LiteralKind::Number(0),
-                            span: Span::default(),
+                            span: Span::test(),
                         }),
                         secondaries: None,
                         type_annotation: None,

@@ -4067,13 +4067,13 @@ mod tests {
                         target: HirVarTarget::Function(method_id),
                     }),
                     ty: Type::function(Vec::new(), Type::Unit),
-                    span: crate::lexer::Span::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 Vec::new(),
                 None,
             ),
             ty: Type::Unit,
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }));
         let mut program = program(
             HashMap::from([(function_id, function)]),
@@ -4119,13 +4119,13 @@ mod tests {
                         target: HirVarTarget::Function(method_id),
                     }),
                     ty: Type::function(Vec::new(), Type::Unit),
-                    span: crate::lexer::Span::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 Vec::new(),
                 Some(HirCallTarget::Function(method_id)),
             ),
             ty: Type::Unit,
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }));
         let mut imp = impl_with_method(impl_id, method_id);
         imp.receiver_pattern = HirImplReceiverPattern::Constructor(Type::Constructor {
@@ -4174,7 +4174,7 @@ mod tests {
                 expr: Box::new(HirExpr {
                     kind: HirExprKind::Unit,
                     ty: Type::Unit,
-                    span: crate::lexer::Span::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 branch_method: Some(target.clone()),
                 branch_target: None,
@@ -4201,7 +4201,7 @@ mod tests {
                 },
             },
             ty: Type::Unit,
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }));
         let trait_def = HirTrait {
             target: None,
@@ -4314,7 +4314,7 @@ mod tests {
                 Box::new(HirExpr {
                     kind: HirExprKind::Unit,
                     ty: Type::Unit,
-                    span: crate::lexer::Span::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 "missing".to_string(),
                 Vec::new(),
@@ -4322,7 +4322,7 @@ mod tests {
                 None,
             ),
             ty: Type::Unit,
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }));
         let trait_def = HirTrait {
             target: None,
@@ -4391,7 +4391,7 @@ mod tests {
         function.body.stmts.push(HirStmt::Expr(HirExpr {
             kind: HirExprKind::Unit,
             ty: unresolved,
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }));
         let program = program(
             HashMap::from([(function_id, function)]),
@@ -4512,7 +4512,7 @@ mod tests {
             value: HirExpr {
                 kind: HirExprKind::Unit,
                 ty: Type::Unit,
-                span: crate::lexer::Span::default(),
+                span: crate::lexer::Span::test(),
             },
             mutable: false,
         });
@@ -4589,13 +4589,13 @@ mod tests {
                 Box::new(HirExpr {
                     kind: HirExprKind::Unit,
                     ty: Type::Unit,
-                    span: crate::lexer::Span::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 "missing".to_string(),
                 None,
             ),
             ty: Type::Unit,
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }));
         let program = program(
             HashMap::from([(function_id, function)]),
@@ -4631,13 +4631,13 @@ mod tests {
                         target: HirVarTarget::Instance(instance_id),
                     }),
                     ty: Type::function(Vec::new(), Type::Unit),
-                    span: crate::lexer::Span::default(),
+                    span: crate::lexer::Span::test(),
                 }),
                 Vec::new(),
                 Some(HirCallTarget::Instance(instance_id)),
             ),
             ty: Type::Unit,
-            span: crate::lexer::Span::default(),
+            span: crate::lexer::Span::test(),
         }));
         let program = program(
             HashMap::from([(function_id, function)]),
@@ -6190,7 +6190,7 @@ mod tests {
                         Box::new(HirExpr {
                             kind: HirExprKind::Var("self".to_string()),
                             ty: source_ty.clone(),
-                            span: Default::default(),
+                            span: crate::lexer::Span::test(),
                         }),
                         "target".to_string(),
                         Vec::new(),
@@ -6206,7 +6206,7 @@ mod tests {
                         )),
                     ),
                     ty: Type::I64,
-                    span: Default::default(),
+                    span: crate::lexer::Span::test(),
                 })],
                 ty: Type::I64,
             },

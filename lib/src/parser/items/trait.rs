@@ -96,8 +96,9 @@ fn trait_member(stream: Input) -> IResult<(FnDeclOrSig, Option<LanguageItemMarke
                 "language item marker must be followed by a trait member".to_string(),
                 marker
                     .as_ref()
-                    .map(|marker| marker.span.clone())
-                    .unwrap_or_default(),
+                    .expect("guarded language item marker")
+                    .span
+                    .clone(),
             ));
         }
         Err(error) => return Err(error),

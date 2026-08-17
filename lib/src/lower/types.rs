@@ -144,7 +144,7 @@ mod tests {
         ParseType::Type(ParseTypeInner {
             name: name.to_string(),
             generics: vec![],
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         })
     }
 
@@ -184,7 +184,7 @@ mod tests {
     }
 
     fn lowerer_with_nominals() -> Lowerer {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_structure(HirStruct {
             id: def_id(10),
             name: "Widget".to_string(),
@@ -243,12 +243,12 @@ mod tests {
         let struct_ty = lowerer.lower_parse_type(&ParseType::Type(ParseTypeInner {
             name: "Widget".to_string(),
             generics: vec![named_type("I64")],
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         }));
         let enum_ty = lowerer.lower_parse_type(&ParseType::Type(ParseTypeInner {
             name: "Choice".to_string(),
             generics: vec![named_type("Bool")],
-            span: Default::default(),
+            span: crate::lexer::Span::test(),
         }));
 
         assert_eq!(
@@ -271,7 +271,7 @@ mod tests {
     fn lower_nominal_type_prefers_resolver_alias_id_over_suffix_match() {
         let canonical_id = def_id(40);
         let suffix_collision_id = def_id(41);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_structure(HirStruct {
             id: canonical_id,
             name: "dep::Widget".to_string(),
@@ -311,7 +311,7 @@ mod tests {
     fn lower_struct_type_prefers_module_local_alias_over_root_type() {
         let root_id = def_id(42);
         let module_id = def_id(43);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_structure(test_struct(root_id, "Thing"));
@@ -347,7 +347,7 @@ mod tests {
     fn lower_enum_type_prefers_module_local_alias_over_root_type() {
         let root_id = def_id(44);
         let module_id = def_id(45);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer
             .items
             .insert_enumeration(test_enum(root_id, "Choice"));
@@ -383,7 +383,7 @@ mod tests {
     fn resolve_trait_type_prefers_module_local_alias_over_root_trait() {
         let root_id = def_id(46);
         let module_id = def_id(47);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.items.insert_trait_def(test_trait(root_id, "Show"));
         lowerer
             .items
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_lower_parse_bare_slice_type_reports_error() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let ty = lowerer.lower_parse_type(&ParseType::Slice(Box::new(named_type("I64"))));
 
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn test_lower_parse_borrowed_slice_type_lowers_to_reference_to_slice_type() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let ty = lowerer.lower_parse_type(&ParseType::Reference {
             is_mut: false,
@@ -440,7 +440,7 @@ mod tests {
 
     #[test]
     fn test_lower_parse_raw_slice_pointer_lowers_to_pointer_to_slice_type() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let ty = lowerer.lower_parse_type(&ParseType::Pointer(Box::new(ParseType::Slice(
             Box::new(named_type("I64")),
@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn test_lower_parse_bare_str_reports_error() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let ty = lowerer.lower_parse_type(&named_type("Str"));
 
@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn test_lower_parse_borrowed_str_lowers_to_reference_to_str_type() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let ty = lowerer.lower_parse_type(&ParseType::Reference {
             is_mut: false,
@@ -486,7 +486,7 @@ mod tests {
 
     #[test]
     fn test_lower_parse_raw_str_pointer_lowers_to_pointer_to_str_type() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let ty = lowerer.lower_parse_type(&ParseType::Pointer(Box::new(named_type("Str"))));
 
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_lower_parse_mut_borrowed_str_lowers_to_mut_reference_to_str_type() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let ty = lowerer.lower_parse_type(&ParseType::Reference {
             is_mut: true,
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_lower_parse_fixed_array_type_preserves_length_without_error() {
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
 
         let ty = lowerer.lower_parse_type(&ParseType::Array {
             inner: Box::new(named_type("I64")),
@@ -529,7 +529,7 @@ mod tests {
     #[test]
     fn lower_parse_type_creates_implicit_generic_in_current_context() {
         let owner = def_id(60);
-        let mut lowerer = Lowerer::new();
+        let mut lowerer = Lowerer::new_for_test();
         lowerer.generic_context = Some(crate::lower::body_context::GenericLoweringContext::new(
             owner,
             Vec::new(),
