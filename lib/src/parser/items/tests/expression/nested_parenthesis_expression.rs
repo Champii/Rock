@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -14,9 +15,9 @@ fn nested_parenthesis_expression() {
         .process(ParseCtx::from(&tokens, &config))
         .unwrap();
 
-    assert_eq!(
-        expression,
-        Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+    assert_formatted_eq(
+        &expression,
+        &Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Expression(Box::new(Expression::BinopExpr(
                 UnaryExpr::PrimaryExpr(PrimaryExpr {
                     operand: Operand::Literal(Literal {
@@ -51,11 +52,11 @@ fn nested_parenthesis_expression() {
                             }),
                             secondaries: None,
                             type_annotation: None,
-                        })))
+                        }))),
                     ))),
                     secondaries: None,
                     type_annotation: None,
-                })))
+                }))),
             ))),
             secondaries: None,
             type_annotation: None,

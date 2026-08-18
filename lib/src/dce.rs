@@ -153,8 +153,13 @@ fn collect_instance_edges_mir_terminator(
     missing_instance_edges: &mut BTreeSet<InstanceId>,
 ) {
     match terminator {
-        Terminator::Goto(_) | Terminator::Return | Terminator::Drop { .. } => {}
-        Terminator::SwitchInt { discr, .. } => {
+        Terminator::Goto(_)
+        | Terminator::GotoWithOrigin { .. }
+        | Terminator::Return
+        | Terminator::ReturnWithOrigin { .. }
+        | Terminator::Drop { .. }
+        | Terminator::DropWithOrigin { .. } => {}
+        Terminator::SwitchInt { discr, .. } | Terminator::SwitchIntWithOrigin { discr, .. } => {
             collect_instance_edges_mir_operand(discr, indexes, edges, missing_instance_edges);
         }
         Terminator::Call { func, args, .. } => {
@@ -441,6 +446,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context,
+            source_map: crate::source_map::SemanticSourceMap::default(),
         }
     }
 
@@ -855,6 +861,7 @@ mod tests {
                             projection: Vec::new(),
                         },
                         target: BasicBlockId(1),
+                        span: Some(crate::lexer::Span::test()),
                     }),
                 },
                 BasicBlock {

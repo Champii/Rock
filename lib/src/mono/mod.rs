@@ -31,11 +31,12 @@ mod substitute;
 
 use crate::collect::resolver::ResolverTables;
 use crate::crate_system::CrateContext;
-use crate::diagnostic::Diagnostics;
+use crate::diagnostic::{DiagnosticCode, Diagnostics};
 use crate::hir::{self, AcceptedHirProgram};
 use crate::ids::{DefId, HirLocalId, TypeId};
 use crate::infer::ResolvedHirProgram;
 use crate::products::ProductCrateIdentity;
+use crate::source_map::{SemanticSourceMap, SourceSymbol};
 use crate::type_context::{Ty, TypeContext};
 use crate::type_services::normalize::{TypeNormalizationEnv, TypeNormalizer};
 use crate::types::{GenericParamId, Type};
@@ -134,6 +135,7 @@ pub struct MonoError {
 }
 
 impl MonoError {
+    #[cfg(test)]
     fn diagnostic(self, resolver: &ResolverTables) -> crate::diagnostic::Diagnostic {
         let context = crate::type_services::display::TypeDisplayContext::from_resolver(resolver);
         let display = |ty: &Type| {
@@ -185,7 +187,63 @@ impl MonoError {
                 "required callable instance is unavailable during specialization".to_string()
             }
         };
-        crate::diagnostic::Diagnostic::new(message, self.span)
+        crate::diagnostic::Diagnostic::new(message, self.span).with_code(DiagnosticCode::Mono)
+    }
+
+    fn diagnostic_with_context(
+        self,
+        context: &crate::type_services::display::TypeDisplayContext,
+    ) -> crate::diagnostic::Diagnostic {
+        let display = |ty: &Type| {
+            crate::type_services::display::display_type_with_context(ty, context).to_string()
+        };
+        let message = match self.kind {
+            MonoErrorKind::MissingImpl { .. } => {
+                "selected implementation is unavailable during specialization".to_string()
+            }
+            MonoErrorKind::MissingMethod { .. } => {
+                "selected method is unavailable during specialization".to_string()
+            }
+            MonoErrorKind::ReceiverMismatch {
+                receiver, pattern, ..
+            } => match pattern {
+                Some(HirImplReceiverPattern::Exact(expected))
+                | Some(HirImplReceiverPattern::Constructor(expected)) => format!(
+                    "method receiver type mismatch: expected {}, found {}",
+                    display(&expected),
+                    display(&receiver)
+                ),
+                Some(HirImplReceiverPattern::SliceFamily { element }) => format!(
+                    "method receiver type mismatch: expected a slice of {}, found {}",
+                    display(&element),
+                    display(&receiver)
+                ),
+                None => format!("method receiver type mismatch for {}", display(&receiver)),
+            },
+            MonoErrorKind::InvalidBindings { .. } => {
+                "method has invalid generic arguments during specialization".to_string()
+            }
+            MonoErrorKind::TraitArgsMismatch {
+                expected, selected, ..
+            } => format!(
+                "trait argument mismatch: expected {}, found {}",
+                display_type_list(&expected, &display),
+                display_type_list(&selected, &display)
+            ),
+            MonoErrorKind::NoMatchingImpl { .. } => {
+                "no matching trait implementation was found during specialization".to_string()
+            }
+            MonoErrorKind::AmbiguousImpls { .. } => {
+                "multiple trait implementations match during specialization".to_string()
+            }
+            MonoErrorKind::MissingEffectiveMethod { .. } => {
+                "trait implementation does not provide the selected method".to_string()
+            }
+            MonoErrorKind::MissingInstance { .. } => {
+                "required callable instance is unavailable during specialization".to_string()
+            }
+        };
+        crate::diagnostic::Diagnostic::new(message, self.span).with_code(DiagnosticCode::Mono)
     }
 }
 
@@ -193,9 +251,15 @@ fn display_type_list(types: &[Type], display: &impl Fn(&Type) -> String) -> Stri
     types.iter().map(display).collect::<Vec<_>>().join(", ")
 }
 
-/// Monomorphize a program: replace all generic types with concrete instantiations
-pub fn monomorphize(program: AcceptedHirProgram) -> Result<MonomorphizedProgram, Diagnostics> {
-    let mut mono = Monomorphizer::new();
+/// Monomorphize a program with its session source metadata.
+///
+/// Source locations are intentionally an explicit input so production callers
+/// cannot silently discard binding and declaration spans before MIR lowering.
+pub fn monomorphize(
+    program: AcceptedHirProgram,
+    source_map: SemanticSourceMap,
+) -> Result<MonomorphizedProgram, Diagnostics> {
+    let mut mono = Monomorphizer::new().with_source_map(source_map);
     let program = mono.process(program.into_program());
     mono.diagnostics.return_if_err()?;
     let (instances, pre_mir_instance_bodies) = mono.instances.into_parts();
@@ -205,7 +269,15 @@ pub fn monomorphize(program: AcceptedHirProgram) -> Result<MonomorphizedProgram,
         pre_mir_instance_bodies,
         generated_drop_instances: mono.generated_drop_instances,
         type_context: mono.type_context,
+        source_map: mono.source_map,
     })
+}
+
+#[cfg(test)]
+pub(super) fn monomorphize_for_tests(
+    program: AcceptedHirProgram,
+) -> Result<MonomorphizedProgram, Diagnostics> {
+    monomorphize(program, SemanticSourceMap::default())
 }
 
 /// Monomorphize a program with external crate support
@@ -229,9 +301,11 @@ pub(crate) fn monomorphize_with_crates(
         resolver,
         type_context,
         normalization_env,
+        source_map,
         ..
     } = program;
     let mut mono = Monomorphizer::with_type_context(type_context);
+    mono.source_map = source_map;
     mono.normalization_env = normalization_env;
     mono.identity_context = identity_context;
     mono.resolver = resolver;
@@ -244,6 +318,7 @@ pub(crate) fn monomorphize_with_crates(
         pre_mir_instance_bodies,
         generated_drop_instances: mono.generated_drop_instances,
         type_context: mono.type_context,
+        source_map: mono.source_map,
     })
 }
 
@@ -285,6 +360,8 @@ struct Monomorphizer {
     var_types: HashMap<HirLocalId, TypeId>,
     /// Nominal field types keyed by canonical struct/enum identity for recursive drop glue.
     nominal_field_types: HashMap<DefId, Vec<Type>>,
+    /// Source spans for nominal fields used while materializing recursive drop glue.
+    nominal_field_spans: HashMap<DefId, Vec<Option<crate::lexer::Span>>>,
     /// Drop impl instance keys currently being specialized for automatic drop glue.
     drop_monomorphization_in_progress: HashSet<(DefId, Vec<TypeId>)>,
     /// Nominal types currently being expanded for field drop specialization.
@@ -297,9 +374,81 @@ struct Monomorphizer {
     generated_drop_instances: std::collections::BTreeMap<TypeId, GeneratedMethodInstance>,
     /// Selection failures discovered while monomorphizing generated method edges.
     diagnostics: Diagnostics,
+    /// Session-only source locations consumed by MIR and diagnostics.
+    source_map: SemanticSourceMap,
+    current_function_owner: Option<DefId>,
 }
 
 impl Monomorphizer {
+    fn diagnostic_context(&self) -> crate::type_services::display::TypeDisplayContext {
+        let mut context =
+            crate::type_services::display::TypeDisplayContext::from_resolver(&self.resolver);
+        for resolver in &self.dependency_resolvers {
+            context.extend_resolver(resolver);
+        }
+        for function in self
+            .concrete_functions
+            .values()
+            .chain(self.generic_functions.values())
+        {
+            context.insert_generic_names(&function.generic_params);
+        }
+        let mut extend_impl = |impl_def: &HirImpl| {
+            context.insert_generic_names(&impl_def.type_generics);
+            context.insert_generic_names(&impl_def.trait_generics);
+            for associated in &impl_def.associated_types {
+                for owner in [Some(impl_def.id), impl_def.trait_id] {
+                    if let Some(owner) = owner {
+                        context.insert_associated_name(
+                            crate::types::AssociatedTypeKey {
+                                owner,
+                                assoc_type_id: associated.id,
+                            },
+                            associated.name.clone(),
+                        );
+                    }
+                }
+            }
+            for method in impl_def.methods.values() {
+                context.insert_generic_names(&method.generic_params);
+            }
+        };
+        for impls in self.trait_impls.values() {
+            for impl_def in impls {
+                extend_impl(impl_def);
+            }
+        }
+        for impl_def in self.generic_impls.values() {
+            extend_impl(impl_def);
+        }
+        context
+    }
+
+    fn display_type_for_diagnostic(&self, ty: &Type) -> String {
+        let context = self.diagnostic_context();
+        crate::type_services::display::display_type_with_context(ty, &context).to_string()
+    }
+
+    fn source_span_for_type(&self, ty: &Type) -> Option<crate::lexer::Span> {
+        let symbol = match ty {
+            Type::Struct { id, .. } | Type::Enum { id, .. } | Type::Constructor { id, .. } => {
+                SourceSymbol::Definition(*id)
+            }
+            Type::Generic(param) => SourceSymbol::Generic(*param),
+            Type::Projection { assoc_type, .. } => SourceSymbol::AssociatedType {
+                owner: assoc_type.owner,
+                associated: assoc_type.assoc_type_id,
+            },
+            _ => return None,
+        };
+        self.source_map.symbol(&symbol).map(|info| {
+            info.declaration_span
+                .as_ref()
+                .unwrap_or(&info.name_span)
+                .clone()
+        })
+    }
+
     fn intern_type(&mut self, ty: &Type) -> crate::ids::TypeId {
         let normalized = self.normalize_type(ty);
         self.type_context
@@ -927,12 +1076,14 @@ impl Monomorphizer {
                 for arg in args {
                     self.validate_materialized_expr(owner, arg, method_ids);
                 }
-                self.diagnostics.push(crate::diagnostic::Diagnostic::new(
+                self.diagnostics.push(
+                    crate::diagnostic::Diagnostic::for_internal(
                     format!(
                         "post-monomorphization body '{owner}' retains unmaterialized method call '{name}'"
                     ),
-                    expr.span.clone(),
-                ));
+                    )
+                    .with_code(DiagnosticCode::Mono),
+                );
             }
             HirExprKind::Call(callee, args, target) => {
                 self.validate_materialized_expr(owner, callee, method_ids);
@@ -947,13 +1098,12 @@ impl Monomorphizer {
                 let unresolved_field_call =
                     matches!(&callee.kind, HirExprKind::FieldAccess(_, _, None));
                 if unresolved_static || method_def_target || unresolved_field_call {
-                    self.diagnostics.push(crate::diagnostic::Diagnostic::new(
-                        format!(
-                            "post-monomorphization body '{owner}' retains an unmaterialized method call edge: target={target:?}, callee={:?}",
-                            callee.kind
-                        ),
-                        expr.span.clone(),
-                    ));
+                    self.diagnostics.push(
+                        crate::diagnostic::Diagnostic::for_internal(format!(
+                            "post-monomorphization body '{owner}' retains an unmaterialized method call edge"
+                        ))
+                        .with_code(DiagnosticCode::Mono),
+                    );
                 }
             }
             HirExprKind::Try {
@@ -966,12 +1116,12 @@ impl Monomorphizer {
                 if !matches!(branch_target, Some(HirCallTarget::Instance(_)))
                     || !matches!(from_residual_target, HirCallTarget::Instance(_))
                 {
-                    self.diagnostics.push(crate::diagnostic::Diagnostic::new(
-                        format!(
+                    self.diagnostics.push(
+                        crate::diagnostic::Diagnostic::for_internal(format!(
                             "post-monomorphization body '{owner}' retains an unmaterialized Try call edge"
-                        ),
-                        expr.span.clone(),
-                    ));
+                        ))
+                        .with_code(DiagnosticCode::Mono),
+                    );
                 }
             }
             HirExprKind::FieldAccess(base, _, _)
@@ -1043,12 +1193,12 @@ impl Monomorphizer {
             HirExprKind::ResolvedVar(reference) => {
                 if matches!(reference.target, HirVarTarget::Function(id) if method_ids.contains(&id))
                 {
-                    self.diagnostics.push(crate::diagnostic::Diagnostic::new(
-                        format!(
+                    self.diagnostics.push(
+                        crate::diagnostic::Diagnostic::for_internal(format!(
                             "post-monomorphization body '{owner}' retains an unmaterialized static method value"
-                        ),
-                        expr.span.clone(),
-                    ));
+                        ))
+                        .with_code(DiagnosticCode::Mono),
+                    );
                 }
             }
             HirExprKind::IntLiteral(_)
@@ -1068,6 +1218,7 @@ impl Monomorphizer {
             function_names_by_id: HashMap::new(),
             var_types: HashMap::new(),
             nominal_field_types: HashMap::new(),
+            nominal_field_spans: HashMap::new(),
             instances: InstanceRegistry::new(),
             type_context: TypeContext::new(),
             normalization_env: TypeNormalizationEnv::new(),
@@ -1085,31 +1236,65 @@ impl Monomorphizer {
             drop_method_id: None,
             generated_drop_instances: std::collections::BTreeMap::new(),
             diagnostics: Diagnostics::default(),
+            source_map: SemanticSourceMap::default(),
+            current_function_owner: None,
         }
+    }
+
+    fn with_source_map(mut self, source_map: SemanticSourceMap) -> Self {
+        self.source_map = source_map;
+        self
     }
 
     fn register_nominal_field_types(&mut self, program: &HirProgram) {
         self.nominal_field_types.clear();
+        self.nominal_field_spans.clear();
         for strukt in program.structs.values() {
             self.nominal_field_types.insert(
                 strukt.id,
                 strukt.fields.iter().map(|field| field.ty.clone()).collect(),
             );
+            self.nominal_field_spans.insert(
+                strukt.id,
+                strukt
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        self.source_map
+                            .symbol(&SourceSymbol::Field {
+                                owner: strukt.id,
+                                field: field.id,
+                            })
+                            .map(|info| info.name_span.clone())
+                    })
+                    .collect(),
+            );
         }
         for enm in program.enums.values() {
             let mut fields = Vec::new();
+            let mut spans = Vec::new();
             for variant in &enm.variants {
                 match &variant.fields {
                     HirVariantFields::Named(named) => {
                         fields.extend(named.iter().map(|field| field.ty.clone()));
+                        spans.extend(named.iter().map(|field| {
+                            self.source_map
+                                .symbol(&SourceSymbol::Field {
+                                    owner: enm.id,
+                                    field: field.id,
+                                })
+                                .map(|info| info.name_span.clone())
+                        }));
                     }
                     HirVariantFields::Positional(positional) => {
                         fields.extend(positional.iter().cloned());
+                        spans.extend(std::iter::repeat(None).take(positional.len()));
                     }
                     HirVariantFields::Unit => {}
                 }
             }
             self.nominal_field_types.insert(enm.id, fields);
+            self.nominal_field_spans.insert(enm.id, spans);
         }
     }
 
@@ -1141,8 +1326,16 @@ impl Monomorphizer {
                 )
             })
             .collect();
-        for field_ty in field_types {
-            self.monomorphize_drop_for_type(&field_ty.substitute_generics(&subst), None);
+        let field_spans = self
+            .nominal_field_spans
+            .get(id)
+            .cloned()
+            .unwrap_or_default();
+        for (index, field_ty) in field_types.into_iter().enumerate() {
+            self.monomorphize_drop_for_type(
+                &field_ty.substitute_generics(&subst),
+                field_spans.get(index).cloned().flatten(),
+            );
         }
 
         self.drop_field_monomorphization_in_progress
@@ -1282,11 +1475,15 @@ impl Monomorphizer {
 #[cfg(test)]
 mod tests {
     use super::{
-        CompilationIdentityContext, InstanceImplOwner, InstanceKey, InstanceOrigin, Monomorphizer,
+        monomorphize_for_tests, CompilationIdentityContext, InstanceImplOwner, InstanceKey,
+        InstanceOrigin, MonoError, MonoErrorKind, Monomorphizer,
     };
 
-    use crate::hir::{AcceptedHirProgram, HirImplOwner, HirImplReceiverPattern, HirParam};
-    use crate::ids::{CrateId, DefId, HirLocalId, LocalDefId, TypeId};
+    use crate::diagnostic::{DiagnosticCode, DiagnosticLocation};
+    use crate::hir::{
+        AcceptedHirProgram, HirAssociatedTypeDef, HirImplOwner, HirImplReceiverPattern, HirParam,
+    };
+    use crate::ids::{AssocTypeId, CrateId, DefId, HirLocalId, LocalDefId, TypeId};
     use crate::mono::hir_types::{HirBlock, HirFunction, HirImpl, HirProgram};
     use crate::products::{ProductCrateIdentity, ProductSourceFingerprint};
     use crate::type_services::kind::Kind;
@@ -1294,6 +1491,81 @@ mod tests {
     use crate::types::{GenericParamDecl, GenericParamId, NominalTypeKind, Type};
 
     use std::collections::HashMap;
+
+    #[test]
+    fn mono_receiver_diagnostic_uses_user_type_names_and_mono_code() {
+        let span = crate::lexer::Span::new("/virtual/main.rk".into(), 2, 7);
+        let receiver = Type::Struct {
+            id: DefId::new(CrateId(0), LocalDefId(7)),
+            args: vec![Type::I64],
+        };
+        let diagnostic = MonoError {
+            kind: MonoErrorKind::ReceiverMismatch {
+                impl_id: DefId::new(CrateId(0), LocalDefId(8)),
+                receiver,
+                pattern: None,
+            },
+            span: span.clone(),
+        }
+        .diagnostic(&crate::collect::resolver::ResolverTables::default());
+
+        assert_eq!(diagnostic.code, Some(DiagnosticCode::Mono));
+        assert_eq!(diagnostic.location, DiagnosticLocation::Source(span));
+        assert!(!diagnostic.message.contains("struct#"));
+        assert!(!diagnostic.message.contains("DefId"));
+    }
+
+    #[test]
+    fn monomorphizer_display_context_renders_generic_projection_names() {
+        let mut mono = Monomorphizer::new();
+        let function_id = DefId::new(CrateId(0), LocalDefId(81));
+        mono.generic_functions.insert(
+            function_id,
+            test_function(function_id, "identity", vec!["T".to_string()]),
+        );
+
+        let trait_id = DefId::new(CrateId(0), LocalDefId(82));
+        mono.resolver
+            .item_names_by_id
+            .insert(trait_id, "Iterator".to_string());
+        let impl_id = DefId::new(CrateId(0), LocalDefId(83));
+        let impl_generic = GenericParamDecl::type_param(
+            GenericParamId {
+                owner: impl_id,
+                index: 0,
+            },
+            "T",
+        );
+        let mut impl_def = concrete_impl_with_methods(impl_id, &[]);
+        impl_def.type_generics = vec![impl_generic];
+        impl_def.trait_id = Some(trait_id);
+        impl_def.associated_types = vec![HirAssociatedTypeDef {
+            id: AssocTypeId(0),
+            name: "Item".to_string(),
+            kind: Kind::Type,
+            ty: Type::I64,
+        }];
+        mono.generic_impls.insert(impl_id, impl_def);
+
+        let generic = Type::Generic(GenericParamId {
+            owner: impl_id,
+            index: 0,
+        });
+        assert_eq!(mono.display_type_for_diagnostic(&generic), "T");
+        let projection = Type::Projection {
+            ty: Box::new(generic),
+            trait_id,
+            assoc_type: crate::types::AssociatedTypeKey {
+                owner: trait_id,
+                assoc_type_id: AssocTypeId(0),
+            },
+            trait_args: Vec::new(),
+        };
+        assert_eq!(
+            mono.display_type_for_diagnostic(&projection),
+            "<T as Iterator>::Item"
+        );
+    }
 
     fn test_function(id: DefId, name: &str, generic_params: Vec<String>) -> HirFunction {
         let generic_params = generic_params
@@ -1373,7 +1645,7 @@ mod tests {
         );
         let program = AcceptedHirProgram::revalidate_for_test(program)
             .expect("mono fixture must satisfy accepted HIR invariants");
-        let monomorphized = crate::mono::monomorphize(program).expect("monomorphization succeeds");
+        let monomorphized = monomorphize_for_tests(program).expect("monomorphization succeeds");
 
         let origins = monomorphized
             .instances
@@ -1441,7 +1713,7 @@ mod tests {
         );
         let program = AcceptedHirProgram::revalidate_for_test(program)
             .expect("mono fixture must satisfy accepted HIR invariants");
-        crate::mono::monomorphize(program)
+        monomorphize_for_tests(program)
             .expect("monomorphization succeeds")
             .instances
             .values()
@@ -1622,7 +1894,7 @@ mod tests {
 
         let program = AcceptedHirProgram::revalidate_for_test(program)
             .expect("mono fixture must satisfy accepted HIR invariants");
-        let monomorphized = crate::mono::monomorphize(program).expect("monomorphization succeeds");
+        let monomorphized = monomorphize_for_tests(program).expect("monomorphization succeeds");
 
         assert_eq!(monomorphized.program.functions.len(), 1);
         assert!(monomorphized.program.functions.contains_key(&id));

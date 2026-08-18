@@ -482,7 +482,7 @@ where
             .iter()
             .any(|(_, candidate)| !same_definition(selected, candidate))
         {
-            errors.push(ResolveError::new(format!(
+            errors.push(ResolveError::non_source(format!(
                 "conflicting {kind} payloads for canonical DefId {id:?}"
             )));
             continue;
@@ -507,7 +507,7 @@ where
     for value in values {
         let id = id_of(&value);
         if output.insert(id, value).is_some() {
-            errors.push(ResolveError::new(format!(
+            errors.push(ResolveError::non_source(format!(
                 "duplicate {kind} payload for canonical DefId {id:?}"
             )));
         }
@@ -529,7 +529,7 @@ fn validate_id_map<T, IdOf>(
     for (key, item) in entries {
         let payload_id = id_of(item);
         if *key != payload_id {
-            errors.push(ResolveError::new(format!(
+            errors.push(ResolveError::non_source(format!(
                 "{kind} key {key:?} does not match payload DefId {payload_id:?}"
             )));
         }

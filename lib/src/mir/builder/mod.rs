@@ -10,6 +10,7 @@ use crate::hir::{
 };
 use crate::ids::{AssocTypeId, DefId, InstanceId, TypeId, VariantId};
 use crate::lexer::Span;
+use crate::source_map::SemanticSourceMap;
 use crate::type_context::TypeContext;
 use crate::type_services::facts::TypeFacts;
 use crate::type_services::projection::{
@@ -57,6 +58,9 @@ pub struct MirBuilder<'a> {
     method_instance_receiver_modes: HashMap<InstanceId, Option<crate::types::ReceiverMode>>,
     direct_drop_types: HashSet<Type>,
     ownership: MirOwnershipMetadata,
+    source_map: SemanticSourceMap,
+    current_source_owner: Option<DefId>,
+    cleanup_mode: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -227,6 +231,9 @@ impl<'a> MirBuilder<'a> {
             method_instance_receiver_modes: HashMap::new(),
             direct_drop_types: HashSet::new(),
             ownership: MirOwnershipMetadata::default(),
+            source_map: SemanticSourceMap::default(),
+            current_source_owner: None,
+            cleanup_mode: false,
         }
     }
 
@@ -243,6 +250,11 @@ impl<'a> MirBuilder<'a> {
         }
     }
 
+    fn with_source_map(mut self, source_map: &SemanticSourceMap) -> Self {
+        self.source_map = source_map.clone();
+        self
+    }
+
     pub fn build(program: &HirProgram) -> MirProgram {
         let mut functions = std::collections::BTreeMap::new();
         let mut initial_type_context = TypeContext::new();
@@ -252,7 +264,8 @@ impl<'a> MirBuilder<'a> {
         for (id, name, func) in program.functions_by_id() {
             let mut builder = MirBuilder::new(program, &type_context);
             let mir_id = MirFunctionId::Function(id);
-            let mir_func = builder.build_function(mir_id.clone(), name, func, false);
+            let mir_func =
+                builder.build_function(mir_id.clone(), name, func, false, Some(id), None);
             functions.insert(mir_id, mir_func);
             for nested in builder.take_nested_functions() {
                 functions.insert(nested.id.clone(), nested);
@@ -318,7 +331,8 @@ impl<'a> MirBuilder<'a> {
                 &type_context,
                 method_instance_receiver_modes.clone(),
                 direct_drop_types.clone(),
-            );
+            )
+            .with_source_map(&program.source_map);
             builder.callable_instances_by_def_id = callable_instances_by_def_id.clone();
             builder
                 .method_def_ids
@@ -330,6 +344,8 @@ impl<'a> MirBuilder<'a> {
                 &record.symbols.backend_symbol,
                 &body,
                 skip_self_cleanup,
+                Some(Self::instance_origin_callable_def_id(&record.origin)),
+                None,
             );
             bodies.insert(
                 record.id,
@@ -1251,7 +1267,7 @@ impl<'a> MirBuilder<'a> {
     }
 
     fn new_local(&mut self, ty: TypeId, mutability: Mutability, name: Option<String>) -> Local {
-        self.new_local_with_source(ty, mutability, name, LocalSource::Temporary)
+        self.new_local_with_source(ty, mutability, name, LocalSource::Temporary, None)
     }
 
     fn new_local_with_source(
@@ -1260,35 +1276,14 @@ impl<'a> MirBuilder<'a> {
         mutability: Mutability,
         name: Option<String>,
         source: LocalSource,
+        span: Option<Span>,
     ) -> Local {
         let id = Local(self.locals.len());
         self.locals.push(LocalDecl {
             ty,
             mutability,
             name,
-            span: None,
-            source,
-        });
-        if source.is_temporary() {
-            self.record_temporary_local(id);
-        }
-        id
-    }
-
-    fn new_local_with_span_and_source(
-        &mut self,
-        ty: TypeId,
-        mutability: Mutability,
-        name: Option<String>,
-        span: Span,
-        source: LocalSource,
-    ) -> Local {
-        let id = Local(self.locals.len());
-        self.locals.push(LocalDecl {
-            ty,
-            mutability,
-            name,
-            span: Some(span),
+            span,
             source,
         });
         if source.is_temporary() {
@@ -1376,6 +1371,49 @@ impl<'a> MirBuilder<'a> {
             .collect()
     }
 
+    fn source_local_span(
+        &self,
+        owner: Option<DefId>,
+        local: crate::ids::HirLocalId,
+    ) -> Option<Span> {
+        owner.and_then(|owner| self.source_map.local_span(owner, local).cloned())
+    }
+
+    fn source_operation_span(
+        &self,
+        _owner: Option<DefId>,
+        operation: Option<Span>,
+    ) -> Option<Span> {
+        operation
+    }
+
+    fn source_origin(&self, span: Option<Span>) -> super::MirOrigin {
+        span.map(super::MirOrigin::Source).unwrap_or_else(|| {
+            super::MirOrigin::synthetic(super::MirSyntheticOrigin::ControlFlow, None)
+        })
+    }
+
+    fn cleanup_origin(&self, place: &Place) -> super::MirOrigin {
+        super::MirOrigin::synthetic(
+            super::MirSyntheticOrigin::Cleanup,
+            self.locals
+                .get(place.local.0)
+                .and_then(|local| local.span.clone()),
+        )
+    }
+
+    fn drop_origin(&self, place: &Place) -> super::MirOrigin {
+        let span = self
+            .locals
+            .get(place.local.0)
+            .and_then(|local| local.span.clone());
+        if self.cleanup_mode {
+            super::MirOrigin::synthetic(super::MirSyntheticOrigin::Cleanup, span)
+        } else {
+            self.source_origin(span)
+        }
+    }
+
     fn push_closure_body_function(
         &mut self,
         closure_id: MirClosureId,
@@ -1383,6 +1421,7 @@ impl<'a> MirBuilder<'a> {
         params: Vec<crate::hir::HirParam>,
         body: HirBlock,
         captures: Vec<HirClosureCapture>,
+        operation_span: Span,
     ) {
         let hir_id = match &closure_id.owner {
             MirFunctionId::Function(id) | MirFunctionId::Extern(id) => *id,
@@ -1409,12 +1448,20 @@ impl<'a> MirBuilder<'a> {
             self.type_context,
             self.method_instance_receiver_modes.clone(),
             self.direct_drop_types.clone(),
-        );
+        )
+        .with_source_map(&self.source_map);
         builder.callable_instances_by_def_id = self.callable_instances_by_def_id.clone();
         builder.method_def_ids = self.method_def_ids.clone();
         builder.pending_closure_body_captures = captures;
         let function_id = MirFunctionId::Closure(Box::new(closure_id));
-        let mir_func = builder.build_function(function_id, lambda_name, &function, false);
+        let mir_func = builder.build_function(
+            function_id,
+            lambda_name,
+            &function,
+            false,
+            self.current_source_owner,
+            Some(operation_span),
+        );
         self.nested_functions.push(mir_func);
         self.nested_functions
             .extend(builder.take_nested_functions());
@@ -2183,9 +2230,12 @@ impl<'a> MirBuilder<'a> {
         display_name: &str,
         func: &HirFunction,
         skip_self_param_cleanup: bool,
+        source_owner: Option<DefId>,
+        operation_span: Option<Span>,
     ) -> MirFunction {
         self.current_function_id = Some(id.clone());
         self.current_function_name = Some(display_name.to_string());
+        self.current_source_owner = source_owner;
         self.drop_flags.clear();
         self.projection_drop_flags.clear();
         self.moved_places.clear();
@@ -2194,11 +2244,13 @@ impl<'a> MirBuilder<'a> {
         let entry_block = self.new_block();
         self.current_block = Some(entry_block);
 
+        let return_span = self.source_operation_span(source_owner, operation_span.clone());
         self.new_local_with_source(
             self.type_id_for(&func.ret_type),
             Mutability::Mut,
             Some("return_place".to_string()),
             LocalSource::ReturnPlace,
+            return_span,
         );
 
         let mut function_scope_locals = Vec::new();
@@ -2209,11 +2261,13 @@ impl<'a> MirBuilder<'a> {
             } else {
                 Mutability::Not
             };
+            let param_span = self.source_local_span(source_owner, param.local_id);
             let local = self.new_local_with_source(
                 self.type_id_for(&param.ty),
                 mutability,
                 Some(param.name.clone()),
                 LocalSource::Argument,
+                param_span,
             );
             self.var_map.insert(param.name.clone(), local);
             let borrowed_self_param = index == 0
@@ -2260,18 +2314,22 @@ impl<'a> MirBuilder<'a> {
                     inner: Box::new(capture.ty.clone()),
                 },
             };
+            let capture_span = self
+                .source_local_span(source_owner, capture.local_id)
+                .or_else(|| operation_span.clone());
             let local = self.new_local_with_source(
                 self.type_id_for(&capture_ty),
                 mutability,
                 Some(capture.name.clone()),
                 LocalSource::ClosureCapture,
+                capture_span.clone(),
             );
             self.var_map.insert(capture.name.clone(), local);
             self.closure_captures.push(MirClosureCapture {
                 name: capture.name,
                 local,
                 kind: MirClosureCaptureKind::from(capture.kind),
-                span: self.locals.get(local.0).and_then(|decl| decl.span.clone()),
+                span: capture_span,
             });
         }
 
@@ -2286,9 +2344,14 @@ impl<'a> MirBuilder<'a> {
         self.finish_scope_locals(function_scope_locals);
 
         if let Some(current) = self.current_block {
+            let implicit_return_origin = self.source_origin(
+                self.source_operation_span(self.current_source_owner, operation_span.clone()),
+            );
             let block = &mut self.blocks[current.0];
             if block.terminator.is_none() {
-                block.terminator = Some(super::Terminator::Return);
+                block.terminator = Some(super::Terminator::return_with_origin(
+                    implicit_return_origin,
+                ));
             }
         }
 
@@ -2515,6 +2578,7 @@ impl<'a> MirBuilder<'a> {
                     mutability,
                     Some(name.clone()),
                     LocalSource::UserBinding,
+                    None,
                 );
                 self.emit_storage_live(local, None);
                 if let Some(scope_locals) = self.scope_locals.last_mut() {
@@ -2732,11 +2796,15 @@ impl<'a> MirBuilder<'a> {
         source_ty: &Type,
         success: BasicBlockId,
         failure: BasicBlockId,
+        origin_span: Option<Span>,
     ) {
         match pattern {
             HirPattern::Wildcard | HirPattern::Binding { .. } => {
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(super::Terminator::Goto(success));
+                    self.blocks[current.0].terminator = Some(super::Terminator::goto(
+                        success,
+                        self.source_origin(origin_span.clone()),
+                    ));
                 }
             }
             HirPattern::Enum(_, _, Some(location), _) => {
@@ -2753,11 +2821,12 @@ impl<'a> MirBuilder<'a> {
                     None,
                 );
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(super::Terminator::SwitchInt {
-                        discr: Operand::Copy(discr_place),
-                        targets: vec![(location.variant_id.0 as i64, success)],
-                        otherwise: failure,
-                    });
+                    self.blocks[current.0].terminator = Some(super::Terminator::switch_int(
+                        Operand::Copy(discr_place),
+                        vec![(location.variant_id.0 as i64, success)],
+                        failure,
+                        self.source_origin(origin_span.clone()),
+                    ));
                 }
             }
             HirPattern::Literal(literal) => {
@@ -2795,18 +2864,22 @@ impl<'a> MirBuilder<'a> {
                     None,
                 );
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(super::Terminator::SwitchInt {
-                        discr: Operand::Copy(bool_place),
-                        targets: vec![(1, success)],
-                        otherwise: failure,
-                    });
+                    self.blocks[current.0].terminator = Some(super::Terminator::switch_int(
+                        Operand::Copy(bool_place),
+                        vec![(1, success)],
+                        failure,
+                        self.source_origin(origin_span.clone()),
+                    ));
                 }
             }
             HirPattern::Tuple(_) | HirPattern::Struct(_, _, _, _)
                 if Self::pattern_is_irrefutable_for_struct_match(pattern) =>
             {
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(super::Terminator::Goto(success));
+                    self.blocks[current.0].terminator = Some(super::Terminator::goto(
+                        success,
+                        super::MirOrigin::synthetic(super::MirSyntheticOrigin::ControlFlow, None),
+                    ));
                 }
             }
             HirPattern::Tuple(_)
@@ -2825,10 +2898,14 @@ impl<'a> MirBuilder<'a> {
         source_ty: &Type,
         success: BasicBlockId,
         failure: BasicBlockId,
+        origin_span: Option<Span>,
     ) {
         let HirPattern::Enum(_, _, Some(location), subpatterns) = pattern else {
             if let Some(current) = self.current_block {
-                self.blocks[current.0].terminator = Some(super::Terminator::Goto(success));
+                self.blocks[current.0].terminator = Some(super::Terminator::goto(
+                    success,
+                    self.source_origin(origin_span.clone()),
+                ));
             }
             return;
         };
@@ -2837,7 +2914,10 @@ impl<'a> MirBuilder<'a> {
 
         if subpatterns.is_empty() {
             if let Some(current) = self.current_block {
-                self.blocks[current.0].terminator = Some(super::Terminator::Goto(success));
+                self.blocks[current.0].terminator = Some(super::Terminator::goto(
+                    success,
+                    self.source_origin(origin_span.clone()),
+                ));
             }
             return;
         }
@@ -2885,6 +2965,7 @@ impl<'a> MirBuilder<'a> {
                 &field_ty,
                 next_success,
                 failure,
+                origin_span.clone(),
             );
             if index + 1 < subpatterns.len() {
                 self.current_block = Some(next_success);
@@ -3184,6 +3265,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context,
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
 
         let mir = MirBuilder::build_monomorphized(&mono);
@@ -3318,6 +3400,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context,
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
 
         let mir = MirBuilder::build_monomorphized(&mono);
@@ -3376,6 +3459,7 @@ mod tests {
             pre_mir_instance_bodies: crate::mono::PreMirInstanceBodies::new(),
             generated_drop_instances: Default::default(),
             type_context,
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
         let functions = std::collections::BTreeMap::new();
         let mut contract_type_context = crate::type_context::TypeContext::new();
@@ -3421,6 +3505,7 @@ mod tests {
             pre_mir_instance_bodies: crate::mono::PreMirInstanceBodies::new(),
             generated_drop_instances: Default::default(),
             type_context: TypeContext::new(),
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
         let mut type_context = TypeContext::new();
 
@@ -3524,6 +3609,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context,
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
 
         let mir = MirBuilder::build_monomorphized(&mono);
@@ -3709,6 +3795,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context,
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
 
         let mir = MirBuilder::build_monomorphized(&mono);
@@ -3872,6 +3959,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context,
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
 
         let mir = MirBuilder::build_monomorphized(&mono);
@@ -4005,6 +4093,7 @@ mod tests {
             pre_mir_instance_bodies: crate::mono::PreMirInstanceBodies::new(),
             generated_drop_instances: Default::default(),
             type_context: TypeContext::new(),
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
         let functions = std::collections::BTreeMap::from([(
             MirFunctionId::Function(function_id),
@@ -4105,6 +4194,7 @@ mod tests {
             pre_mir_instance_bodies: crate::mono::PreMirInstanceBodies::new(),
             generated_drop_instances: Default::default(),
             type_context: TypeContext::new(),
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
         let functions = std::collections::BTreeMap::from([(
             MirFunctionId::Function(function_id),
@@ -4791,6 +4881,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![
@@ -4908,6 +4999,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![
@@ -5027,6 +5119,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context: crate::type_context::TypeContext::new(),
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
         let mut bodies = MirBuilder::take_mir_instance_bodies(&mut monomorphized);
         let unit_ty = monomorphized.type_context.intern_type(&Type::Unit);
@@ -5120,6 +5213,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context: crate::type_context::TypeContext::new(),
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
 
         let bodies = MirBuilder::take_mir_instance_bodies(&mut monomorphized);
@@ -5202,6 +5296,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context: crate::type_context::TypeContext::new(),
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
 
         let mir = MirBuilder::build_monomorphized(&monomorphized);
@@ -5299,6 +5394,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context,
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
 
         let mir = MirBuilder::build_monomorphized(&monomorphized);
@@ -5697,8 +5793,12 @@ mod tests {
                 ))),
                 args,
                 destination,
+                span: Some(call_span),
                 ..
-            }) if *intrinsic == MirIntrinsicId::I64Add && args.len() == 2 && destination.local == Local(0)
+            }) if *intrinsic == MirIntrinsicId::I64Add
+                && args.len() == 2
+                && destination.local == Local(0)
+                && call_span == &intrinsic_expr.span
         ));
 
         assert_builder_agreement_clean(builder, Type::I64);
@@ -5780,7 +5880,7 @@ mod tests {
 
         assert!(matches!(
             &builder.blocks[0].terminator,
-            Some(Terminator::Drop { place, .. })
+            Some(Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. })
                 if place.local == Local(0) && place.projection == vec![Projection::Deref]
         ));
 
@@ -5904,7 +6004,10 @@ mod tests {
             .blocks
             .iter()
             .filter_map(|block| match &block.terminator {
-                Some(Terminator::SwitchInt { targets, .. }) => Some(targets),
+                Some(
+                    Terminator::SwitchInt { targets, .. }
+                    | Terminator::SwitchIntWithOrigin { targets, .. },
+                ) => Some(targets),
                 _ => None,
             })
             .flatten()
@@ -5999,9 +6102,14 @@ mod tests {
             .blocks
             .iter()
             .find_map(|block| match &block.terminator {
-                Some(Terminator::SwitchInt {
-                    targets, otherwise, ..
-                }) => targets
+                Some(
+                    Terminator::SwitchInt {
+                        targets, otherwise, ..
+                    }
+                    | Terminator::SwitchIntWithOrigin {
+                        targets, otherwise, ..
+                    },
+                ) => targets
                     .iter()
                     .find(|(value, _)| *value == some_id.0 as i64)
                     .map(|(_, matched)| (*matched, *otherwise)),
@@ -6102,10 +6210,15 @@ mod tests {
             }));
         assert!(builder.blocks.iter().any(|block| matches!(
             &block.terminator,
-            Some(Terminator::SwitchInt {
-                discr: Operand::Copy(_),
-                ..
-            })
+            Some(
+                Terminator::SwitchInt {
+                    discr: Operand::Copy(_),
+                    ..
+                } | Terminator::SwitchIntWithOrigin {
+                    discr: Operand::Copy(_),
+                    ..
+                },
+            )
         )));
 
         let bool_id = builder.type_id_for(&Type::Bool);
@@ -6113,11 +6226,19 @@ mod tests {
             .blocks
             .iter()
             .find_map(|block| match &block.terminator {
-                Some(Terminator::SwitchInt {
-                    discr: Operand::Copy(place),
-                    targets,
-                    otherwise,
-                }) if builder.locals[place.local.0].ty == bool_id
+                Some(
+                    Terminator::SwitchInt {
+                        discr: Operand::Copy(place),
+                        targets,
+                        otherwise,
+                    }
+                    | Terminator::SwitchIntWithOrigin {
+                        discr: Operand::Copy(place),
+                        targets,
+                        otherwise,
+                        ..
+                    },
+                ) if builder.locals[place.local.0].ty == bool_id
                     && targets.contains(&(1, *otherwise)) == false =>
                 {
                     Some(*otherwise)
@@ -6299,7 +6420,10 @@ mod tests {
             .blocks
             .iter()
             .find_map(|block| match &block.terminator {
-                Some(Terminator::SwitchInt { targets, .. }) => targets
+                Some(
+                    Terminator::SwitchInt { targets, .. }
+                    | Terminator::SwitchIntWithOrigin { targets, .. },
+                ) => targets
                     .iter()
                     .find_map(|(value, target)| (*value == some_id.0 as i64).then_some(*target)),
                 _ => None,
@@ -6308,11 +6432,19 @@ mod tests {
         assert_eq!(discriminant_success, payload_check_block);
 
         let body_entry = match &builder.blocks[payload_check_block.0].terminator {
-            Some(Terminator::SwitchInt {
-                discr: Operand::Copy(discr),
-                targets,
-                otherwise,
-            }) if *discr == payload_bool_place => (
+            Some(
+                Terminator::SwitchInt {
+                    discr: Operand::Copy(discr),
+                    targets,
+                    otherwise,
+                }
+                | Terminator::SwitchIntWithOrigin {
+                    discr: Operand::Copy(discr),
+                    targets,
+                    otherwise,
+                    ..
+                },
+            ) if *discr == payload_bool_place => (
                 targets
                     .iter()
                     .find_map(|(value, target)| (*value == 1).then_some(*target))
@@ -6323,15 +6455,15 @@ mod tests {
         };
         let (payload_success_entry, payload_failure_entry) = body_entry;
         let body_block = match &builder.blocks[payload_success_entry.0].terminator {
-            Some(Terminator::Goto(target)) => *target,
+            Some(Terminator::Goto(target) | Terminator::GotoWithOrigin { target, .. }) => *target,
             terminator => panic!("expected payload success to enter body, got {terminator:?}"),
         };
         let fallback_matched_block = match &builder.blocks[payload_failure_entry.0].terminator {
-            Some(Terminator::Goto(target)) => *target,
+            Some(Terminator::Goto(target) | Terminator::GotoWithOrigin { target, .. }) => *target,
             terminator => panic!("expected payload failure to reach fallback, got {terminator:?}"),
         };
         let fallback_body_block = match &builder.blocks[fallback_matched_block.0].terminator {
-            Some(Terminator::Goto(target)) => *target,
+            Some(Terminator::Goto(target) | Terminator::GotoWithOrigin { target, .. }) => *target,
             terminator => {
                 panic!("expected fallback matched block to enter body, got {terminator:?}")
             }
@@ -6634,7 +6766,8 @@ mod tests {
             .expect("non-copy payload binding should move from scrutinee temp");
         assert!(!builder.blocks.iter().any(|block| matches!(
             &block.terminator,
-            Some(Terminator::Drop { place, .. }) if place.local == moved_scrutinee
+            Some(Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. })
+                if place.local == moved_scrutinee
         )));
     }
 
@@ -6822,7 +6955,12 @@ mod tests {
         let return_block = builder
             .blocks
             .iter()
-            .find(|block| matches!(block.terminator, Some(Terminator::Return)))
+            .find(|block| {
+                matches!(
+                    block.terminator,
+                    Some(Terminator::Return | Terminator::ReturnWithOrigin { .. })
+                )
+            })
             .expect("return terminator block");
         assert!(return_block.statements.iter().any(
             |stmt| matches!(&stmt.kind, StatementKind::StorageDead(local) if *local == discr_local)
@@ -6929,7 +7067,12 @@ mod tests {
         let return_block = builder
             .blocks
             .iter()
-            .find(|block| matches!(block.terminator, Some(Terminator::Return)))
+            .find(|block| {
+                matches!(
+                    block.terminator,
+                    Some(Terminator::Return | Terminator::ReturnWithOrigin { .. })
+                )
+            })
             .expect("return terminator block");
         assert!(return_block.statements.iter().any(
             |stmt| matches!(&stmt.kind, StatementKind::StorageDead(local) if *local == discr_local)
@@ -7029,7 +7172,8 @@ mod tests {
             .expect("generic payload binding should move from scrutinee temp");
         assert!(!builder.blocks.iter().any(|block| matches!(
             &block.terminator,
-            Some(Terminator::Drop { place, .. }) if place.local == moved_scrutinee
+            Some(Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. })
+                if place.local == moved_scrutinee
         )));
 
         let report =
@@ -7125,7 +7269,8 @@ mod tests {
             .expect("function generic payload binding should move from scrutinee temp");
         assert!(!builder.blocks.iter().any(|block| matches!(
             &block.terminator,
-            Some(Terminator::Drop { place, .. }) if place.local == moved_scrutinee
+            Some(Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. })
+                if place.local == moved_scrutinee
         )));
 
         let report =
@@ -7155,7 +7300,10 @@ mod tests {
         builder.finish_scope_locals(vec![Local(0)]);
 
         let drop_target = match &builder.blocks[0].terminator {
-            Some(Terminator::Drop { place, target, .. }) if place.local == Local(0) => *target,
+            Some(
+                Terminator::Drop { place, target, .. }
+                | Terminator::DropWithOrigin { place, target, .. },
+            ) if place.local == Local(0) => *target,
             other => panic!("expected drop terminator before storage dead, got {other:?}"),
         };
         assert!(!builder.blocks[0]
@@ -7346,7 +7494,9 @@ mod tests {
             .blocks
             .iter()
             .filter_map(|block| match &block.terminator {
-                Some(Terminator::Drop { place, .. }) => Some(place.clone()),
+                Some(Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. }) => {
+                    Some(place.clone())
+                }
                 _ => None,
             })
             .collect();
@@ -9246,6 +9396,7 @@ mod tests {
                     projection: Vec::new(),
                 },
                 target: BasicBlockId(1),
+                span: Some(crate::lexer::Span::test()),
             },
         );
 
@@ -9277,9 +9428,75 @@ mod tests {
 
         let type_context = test_type_context(&program);
         let mut builder = MirBuilder::new(&program, &type_context);
-        let mir_func =
-            builder.build_function(MirFunctionId::Function(func.id), &func.name, &func, false);
+        let mir_func = builder.build_function(
+            MirFunctionId::Function(func.id),
+            &func.name,
+            &func,
+            false,
+            Some(func.id),
+            None,
+        );
         assert!(mir_func.closure_captures.is_empty());
+        assert_eq!(
+            mir_func.local_decls[0].origin(),
+            crate::mir::MirOrigin::synthetic(crate::mir::MirSyntheticOrigin::Unknown, None)
+        );
+    }
+
+    #[test]
+    fn build_function_uses_session_source_map_for_parameter_and_return_origins() {
+        let program = empty_program();
+        let owner = DefId::new(CrateId(0), LocalDefId(300));
+        let parameter_local = crate::ids::HirLocalId(7);
+        let parameter_span = Span::new("/virtual/main.rk".into(), 10, 13);
+        let operation_span = Span::new("/virtual/main.rk".into(), 0, 20);
+        let function = HirFunction {
+            id: owner,
+            name: "main".to_string(),
+            generic_params: vec![],
+            generic_bounds: std::collections::HashMap::new().into(),
+            params: vec![HirParam {
+                name: "value".to_string(),
+                local_id: parameter_local,
+                ty: Type::I64,
+                mutable: false,
+                is_ref: false,
+            }],
+            ret_type: Type::Unit,
+            body: HirBlock {
+                stmts: vec![],
+                ty: Type::Unit,
+            },
+            is_curried: false,
+            is_method: false,
+            self_receiver: None,
+            is_unsafe: false,
+        };
+        let mut source_map = crate::source_map::SemanticSourceMap::default();
+        source_map.insert_local(owner, parameter_local, parameter_span.clone());
+        source_map.insert_definition(owner, operation_span.clone());
+
+        let type_context = test_type_context(&program);
+        let mut builder = MirBuilder::new(&program, &type_context).with_source_map(&source_map);
+        let mir_func = builder.build_function(
+            MirFunctionId::Function(owner),
+            &function.name,
+            &function,
+            false,
+            Some(owner),
+            Some(operation_span.clone()),
+        );
+
+        assert_eq!(mir_func.local_decls[0].span, Some(operation_span.clone()));
+        assert_eq!(mir_func.local_decls[1].span, Some(parameter_span.clone()));
+        assert_eq!(
+            mir_func.local_decls[0].origin(),
+            crate::mir::MirOrigin::Source(operation_span)
+        );
+        assert_eq!(
+            mir_func.local_decls[1].origin(),
+            crate::mir::MirOrigin::Source(parameter_span)
+        );
     }
 
     #[test]
@@ -9317,8 +9534,14 @@ mod tests {
 
         let type_context = test_type_context(&program);
         let mut builder = MirBuilder::new(&program, &type_context);
-        let mir_func =
-            builder.build_function(MirFunctionId::Function(func.id), &func.name, &func, false);
+        let mir_func = builder.build_function(
+            MirFunctionId::Function(func.id),
+            &func.name,
+            &func,
+            false,
+            Some(func.id),
+            None,
+        );
 
         assert!(mir_func
             .basic_blocks
@@ -9359,8 +9582,14 @@ mod tests {
 
         let type_context = test_type_context(&program);
         let mut builder = MirBuilder::new(&program, &type_context);
-        let mir_func =
-            builder.build_function(MirFunctionId::Function(func.id), &func.name, &func, false);
+        let mir_func = builder.build_function(
+            MirFunctionId::Function(func.id),
+            &func.name,
+            &func,
+            false,
+            Some(func.id),
+            None,
+        );
         assert!(mir_func.closure_captures.is_empty());
     }
 
@@ -9418,5 +9647,10 @@ mod tests {
             &builder.blocks[0].statements.last().unwrap().kind,
             StatementKind::Assign(_, Rvalue::Closure(_))
         ));
+        let nested = builder.take_nested_functions();
+        assert_eq!(nested.len(), 1);
+        assert_eq!(nested[0].local_decls[0].span, Some(lambda.span.clone()));
+        assert_eq!(nested[0].local_decls[1].span, Some(lambda.span.clone()));
+        assert_eq!(nested[0].closure_captures[0].span, Some(lambda.span));
     }
 }

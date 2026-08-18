@@ -723,10 +723,15 @@ fn validate_function_callable_operands(
                     );
                 }
             }
-            Terminator::SwitchInt { discr, .. } => {
+            Terminator::SwitchInt { discr, .. } | Terminator::SwitchIntWithOrigin { discr, .. } => {
                 validate_operand_callable_contract(contract, function, discr, seen_resolved, errors)
             }
-            Terminator::Return | Terminator::Goto(_) | Terminator::Drop { .. } => {}
+            Terminator::Return
+            | Terminator::ReturnWithOrigin { .. }
+            | Terminator::Goto(_)
+            | Terminator::GotoWithOrigin { .. }
+            | Terminator::Drop { .. }
+            | Terminator::DropWithOrigin { .. } => {}
         }
     }
 }
@@ -1300,6 +1305,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![LocalDecl {
@@ -1374,6 +1380,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![LocalDecl {

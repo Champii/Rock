@@ -238,12 +238,10 @@ impl Lowerer {
             None => base_name.clone(),
         };
 
-        self.diagnostics.set_current_span(fd.name.span.clone());
         let func = self.items.function(function_id).cloned();
         let Some(mut func) = func else {
-            self.diagnostics.push_with_span(
+            self.diagnostics.push_toolchain(
                 "missing indexed function declaration while lowering body".to_string(),
-                fd.name.span.clone(),
             );
             return;
         };
@@ -263,17 +261,14 @@ impl Lowerer {
                 }
             }
         }
-        if let Some(generic_id) = generic_ids
+        if generic_ids
             .into_iter()
-            .find(|param| param.owner.crate_id == CrateId(u32::MAX))
+            .any(|param| param.owner.crate_id == CrateId(u32::MAX))
         {
-            self.diagnostics.push_with_span(
-                format!(
-                    "unexpected provisional generic owner while lowering body for {}: {:?}",
-                    name, generic_id.owner
-                ),
-                fd.name.span.clone(),
-            );
+            self.diagnostics.push_toolchain(format!(
+                "unexpected provisional generic owner while lowering body for {}",
+                name
+            ));
             return;
         }
 
@@ -325,7 +320,7 @@ impl Lowerer {
             func.is_unsafe,
         );
         let body = self.with_body_context(body_context, |lowerer| {
-            lowerer.scope.push();
+            lowerer.push_scope();
 
             // Register parameters in scope
             for (index, param) in func.params.iter_mut().enumerate() {
@@ -337,7 +332,12 @@ impl Lowerer {
                     .get(index)
                     .and_then(Lowerer::pattern_binding_span)
                 {
-                    lowerer.source_map.insert_local(func.id, local_id, span);
+                    lowerer.source_map.insert_local_in_scope(
+                        func.id,
+                        local_id,
+                        span,
+                        lowerer.source_scope_stack.last().copied(),
+                    );
                 }
                 lowerer.scope.define_local(
                     param.name.clone(),
@@ -348,15 +348,18 @@ impl Lowerer {
             }
 
             let body = lowerer.lower_function_body_block(fd);
-            lowerer.scope.pop();
+            lowerer.pop_scope();
             body
         });
         // Unify return type with body type
         if let Err(e) = self.engine.unify(&body.ty, &func.ret_type) {
-            self.diagnostics.push_with_span(
-                format!("In function '{}': return type mismatch: {}", name, e),
-                fd.name.span.clone(),
+            let message = format!(
+                "In function '{}': return type mismatch: {}",
+                name,
+                e.render(&self.engine)
             );
+            self.diagnostics
+                .push_type_with_span(message, fd.lambda.span.clone());
         }
         func.body = body;
         self.resolve_all_types_in_function(&mut func);
@@ -412,20 +415,16 @@ impl Lowerer {
         let mut methods = Vec::with_capacity(imp.methods.len());
         for (method_ident, fd) in &imp.methods {
             let method_name = method_ident.name.clone();
-            self.diagnostics.set_current_span(method_ident.span.clone());
             let Some(method_id) = self
                 .items
                 .impl_def(impl_id)
                 .and_then(|hir_impl| hir_impl.methods.get(&method_name))
                 .map(|method| method.id)
             else {
-                self.diagnostics.push_with_span(
-                    format!(
-                        "missing indexed impl method '{}' while lowering bodies",
-                        method_name
-                    ),
-                    method_ident.span.clone(),
-                );
+                self.diagnostics.push_toolchain(format!(
+                    "missing indexed impl method '{}' while lowering bodies",
+                    method_name
+                ));
                 continue;
             };
             methods.push((method_id, method_ident, fd));
@@ -444,13 +443,10 @@ impl Lowerer {
                 .and_then(|imp| imp.methods.get(&method_name))
                 .cloned()
             else {
-                self.diagnostics.push_with_span(
-                    format!(
-                        "missing indexed impl method '{}' while lowering bodies",
-                        method_name
-                    ),
-                    method_ident.span.clone(),
-                );
+                self.diagnostics.push_toolchain(format!(
+                    "missing indexed impl method '{}' while lowering bodies",
+                    method_name
+                ));
                 continue;
             };
             {
@@ -502,12 +498,17 @@ impl Lowerer {
                                 .and_then(Lowerer::pattern_binding_span)
                         };
                         if let Some(span) = span {
-                            lowerer.source_map.insert_local(func.id, local_id, span);
+                            lowerer.source_map.insert_local_in_scope(
+                                func.id,
+                                local_id,
+                                span,
+                                lowerer.source_scope_stack.last().copied(),
+                            );
                         }
                     }
                 });
 
-                self.scope.push();
+                self.push_scope();
 
                 // Register generic parameters in scope
                 // This allows methods to use T, U, etc. as types
@@ -585,9 +586,10 @@ impl Lowerer {
                 for wc in &imp.where_clauses {
                     let ast::ParseType::Type(subject) = &wc.subject else {
                         if wc.trait_bound.is_some() {
-                            self.diagnostics.push(
+                            self.diagnostics.push_with_span(
                                 "unsupported constructor generic parameter in where clause"
                                     .to_string(),
+                                wc.subject.span(),
                             );
                         }
                         continue;
@@ -605,10 +607,10 @@ impl Lowerer {
                     {
                         Some(func.generic_params[index].id)
                     } else {
-                        self.diagnostics.push(format!(
-                            "unknown generic parameter '{}' in where clause",
-                            type_param
-                        ));
+                        self.diagnostics.push_with_span(
+                            format!("unknown generic parameter '{}' in where clause", type_param),
+                            wc.subject.span(),
+                        );
                         None
                     };
                     let Some(type_param_id) = type_param_id else {
@@ -618,18 +620,23 @@ impl Lowerer {
                         continue;
                     };
                     let Some((trait_bound, type_args)) = simple_trait_bound(trait_bound) else {
-                        self.diagnostics
-                            .push("unsupported trait bound shape in where clause".to_string());
+                        self.diagnostics.push_with_span(
+                            "unsupported trait bound shape in where clause".to_string(),
+                            wc.subject.span(),
+                        );
                         continue;
                     };
                     let Some(trait_id) =
                         crate::lower::resolution::LowerResolutionContext::new(self)
                             .resolve_trait_id(&trait_bound.name)
                     else {
-                        self.diagnostics.push(format!(
-                            "unknown trait '{}' in where clause",
-                            trait_bound.name
-                        ));
+                        self.diagnostics.push_with_span(
+                            format!("unknown trait '{}' in where clause", trait_bound.name),
+                            wc.trait_bound
+                                .as_ref()
+                                .expect("trait bound checked above")
+                                .span(),
+                        );
                         continue;
                     };
                     let type_args = type_args
@@ -724,17 +731,18 @@ impl Lowerer {
                 self.current_impl_id = prev_impl_id;
 
                 if let Err(e) = self.engine.unify(&body.ty, &func.ret_type) {
-                    self.diagnostics.push_with_span(
-                        format!(
-                            "In method '{}.{}': return type mismatch: {}",
-                            type_name, method_name, e
-                        ),
-                        method_ident.span.clone(),
+                    let message = format!(
+                        "In method '{}.{}': return type mismatch: {}",
+                        type_name,
+                        method_name,
+                        e.render(&self.engine)
                     );
+                    self.diagnostics
+                        .push_type_with_span(message, fd.lambda.span.clone());
                 }
                 func.body = body;
                 self.resolve_all_types_in_function(&mut func);
-                self.scope.pop();
+                self.pop_scope();
 
                 // For non-self (associated) functions, inherit impl type_generics as
                 // generic_params so the monomorphizer can specialize them from call-site types.
@@ -830,6 +838,7 @@ mod tests {
                     statements: Vec::new(),
                 },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: crate::lexer::Span::test(),
             },
             self_receiver: None,
             is_unsafe: false,
@@ -1211,6 +1220,7 @@ mod tests {
                             statements: vec![Statement::Expression(string_instance_expr())],
                         },
                         arrow_kind: LambdaArrowKind::Normal,
+                        span: crate::lexer::Span::test(),
                     },
                     self_receiver: None,
                     is_unsafe: false,
@@ -1310,6 +1320,7 @@ mod tests {
                             statements: vec![Statement::Expression(int_expr(1))],
                         },
                         arrow_kind: LambdaArrowKind::Normal,
+                        span: crate::lexer::Span::test(),
                     },
                     self_receiver: None,
                     is_unsafe: false,
@@ -1552,6 +1563,7 @@ mod tests {
                             statements: vec![Statement::Expression(self_field_expr("ptr"))],
                         },
                         arrow_kind: LambdaArrowKind::Normal,
+                        span: crate::lexer::Span::test(),
                     },
                     self_receiver: Some(SelfReceiverMode::Shared),
                     is_unsafe: false,
@@ -1664,6 +1676,7 @@ mod tests {
                             ))],
                         },
                         arrow_kind: LambdaArrowKind::Normal,
+                        span: crate::lexer::Span::test(),
                     },
                     self_receiver: Some(SelfReceiverMode::Shared),
                     is_unsafe: false,
@@ -1772,7 +1785,7 @@ mod tests {
 impl Lowerer {
     fn lower_function_body_block(&mut self, fd: &ast::FunctionDecl) -> crate::hir::HirBlock {
         if fd.lambda.arrow_kind == ast::LambdaArrowKind::Curried && fd.lambda.parameters.len() > 1 {
-            let span = self.diagnostics.current_span().clone();
+            let span = fd.name.span.clone();
             let remaining_params = &fd.lambda.parameters[1..];
             let curried_signature = self.current_body_return_type().and_then(|mut ty| {
                 let mut parameter_types = Vec::with_capacity(remaining_params.len());

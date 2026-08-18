@@ -374,12 +374,12 @@ impl InitializationAnalysis {
                 .map_err(|mut error| {
                     if matches!(error.message.as_str(), "use of moved value") {
                         error.message = match operand {
-                            Operand::Copy(_) => format!("borrow of moved value: {:?}", place.local),
-                            Operand::Move(_) => format!("use of moved value: {:?}", place.local),
+                            Operand::Copy(_) => "borrow of moved value".to_string(),
+                            Operand::Move(_) => "use of moved value".to_string(),
                             Operand::Constant(_) => unreachable!(),
                         };
                     } else if matches!(error.message.as_str(), "use of uninitialized place") {
-                        error.message = format!("use of uninitialized variable: {:?}", place.local);
+                        error.message = "use of uninitialized variable".to_string();
                     }
                     error
                 }),
@@ -391,9 +391,9 @@ impl InitializationAnalysis {
         self.check_place_state_at_path(place, state)
             .map_err(|mut error| {
                 if matches!(error.message.as_str(), "use of moved value") {
-                    error.message = format!("borrow of moved value: {:?}", place.local);
+                    error.message = "borrow of moved value".to_string();
                 } else if matches!(error.message.as_str(), "use of uninitialized place") {
-                    error.message = format!("borrow of uninitialized variable: {:?}", place.local);
+                    error.message = "borrow of uninitialized variable".to_string();
                 }
                 error
             })
@@ -409,10 +409,9 @@ impl InitializationAnalysis {
                 .check_discriminant_place_path(place_path, &self.move_paths)
                 .map_err(|mut error| {
                     if matches!(error.message.as_str(), "use of moved value") {
-                        error.message = format!("borrow of moved value: {:?}", place.local);
+                        error.message = "borrow of moved value".to_string();
                     } else if matches!(error.message.as_str(), "use of uninitialized place") {
-                        error.message =
-                            format!("borrow of uninitialized variable: {:?}", place.local);
+                        error.message = "borrow of uninitialized variable".to_string();
                     }
                     error
                 })
@@ -471,7 +470,7 @@ impl Analysis for InitializationAnalysis {
             }
             StatementKind::Assign(dest, rvalue) => {
                 let move_info = MoveInfo {
-                    span: stmt.span.clone(),
+                    span: stmt.origin().source_span().cloned(),
                 };
                 self.apply_rvalue_moves(state, rvalue, &move_info);
 
@@ -480,7 +479,7 @@ impl Analysis for InitializationAnalysis {
             }
             StatementKind::Assert(assertion) => {
                 let move_info = MoveInfo {
-                    span: stmt.span.clone(),
+                    span: stmt.origin().source_span().cloned(),
                 };
                 self.move_operands(state, &assertion.operands, &move_info);
             }
@@ -493,16 +492,17 @@ impl Analysis for InitializationAnalysis {
                 func,
                 args,
                 destination,
+                span,
                 ..
             } => {
-                let move_info = MoveInfo { span: None };
+                let move_info = MoveInfo { span: span.clone() };
                 self.move_operand_if_move(state, func, &move_info);
                 self.move_operands(state, args, &move_info);
 
                 // Call writes happen after evaluating operands.
                 self.set_place_state(state, destination, InitState::Init);
             }
-            Terminator::Drop { place, .. } => {
+            Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. } => {
                 // After drop, the place is uninitialized
                 self.set_place_state(state, place, InitState::Uninit);
             }
@@ -526,15 +526,13 @@ impl InitializationAnalysis {
                 match state.get_local(place.local) {
                     Some(InitState::Init) => Ok(()),
                     Some(InitState::Uninit) => Err(InitError {
-                        message: format!("use of uninitialized variable: {:?}", place.local),
+                        message: "use of uninitialized variable".to_string(),
                         move_span: None,
                     }),
                     Some(InitState::Moved(info)) => Err(InitError {
                         message: match operand {
-                            Operand::Copy(_) => {
-                                format!("borrow of moved value: {:?}", place.local)
-                            }
-                            Operand::Move(_) => format!("use of moved value: {:?}", place.local),
+                            Operand::Copy(_) => "borrow of moved value".to_string(),
+                            Operand::Move(_) => "use of moved value".to_string(),
                             Operand::Constant(_) => unreachable!(),
                         },
                         move_span: info.span.clone(),
@@ -551,11 +549,11 @@ impl InitializationAnalysis {
         match state.get_local(place.local) {
             Some(InitState::Init) => Ok(()),
             Some(InitState::Uninit) => Err(InitError {
-                message: format!("borrow of uninitialized variable: {:?}", place.local),
+                message: "borrow of uninitialized variable".to_string(),
                 move_span: None,
             }),
             Some(InitState::Moved(info)) => Err(InitError {
-                message: format!("borrow of moved value: {:?}", place.local),
+                message: "borrow of moved value".to_string(),
                 move_span: info.span.clone(),
             }),
             None => Ok(()),
@@ -837,6 +835,7 @@ mod tests {
                 projection: Vec::new(),
             },
             target: BasicBlockId(0),
+            span: Some(crate::lexer::Span::test()),
         };
         let function = test_function_with_block(
             &mut type_context,
@@ -868,6 +867,7 @@ mod tests {
             args: vec![Operand::Move(destination.clone())],
             destination: destination.clone(),
             target: BasicBlockId(0),
+            span: Some(crate::lexer::Span::test()),
         };
         let function = test_function_with_block(
             &mut type_context,
@@ -1148,5 +1148,30 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(error.message, "use of uninitialized place");
+    }
+
+    #[test]
+    fn initialization_errors_do_not_render_mir_local_ids() {
+        use crate::mir::borrowck::paths::{MovePathTable, PlacePathTable};
+        use crate::mir::{Local, Operand, Place};
+
+        let mut places = PlacePathTable::new();
+        places.intern(Place {
+            local: Local(9),
+            projection: Vec::new(),
+        });
+        let moves = MovePathTable::from_place_paths(&places);
+        let state = InitMap::new_for_move_paths(&moves, InitState::Uninit);
+        let error = InitializationAnalysis::check_operand(
+            &Operand::Move(Place {
+                local: Local(9),
+                projection: Vec::new(),
+            }),
+            &state,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.message, "use of uninitialized variable");
+        assert!(!error.message.contains("Local("));
     }
 }

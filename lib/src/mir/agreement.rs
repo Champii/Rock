@@ -135,10 +135,12 @@ pub fn check_mir_runtime_agreement(program: &MirProgram) -> MirAgreementReport {
                         report.non_unit_placeholder_units += 1;
                     }
                 }
-                Some(Terminator::SwitchInt { discr, .. }) => {
+                Some(Terminator::SwitchInt { discr, .. })
+                | Some(Terminator::SwitchIntWithOrigin { discr, .. }) => {
                     validate_runtime_operand(program, discr, false, &mut report);
                 }
-                Some(Terminator::Drop { place, .. }) => {
+                Some(Terminator::Drop { place, .. })
+                | Some(Terminator::DropWithOrigin { place, .. }) => {
                     validate_place_layout_ids(&backend_contract, place, &mut report);
                 }
                 _ => {}
@@ -1800,6 +1802,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![LocalDecl {
@@ -2099,6 +2102,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![LocalDecl {
@@ -2146,6 +2150,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![
@@ -2538,6 +2543,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![LocalDecl {
@@ -2586,6 +2592,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![LocalDecl {
@@ -2665,6 +2672,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![LocalDecl {
@@ -2734,6 +2742,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![LocalDecl {
@@ -2963,6 +2972,7 @@ mod tests {
                         projection: vec![],
                     },
                     target: BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![
@@ -3249,6 +3259,7 @@ mod tests {
                             projection: vec![],
                         },
                         target: BasicBlockId(1),
+                        span: None,
                     }),
                 },
                 BasicBlock {

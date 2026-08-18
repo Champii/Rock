@@ -14,8 +14,10 @@ fn drop_diagnostic(
     origin_span: Option<&crate::lexer::Span>,
 ) -> crate::diagnostic::Diagnostic {
     match origin_span {
-        Some(span) => crate::diagnostic::Diagnostic::new(message, span.clone()),
-        None => crate::diagnostic::Diagnostic::for_toolchain(message),
+        Some(span) => crate::diagnostic::Diagnostic::new(message, span.clone())
+            .with_code(crate::diagnostic::DiagnosticCode::Mono),
+        None => crate::diagnostic::Diagnostic::for_internal(message)
+            .with_code(crate::diagnostic::DiagnosticCode::Mono),
     }
 }
 
@@ -25,6 +27,7 @@ impl Monomorphizer {
         ty: &Type,
         origin_span: Option<crate::lexer::Span>,
     ) {
+        let origin_span = origin_span.or_else(|| self.source_span_for_type(ty));
         self.monomorphize_drop_fields_for_type(ty);
 
         let Some(drop_trait_id) = self.drop_trait_id() else {
@@ -48,8 +51,8 @@ impl Monomorphizer {
             if matching_impls.len() > 1 {
                 self.diagnostics.push(drop_diagnostic(
                     format!(
-                        "ambiguous Drop implementation for type {ty}: {:?}",
-                        matching_impls.iter().map(|imp| imp.id).collect::<Vec<_>>()
+                        "ambiguous Drop implementation for type {}",
+                        self.display_type_for_diagnostic(ty)
                     ),
                     origin_span.as_ref(),
                 ));
@@ -62,10 +65,7 @@ impl Monomorphizer {
             .copied()
         else {
             self.diagnostics.push(drop_diagnostic(
-                format!(
-                    "Drop implementation {:?} has no resolved @drop method",
-                    imp.id
-                ),
+                format!("selected Drop implementation has no resolved @drop method",),
                 origin_span.as_ref(),
             ));
             return;
@@ -77,10 +77,7 @@ impl Monomorphizer {
             .cloned()
         else {
             self.diagnostics.push(drop_diagnostic(
-                format!(
-                    "Drop implementation {:?} resolves @drop to missing method {:?}",
-                    imp.id, method_id
-                ),
+                format!("selected Drop implementation resolves @drop to a missing method",),
                 origin_span.as_ref(),
             ));
             return;
@@ -91,8 +88,8 @@ impl Monomorphizer {
             else {
                 self.diagnostics.push(drop_diagnostic(
                     format!(
-                        "Drop implementation {:?} could not resolve complete receiver substitution for type {ty}",
-                        imp.id
+                        "selected Drop implementation could not resolve complete receiver substitution for type {}",
+                        self.display_type_for_diagnostic(ty)
                     ),
                     origin_span.as_ref(),
                 ));
@@ -101,8 +98,8 @@ impl Monomorphizer {
             if receiver_type_args.len() != imp.type_generics.len() {
                 self.diagnostics.push(drop_diagnostic(
                     format!(
-                        "Drop implementation {:?} could not resolve complete receiver substitution for type {ty}",
-                        imp.id
+                        "selected Drop implementation could not resolve complete receiver substitution for type {}",
+                        self.display_type_for_diagnostic(ty)
                     ),
                     origin_span.as_ref(),
                 ));
@@ -1155,7 +1152,7 @@ impl Monomorphizer {
         self.current_type_args = type_args.to_vec();
         self.var_types.clear();
         let mut params_for_body = params.clone();
-        self.process_params(&mut params_for_body);
+        self.process_params(Some(method.id), &mut params_for_body);
         self.process_block(&mut body);
         self.current_type_args = old_type_args;
         self.var_types = old_var_types;
@@ -1499,10 +1496,8 @@ mod tests {
 
         assert!(mono.diagnostics.0.iter().any(|diagnostic| {
             diagnostic.message.contains("ambiguous Drop implementation")
-                && diagnostic.message.contains(&format!("{generic_impl_id:?}"))
-                && diagnostic
-                    .message
-                    .contains(&format!("{concrete_impl_id:?}"))
+                && !diagnostic.message.contains("DefId")
+                && diagnostic.code == Some(crate::diagnostic::DiagnosticCode::Mono)
         }));
         assert_eq!(mono.instances.len(), 0);
     }

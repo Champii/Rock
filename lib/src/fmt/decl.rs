@@ -594,6 +594,7 @@ mod tests {
                     parameters: vec![],
                     body: Block { statements: vec![] },
                     arrow_kind: LambdaArrowKind::Normal,
+                    span: crate::lexer::Span::test(),
                 },
                 self_receiver,
                 is_unsafe: false,

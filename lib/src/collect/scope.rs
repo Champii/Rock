@@ -31,17 +31,30 @@ impl DeclarationScope {
 
 pub struct DeclarationTypeVars {
     next_var: IdGen<TypeVarId>,
+    var_spans: HashMap<TypeVarId, crate::lexer::Span>,
 }
 
 impl DeclarationTypeVars {
     pub(crate) fn new() -> Self {
         Self {
             next_var: IdGen::new(),
+            var_spans: HashMap::new(),
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn fresh_type_var(&mut self) -> Type {
         Type::TypeVar(self.next_var.fresh())
+    }
+
+    pub(crate) fn fresh_type_var_at(&mut self, span: crate::lexer::Span) -> Type {
+        let id = self.next_var.fresh();
+        self.var_spans.insert(id, span);
+        Type::TypeVar(id)
+    }
+
+    pub(crate) fn var_spans(&self) -> &HashMap<TypeVarId, crate::lexer::Span> {
+        &self.var_spans
     }
 
     pub(crate) fn next_raw(&self) -> u32 {

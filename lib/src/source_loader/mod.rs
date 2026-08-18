@@ -77,6 +77,7 @@ pub enum SourceLoadError {
         module: String,
         searched: Vec<PathBuf>,
         span: Option<Span>,
+        parent_source: Option<SourceFile>,
     },
     Parse {
         path: PathBuf,
@@ -678,6 +679,7 @@ impl SourceDatabase {
             module: ident.name.clone(),
             searched: vec![flat, directory_mod],
             span: Some(ident.span.clone()),
+            parent_source: self.source_file_for_path(parent_path).cloned(),
         });
         None
     }
@@ -1140,6 +1142,7 @@ mod tests {
                 module,
                 searched,
                 span,
+                parent_source,
             }] => {
                 assert_eq!(module, "missing");
                 assert_eq!(
@@ -1147,6 +1150,10 @@ mod tests {
                     &vec![dir.join("missing.rk"), dir.join("missing").join("mod.rk")]
                 );
                 assert!(span.is_some());
+                assert_eq!(
+                    parent_source.as_ref().map(|source| source.text.as_str()),
+                    Some("mod missing\nmain = -> 0\n")
+                );
             }
             other => panic!("expected one missing module error, got {other:?}"),
         }

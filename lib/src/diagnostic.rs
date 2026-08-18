@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use ariadne::{Color, ColorGenerator, Label, Report, ReportKind};
+use serde::{Deserialize, Serialize};
 
 use crate::lexer::{LexerError, Span};
 use crate::parser::ParseError;
@@ -13,44 +14,151 @@ pub trait SpannedError {
     fn message(&self) -> String;
     /// The primary span where the error occurred
     fn span(&self) -> Option<Span>;
-    /// Additional labels with their own spans
-    fn labels(&self) -> Vec<(String, Span)> {
+    /// Additional labels with their own spans.
+    fn labels(&self) -> Vec<DiagnosticLabel> {
         vec![]
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum DiagnosticType {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticSeverity {
     Error,
-    /* Warning,
-    Note, */
+    Warning,
+    Info,
+    Hint,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl DiagnosticSeverity {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warning => "warning",
+            Self::Info => "info",
+            Self::Hint => "hint",
+        }
+    }
+}
+
+/// Stable diagnostic families exposed to protocol consumers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticCode {
+    Lexer,
+    Parser,
+    Macro,
+    Source,
+    File,
+    Project,
+    Artifact,
+    Toolchain,
+    Resolve,
+    Type,
+    Selection,
+    Borrow,
+    Mono,
+    Codegen,
+    Internal,
+}
+
+impl DiagnosticCode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Lexer => "lexer",
+            Self::Parser => "parser",
+            Self::Macro => "macro",
+            Self::Source => "source",
+            Self::File => "file",
+            Self::Project => "project",
+            Self::Artifact => "artifact",
+            Self::Toolchain => "toolchain",
+            Self::Resolve => "resolve",
+            Self::Type => "type",
+            Self::Selection => "selection",
+            Self::Borrow => "borrow",
+            Self::Mono => "mono",
+            Self::Codegen => "codegen",
+            Self::Internal => "internal",
+        }
+    }
+}
+
+impl std::fmt::Display for DiagnosticCode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+/// Compatibility alias for code that used the pre-contract severity name.
+pub type DiagnosticType = DiagnosticSeverity;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiagnosticLabel {
+    pub message: String,
+    /// Half-open byte range in the source text identified by `span.file_path`.
+    pub span: Span,
+}
+
+impl DiagnosticLabel {
+    pub fn new(message: impl Into<String>, span: Span) -> Self {
+        validate_span(&span);
+        Self {
+            message: message.into(),
+            span,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DiagnosticLocation {
+    /// A half-open byte range in a loaded or virtual Rock source.
     Source(Span),
+    /// A filesystem input/output location without a source range.
     File(PathBuf),
+    /// A project or manifest location without a source range.
     Project(PathBuf),
+    /// A compiler artifact location without a source range.
     Artifact(PathBuf),
+    /// A toolchain or compiler-internal failure without a source range.
     Toolchain,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl DiagnosticLocation {
+    /// Construct a source location with a validated half-open byte range.
+    pub fn source(span: Span) -> Self {
+        validate_span(&span);
+        Self::Source(span)
+    }
+
+    fn validate(&self) {
+        match self {
+            Self::Source(span) => validate_span(span),
+            Self::File(path) | Self::Project(path) | Self::Artifact(path) => validate_path(path),
+            Self::Toolchain => {}
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DiagnosticSourceOrigin {
     FileSystem,
     Virtual,
     Artifact { artifact_path: PathBuf },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiagnosticSource {
+    /// Display path for filesystem, virtual, or artifact-backed source text.
     pub display_path: PathBuf,
+    /// Complete source snapshot used to interpret byte offsets in labels.
     pub text: String,
     pub origin: DiagnosticSourceOrigin,
     pub related: BTreeMap<PathBuf, DiagnosticRelatedSource>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiagnosticRelatedSource {
     pub display_path: PathBuf,
     pub text: String,
@@ -59,6 +167,45 @@ pub struct DiagnosticRelatedSource {
 #[derive(Debug, Clone, Default)]
 pub struct DiagnosticSourceMap {
     by_path: BTreeMap<PathBuf, DiagnosticSource>,
+}
+
+fn validate_path(path: &Path) {
+    assert!(
+        !path.as_os_str().is_empty(),
+        "diagnostic locations require a path"
+    );
+}
+
+fn validate_span(span: &Span) {
+    validate_path(&span.file_path);
+    assert!(
+        span.start <= span.end,
+        "diagnostic span start must not exceed its end"
+    );
+}
+
+fn span_is_valid(span: &Span) -> bool {
+    !span.file_path.as_os_str().is_empty() && span.start <= span.end
+}
+
+fn span_is_valid_for_text(span: &Span, text: &str) -> bool {
+    span_is_valid(span)
+        && span.end <= text.len()
+        && text.is_char_boundary(span.start)
+        && text.is_char_boundary(span.end)
+}
+
+fn spans_match(left: &Span, right: &Span) -> bool {
+    left.file_path == right.file_path && left.start == right.start && left.end == right.end
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticValidationError {
+    InvalidLocation,
+    MissingPrimaryLabel,
+    PrimaryLabelDoesNotMatchLocation,
+    InvalidLabel,
+    SourceAttachedToNonSource,
 }
 
 impl DiagnosticSourceMap {
@@ -83,7 +230,8 @@ impl DiagnosticSourceMap {
             .clone()
             .or_else(|| self.source_for_path(&primary_span.file_path).cloned());
         if let Some(mut source) = source {
-            for (_, span) in &diagnostic.labels {
+            for label in diagnostic.primary.iter().chain(diagnostic.secondary.iter()) {
+                let span = &label.span;
                 if span.file_path != primary_span.file_path {
                     if let Some(related) = self.source_for_path(&span.file_path) {
                         source.related.insert(
@@ -97,10 +245,11 @@ impl DiagnosticSourceMap {
                 }
             }
             diagnostic.source = Some(source);
-            if diagnostic.labels.is_empty() {
-                diagnostic
-                    .labels
-                    .push((diagnostic.message.clone(), primary_span.clone()));
+            if diagnostic.primary.is_none() {
+                diagnostic.primary = Some(DiagnosticLabel::new(
+                    diagnostic.message.clone(),
+                    primary_span.clone(),
+                ));
             }
         }
     }
@@ -131,13 +280,134 @@ impl DiagnosticSourceMap {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Diagnostic {
+    pub code: Option<DiagnosticCode>,
+    pub severity: DiagnosticSeverity,
     pub message: String,
-    pub labels: Vec<(String, Span)>,
-    pub kind: DiagnosticType,
-    pub source: Option<DiagnosticSource>,
     pub location: DiagnosticLocation,
+    pub primary: Option<DiagnosticLabel>,
+    pub secondary: Vec<DiagnosticLabel>,
+    pub notes: Vec<String>,
+    pub help: Vec<String>,
+    pub source: Option<DiagnosticSource>,
+}
+
+/// Owned, protocol-neutral diagnostic payload for CLI and future LSP adapters.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiagnosticDto {
+    pub code: Option<String>,
+    pub severity: DiagnosticSeverity,
+    pub message: String,
+    pub location: DiagnosticLocation,
+    pub primary: Option<DiagnosticLabel>,
+    pub secondary: Vec<DiagnosticLabel>,
+    pub notes: Vec<String>,
+    pub help: Vec<String>,
+    pub source: Option<DiagnosticSource>,
+}
+
+impl Diagnostic {
+    /// Convert a resolution error while preserving its owning diagnostic family.
+    pub fn from_resolve_error(error: &crate::lower::ResolveError) -> Self {
+        let origin_valid = matches!(
+            (error.kind(), error.span()),
+            (crate::lower::ResolveErrorKind::Source, Some(_))
+                | (crate::lower::ResolveErrorKind::NonSource, None)
+        );
+        if !origin_valid {
+            return Self::for_internal("resolution error has inconsistent source origin")
+                .with_code(DiagnosticCode::Internal);
+        }
+        let message = error.message.clone();
+        let mut diagnostic = error
+            .span()
+            .map(|span| Self::from_source_parts(message.clone(), message.clone(), span, error.code))
+            .unwrap_or_else(|| Self::internal(message));
+        diagnostic.code = Some(error.code);
+        if matches!(&diagnostic.location, DiagnosticLocation::Source(_)) {
+            diagnostic.secondary = error.labels.clone();
+        } else {
+            diagnostic
+                .notes
+                .extend(error.labels.iter().map(|label| label.message.clone()));
+        }
+        diagnostic
+    }
+
+    /// Validate the public payload before handing it to a protocol adapter.
+    pub fn validate(&self) -> Result<(), DiagnosticValidationError> {
+        let location_valid = match &self.location {
+            DiagnosticLocation::Source(span) => span_is_valid(span),
+            DiagnosticLocation::File(path)
+            | DiagnosticLocation::Project(path)
+            | DiagnosticLocation::Artifact(path) => !path.as_os_str().is_empty(),
+            DiagnosticLocation::Toolchain => true,
+        };
+        if !location_valid {
+            return Err(DiagnosticValidationError::InvalidLocation);
+        }
+
+        match &self.location {
+            DiagnosticLocation::Source(span) => {
+                let Some(primary) = &self.primary else {
+                    return Err(DiagnosticValidationError::MissingPrimaryLabel);
+                };
+                if !spans_match(&primary.span, span) {
+                    return Err(DiagnosticValidationError::PrimaryLabelDoesNotMatchLocation);
+                }
+            }
+            DiagnosticLocation::File(_)
+            | DiagnosticLocation::Project(_)
+            | DiagnosticLocation::Artifact(_)
+            | DiagnosticLocation::Toolchain => {
+                if self.primary.is_some() || !self.secondary.is_empty() || self.source.is_some() {
+                    return Err(DiagnosticValidationError::SourceAttachedToNonSource);
+                }
+            }
+        }
+
+        if self
+            .primary
+            .iter()
+            .chain(self.secondary.iter())
+            .any(|label| !span_is_valid(&label.span))
+        {
+            return Err(DiagnosticValidationError::InvalidLabel);
+        }
+
+        if let DiagnosticLocation::Source(primary_span) = &self.location {
+            if let Some(source) = &self.source {
+                if source.display_path.as_os_str().is_empty()
+                    || source.related.iter().any(|(path, related)| {
+                        path.as_os_str().is_empty() || related.display_path.as_os_str().is_empty()
+                    })
+                {
+                    return Err(DiagnosticValidationError::InvalidLocation);
+                }
+                if !span_is_valid_for_text(primary_span, &source.text) {
+                    return Err(DiagnosticValidationError::InvalidLocation);
+                }
+                for label in self.primary.iter().chain(self.secondary.iter()) {
+                    let text = if label.span.file_path == primary_span.file_path {
+                        Some(source.text.as_str())
+                    } else {
+                        source
+                            .related
+                            .get(&label.span.file_path)
+                            .map(|related| related.text.as_str())
+                    };
+                    let Some(text) = text else {
+                        return Err(DiagnosticValidationError::InvalidLabel);
+                    };
+                    if !span_is_valid_for_text(&label.span, text) {
+                        return Err(DiagnosticValidationError::InvalidLabel);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl From<ParseError> for Diagnostic {
@@ -150,16 +420,12 @@ impl From<ParseError> for Diagnostic {
                     format!("'{}'", got_token.token_type.to_string())
                 };
 
-                Diagnostic {
-                    message: format!("Unexpected token: {}", got_display),
-                    labels: vec![(
-                        format!("Unexpected {}", got_display),
-                        got_token.span.clone(),
-                    )],
-                    kind: DiagnosticType::Error,
-                    source: None,
-                    location: DiagnosticLocation::Source(got_token.span.clone()),
-                }
+                Diagnostic::from_source_parts(
+                    format!("Unexpected token: {}", got_display),
+                    format!("Unexpected {}", got_display),
+                    got_token.span,
+                    DiagnosticCode::Parser,
+                )
             }
             /* ParseError::UnexpectedKeyword(token, expected) => Diagnostic {
                 message: format!("Unexpected keyword: {:?}", token.token_type,),
@@ -170,34 +436,32 @@ impl From<ParseError> for Diagnostic {
                 span: token.span,
                 kind: DiagnosticType::Error,
             }, */
-            ParseError::Lexer(LexerError::UnknownToken(c, span)) => Diagnostic {
-                message: format!("Lexer: Unknown token: {:?}", c),
-                labels: vec![],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::Source(span.clone()),
-            },
+            ParseError::Lexer(LexerError::UnknownToken(c, span)) => Diagnostic::from_source_parts(
+                format!("Lexer: Unknown token: {:?}", c),
+                "Unknown token".to_string(),
+                span,
+                DiagnosticCode::Lexer,
+            ),
             ParseError::MacroNoCorrespondance {
                 macro_name,
                 invoc_name,
                 invoc_arg,
             } => {
-                let mut labels = vec![
-                    ("For this macro".to_string(), macro_name.clone()),
-                    ("In this macro invocation".to_string(), invoc_name.clone()),
-                ];
-
+                let mut diagnostic = Diagnostic::from_source_parts(
+                    "Macro: Nothing expected this token".to_string(),
+                    "For this macro".to_string(),
+                    macro_name,
+                    DiagnosticCode::Macro,
+                );
+                diagnostic
+                    .secondary
+                    .push(DiagnosticLabel::new("In this macro invocation", invoc_name));
                 if let Some(invoc_arg) = invoc_arg {
-                    labels.push(("With this token".to_string(), invoc_arg.clone()));
+                    diagnostic
+                        .secondary
+                        .push(DiagnosticLabel::new("With this token", invoc_arg));
                 }
-
-                Diagnostic {
-                    message: "Macro: Nothing expected this token".to_string(),
-                    labels,
-                    kind: DiagnosticType::Error,
-                    source: None,
-                    location: DiagnosticLocation::Source(macro_name),
-                }
+                diagnostic
             }
             /* ParseError::InvalidPrecedence(precedence, token) => Diagnostic {
                 message: format!("Invalid precedence: {:?}", precedence),
@@ -216,215 +480,227 @@ impl From<ParseError> for Diagnostic {
                 ],
                 kind: DiagnosticType::Error,
             }, */
-            ParseError::UnexpectedEOF(span) => Diagnostic {
-                message: "Unexpected end of file".to_string(),
-                labels: vec![("Expected more input".to_string(), span.clone())],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::Source(span.clone()),
-            },
+            ParseError::UnexpectedEOF(span) => Diagnostic::from_source_parts(
+                "Unexpected end of file".to_string(),
+                "Expected more input".to_string(),
+                span,
+                DiagnosticCode::Parser,
+            ),
             /* ParseError::LeftoverTokens(tokens) => Diagnostic {
                 message: format!("Leftover tokens"),
                 labels: vec![(format!("Expected end of file"), tokens[0].span.clone())],
                 span: tokens[0].span.clone(),
                 kind: DiagnosticType::Error,
             }, */
-            ParseError::UnknownFile(file) => Diagnostic {
-                message: format!("Unknown file: {:?}", file),
-                labels: vec![],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::File(PathBuf::from(file)),
-            },
-            ParseError::UnexpectedIndent(level) => Diagnostic {
-                message: format!("Unexpected indent level: {level}"),
-                labels: vec![],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::Toolchain,
-            },
-            ParseError::ExpectedOneOrMore => Diagnostic {
-                message: "Expected one or more".to_string(),
-                labels: vec![],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::Toolchain,
-            },
-            ParseError::Fail => Diagnostic {
-                message: "Fail".to_string(),
-                labels: vec![],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::Toolchain,
-            },
-            ParseError::ShortCircuit => Diagnostic {
-                message: "Short circuit, should never be printed !".to_string(),
-                labels: vec![],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::Toolchain,
-            },
-            ParseError::AssertFailed => Diagnostic {
-                message: "Assert failed".to_string(),
-                labels: vec![],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::Toolchain,
-            },
-            ParseError::HardError(msg, span) => Diagnostic {
-                message: msg.clone(),
-                labels: vec![(msg, span.clone())],
-                kind: DiagnosticType::Error,
-                source: None,
-                location: DiagnosticLocation::Source(span.clone()),
-            },
+            ParseError::UnknownFile(file) => Diagnostic::at_location_with_code(
+                format!("Unknown file: {:?}", file),
+                DiagnosticLocation::File(PathBuf::from(file)),
+                DiagnosticCode::File,
+            ),
+            ParseError::UnexpectedIndent(level, span) => Diagnostic::from_source_parts(
+                format!("Unexpected indent level: {level}"),
+                "Unexpected indentation".to_string(),
+                span,
+                DiagnosticCode::Parser,
+            ),
+            ParseError::ExpectedOneOrMore(span) => Diagnostic::from_source_parts(
+                "Expected one or more".to_string(),
+                "Expected at least one item".to_string(),
+                span,
+                DiagnosticCode::Parser,
+            ),
+            ParseError::Fail => Diagnostic::internal("Parser control-flow error escaped: Fail"),
+            ParseError::ShortCircuit => {
+                Diagnostic::internal("Parser control-flow error escaped: ShortCircuit")
+            }
+            ParseError::AssertFailed => {
+                Diagnostic::internal("Parser control-flow error escaped: AssertFailed")
+            }
+            ParseError::HardError(msg, span) => {
+                Diagnostic::from_source_parts(msg.clone(), msg, span, DiagnosticCode::Parser)
+            }
             ParseError::WithContext { context, error } => {
-                // Build the full context chain by collecting all contexts
-                // and find the innermost non-context error
-                let mut context_chain = vec![context.clone()];
-                let mut current_error = error.as_ref();
-
-                // Unwrap all nested WithContext layers
-                loop {
-                    match current_error {
-                        ParseError::WithContext {
-                            context: inner_context,
-                            error: inner_error,
-                        } => {
-                            context_chain.push(inner_context.clone());
-                            current_error = inner_error.as_ref();
-                        }
-                        _ => break,
-                    }
+                let mut context_chain = vec![context];
+                let mut current = error;
+                while let ParseError::WithContext {
+                    context: inner_context,
+                    error: inner_error,
+                } = current.as_ref()
+                {
+                    context_chain.push(inner_context.clone());
+                    current = inner_error.clone();
                 }
 
-                // Now current_error is the innermost non-context error
-                // Get its base message and span
-                let (base_message, span) = match current_error {
-                    ParseError::UnexpectedToken(_expected_desc, got_token) => {
-                        let got_display = if got_token.token_type.to_string().is_empty() {
-                            format!("end of file")
-                        } else {
-                            format!("'{}'", got_token.token_type.to_string())
-                        };
-                        (
-                            format!("Unexpected token: {}", got_display),
-                            Some(got_token.span.clone()),
-                        )
-                    }
-                    ParseError::UnexpectedEOF(span) => {
-                        ("Unexpected end of file".to_string(), Some(span.clone()))
-                    }
-                    ParseError::UnexpectedIndent(level) => {
-                        (format!("Unexpected indent level: {}", level), None)
-                    }
-                    _ => ("Parse error".to_string(), None),
-                };
-
-                // Create diagnostic with context
-                let message = format!(
+                let inner_error = *current;
+                let mut diagnostic = Diagnostic::from(inner_error);
+                diagnostic.message = format!(
                     "{}\n\nParsing context (innermost first):\n{}",
-                    base_message,
+                    diagnostic.message,
                     context_chain
                         .iter()
                         .enumerate()
-                        .map(|(i, ctx)| format!("  {}. {}", i + 1, ctx))
+                        .map(|(index, context)| format!("  {}. {}", index + 1, context))
                         .collect::<Vec<_>>()
                         .join("\n")
                 );
-
-                // Get the label from the innermost error
-                let labels = match current_error {
-                    ParseError::UnexpectedToken(_expected_desc, got_token) => {
-                        let got_display = if got_token.token_type.to_string().is_empty() {
-                            format!("end of file")
-                        } else {
-                            format!("'{}'", got_token.token_type.to_string())
-                        };
-                        vec![(
-                            format!("Unexpected {}", got_display),
-                            got_token.span.clone(),
-                        )]
-                    }
-                    ParseError::UnexpectedEOF(span) => {
-                        vec![("Expected more input".to_string(), span.clone())]
-                    }
-                    _ => vec![],
-                };
-
-                Diagnostic {
-                    message,
-                    labels,
-                    kind: DiagnosticType::Error,
-                    source: None,
-                    location: span
-                        .map(DiagnosticLocation::Source)
-                        .unwrap_or(DiagnosticLocation::Toolchain),
-                }
+                diagnostic.notes.extend(context_chain);
+                diagnostic
             }
         }
     }
 }
 
 impl Diagnostic {
-    /// Create a new diagnostic with a message and primary span
+    /// Create a source diagnostic with a primary label.
+    ///
+    /// `Span` offsets are zero-based byte offsets into the UTF-8 source text,
+    /// and the range is half-open (`start..end`). Virtual sources use the same
+    /// contract; their path need not exist on disk.
     pub fn new(message: String, span: Span) -> Self {
-        assert!(
-            !span.file_path.as_os_str().is_empty(),
-            "source diagnostics require a source path"
-        );
-        assert!(
-            span.start <= span.end,
-            "source diagnostic span start must not exceed its end"
-        );
-        let labels = vec![(message.clone(), span.clone())];
-        Self {
-            message,
-            location: DiagnosticLocation::Source(span),
-            labels,
-            kind: DiagnosticType::Error,
-            source: None,
-        }
+        Self::from_source_parts(message.clone(), message, span, DiagnosticCode::Source)
     }
 
     pub fn for_file(message: String, path: PathBuf) -> Self {
-        Self::at_location(message, DiagnosticLocation::File(path))
+        Self::at_location_with_code(
+            message,
+            DiagnosticLocation::File(path),
+            DiagnosticCode::File,
+        )
     }
 
     pub fn for_project(message: String, path: PathBuf) -> Self {
-        Self::at_location(message, DiagnosticLocation::Project(path))
+        Self::at_location_with_code(
+            message,
+            DiagnosticLocation::Project(path),
+            DiagnosticCode::Project,
+        )
     }
 
     pub fn for_artifact(message: String, path: PathBuf) -> Self {
-        Self::at_location(message, DiagnosticLocation::Artifact(path))
+        Self::at_location_with_code(
+            message,
+            DiagnosticLocation::Artifact(path),
+            DiagnosticCode::Artifact,
+        )
     }
 
     pub fn for_toolchain(message: String) -> Self {
-        Self::at_location(message, DiagnosticLocation::Toolchain)
+        Self::at_location_with_code(
+            message,
+            DiagnosticLocation::Toolchain,
+            DiagnosticCode::Toolchain,
+        )
     }
 
-    fn at_location(message: String, location: DiagnosticLocation) -> Self {
+    pub fn for_internal(message: impl Into<String>) -> Self {
+        Self::internal(message)
+    }
+
+    fn at_location_with_code(
+        message: String,
+        location: DiagnosticLocation,
+        code: DiagnosticCode,
+    ) -> Self {
+        location.validate();
         Self {
+            code: Some(code),
+            severity: DiagnosticSeverity::Error,
             message,
-            labels: Vec::new(),
-            kind: DiagnosticType::Error,
-            source: None,
             location,
+            primary: None,
+            secondary: Vec::new(),
+            notes: Vec::new(),
+            help: Vec::new(),
+            source: None,
         }
+    }
+
+    fn from_source_parts(
+        message: String,
+        primary_message: String,
+        span: Span,
+        code: DiagnosticCode,
+    ) -> Self {
+        validate_span(&span);
+        Self {
+            code: Some(code),
+            severity: DiagnosticSeverity::Error,
+            message,
+            location: DiagnosticLocation::Source(span.clone()),
+            primary: Some(DiagnosticLabel::new(primary_message, span)),
+            secondary: Vec::new(),
+            notes: Vec::new(),
+            help: Vec::new(),
+            source: None,
+        }
+    }
+
+    fn internal(message: impl Into<String>) -> Self {
+        Self::at_location_with_code(
+            message.into(),
+            DiagnosticLocation::Toolchain,
+            DiagnosticCode::Internal,
+        )
+    }
+
+    pub fn with_code(mut self, code: DiagnosticCode) -> Self {
+        self.code = Some(code);
+        self
+    }
+
+    pub fn with_severity(mut self, severity: DiagnosticSeverity) -> Self {
+        self.severity = severity;
+        self
+    }
+
+    pub fn with_note(mut self, note: impl Into<String>) -> Self {
+        self.notes.push(note.into());
+        self
+    }
+
+    pub fn with_help(mut self, help: impl Into<String>) -> Self {
+        self.help.push(help.into());
+        self
     }
 
     /// Add a label with its own span
     pub fn with_label(mut self, label: String, span: Span) -> Self {
-        self.labels.push((label, span));
+        assert!(
+            matches!(&self.location, DiagnosticLocation::Source(_)),
+            "source labels require a source diagnostic"
+        );
+        self.secondary.push(DiagnosticLabel::new(label, span));
         self
     }
 
     pub fn with_labels(mut self, labels: Vec<(String, Span)>) -> Self {
-        self.labels.extend(labels);
+        assert!(
+            matches!(&self.location, DiagnosticLocation::Source(_)),
+            "source labels require a source diagnostic"
+        );
+        self.secondary.extend(
+            labels
+                .into_iter()
+                .map(|(message, span)| DiagnosticLabel::new(message, span)),
+        );
+        self
+    }
+
+    pub fn with_secondary(mut self, labels: Vec<DiagnosticLabel>) -> Self {
+        assert!(
+            matches!(&self.location, DiagnosticLocation::Source(_)),
+            "source labels require a source diagnostic"
+        );
+        self.secondary.extend(labels);
         self
     }
 
     pub fn with_source(mut self, source: DiagnosticSource) -> Self {
+        validate_path(&source.display_path);
+        assert!(
+            matches!(&self.location, DiagnosticLocation::Source(_)),
+            "source text can only be attached to source diagnostics"
+        );
         self.source = Some(source);
         self
     }
@@ -432,27 +708,42 @@ impl Diagnostic {
     /// Create a diagnostic from any SpannedError
     pub fn from_spanned<E: SpannedError>(err: &E) -> Self {
         let span = err.span();
-        let mut labels = err.labels();
-
-        // Virtual and artifact sources need labels even when no filesystem path exists.
-        if labels.is_empty() {
-            if let Some(span) = &span {
-                labels.push((err.message(), span.clone()));
-            }
+        let message = err.message();
+        let mut diagnostic = span
+            .map(|span| {
+                Self::from_source_parts(
+                    message.clone(),
+                    message.clone(),
+                    span,
+                    DiagnosticCode::Source,
+                )
+            })
+            .unwrap_or_else(|| Self::internal(message));
+        let labels = err.labels();
+        if matches!(&diagnostic.location, DiagnosticLocation::Source(_)) {
+            diagnostic.secondary = labels;
+        } else {
+            diagnostic
+                .notes
+                .extend(labels.into_iter().map(|label| label.message));
         }
+        diagnostic
+    }
 
-        Self {
-            message: err.message(),
-            labels,
-            location: span
-                .map(DiagnosticLocation::Source)
-                .unwrap_or(DiagnosticLocation::Toolchain),
-            kind: DiagnosticType::Error,
-            source: None,
-        }
+    /// Convert into an owned payload with string codes for protocol adapters.
+    pub fn to_dto(&self) -> Result<DiagnosticDto, DiagnosticValidationError> {
+        self.validate()?;
+        Ok(DiagnosticDto::from_validated(self))
     }
 
     pub fn report(&self) {
+        if let Err(error) = self.validate() {
+            eprintln!(
+                "error [internal]: invalid diagnostic payload ({error:?}): {}",
+                self.message
+            );
+            return;
+        }
         let source_content = match &self.location {
             DiagnosticLocation::Source(span) => {
                 if let Some(source) = &self.source {
@@ -479,13 +770,50 @@ impl Diagnostic {
         };
 
         if let Some((file_id, source, related_sources, primary_span)) = source_content {
+            if !span_is_valid_for_text(&primary_span, &source) {
+                eprintln!(
+                    "error [internal]: invalid diagnostic source range: {}",
+                    self.message
+                );
+                return;
+            }
+            if self
+                .primary
+                .iter()
+                .chain(self.secondary.iter())
+                .any(|label| {
+                    label.span.file_path == primary_span.file_path
+                        && !span_is_valid_for_text(&label.span, &source)
+                })
+            {
+                eprintln!(
+                    "error [internal]: invalid diagnostic label range: {}",
+                    self.message
+                );
+                return;
+            }
             // File exists - use ariadne for pretty printing
             let mut colors = ColorGenerator::new();
 
-            let mut builder = Report::build(ReportKind::Error, file_id.clone(), primary_span.start)
+            let report_kind = match self.severity {
+                DiagnosticSeverity::Error => ReportKind::Error,
+                DiagnosticSeverity::Warning => ReportKind::Warning,
+                DiagnosticSeverity::Info | DiagnosticSeverity::Hint => ReportKind::Advice,
+            };
+            let mut builder = Report::build(report_kind, file_id.clone(), primary_span.start)
                 .with_message(self.message.clone());
+            if let Some(code) = self.code {
+                builder = builder.with_code(code);
+            }
+            if !self.notes.is_empty() {
+                builder = builder.with_note(self.notes.join("\n"));
+            }
+            if !self.help.is_empty() {
+                builder = builder.with_help(self.help.join("\n"));
+            }
 
-            for (i, (message, span)) in self.labels.iter().enumerate() {
+            for (i, label) in self.primary.iter().chain(self.secondary.iter()).enumerate() {
+                let span = &label.span;
                 let label_file_id = if span.file_path == primary_span.file_path {
                     file_id.clone()
                 } else if let Some(related) = related_sources.get(&span.file_path) {
@@ -500,7 +828,7 @@ impl Diagnostic {
                 };
                 builder = builder.with_label(
                     Label::new((label_file_id, span.start..span.end))
-                        .with_message(message)
+                        .with_message(&label.message)
                         .with_color(color),
                 );
             }
@@ -512,24 +840,36 @@ impl Diagnostic {
                     related.text.clone(),
                 );
             }
-            for (_, span) in &self.labels {
+            for label in self.primary.iter().chain(self.secondary.iter()) {
+                let span = &label.span;
                 if span.file_path != primary_span.file_path
                     && !related_sources.contains_key(&span.file_path)
                 {
                     if let Ok(text) = std::fs::read_to_string(&span.file_path) {
+                        if !span_is_valid_for_text(span, &text) {
+                            eprintln!(
+                                "error [internal]: invalid diagnostic label range: {}",
+                                self.message
+                            );
+                            return;
+                        }
                         report_sources.insert(span.file_path.to_string_lossy().to_string(), text);
                     }
                 }
             }
-            builder
-                .finish()
-                .print(ariadne::sources(report_sources))
-                .unwrap();
+            if let Err(error) = builder.finish().print(ariadne::sources(report_sources)) {
+                eprintln!("error [internal]: failed to render diagnostic: {error}");
+                return;
+            }
 
             println!();
         } else {
             // No source available - print a simple error message with location info
-            eprintln!("Error: {}", self.message);
+            let code = self
+                .code
+                .map(|code| format!(" [{}]", code))
+                .unwrap_or_default();
+            eprintln!("{}{}: {}", self.severity.as_str(), code, self.message);
 
             match &self.location {
                 DiagnosticLocation::Source(span) => eprintln!(
@@ -548,11 +888,12 @@ impl Diagnostic {
                 DiagnosticLocation::Toolchain => eprintln!("  --> toolchain"),
             }
 
-            for (message, span) in &self.labels {
+            for label in self.primary.iter().chain(self.secondary.iter()) {
+                let span = &label.span;
                 if !span.file_path.as_os_str().is_empty() {
                     eprintln!(
                         "      {}: {} ({}-{})",
-                        message,
+                        label.message,
                         span.file_path.display(),
                         span.start,
                         span.end
@@ -560,15 +901,58 @@ impl Diagnostic {
                 }
             }
 
+            for note in &self.notes {
+                eprintln!("  note: {note}");
+            }
+            for help in &self.help {
+                eprintln!("  help: {help}");
+            }
+
             println!();
         }
     }
 }
 
-#[derive(Debug, Default, Clone)]
+impl DiagnosticDto {
+    fn from_validated(diagnostic: &Diagnostic) -> Self {
+        Self {
+            code: diagnostic.code.map(|code| code.as_str().to_string()),
+            severity: diagnostic.severity,
+            message: diagnostic.message.clone(),
+            location: diagnostic.location.clone(),
+            primary: diagnostic.primary.clone(),
+            secondary: diagnostic.secondary.clone(),
+            notes: diagnostic.notes.clone(),
+            help: diagnostic.help.clone(),
+            source: diagnostic.source.clone(),
+        }
+    }
+}
+
+impl TryFrom<&Diagnostic> for DiagnosticDto {
+    type Error = DiagnosticValidationError;
+
+    fn try_from(diagnostic: &Diagnostic) -> Result<Self, Self::Error> {
+        diagnostic.to_dto()
+    }
+}
+
+impl TryFrom<Diagnostic> for DiagnosticDto {
+    type Error = DiagnosticValidationError;
+
+    fn try_from(diagnostic: Diagnostic) -> Result<Self, Self::Error> {
+        diagnostic.to_dto()
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Diagnostics(pub Vec<Diagnostic>);
 
 impl Diagnostics {
+    pub fn from_resolve_errors(errors: Vec<crate::lower::ResolveError>) -> Self {
+        Self(errors.iter().map(Diagnostic::from_resolve_error).collect())
+    }
+
     pub fn push<T: Into<Diagnostic>>(&mut self, diagnostic: T) -> Self {
         let diagnostic = diagnostic.into();
 
@@ -606,6 +990,10 @@ impl Diagnostics {
         self
     }
 
+    pub fn to_dto(&self) -> Result<Vec<DiagnosticDto>, DiagnosticValidationError> {
+        self.0.iter().map(Diagnostic::to_dto).collect()
+    }
+
     pub fn report(&self) {
         for diagnostic in &self.0 {
             diagnostic.report();
@@ -619,6 +1007,25 @@ impl Diagnostics {
             Err(self.clone())
         }
     }
+
+    pub fn contains(&self, text: &str) -> bool {
+        self.0.iter().any(|diagnostic| {
+            diagnostic.message.contains(text)
+                || diagnostic.notes.iter().any(|note| note.contains(text))
+        })
+    }
+}
+
+impl std::fmt::Display for Diagnostics {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (index, diagnostic) in self.0.iter().enumerate() {
+            if index > 0 {
+                formatter.write_str("\n")?;
+            }
+            formatter.write_str(&diagnostic.message)?;
+        }
+        Ok(())
+    }
 }
 
 impl From<ParseError> for Diagnostics {
@@ -631,17 +1038,17 @@ impl From<ParseError> for Diagnostics {
     }
 }
 
-impl<E: SpannedError> From<E> for Diagnostic {
-    fn from(err: E) -> Self {
-        Diagnostic::from_spanned(&err)
+impl From<crate::lower::ResolveError> for Diagnostic {
+    fn from(err: crate::lower::ResolveError) -> Self {
+        Diagnostic::from_resolve_error(&err)
     }
 }
 
-impl<E: SpannedError + Clone> From<Vec<E>> for Diagnostics {
-    fn from(errors: Vec<E>) -> Self {
+impl From<Vec<crate::lower::ResolveError>> for Diagnostics {
+    fn from(errors: Vec<crate::lower::ResolveError>) -> Self {
         let mut diagnostics = Diagnostics::default();
         for err in errors {
-            diagnostics.push(Diagnostic::from_spanned(&err));
+            diagnostics.push(Diagnostic::from_resolve_error(&err));
         }
         diagnostics
     }
@@ -693,11 +1100,12 @@ mod tests {
         let diagnostic = Diagnostic::for_file("missing file".to_string(), path.clone());
 
         assert_eq!(diagnostic.location, DiagnosticLocation::File(path));
-        assert!(diagnostic.labels.is_empty());
+        assert!(diagnostic.primary.is_none());
+        assert!(diagnostic.secondary.is_empty());
     }
 
     #[test]
-    #[should_panic(expected = "source diagnostics require a source path")]
+    #[should_panic(expected = "diagnostic locations require a path")]
     fn source_diagnostic_rejects_an_empty_span() {
         let _ = Diagnostic::new(
             "invalid source diagnostic".to_string(),
@@ -835,7 +1243,205 @@ mod tests {
         assert_eq!(span.file_path, path);
         assert_eq!(span.start, text.len());
         assert_eq!(span.end, text.len());
-        assert!(!diagnostic.labels.is_empty());
+        assert!(diagnostic.primary.is_some());
+    }
+
+    #[test]
+    fn structured_diagnostic_dto_preserves_contract_fields() {
+        let span = Span::new(PathBuf::from("/virtual/main.rk"), 2, 5);
+        let diagnostic = Diagnostic::new("bad expression".to_string(), span.clone())
+            .with_code(DiagnosticCode::Parser)
+            .with_severity(DiagnosticSeverity::Warning)
+            .with_label("related expression".to_string(), span.clone())
+            .with_note("parser context")
+            .with_help("remove the extra token");
+
+        assert_eq!(diagnostic.validate(), Ok(()));
+        let dto = diagnostic
+            .to_dto()
+            .expect("valid diagnostic should convert");
+        assert_eq!(dto.code.as_deref(), Some("parser"));
+        assert_eq!(dto.severity, DiagnosticSeverity::Warning);
+        assert_eq!(dto.primary.as_ref().unwrap().span.start, 2);
+        assert_eq!(dto.secondary[0].message, "related expression");
+        assert_eq!(dto.notes, vec!["parser context"]);
+        assert_eq!(dto.help, vec!["remove the extra token"]);
+        assert_eq!(dto.location, DiagnosticLocation::Source(span));
+    }
+
+    #[test]
+    fn structured_diagnostic_dto_serializes_without_losing_source_contract() {
+        let span = Span::new(PathBuf::from("/virtual/main.rk"), 2, 5);
+        let dto = Diagnostic::new("bad expression".to_string(), span.clone())
+            .with_code(DiagnosticCode::Parser)
+            .with_note("parser context")
+            .with_help("remove the extra token")
+            .to_dto()
+            .expect("valid diagnostic should convert");
+
+        let encoded = bincode::serialize(&dto).expect("diagnostic DTO should serialize");
+        let decoded: DiagnosticDto =
+            bincode::deserialize(&encoded).expect("diagnostic DTO should deserialize");
+
+        assert_eq!(decoded, dto);
+        assert_eq!(decoded.location, DiagnosticLocation::Source(span));
+    }
+
+    #[test]
+    fn parser_control_flow_escape_is_internal_and_non_source() {
+        for error in [
+            ParseError::Fail,
+            ParseError::ShortCircuit,
+            ParseError::AssertFailed,
+        ] {
+            let diagnostic = Diagnostic::from(error);
+            assert_eq!(diagnostic.code, Some(DiagnosticCode::Internal));
+            assert_eq!(diagnostic.location, DiagnosticLocation::Toolchain);
+            assert!(diagnostic.primary.is_none());
+        }
+    }
+
+    #[test]
+    fn parse_context_preserves_wrapped_source_variant_contracts() {
+        let path = PathBuf::from("/virtual/parse.rk");
+        let macro_span = Span::new(path.clone(), 1, 2);
+        let invocation_span = Span::new(path.clone(), 3, 4);
+        let argument_span = Span::new(path.clone(), 5, 6);
+        let token = crate::lexer::Token {
+            token_type: crate::lexer::TokenType::Ident("value".to_string()),
+            span: invocation_span.clone(),
+        };
+        let cases = [
+            (
+                ParseError::HardError("hard failure".to_string(), macro_span.clone()),
+                DiagnosticCode::Parser,
+                DiagnosticLocation::Source(macro_span.clone()),
+            ),
+            (
+                ParseError::Lexer(LexerError::UnknownToken('!', invocation_span.clone())),
+                DiagnosticCode::Lexer,
+                DiagnosticLocation::Source(invocation_span.clone()),
+            ),
+            (
+                ParseError::MacroNoCorrespondance {
+                    macro_name: macro_span.clone(),
+                    invoc_name: invocation_span.clone(),
+                    invoc_arg: Some(argument_span.clone()),
+                },
+                DiagnosticCode::Macro,
+                DiagnosticLocation::Source(macro_span.clone()),
+            ),
+            (
+                ParseError::UnexpectedToken("identifier".to_string(), token),
+                DiagnosticCode::Parser,
+                DiagnosticLocation::Source(invocation_span),
+            ),
+        ];
+
+        for (error, code, location) in cases {
+            let diagnostic = Diagnostic::from(error.with_context("outer").with_context("inner"));
+            assert_eq!(diagnostic.code, Some(code));
+            assert_eq!(diagnostic.location, location);
+            assert!(diagnostic.message.contains("outer"));
+            assert!(diagnostic.message.contains("inner"));
+        }
+    }
+
+    #[test]
+    fn unexpected_indent_preserves_offending_token_span() {
+        let span = Span::new(PathBuf::from("/virtual/main.rk"), 11, 12);
+        let diagnostic = Diagnostic::from(ParseError::UnexpectedIndent(3, span.clone()));
+        assert_eq!(diagnostic.code, Some(DiagnosticCode::Parser));
+        assert_eq!(
+            diagnostic.location,
+            DiagnosticLocation::Source(span.clone())
+        );
+        assert_eq!(diagnostic.primary.unwrap().span.start, span.start);
+    }
+
+    #[test]
+    fn resolve_error_conversion_preserves_family_and_source_span() {
+        let span = Span::new(PathBuf::from("/virtual/main.rk"), 5, 8);
+        let error = crate::lower::ResolveError::with_span_code(
+            "type mismatch".to_string(),
+            span.clone(),
+            DiagnosticCode::Type,
+        );
+
+        let diagnostic = Diagnostic::from_resolve_error(&error);
+
+        assert_eq!(diagnostic.code, Some(DiagnosticCode::Type));
+        assert_eq!(diagnostic.location, DiagnosticLocation::Source(span));
+        assert!(!diagnostic.message.contains("TypeVarId"));
+    }
+
+    #[test]
+    fn resolve_error_conversion_accepts_only_validated_origin_states() {
+        let source = crate::lower::ResolveError::with_span(
+            "source".to_string(),
+            Span::new(PathBuf::from("/virtual/main.rk"), 1, 2),
+        );
+        let non_source = crate::lower::ResolveError::non_source("internal".to_string());
+
+        assert!(Diagnostic::from_resolve_error(&source).validate().is_ok());
+        assert!(Diagnostic::from_resolve_error(&non_source)
+            .validate()
+            .is_ok());
+    }
+
+    #[test]
+    fn attached_source_validation_rejects_non_boundary_ranges() {
+        let path = PathBuf::from("/virtual/main.rk");
+        let diagnostic = Diagnostic::new("bad range".to_string(), Span::new(path.clone(), 1, 2))
+            .with_source(DiagnosticSource {
+                display_path: path,
+                text: "é".to_string(),
+                origin: DiagnosticSourceOrigin::Virtual,
+                related: BTreeMap::new(),
+            });
+
+        assert_eq!(
+            diagnostic.validate(),
+            Err(DiagnosticValidationError::InvalidLocation)
+        );
+        assert!(diagnostic.to_dto().is_err());
+    }
+
+    #[test]
+    fn attached_source_validation_rejects_invalid_secondary_ranges() {
+        let path = PathBuf::from("/virtual/main.rk");
+        let diagnostic = Diagnostic::new("bad label".to_string(), Span::new(path.clone(), 0, 1))
+            .with_label("invalid".to_string(), Span::new(path.clone(), 0, 4))
+            .with_source(DiagnosticSource {
+                display_path: path,
+                text: "abc".to_string(),
+                origin: DiagnosticSourceOrigin::Virtual,
+                related: BTreeMap::new(),
+            });
+
+        assert_eq!(
+            diagnostic.validate(),
+            Err(DiagnosticValidationError::InvalidLabel)
+        );
+        assert!(diagnostic.to_dto().is_err());
+    }
+
+    #[test]
+    fn report_rejects_invalid_attached_ranges_without_panicking() {
+        let path = PathBuf::from("/virtual/main.rk");
+        let diagnostic = Diagnostic::new(
+            "bad report range".to_string(),
+            Span::new(path.clone(), 0, 4),
+        )
+        .with_source(DiagnosticSource {
+            display_path: path,
+            text: "ok".to_string(),
+            origin: DiagnosticSourceOrigin::Virtual,
+            related: BTreeMap::new(),
+        });
+
+        let result = std::panic::catch_unwind(|| diagnostic.report());
+        assert!(result.is_ok());
     }
 }
 

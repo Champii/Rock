@@ -11,13 +11,19 @@ pub(crate) enum ResolvedNominalType {
 }
 
 pub(crate) trait TypeLoweringContext {
-    fn push_type_error(&mut self, message: String);
+    fn push_type_error(&mut self, message: String, span: crate::lexer::Span);
+    fn record_type_reference(
+        &mut self,
+        _span: crate::lexer::Span,
+        _target: crate::source_map::SourceSymbol,
+    ) {
+    }
     fn current_module_prefix(&self) -> Option<String>;
     fn current_trait_name(&self) -> Option<String>;
     fn resolve_nominal_type(&self, name: &str) -> Option<ResolvedNominalType>;
     fn resolve_trait_type(&self, name: &str) -> Option<HirTrait>;
     fn resolve_type_alias(&self, name: &str) -> Option<HirTypeAlias>;
-    fn generic_type_for_name(&mut self, name: &str) -> Type;
+    fn generic_type_for_name(&mut self, name: &str, span: crate::lexer::Span) -> Type;
     fn populate_type_normalization_env(&self, env: &mut TypeNormalizationEnv);
 }
 
@@ -182,13 +188,14 @@ impl TypeLowerer {
         let mut env = TypeNormalizationEnv::new();
         context.populate_type_normalization_env(&mut env);
         let raw = Self::lower_raw(context, parse_type, allow_bare_slice, &env, &mut Vec::new());
-        Self::normalize(context, &env, raw)
+        Self::normalize(context, &env, raw, parse_type.span())
     }
 
     fn normalize<C: TypeLoweringContext + ?Sized>(
         context: &mut C,
         env: &TypeNormalizationEnv,
         ty: Type,
+        span: crate::lexer::Span,
     ) -> Type {
         if matches!(ty, Type::Error) {
             return ty;
@@ -196,7 +203,7 @@ impl TypeLowerer {
         match TypeNormalizer::new(env).normalize(&ty) {
             Ok(ty) => ty,
             Err(error) => {
-                context.push_type_error(error.to_string());
+                context.push_type_error(error.to_string(), span);
                 Type::Error
             }
         }
@@ -273,7 +280,10 @@ impl TypeLowerer {
                 }
             }
             ast::ParseType::Hole(_) => {
-                context.push_type_error("type holes are not yet supported".to_string());
+                context.push_type_error(
+                    "type holes are not yet supported".to_string(),
+                    parse_type.span(),
+                );
                 Type::Error
             }
             ast::ParseType::Associated { base, member } => {
@@ -286,10 +296,14 @@ impl TypeLowerer {
                     base.name.clone()
                 };
                 let Some(trait_def) = context.resolve_trait_type(&trait_name) else {
-                    context.push_type_error(format!(
-                        "unknown trait '{}' in associated type",
-                        trait_name
-                    ));
+                    context.push_type_error(
+                        format!("unknown trait '{}' in associated type", trait_name),
+                        crate::lexer::Span::new(
+                            base.span.file_path.clone(),
+                            base.span.start,
+                            member.span.end,
+                        ),
+                    );
                     return Type::Error;
                 };
                 let Some(assoc_type) = trait_def
@@ -301,12 +315,26 @@ impl TypeLowerer {
                         assoc_type_id: assoc.id,
                     })
                 else {
-                    context.push_type_error(format!(
-                        "trait '{}' has no associated type '{}'",
-                        trait_name, member.name
-                    ));
+                    context.push_type_error(
+                        format!(
+                            "trait '{}' has no associated type '{}'",
+                            trait_name, member.name
+                        ),
+                        crate::lexer::Span::new(
+                            base.span.file_path.clone(),
+                            base.span.start,
+                            member.span.end,
+                        ),
+                    );
                     return Type::Error;
                 };
+                context.record_type_reference(
+                    member.span.clone(),
+                    crate::source_map::SourceSymbol::AssociatedType {
+                        owner: trait_def.id,
+                        associated: assoc_type.assoc_type_id,
+                    },
+                );
                 let trait_args = trait_def
                     .generic_params
                     .iter()
@@ -346,7 +374,10 @@ impl TypeLowerer {
             }
             ast::ParseType::Slice(inner) => {
                 if !allow_bare_slice {
-                    context.push_type_error("bare slice type [T] must be written behind a reference, such as &[T] or &mut [T]".to_string());
+                    context.push_type_error(
+                        "bare slice type [T] must be written behind a reference, such as &[T] or &mut [T]".to_string(),
+                        parse_type.span(),
+                    );
                     return Type::Error;
                 }
                 Type::Slice(Box::new(Self::lower_raw(
@@ -405,6 +436,7 @@ impl TypeLowerer {
                     context.push_type_error(
                         "bare string slice type Str must be written behind a reference, such as &Str"
                             .to_string(),
+                        inner.span.clone(),
                     );
                     return Type::Error;
                 }
@@ -437,6 +469,10 @@ impl TypeLowerer {
                     .and_then(|name| context.resolve_type_alias(name))
                     .or_else(|| context.resolve_type_alias(name))
                 {
+                    context.record_type_reference(
+                        inner.span.clone(),
+                        crate::source_map::SourceSymbol::Definition(alias.id),
+                    );
                     Type::Constructor {
                         id: alias.id,
                         flavor: NominalTypeKind::Alias,
@@ -447,17 +483,36 @@ impl TypeLowerer {
                     .or_else(|| context.resolve_nominal_type(name))
                 {
                     match nominal {
-                        ResolvedNominalType::Struct(struct_def) => Type::Constructor {
-                            id: struct_def.id,
-                            flavor: NominalTypeKind::Struct,
-                        },
-                        ResolvedNominalType::Enum(enum_def) => Type::Constructor {
-                            id: enum_def.id,
-                            flavor: NominalTypeKind::Enum,
-                        },
+                        ResolvedNominalType::Struct(struct_def) => {
+                            context.record_type_reference(
+                                inner.span.clone(),
+                                crate::source_map::SourceSymbol::Definition(struct_def.id),
+                            );
+                            Type::Constructor {
+                                id: struct_def.id,
+                                flavor: NominalTypeKind::Struct,
+                            }
+                        }
+                        ResolvedNominalType::Enum(enum_def) => {
+                            context.record_type_reference(
+                                inner.span.clone(),
+                                crate::source_map::SourceSymbol::Definition(enum_def.id),
+                            );
+                            Type::Constructor {
+                                id: enum_def.id,
+                                flavor: NominalTypeKind::Enum,
+                            }
+                        }
                     }
                 } else {
-                    context.generic_type_for_name(name)
+                    let ty = context.generic_type_for_name(name, inner.span.clone());
+                    if let Type::Generic(generic) = ty {
+                        context.record_type_reference(
+                            inner.span.clone(),
+                            crate::source_map::SourceSymbol::Generic(generic),
+                        );
+                    }
+                    ty
                 }
             }
         };
@@ -497,7 +552,7 @@ mod tests {
     }
 
     impl TypeLoweringContext for TestTypeContext {
-        fn push_type_error(&mut self, message: String) {
+        fn push_type_error(&mut self, message: String, _span: crate::lexer::Span) {
             self.errors.push(message);
         }
 
@@ -525,9 +580,9 @@ mod tests {
             None
         }
 
-        fn generic_type_for_name(&mut self, name: &str) -> Type {
+        fn generic_type_for_name(&mut self, name: &str, span: crate::lexer::Span) -> Type {
             let Some(owner) = self.generic_owner else {
-                self.push_type_error(format!("unknown type '{}'", name));
+                self.push_type_error(format!("unknown type '{}'", name), span.clone());
                 return Type::Error;
             };
             let Some(index) = self
@@ -546,7 +601,7 @@ mod tests {
                     }
                 })
             else {
-                self.push_type_error(format!("unknown type '{}'", name));
+                self.push_type_error(format!("unknown type '{}'", name), span);
                 return Type::Error;
             };
 

@@ -34,7 +34,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(PointerValue<'ctx>, crate::ids::TypeId), CodegenError> {
         if place.projection.is_empty() {
             let Some(Some((pointer, ty))) = ctx.locals.get(place.local.0) else {
-                return Err(CodegenError::from(format!(
+                return Err(CodegenError::backend_contract(format!(
                     "MIR local {} is not available for codegen",
                     place.local.0
                 )));
@@ -56,7 +56,7 @@ impl<'ctx> CodeGen<'ctx> {
         place: &Place,
     ) -> Result<(PointerValue<'ctx>, Type), CodegenError> {
         let Some(Some((pointer, ty))) = ctx.locals.get(place.local.0) else {
-            return Err(CodegenError::from(format!(
+            return Err(CodegenError::backend_contract(format!(
                 "MIR local {} is not available for codegen",
                 place.local.0
             )));
@@ -80,13 +80,10 @@ impl<'ctx> CodeGen<'ctx> {
                     let aggregate_ty = self.llvm_type(&current_ty);
                     let field_ty =
                         self.mir_field_projection_ty(&current_ty, *index)
-                            .map_err(|err| {
-                                CodegenError::from(format!(
-                                    "{} while lowering function {} place local {} projection {:?}",
-                                    err.message,
-                                    ctx.function.get_name().to_string_lossy(),
-                                    place.local.0,
-                                    place.projection
+                            .map_err(|_err| {
+                                CodegenError::layout(format!(
+                                    "invalid MIR field projection while lowering function {}",
+                                    ctx.function.get_name().to_string_lossy()
                                 ))
                             })?;
                     current_pointer = self
@@ -101,7 +98,7 @@ impl<'ctx> CodeGen<'ctx> {
                     scalar_downcast_payload = false;
                     let Some(Some((index_pointer, index_ty))) = ctx.locals.get(index_local.0)
                     else {
-                        return Err(CodegenError::from(format!(
+                        return Err(CodegenError::backend_contract(format!(
                             "MIR index local {} is not available for codegen",
                             index_local.0
                         )));
@@ -113,10 +110,9 @@ impl<'ctx> CodeGen<'ctx> {
                             CodegenError::from(format!("Failed to load MIR index: {}", e))
                         })?;
                     let BasicValueEnum::IntValue(index_value) = index_value else {
-                        return Err(CodegenError::from(format!(
-                            "MIR index projection expected integer index local {}, got {}",
-                            index_local.0,
-                            self.structural_type_for(*index_ty)
+                        return Err(CodegenError::backend_contract(format!(
+                            "MIR index projection expected integer index, got {}",
+                            self.display_type_for_diagnostic(&self.structural_type_for(*index_ty))
                         )));
                     };
                     let index_value = self.mir_index_as_i64(index_value)?;
@@ -247,9 +243,9 @@ impl<'ctx> CodeGen<'ctx> {
                                     ))
                                 })?;
                             let BasicValueEnum::PointerValue(data_ptr) = pointer_value else {
-                                return Err(CodegenError::from(format!(
+                                return Err(CodegenError::layout(format!(
                                     "MIR pointer index expected thin pointer, got {}",
-                                    current_ty
+                                    self.display_type_for_diagnostic(&current_ty)
                                 )));
                             };
                             let element_llvm_ty = self.llvm_type(element_ty);
@@ -271,27 +267,27 @@ impl<'ctx> CodeGen<'ctx> {
                             current_ty = self.normalize_projection_type(element_ty);
                         }
                         _ => {
-                            return Err(CodegenError::from(format!(
+                            return Err(CodegenError::layout(format!(
                                 "MIR index projection expected array, slice, or pointer, got {}",
-                                current_ty
+                                self.display_type_for_diagnostic(&current_ty)
                             )));
                         }
                     }
                 }
                 Projection::Downcast(variant_id) => {
                     let Type::Enum { id, args } = &current_ty else {
-                        return Err(CodegenError::from(format!(
+                        return Err(CodegenError::layout(format!(
                             "MIR downcast projection expected enum, got {}",
-                            current_ty
+                            self.display_type_for_diagnostic(&current_ty)
                         )));
                     };
                     let variant_index = variant_id.0 as usize;
                     let payload_ty = self
                         .enum_variant_payload_type_by_id(*id, args, variant_index)
                         .ok_or_else(|| {
-                            CodegenError::from(format!(
-                                "Unknown MIR enum DefId {:?} variant {}",
-                                id, variant_index
+                            CodegenError::layout(format!(
+                                "Unknown MIR enum variant {}",
+                                variant_index
                             ))
                         })?;
                     let enum_llvm_ty = self.llvm_type(&current_ty);
@@ -318,9 +314,9 @@ impl<'ctx> CodeGen<'ctx> {
                             inner.as_ref().clone()
                         }
                         _ => {
-                            return Err(CodegenError::from(format!(
+                            return Err(CodegenError::layout(format!(
                                 "MIR deref projection expected pointer or reference, got {}",
-                                current_ty
+                                self.display_type_for_diagnostic(&current_ty)
                             )))
                         }
                     };
@@ -339,9 +335,9 @@ impl<'ctx> CodeGen<'ctx> {
                             CodegenError::from(format!("Failed to load MIR deref pointer: {}", e))
                         })?;
                     let BasicValueEnum::PointerValue(pointer_value) = pointer_value else {
-                        return Err(CodegenError::from(format!(
+                        return Err(CodegenError::layout(format!(
                             "MIR deref projection expected thin pointer value, got {}",
-                            current_ty
+                            self.display_type_for_diagnostic(&current_ty)
                         )));
                     };
                     current_pointer = pointer_value;
@@ -359,22 +355,23 @@ impl<'ctx> CodeGen<'ctx> {
                 CodegenError::from(format!("MIR tuple field index {} is out of bounds", index))
             }),
             Type::Struct { id, args } => {
-                let fields = self.struct_layouts_by_id.get(id).ok_or_else(|| {
-                    CodegenError::from(format!("Unknown MIR struct DefId {:?}", id))
-                })?;
+                let fields = self
+                    .struct_layouts_by_id
+                    .get(id)
+                    .ok_or_else(|| CodegenError::layout("Unknown MIR struct layout"))?;
                 let (_, field_ty) = fields.get(index).ok_or_else(|| {
-                    CodegenError::from(format!(
-                        "MIR struct field index {} is out of bounds for {:?}",
-                        index, id
+                    CodegenError::layout(format!(
+                        "MIR struct field index {} is out of bounds",
+                        index
                     ))
                 })?;
                 let subst = self.struct_substitution_by_id(*id, args);
                 let field_ty = self.structural_type_for(*field_ty);
                 Ok(field_ty.substitute_generics(&subst))
             }
-            other => Err(CodegenError::from(format!(
+            other => Err(CodegenError::layout(format!(
                 "MIR field projection expected aggregate, got {} in {}",
-                other,
+                self.display_type_for_diagnostic(other),
                 self.current_function
                     .map(|function| function.get_name().to_string_lossy().into_owned())
                     .unwrap_or_else(|| "<unknown>".to_string())

@@ -6,7 +6,7 @@ use crate::lower::ResolveError;
 use crate::type_services::facts::TypeFacts;
 use crate::types::{GenericParamId, Type};
 
-use super::{InferenceEngine, InferenceError, PartialHir};
+use super::{InferenceEngine, InferenceError, PartialHir, UnifyError};
 
 /// Finalization context carrying the engine and error list.
 pub(super) struct FinalizeCtx<'a> {
@@ -254,9 +254,16 @@ pub(super) fn apply_finalization(hir: &mut PartialHir) -> Vec<ResolveError> {
 
     ctx.errors
         .into_iter()
-        .map(|error| ResolveError {
-            message: error.message,
-            span: error.span,
+        .map(|error| match error.span {
+            Some(span) => ResolveError::with_span_code(
+                error.error.render(&hir.engine),
+                span,
+                crate::diagnostic::DiagnosticCode::Type,
+            ),
+            None => ResolveError::non_source_code(
+                error.error.render(&hir.engine),
+                crate::diagnostic::DiagnosticCode::Internal,
+            ),
         })
         .collect()
 }
@@ -360,10 +367,9 @@ fn finalize_expr(ctx: &mut FinalizeCtx<'_>, expr: &mut HirExpr) {
             finalize_expr(ctx, value);
             if *len > 1 && !TypeFacts::is_copy(&value.ty) {
                 ctx.errors.push(InferenceError {
-                    message: format!(
-                        "array repeat initializer must be Copy, found '{}'",
-                        ctx.engine.display_type(&value.ty)
-                    ),
+                    error: UnifyError::NonCopyArrayRepeat {
+                        found: value.ty.clone(),
+                    },
                     span: Some(value.span.clone()),
                 });
             }

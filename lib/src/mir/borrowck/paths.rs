@@ -247,13 +247,16 @@ fn collect_terminator_places(terminator: &Terminator, table: &mut PlacePathTable
             }
             table.intern(destination.clone());
         }
-        Terminator::SwitchInt { discr, .. } => {
+        Terminator::SwitchInt { discr, .. } | Terminator::SwitchIntWithOrigin { discr, .. } => {
             collect_operand_place(discr, table);
         }
-        Terminator::Drop { place, .. } => {
+        Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. } => {
             table.intern(place.clone());
         }
-        Terminator::Goto(_) | Terminator::Return => {}
+        Terminator::Goto(_)
+        | Terminator::GotoWithOrigin { .. }
+        | Terminator::Return
+        | Terminator::ReturnWithOrigin { .. } => {}
     }
 }
 

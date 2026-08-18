@@ -18,6 +18,7 @@ mod runtime;
 mod types;
 
 use std::collections::{BTreeSet, HashMap};
+use std::path::PathBuf;
 
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -26,7 +27,7 @@ use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::values::FunctionValue;
 use inkwell::AddressSpace;
 
-use crate::diagnostic::SpannedError;
+use crate::diagnostic::{Diagnostic, DiagnosticCode};
 use crate::ids::{DefId, TypeId};
 use crate::lexer::Span;
 use crate::mir::{
@@ -36,36 +37,224 @@ use crate::mir::{
 };
 use crate::types::{GenericParamId, Type};
 
-/// A code generation error
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CodegenErrorKind {
+    SourceOperation,
+    BackendContract,
+    Layout,
+    Output,
+    Link,
+    Llvm,
+    Toolchain,
+    Internal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CodegenErrorLocation {
+    Source(Span),
+    File(PathBuf),
+    Project(PathBuf),
+    Artifact(PathBuf),
+    Toolchain,
+}
+
+/// A structured code generation failure.
 #[derive(Debug, Clone)]
-pub struct CodegenError {
-    pub message: String,
-    pub span: Option<Span>,
+pub(crate) struct CodegenError {
+    message: String,
+    kind: CodegenErrorKind,
+    location: CodegenErrorLocation,
+    notes: Vec<String>,
 }
 
 impl CodegenError {
-    pub fn new(message: String) -> Self {
+    fn new(message: String) -> Self {
         Self {
             message,
-            span: None,
+            kind: CodegenErrorKind::Llvm,
+            location: CodegenErrorLocation::Toolchain,
+            notes: Vec::new(),
         }
     }
 
-    pub fn with_span(message: String, span: Span) -> Self {
+    fn with_span(message: String, span: Span) -> Self {
         Self {
             message,
-            span: Some(span),
+            kind: CodegenErrorKind::SourceOperation,
+            location: CodegenErrorLocation::Source(span),
+            notes: Vec::new(),
         }
     }
-}
 
-impl SpannedError for CodegenError {
-    fn message(&self) -> String {
-        self.message.clone()
+    fn internal(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            kind: CodegenErrorKind::Internal,
+            location: CodegenErrorLocation::Toolchain,
+            notes: Vec::new(),
+        }
     }
 
-    fn span(&self) -> Option<Span> {
-        self.span.clone()
+    fn backend_contract(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            kind: CodegenErrorKind::BackendContract,
+            location: CodegenErrorLocation::Toolchain,
+            notes: Vec::new(),
+        }
+    }
+
+    fn layout(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            kind: CodegenErrorKind::Layout,
+            location: CodegenErrorLocation::Toolchain,
+            notes: Vec::new(),
+        }
+    }
+
+    fn project(message: impl Into<String>, path: impl Into<PathBuf>) -> Self {
+        Self {
+            message: message.into(),
+            kind: CodegenErrorKind::Internal,
+            location: CodegenErrorLocation::Project(path.into()),
+            notes: Vec::new(),
+        }
+    }
+
+    fn artifact(message: impl Into<String>, path: impl Into<PathBuf>) -> Self {
+        Self {
+            message: message.into(),
+            kind: CodegenErrorKind::Internal,
+            location: CodegenErrorLocation::Artifact(path.into()),
+            notes: Vec::new(),
+        }
+    }
+
+    fn output(message: impl Into<String>, path: impl Into<PathBuf>) -> Self {
+        Self {
+            message: message.into(),
+            kind: CodegenErrorKind::Output,
+            location: CodegenErrorLocation::File(path.into()),
+            notes: Vec::new(),
+        }
+    }
+
+    fn link(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            kind: CodegenErrorKind::Link,
+            location: CodegenErrorLocation::Toolchain,
+            notes: Vec::new(),
+        }
+    }
+
+    fn toolchain(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            kind: CodegenErrorKind::Toolchain,
+            location: CodegenErrorLocation::Toolchain,
+            notes: Vec::new(),
+        }
+    }
+
+    fn with_note(mut self, note: impl Into<String>) -> Self {
+        self.notes.push(note.into());
+        self
+    }
+
+    pub(crate) fn internalize(mut self) -> Self {
+        self.kind = CodegenErrorKind::Internal;
+        self.location = CodegenErrorLocation::Toolchain;
+        self
+    }
+
+    fn with_operation_span(mut self, span: Option<Span>) -> Self {
+        if matches!(self.kind, CodegenErrorKind::SourceOperation) {
+            if let Some(span) = span {
+                self.location = CodegenErrorLocation::Source(span);
+            }
+        }
+        self
+    }
+
+    pub(crate) fn into_diagnostic(self) -> Diagnostic {
+        let CodegenError {
+            message: raw_message,
+            kind,
+            location,
+            notes,
+        } = self;
+        let message = Self::user_message(&raw_message);
+        let mut diagnostic = match location {
+            CodegenErrorLocation::Source(span) => {
+                Diagnostic::new(message, span).with_code(DiagnosticCode::Codegen)
+            }
+            CodegenErrorLocation::File(path) => {
+                Diagnostic::for_file(message, path).with_code(DiagnosticCode::Codegen)
+            }
+            CodegenErrorLocation::Project(path) => {
+                Diagnostic::for_project(message, path).with_code(DiagnosticCode::Project)
+            }
+            CodegenErrorLocation::Artifact(path) => {
+                Diagnostic::for_artifact(message, path).with_code(DiagnosticCode::Artifact)
+            }
+            CodegenErrorLocation::Toolchain => match kind {
+                CodegenErrorKind::Internal
+                | CodegenErrorKind::BackendContract
+                | CodegenErrorKind::Layout => Diagnostic::for_internal(message),
+                CodegenErrorKind::Output => {
+                    Diagnostic::for_toolchain(message).with_code(DiagnosticCode::Codegen)
+                }
+                CodegenErrorKind::Link | CodegenErrorKind::Toolchain => {
+                    Diagnostic::for_toolchain(message)
+                }
+                CodegenErrorKind::Llvm => {
+                    Diagnostic::for_toolchain("LLVM code generation failed".to_string())
+                        .with_code(DiagnosticCode::Codegen)
+                        .with_note(message)
+                }
+                CodegenErrorKind::SourceOperation => Diagnostic::for_internal(message),
+            },
+        };
+        for note in notes {
+            diagnostic = diagnostic.with_note(Self::user_message(&note));
+        }
+        diagnostic
+    }
+
+    fn user_message(message: &str) -> String {
+        const INTERNAL_IDENTITIES: [&str; 21] = [
+            "DefId(",
+            "DefId {",
+            "InstanceId(",
+            "TypeId(",
+            "TypeVarId(",
+            "TypeVarId {",
+            "GenericParamId(",
+            "GenericParamId {",
+            "FieldId(",
+            "FieldId {",
+            "VariantId(",
+            "VariantId {",
+            "Local(",
+            "Local {",
+            "HirLocalId(",
+            "HirLocalId {",
+            "struct#",
+            "enum#",
+            "generic#",
+            "trait#",
+            "?T",
+        ];
+        if INTERNAL_IDENTITIES
+            .iter()
+            .any(|identity| message.contains(identity))
+        {
+            "Internal compiler error during MIR code generation".to_string()
+        } else {
+            message.to_string()
+        }
     }
 }
 
@@ -106,7 +295,7 @@ pub(crate) struct CodegenEnumVariantLayout {
     pub(crate) fields: CodegenEnumVariantFields,
 }
 
-pub struct CodeGen<'ctx> {
+pub(crate) struct CodeGen<'ctx> {
     context: &'ctx Context,
     module: Module<'ctx>,
     builder: Builder<'ctx>,
@@ -184,11 +373,11 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn new(context: &'ctx Context, module_name: &str) -> Self {
+    pub(crate) fn new(context: &'ctx Context, module_name: &str) -> Self {
         Self::new_inner(context, module_name, None)
     }
 
-    pub fn new_with_symbol_namespace(
+    pub(crate) fn new_with_symbol_namespace(
         context: &'ctx Context,
         module_name: &str,
         symbol_namespace: &str,
@@ -234,7 +423,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self.mir_contract_symbol_overrides
     }
 
-    pub fn set_type_context(&mut self, type_context: crate::type_context::TypeContext) {
+    pub(crate) fn set_type_context(&mut self, type_context: crate::type_context::TypeContext) {
         self.type_context = Some(type_context);
     }
 
@@ -252,6 +441,17 @@ impl<'ctx> CodeGen<'ctx> {
         self.type_context().type_for(ty)
     }
 
+    pub(crate) fn display_type_for_diagnostic(&self, ty: &Type) -> String {
+        let mut context = crate::type_services::display::TypeDisplayContext::default();
+        for (id, name) in &self.struct_names_by_id {
+            context.insert_definition_name(*id, name.clone());
+        }
+        for (id, name) in &self.enum_names_by_id {
+            context.insert_definition_name(*id, name.clone());
+        }
+        crate::type_services::display::display_type_with_context(ty, &context).to_string()
+    }
+
     pub(crate) fn intern_structural_type(&mut self, ty: &Type) -> TypeId {
         self.type_context
             .get_or_insert_with(crate::type_context::TypeContext::new)
@@ -267,7 +467,9 @@ impl<'ctx> CodeGen<'ctx> {
         self.callable_symbols_by_key
             .get(key)
             .cloned()
-            .ok_or_else(|| CodegenError::from(format!("Unknown MIR callable key {:?}", key)))
+            .ok_or_else(|| {
+                CodegenError::backend_contract(format!("Unknown MIR callable key {:?}", key))
+            })
     }
 
     pub(crate) fn resolve_mir_callable_signature(
@@ -285,14 +487,14 @@ impl<'ctx> CodeGen<'ctx> {
                 .get(key)
                 .cloned()
                 .ok_or_else(|| {
-                    CodegenError::from(format!(
+                    CodegenError::backend_contract(format!(
                         "Drop glue for type {:?} references unknown MIR callable key {:?}",
                         ty, key
                     ))
                 });
         }
 
-        Err(CodegenError::from(format!(
+        Err(CodegenError::backend_contract(format!(
             "Missing drop glue for MIR type {:?}",
             ty
         )))
@@ -386,9 +588,12 @@ impl<'ctx> CodeGen<'ctx> {
         self.register_mir_nominal_layouts(&mir.backend_contract);
         self.validate_mir_backend_contract(mir)?;
         self.declare_runtime(&mir.backend_contract.runtime_requirements);
-        self.register_mir_backend_contract_callables(mir)?;
-        self.declare_mir_functions(mir)?;
-        self.materialize_program_entrypoint(mir)?;
+        self.register_mir_backend_contract_callables(mir)
+            .map_err(CodegenError::internalize)?;
+        self.declare_mir_functions(mir)
+            .map_err(CodegenError::internalize)?;
+        self.materialize_program_entrypoint(mir)
+            .map_err(CodegenError::internalize)?;
 
         Ok(())
     }
@@ -433,7 +638,7 @@ impl<'ctx> CodeGen<'ctx> {
             return Ok(());
         }
 
-        Err(CodegenError::from(format!(
+        Err(CodegenError::backend_contract(format!(
             "Invalid MIR backend contract: {}",
             messages.join(", ")
         )))
@@ -549,7 +754,11 @@ impl<'ctx> CodeGen<'ctx> {
 
         for (_, function) in mir.functions() {
             for block in &function.basic_blocks {
-                let Some(crate::mir::Terminator::Drop { place, .. }) = &block.terminator else {
+                let Some(
+                    crate::mir::Terminator::Drop { place, .. }
+                    | crate::mir::Terminator::DropWithOrigin { place, .. },
+                ) = &block.terminator
+                else {
                     continue;
                 };
                 if function
@@ -671,7 +880,7 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => {
                         return Err(CodegenError::from(format!(
                             "MIR deref projection expected pointer or reference, got {}",
-                            current_ty
+                            self.display_type_for_diagnostic(&current_ty)
                         )))
                     }
                 },
@@ -701,7 +910,7 @@ impl<'ctx> CodeGen<'ctx> {
                         _ => {
                             return Err(CodegenError::from(format!(
                                 "MIR index projection expected array, slice, or pointer, got {}",
-                                current_ty
+                                self.display_type_for_diagnostic(&current_ty)
                             )))
                         }
                     }
@@ -710,7 +919,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let Type::Enum { id, args } = &current_ty else {
                         return Err(CodegenError::from(format!(
                             "MIR downcast projection expected enum, got {}",
-                            current_ty
+                            self.display_type_for_diagnostic(&current_ty)
                         )));
                     };
                     let payload_ty = self
@@ -729,7 +938,10 @@ impl<'ctx> CodeGen<'ctx> {
 
         let current_ty = self.normalize_projection_type(&current_ty);
         self.type_context().id_for_type(&current_ty).ok_or_else(|| {
-            CodegenError::from(format!("MIR place type {} was not interned", current_ty))
+            CodegenError::from(format!(
+                "MIR place type {} was not interned",
+                self.display_type_for_diagnostic(&current_ty)
+            ))
         })
     }
 
@@ -755,7 +967,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
             other => Err(CodegenError::from(format!(
                 "MIR field projection expected aggregate, got {}",
-                other
+                self.display_type_for_diagnostic(other)
             ))),
         }
     }
@@ -1040,7 +1252,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn compile_program_from_mir(
+    pub(crate) fn compile_program_from_mir(
         &mut self,
         mir: &crate::mir::MirProgram,
     ) -> Result<(), CodegenError> {
@@ -1054,11 +1266,12 @@ mod tests {
 
     use inkwell::context::Context;
 
+    use crate::diagnostic::{DiagnosticCode, DiagnosticLocation};
     use crate::ids::{CrateId, DefId, LocalDefId};
     use crate::mono::InstanceId;
     use crate::types::Type;
 
-    use super::CodeGen;
+    use super::{CodeGen, CodegenError};
 
     fn type_id(
         type_context: &mut crate::type_context::TypeContext,
@@ -1646,6 +1859,7 @@ mod tests {
                             projection: vec![],
                         },
                         target: crate::mir::BasicBlockId(1),
+                        span: None,
                     }),
                 },
                 crate::mir::BasicBlock {
@@ -1730,6 +1944,7 @@ mod tests {
                             projection: vec![],
                         },
                         target: crate::mir::BasicBlockId(1),
+                        span: None,
                     }),
                 },
                 crate::mir::BasicBlock {
@@ -1834,6 +2049,7 @@ mod tests {
                             projection: vec![],
                         },
                         target: crate::mir::BasicBlockId(1),
+                        span: None,
                     }),
                 },
                 crate::mir::BasicBlock {
@@ -1920,6 +2136,7 @@ mod tests {
                             projection: vec![],
                         },
                         target: crate::mir::BasicBlockId(1),
+                        span: None,
                     }),
                 },
                 crate::mir::BasicBlock {
@@ -3127,5 +3344,94 @@ mod tests {
             ir,
         );
         assert!(!ir.contains("__mir_closure"), "IR was:\n{}", ir);
+    }
+
+    #[test]
+    fn codegen_source_operation_keeps_exact_origin_and_code() {
+        let span = crate::lexer::Span::new(std::path::PathBuf::from("/virtual/main.rk"), 4, 9);
+        let diagnostic =
+            CodegenError::with_span("operation failed".to_string(), span.clone()).into_diagnostic();
+
+        assert_eq!(diagnostic.code, Some(DiagnosticCode::Codegen));
+        assert_eq!(diagnostic.location, DiagnosticLocation::Source(span));
+        assert!(diagnostic.primary.is_some());
+    }
+
+    #[test]
+    fn codegen_source_operation_hides_debug_identity_payloads() {
+        let span = crate::lexer::Span::new(std::path::PathBuf::from("/virtual/main.rk"), 4, 9);
+        let diagnostic = CodegenError::with_span(
+            "MIR callable DefId { local: 1 } uses GenericParamId { index: 0 }".to_string(),
+            span.clone(),
+        )
+        .into_diagnostic();
+
+        assert_eq!(diagnostic.location, DiagnosticLocation::Source(span));
+        assert_eq!(
+            diagnostic.message,
+            "Internal compiler error during MIR code generation"
+        );
+        assert!(diagnostic.primary.is_some());
+    }
+
+    #[test]
+    fn codegen_backend_contract_is_internal_and_non_source() {
+        let diagnostic = CodegenError::backend_contract("invalid contract").into_diagnostic();
+
+        assert_eq!(diagnostic.code, Some(DiagnosticCode::Internal));
+        assert_eq!(diagnostic.location, DiagnosticLocation::Toolchain);
+        assert!(diagnostic.primary.is_none());
+    }
+
+    #[test]
+    fn codegen_output_failure_is_file_classified() {
+        let path = std::path::PathBuf::from("/tmp/main.o");
+        let diagnostic =
+            CodegenError::output("cannot write object", path.clone()).into_diagnostic();
+
+        assert_eq!(diagnostic.code, Some(DiagnosticCode::Codegen));
+        assert_eq!(diagnostic.location, DiagnosticLocation::File(path));
+        assert!(diagnostic.primary.is_none());
+    }
+
+    #[test]
+    fn codegen_project_and_artifact_failures_keep_public_location_codes() {
+        let project_path = std::path::PathBuf::from("/project/rock.toml");
+        let artifact_path = std::path::PathBuf::from("/project/dep.rkca");
+
+        let project =
+            CodegenError::project("invalid project", project_path.clone()).into_diagnostic();
+        let artifact =
+            CodegenError::artifact("invalid artifact", artifact_path.clone()).into_diagnostic();
+
+        assert_eq!(project.code, Some(DiagnosticCode::Project));
+        assert_eq!(project.location, DiagnosticLocation::Project(project_path));
+        assert_eq!(artifact.code, Some(DiagnosticCode::Artifact));
+        assert_eq!(
+            artifact.location,
+            DiagnosticLocation::Artifact(artifact_path)
+        );
+    }
+
+    #[test]
+    fn llvm_details_are_kept_as_notes_without_a_fabricated_source_span() {
+        let diagnostic =
+            CodegenError::new("LLVM rejected the module".to_string()).into_diagnostic();
+
+        assert_eq!(diagnostic.code, Some(DiagnosticCode::Codegen));
+        assert_eq!(diagnostic.location, DiagnosticLocation::Toolchain);
+        assert!(diagnostic.primary.is_none());
+        assert_eq!(diagnostic.notes, vec!["LLVM rejected the module"]);
+    }
+
+    #[test]
+    fn backend_errors_cannot_be_reclassified_as_source_operations() {
+        let span = crate::lexer::Span::new(std::path::PathBuf::from("/virtual/main.rk"), 1, 2);
+        let diagnostic = CodegenError::new("backend failed".to_string())
+            .with_operation_span(Some(span))
+            .into_diagnostic();
+
+        assert_eq!(diagnostic.location, DiagnosticLocation::Toolchain);
+        assert!(diagnostic.primary.is_none());
     }
 }

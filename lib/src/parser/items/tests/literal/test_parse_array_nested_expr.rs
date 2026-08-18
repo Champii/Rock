@@ -79,5 +79,5 @@ fn test_parse_array_nested_expr() {
         ],
     });
 
-    assert_eq!(literal.kind, expected,);
+    assert_formatted_literal_kind_eq(&literal.kind, &expected);
 }

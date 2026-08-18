@@ -107,10 +107,13 @@ fn compute_successors(func: &MirFunction) -> Vec<Vec<usize>> {
     for (i, block) in func.basic_blocks.iter().enumerate() {
         if let Some(term) = &block.terminator {
             match term {
-                Terminator::Goto(target) => {
+                Terminator::Goto(target) | Terminator::GotoWithOrigin { target, .. } => {
                     successors[i].push(target.0);
                 }
                 Terminator::SwitchInt {
+                    targets, otherwise, ..
+                }
+                | Terminator::SwitchIntWithOrigin {
                     targets, otherwise, ..
                 } => {
                     for (_, target) in targets {
@@ -121,10 +124,10 @@ fn compute_successors(func: &MirFunction) -> Vec<Vec<usize>> {
                 Terminator::Call { target, .. } => {
                     successors[i].push(target.0);
                 }
-                Terminator::Drop { target, .. } => {
+                Terminator::Drop { target, .. } | Terminator::DropWithOrigin { target, .. } => {
                     successors[i].push(target.0);
                 }
-                Terminator::Return => {}
+                Terminator::Return | Terminator::ReturnWithOrigin { .. } => {}
             }
         }
     }

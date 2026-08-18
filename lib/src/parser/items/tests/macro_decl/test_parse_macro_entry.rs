@@ -42,5 +42,5 @@ fn macro_entry_reports_odd_body_indent() {
 
     let result = macro_entry(parse_ctx);
 
-    assert!(matches!(result, Err(ParseError::UnexpectedIndent(5))));
+    assert!(matches!(result, Err(ParseError::UnexpectedIndent(5, _))));
 }

@@ -16,9 +16,10 @@ fn unsafe_block() {
     // Should parse as an unsafe block operand
     match expression {
         Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
-            operand: Operand::Unsafe(_),
+            operand: Operand::Unsafe(_, span),
             ..
         })) => {
+            assert_eq!(span, tokens[0].span);
             // Test passes if we get an unsafe operand
         }
         _ => panic!("Expected unsafe block, got: {:?}", expression),

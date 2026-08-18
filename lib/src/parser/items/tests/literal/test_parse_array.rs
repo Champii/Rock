@@ -7,9 +7,9 @@ fn test_parse_array() {
     let input = "[1, 2, 3]";
     let literal = parse_literal(input);
 
-    assert_eq!(
-        literal.kind,
-        LiteralKind::Array(Array {
+    assert_formatted_literal_kind_eq(
+        &literal.kind,
+        &LiteralKind::Array(Array {
             elements: vec![
                 Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                     operand: Operand::Literal(Literal {
@@ -36,6 +36,6 @@ fn test_parse_array() {
                     type_annotation: None,
                 })),
             ],
-        })
+        }),
     );
 }

@@ -1693,20 +1693,26 @@ impl LocalCollector {
         for ident in trait_decl.methods.keys() {
             if !member_ids.methods.contains_key(&ident.name) {
                 missing = true;
-                self.context.push_error(format!(
-                    "missing canonical current-crate trait method identity for {trait_name}.{}",
-                    ident.name
-                ));
+                self.context.push_error_with_span(
+                    format!(
+                        "missing canonical current-crate trait method identity for {trait_name}.{}",
+                        ident.name
+                    ),
+                    ident.span.clone(),
+                );
             }
         }
 
         for ident in trait_decl.signatures.keys() {
             if !member_ids.signatures.contains_key(&ident.name) {
                 missing = true;
-                self.context.push_error(format!(
+                self.context.push_error_with_span(
+                    format!(
                     "missing canonical current-crate trait signature identity for {trait_name}.{}",
                     ident.name
-                ));
+                ),
+                    ident.span.clone(),
+                );
             }
         }
 
@@ -1734,10 +1740,13 @@ impl LocalCollector {
         for ident in impl_decl.methods.keys() {
             if !method_ids.contains_key(&ident.name) {
                 missing = true;
-                self.context.push_error(format!(
-                    "missing canonical current-crate impl method identity for {impl_key}.{}",
-                    ident.name
-                ));
+                self.context.push_error_with_span(
+                    format!(
+                        "missing canonical current-crate impl method identity for {impl_key}.{}",
+                        ident.name
+                    ),
+                    ident.span.clone(),
+                );
             }
         }
 
@@ -1932,6 +1941,7 @@ mod tests {
                 parameters: vec![],
                 body: crate::ast::Block { statements: vec![] },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: crate::lexer::Span::test(),
             },
             self_receiver: None,
             is_unsafe: false,

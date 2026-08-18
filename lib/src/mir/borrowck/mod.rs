@@ -10,7 +10,7 @@ pub mod provenance;
 
 use std::collections::{HashMap, HashSet};
 
-use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::diagnostic::{Diagnostic, DiagnosticCode, Diagnostics};
 use crate::ids::{AssocTypeId, DefId, TypeId};
 use crate::lexer::Span;
 use crate::mir::borrowck::accesses::AccessKind;
@@ -36,8 +36,8 @@ use crate::types::{GenericParamId, Type};
 
 fn mir_diagnostic(message: String, span: Option<Span>) -> Diagnostic {
     match span {
-        Some(span) => Diagnostic::new(message, span),
-        None => Diagnostic::for_toolchain(message),
+        Some(span) => Diagnostic::new(message, span).with_code(DiagnosticCode::Borrow),
+        None => Diagnostic::for_internal(message),
     }
 }
 
@@ -844,7 +844,8 @@ impl<'a> MoveValidationContext<'a> {
 
     fn type_display_name(&self, ty: &Type) -> String {
         let ty = self.backend_contract.normalize_type(self.type_context, ty);
-        ty.to_string()
+        let context = crate::type_services::display::TypeDisplayContext::default();
+        crate::type_services::display::display_type_with_context(&ty, &context).to_string()
     }
 }
 
@@ -1486,7 +1487,10 @@ impl BorrowChecker {
         let mut origins = OriginSet::new();
 
         for (block_idx, block) in func.basic_blocks.iter().enumerate() {
-            if !matches!(block.terminator, Some(Terminator::Return)) {
+            if !matches!(
+                block.terminator,
+                Some(Terminator::Return | Terminator::ReturnWithOrigin { .. })
+            ) {
                 continue;
             }
             for (place, block_origins) in &results.exit_sets[block_idx].origins {
@@ -1669,7 +1673,10 @@ impl BorrowChecker {
             projection: Vec::new(),
         };
         for (block_idx, block) in func.basic_blocks.iter().enumerate() {
-            if !matches!(block.terminator, Some(Terminator::Return)) {
+            if !matches!(
+                block.terminator,
+                Some(Terminator::Return | Terminator::ReturnWithOrigin { .. })
+            ) {
                 continue;
             }
             for (place, origins) in &results.exit_sets[block_idx].origins {
@@ -1781,8 +1788,8 @@ impl BorrowChecker {
 
             diagnostics.push(mir_diagnostic(
                 format!(
-                    "Missing drop glue for MIR drop of type {:?} in MIR function '{}'",
-                    obligation.ty, func.name
+                    "Missing drop glue for a MIR value in function '{}'",
+                    func.name
                 ),
                 func.local_decls
                     .get(obligation.place.local.0)
@@ -1952,7 +1959,7 @@ impl BorrowChecker {
                         let name = func.local_decls[event.place.local.0]
                             .name
                             .clone()
-                            .unwrap_or_else(|| format!("{:?}", event.place.local));
+                            .unwrap_or_else(|| "unnamed binding".to_string());
                         diagnostics.push(mir_diagnostic(
                             format!(
                                 "Cannot take a mutable reference to immutable binding '{}' for mutable receiver",
@@ -2055,6 +2062,7 @@ impl BorrowChecker {
         func: &MirFunction,
         diagnostics: &mut Diagnostics,
     ) {
+        let term_span = term.origin().source_span().cloned();
         for event in accesses::classify_terminator(term) {
             match event.kind {
                 AccessKind::Read => {
@@ -2065,7 +2073,7 @@ impl BorrowChecker {
                         active_loans,
                         func,
                         diagnostics,
-                        None,
+                        term_span.clone(),
                     );
                 }
                 AccessKind::Move | AccessKind::Drop => {
@@ -2076,7 +2084,7 @@ impl BorrowChecker {
                         active_loans,
                         func,
                         diagnostics,
-                        None,
+                        term_span.clone(),
                     );
                 }
                 AccessKind::Write
@@ -2090,9 +2098,9 @@ impl BorrowChecker {
         }
 
         match term {
-            Terminator::SwitchInt { discr, .. } => {
+            Terminator::SwitchInt { discr, .. } | Terminator::SwitchIntWithOrigin { discr, .. } => {
                 if let Err(e) = init_analysis.check_operand_at_path(discr, state) {
-                    diagnostics.push(Self::make_error(e, func, discr, None));
+                    diagnostics.push(Self::make_error(e, func, discr, term_span.clone()));
                 }
             }
             Terminator::Call {
@@ -2101,21 +2109,21 @@ impl BorrowChecker {
                 ..
             } => {
                 if let Err(e) = init_analysis.check_operand_at_path(op_func, state) {
-                    diagnostics.push(Self::make_error(e, func, op_func, None));
+                    diagnostics.push(Self::make_error(e, func, op_func, term_span.clone()));
                 }
                 for arg in args {
                     if let Err(e) = init_analysis.check_operand_at_path(arg, state) {
-                        diagnostics.push(Self::make_error(e, func, arg, None));
+                        diagnostics.push(Self::make_error(e, func, arg, term_span.clone()));
                     }
                 }
             }
-            Terminator::Drop { place, .. } => {
+            Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. } => {
                 if let Err(e) = init_analysis.check_drop_at_path(place, state) {
                     diagnostics.push(Self::make_error(
                         e,
                         func,
                         &Operand::Copy(place.clone()),
-                        None,
+                        term_span,
                     ));
                 }
             }
@@ -2128,18 +2136,14 @@ impl BorrowChecker {
         kind: LoanKind,
         table: &LoanTable,
         active_loans: &LoanState,
-        func: &MirFunction,
+        _func: &MirFunction,
         diagnostics: &mut Diagnostics,
         stmt_span: Option<Span>,
     ) {
         if let Err(conflicting_loan_id) =
             LoanAnalysis::check_aliasing(place, kind, table, active_loans)
         {
-            let use_span = stmt_span.or_else(|| {
-                func.local_decls
-                    .get(place.local.0)
-                    .and_then(|decl| decl.span.clone())
-            });
+            let use_span = stmt_span;
             let borrow_span = table
                 .get(conflicting_loan_id)
                 .and_then(|loan| loan.origin_span.clone());
@@ -2157,37 +2161,34 @@ impl BorrowChecker {
         operand: &Operand,
         stmt_span: Option<Span>,
     ) -> Diagnostic {
-        let span = stmt_span.or_else(|| match operand {
-            Operand::Copy(place) | Operand::Move(place) => {
-                if place.local.0 < func.local_decls.len() {
-                    func.local_decls[place.local.0].span.clone()
-                } else {
-                    None
-                }
-            }
-            Operand::Constant(_) => None,
-        });
+        let span = stmt_span;
+        let is_move_error = error.message.contains("moved");
+        let move_span = error.move_span.clone();
 
         let msg = match operand {
             Operand::Copy(place) | Operand::Move(place) => {
                 if place.local.0 < func.local_decls.len() {
                     if let Some(name) = &func.local_decls[place.local.0].name {
-                        error.message.replace(&format!("{:?}", place.local), name)
+                        format!("{} `{name}`", error.message)
                     } else {
-                        error.message
+                        error.message.clone()
                     }
                 } else {
-                    error.message
+                    error.message.clone()
                 }
             }
-            _ => error.message,
+            _ => error.message.clone(),
         };
+
+        if span.is_none() || (is_move_error && move_span.is_none()) {
+            return mir_diagnostic(msg, None);
+        }
 
         let label_msg = match operand {
             Operand::Copy(place) | Operand::Move(place) => {
                 if place.local.0 < func.local_decls.len() {
                     if let Some(name) = &func.local_decls[place.local.0].name {
-                        if error.move_span.is_some() {
+                        if move_span.is_some() {
                             format!("`{}` used here after move", name)
                         } else {
                             format!("`{}` used here", name)
@@ -2204,10 +2205,10 @@ impl BorrowChecker {
 
         let mut diagnostic = match span {
             Some(span) => borrow_error(msg, span.clone()).with_label(label_msg, span),
-            None => Diagnostic::for_toolchain(msg),
+            None => mir_diagnostic(msg, None),
         };
 
-        if let Some(move_span) = error.move_span {
+        if let Some(move_span) = move_span {
             let move_label_msg = match operand {
                 Operand::Copy(place) | Operand::Move(place) => {
                     if place.local.0 < func.local_decls.len() {
@@ -2237,7 +2238,7 @@ mod tests {
         type_id_contains_reference, type_id_is_mut_reference, type_id_is_pointer,
         type_id_tracks_origin,
     };
-    use crate::diagnostic::Diagnostics;
+    use crate::diagnostic::{DiagnosticCode, Diagnostics};
     use crate::ids::{AssocTypeId, CrateId, DefId, InstanceId, LocalDefId};
     use crate::mir::borrowck::BorrowChecker;
     use crate::mir::{
@@ -2683,6 +2684,18 @@ mod tests {
             .0
             .iter()
             .any(|diag| diag.message.contains("borrow of moved value")));
+        let diagnostic = err
+            .0
+            .iter()
+            .find(|diag| diag.message.contains("borrow of moved value"))
+            .expect("move diagnostic should be present");
+        assert_eq!(diagnostic.code, Some(DiagnosticCode::Internal));
+        assert_eq!(
+            diagnostic.location,
+            crate::diagnostic::DiagnosticLocation::Toolchain
+        );
+        assert!(diagnostic.primary.is_none());
+        assert!(diagnostic.secondary.is_empty());
     }
 
     #[test]
@@ -3039,6 +3052,7 @@ mod tests {
                             projection: Vec::new(),
                         },
                         target: crate::mir::BasicBlockId(1),
+                        span: Some(crate::lexer::Span::test()),
                     }),
                 },
                 BasicBlock {
@@ -3151,6 +3165,7 @@ mod tests {
                             projection: Vec::new(),
                         },
                         target: crate::mir::BasicBlockId(1),
+                        span: Some(crate::lexer::Span::test()),
                     }),
                 },
                 BasicBlock {
@@ -3324,6 +3339,7 @@ mod tests {
                             projection: Vec::new(),
                         },
                         target: crate::mir::BasicBlockId(1),
+                        span: Some(crate::lexer::Span::test()),
                     }),
                 },
                 BasicBlock {
@@ -3393,6 +3409,7 @@ mod tests {
                             projection: Vec::new(),
                         },
                         target: crate::mir::BasicBlockId(1),
+                        span: Some(crate::lexer::Span::test()),
                     }),
                 },
                 BasicBlock {

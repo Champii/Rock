@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -14,9 +15,9 @@ fn complex_secondaries() {
         .process(ParseCtx::from(&tokens, &config))
         .unwrap();
 
-    assert_eq!(
-        expression,
-        Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+    assert_formatted_eq(
+        &expression,
+        &Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "hello".to_string(),
@@ -32,7 +33,7 @@ fn complex_secondaries() {
                         }),
                         secondaries: None,
                         type_annotation: None,
-                    }
+                    },
                 )))),
                 SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                     name: "world".to_string(),

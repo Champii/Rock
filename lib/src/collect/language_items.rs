@@ -111,7 +111,7 @@ pub(super) fn bind_current_language_items(
     source_modules: &SourceModuleMap,
 ) -> Result<LanguageItems<DefId>, Vec<ResolveError>> {
     let Some(root_module_id) = item_index.module_id_by_path(&[]) else {
-        return Err(vec![ResolveError::new(
+        return Err(vec![ResolveError::non_source(
             "language item collection requires an indexed root module".to_string(),
         )]);
     };
@@ -148,7 +148,7 @@ pub(super) fn merge_provided_language_items(
     merge_language_item_providers_all(providers).map_err(|conflicts| {
         conflicts
             .into_iter()
-            .map(|conflict| ResolveError::new(conflict.to_string()))
+            .map(|conflict| ResolveError::non_source(conflict.to_string()))
             .collect()
     })
 }

@@ -22,16 +22,14 @@ impl Lowerer {
                 continue;
             };
             let Some(record) = self.item_index.item_at_source(module_id, ordinal) else {
-                self.diagnostics.push_with_span(
+                self.diagnostics.push_toolchain(
                     "missing indexed trait declaration while lowering default bodies".to_string(),
-                    td.name.span.clone(),
                 );
                 continue;
             };
             if record.kind != crate::collect::item_index::ItemKind::Trait {
-                self.diagnostics.push_with_span(
+                self.diagnostics.push_toolchain(
                     "indexed declaration kind does not match trait syntax".to_string(),
-                    td.name.span.clone(),
                 );
                 continue;
             }
@@ -49,13 +47,10 @@ impl Lowerer {
                     .item_index
                     .child_module_id(module_id, &module_name.name)
                 else {
-                    self.diagnostics.push_with_span(
-                        format!(
-                            "missing indexed module '{}' while lowering trait default bodies",
-                            module_name.name
-                        ),
-                        module_name.span.clone(),
-                    );
+                    self.diagnostics.push_toolchain(format!(
+                        "missing indexed module '{}' while lowering trait default bodies",
+                        module_name.name
+                    ));
                     continue;
                 };
                 self.lower_trait_default_bodies(&module_decl.0, child_module_id);
@@ -70,17 +65,15 @@ impl Lowerer {
         let prev_trait_generics = self.current_trait_generics.clone();
         let previous_generic_context = self.generic_context.clone();
         let Some(trait_def) = self.trait_by_id(trait_id).cloned() else {
-            self.diagnostics.push_with_span(
+            self.diagnostics.push_toolchain(
                 "missing indexed trait declaration while lowering default bodies".to_string(),
-                td.name.span.clone(),
             );
             return;
         };
         let Some(trait_context_name) = self.canonical_name_for_def_id(trait_id).map(str::to_string)
         else {
-            self.diagnostics.push_with_span(
+            self.diagnostics.push_toolchain(
                 "missing canonical trait name while lowering default bodies".to_string(),
-                td.name.span.clone(),
             );
             return;
         };
@@ -100,17 +93,13 @@ impl Lowerer {
 
         let mut methods = Vec::with_capacity(td.methods.len());
         for (ident, fd) in &td.methods {
-            self.diagnostics.set_current_span(ident.span.clone());
             let method_name = ident.name.clone();
             let Some(method_id) = trait_def.methods.get(&method_name).map(|method| method.id)
             else {
-                self.diagnostics.push_with_span(
-                    format!(
-                        "missing indexed trait method '{}' while lowering default body",
-                        method_name
-                    ),
-                    ident.span.clone(),
-                );
+                self.diagnostics.push_toolchain(format!(
+                    "missing indexed trait method '{}' while lowering default body",
+                    method_name
+                ));
                 continue;
             };
             methods.push((method_id, method_name, fd));
@@ -124,13 +113,10 @@ impl Lowerer {
                 .and_then(|trait_def| trait_def.methods.get(&method_name))
                 .cloned()
             else {
-                self.diagnostics.push_with_span(
-                    format!(
-                        "missing indexed trait method '{}' while lowering default body",
-                        method_name
-                    ),
-                    fd.name.span.clone(),
-                );
+                self.diagnostics.push_toolchain(format!(
+                    "missing indexed trait method '{}' while lowering default body",
+                    method_name
+                ));
                 continue;
             };
             let signature_ret = trait_def
@@ -146,13 +132,10 @@ impl Lowerer {
                 .trait_def_mut(trait_id)
                 .and_then(|trait_def| trait_def.methods.get_mut(&method_name))
             else {
-                self.diagnostics.push_with_span(
-                    format!(
-                        "missing indexed trait method '{}' while lowering default body",
-                        method_name
-                    ),
-                    fd.name.span.clone(),
-                );
+                self.diagnostics.push_toolchain(format!(
+                    "missing indexed trait method '{}' while lowering default body",
+                    method_name
+                ));
                 continue;
             };
             *method = func.clone();
@@ -194,7 +177,7 @@ impl Lowerer {
             );
             context.seed_after_existing_locals(func.params.iter().map(|param| param.local_id));
             let body = self.with_body_context(context, |lowerer| {
-                lowerer.scope.push();
+                lowerer.push_scope();
 
                 // Register self parameter if present
                 if let Some(self_receiver) = func.self_receiver {
@@ -219,7 +202,7 @@ impl Lowerer {
                 }
 
                 let body = lowerer.lower_lambda_body(&fd.lambda);
-                lowerer.scope.pop();
+                lowerer.pop_scope();
                 body
             });
 
@@ -229,10 +212,14 @@ impl Lowerer {
                 .unwrap_or(true);
             if validate_return_now {
                 if let Err(e) = self.engine.unify(&body.ty, &func.ret_type) {
-                    self.diagnostics.push(format!(
+                    let message = format!(
                         "In trait default method '{}.{}': return type mismatch: {}",
-                        trait_name, method_name, e
-                    ));
+                        trait_name,
+                        method_name,
+                        e.render(&self.engine)
+                    );
+                    self.diagnostics
+                        .push_type_with_span(message, fd.lambda.span.clone());
                 }
             }
 
@@ -253,13 +240,10 @@ impl Lowerer {
                 .trait_def_mut(trait_id)
                 .and_then(|trait_def| trait_def.methods.get_mut(&method_name))
             else {
-                self.diagnostics.push_with_span(
-                    format!(
-                        "missing indexed trait method '{}' while lowering default body",
-                        method_name
-                    ),
-                    fd.name.span.clone(),
-                );
+                self.diagnostics.push_toolchain(format!(
+                    "missing indexed trait method '{}' while lowering default body",
+                    method_name
+                ));
                 continue;
             };
             *method = func;
@@ -342,6 +326,7 @@ mod tests {
                     ))],
                 },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: crate::lexer::Span::test(),
             },
             self_receiver: None,
             is_unsafe: false,
@@ -492,6 +477,7 @@ mod tests {
                             statements: vec![Statement::Expression(self_method_value_expr("set"))],
                         },
                         arrow_kind: LambdaArrowKind::Normal,
+                        span: crate::lexer::Span::test(),
                     },
                     self_receiver: Some(SelfReceiverMode::Mut),
                     is_unsafe: false,
@@ -554,7 +540,7 @@ mod tests {
                     .contains("missing canonical trait name while lowering default bodies")
             })
             .expect("missing canonical trait metadata should be diagnosed");
-        assert_eq!(error.span, Some(trait_decl.name.span.clone()));
+        assert_eq!(error.span(), None);
         assert_eq!(
             lowerer.items.trait_def(trait_id).unwrap().methods["value"]
                 .body

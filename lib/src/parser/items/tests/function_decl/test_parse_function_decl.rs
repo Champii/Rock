@@ -14,6 +14,8 @@ fn test_parse_function_decl() {
 
     assert_eq!(function_decl.name.name, "myfn");
     assert_eq!(function_decl.lambda.parameters.len(), 3);
+    assert_eq!(function_decl.lambda.span.start, 15);
+    assert_eq!(function_decl.lambda.span.end, 17);
     assert_eq!(function_decl.lambda.body.statements.len(), 1);
     assert_eq!(rest.len(), 0);
 }
@@ -31,6 +33,8 @@ fn test_parse_curried_function_decl() {
     assert_eq!(function_decl.name.name, "myfn");
     assert_eq!(function_decl.lambda.parameters.len(), 2);
     assert_eq!(function_decl.lambda.arrow_kind, LambdaArrowKind::Curried);
+    assert_eq!(function_decl.lambda.span.start, 12);
+    assert_eq!(function_decl.lambda.span.end, 14);
     assert_eq!(function_decl.lambda.to_string().trim(), "a, b ~> a + b");
     assert_eq!(rest.len(), 0);
 }
@@ -46,6 +50,8 @@ fn test_parse_unit_function_decl() {
         .unwrap();
 
     assert_eq!(function_decl.lambda.arrow_kind, LambdaArrowKind::Unit);
+    assert_eq!(function_decl.lambda.span.start, 13);
+    assert_eq!(function_decl.lambda.span.end, 16);
     assert_eq!(function_decl.lambda.to_string().trim(), "value !-> value");
     assert_eq!(rest.len(), 0);
 }

@@ -57,6 +57,11 @@ fn test_parse_function_decl() {
                     ))]
                 },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: Span {
+                    start: 8,
+                    end: 10,
+                    file_path: PathBuf::from("/test.rk"),
+                },
             },
             self_receiver: None,
             is_unsafe: false,

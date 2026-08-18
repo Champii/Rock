@@ -91,7 +91,7 @@ impl<'ctx> CodeGen<'ctx> {
         let signature = self
             .resolve_mir_callable_signature(callable)
             .ok_or_else(|| {
-                CodegenError::from(format!(
+                CodegenError::backend_contract(format!(
                     "Missing MIR callable signature for {:?} in MIR function '{}'",
                     callable, function.name
                 ))

@@ -35,7 +35,7 @@ impl Lowerer {
                             }
                         }
                     }
-                    Err(error) => self.diagnostics.push(format!(
+                    Err(error) => self.diagnostics.push_toolchain(format!(
                         "Failed to expand glob export {}::*: {}",
                         module_prefix, error
                     )),

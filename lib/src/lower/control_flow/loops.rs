@@ -5,15 +5,15 @@ use crate::types::Type;
 
 impl Lowerer {
     pub(crate) fn lower_loop(&mut self, loop_expr: &ast::Loop) -> HirExpr {
-        let span = self.diagnostics.current_span().clone();
         match loop_expr {
-            ast::Loop::While(cond, body) => {
+            ast::Loop::While(cond, body, _) => {
                 let condition = self.lower_expression(&cond.expression);
+                let span = condition.span.clone();
                 let _ = self.engine.unify(&condition.ty, &Type::Bool);
 
-                self.scope.push();
+                self.push_scope();
                 let body = self.lower_block(body);
-                self.scope.pop();
+                self.pop_scope();
 
                 HirExpr {
                     ty: Type::Unit,
@@ -21,11 +21,12 @@ impl Lowerer {
                         condition: Box::new(condition),
                         body,
                     },
-                    span,
+                    span: span.clone(),
                 }
             }
-            ast::Loop::For(pattern, iter_expr, body) => {
+            ast::Loop::For(pattern, iter_expr, body, _) => {
                 let iter = self.lower_expression(iter_expr);
+                let span = iter.span.clone();
                 let (var_name, _) = self.extract_pattern_binding(pattern);
 
                 let elem_ty = if matches!(&iter.kind, HirExprKind::Range(_, _)) {
@@ -34,7 +35,7 @@ impl Lowerer {
                     match self.engine.resolve(&iter.ty) {
                         Type::Array(element, _) | Type::Slice(element) => *element,
                         _ => {
-                            let elem_ty = self.engine.fresh_type_var();
+                            let elem_ty = self.engine.fresh_type_var_at(span.clone());
                             let slice_ty = Type::Slice(Box::new(elem_ty.clone()));
                             let _ = self.engine.unify(&iter.ty, &slice_ty);
                             elem_ty
@@ -42,12 +43,23 @@ impl Lowerer {
                     }
                 };
 
-                self.scope.push();
+                self.push_scope();
                 let local_id = self.fresh_local_id();
+                if let (Some(owner), Some(span)) = (
+                    self.current_body_def_id(),
+                    Self::pattern_binding_span(pattern),
+                ) {
+                    self.source_map.insert_local_in_scope(
+                        owner,
+                        local_id,
+                        span,
+                        self.source_scope_stack.last().copied(),
+                    );
+                }
                 self.scope
                     .define_local(var_name.clone(), elem_ty, false, local_id);
                 let body = self.lower_block(body);
-                self.scope.pop();
+                self.pop_scope();
 
                 HirExpr {
                     ty: Type::Unit,
@@ -60,15 +72,14 @@ impl Lowerer {
                     span,
                 }
             }
-            ast::Loop::Loop(body) => {
-                self.scope.push();
+            ast::Loop::Loop(body, span) => {
+                self.push_scope();
                 let body = self.lower_block(body);
-                self.scope.pop();
-
+                self.pop_scope();
                 HirExpr {
                     ty: Type::Unit,
                     kind: HirExprKind::Loop(body),
-                    span,
+                    span: span.clone(),
                 }
             }
         }
@@ -132,6 +143,7 @@ mod tests {
             Block {
                 statements: vec![Statement::Expression(var_expr("item"))],
             },
+            Span::test(),
         );
 
         let hir = lowerer.with_test_body_context(|lowerer| lowerer.lower_loop(&loop_expr));
@@ -151,6 +163,26 @@ mod tests {
                 assert_eq!(*id, local_id);
             }
             other => panic!("expected loop local read, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn loop_control_statements_do_not_require_a_value_span() {
+        let mut lowerer = Lowerer::new_for_test();
+        for statement in [
+            Statement::Continue(None),
+            Statement::Return(None),
+            Statement::Break(None),
+        ] {
+            let loop_expr = crate::ast::Loop::Loop(
+                Block {
+                    statements: vec![statement],
+                },
+                Span::test(),
+            );
+            let hir = lowerer.with_test_body_context(|lowerer| lowerer.lower_loop(&loop_expr));
+            assert!(matches!(hir.kind, HirExprKind::Loop(_)));
+            assert_eq!(hir.span, Span::test());
         }
     }
 }

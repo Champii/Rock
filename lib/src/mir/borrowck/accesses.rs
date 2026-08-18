@@ -78,7 +78,9 @@ pub fn classify_statement(stmt: &StatementData, type_context: &TypeContext) -> V
 
 pub fn classify_terminator(term: &Terminator) -> Vec<AccessEvent> {
     match term {
-        Terminator::SwitchInt { discr, .. } => classify_operand(discr),
+        Terminator::SwitchInt { discr, .. } | Terminator::SwitchIntWithOrigin { discr, .. } => {
+            classify_operand(discr)
+        }
         Terminator::Call {
             func,
             args,
@@ -95,11 +97,16 @@ pub fn classify_terminator(term: &Terminator) -> Vec<AccessEvent> {
             });
             events
         }
-        Terminator::Drop { place, .. } => vec![AccessEvent {
-            kind: AccessKind::Drop,
-            place: place.clone(),
-        }],
-        Terminator::Goto(_) | Terminator::Return => Vec::new(),
+        Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. } => {
+            vec![AccessEvent {
+                kind: AccessKind::Drop,
+                place: place.clone(),
+            }]
+        }
+        Terminator::Goto(_)
+        | Terminator::GotoWithOrigin { .. }
+        | Terminator::Return
+        | Terminator::ReturnWithOrigin { .. } => Vec::new(),
     }
 }
 

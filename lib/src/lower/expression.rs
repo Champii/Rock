@@ -22,6 +22,53 @@ pub(crate) enum AstExprOperand<'a> {
     Cast(&'a ast::Expression),
 }
 
+fn ast_expr_operand_span(operand: &AstExprOperand<'_>) -> Option<Span> {
+    fn path_span(path: &[ast::IdentOrType]) -> Option<Span> {
+        path.first().map(|segment| match segment {
+            ast::IdentOrType::Ident(ident) => ident.span.clone(),
+            ast::IdentOrType::Type(ty) => ty.span(),
+        })
+    }
+
+    fn operand_span(operand: &ast::Operand) -> Option<Span> {
+        match operand {
+            ast::Operand::Literal(literal) => Some(literal.span.clone()),
+            ast::Operand::Ident(path) => path_span(&path.path),
+            ast::Operand::CallHole(span) => Some(span.clone()),
+            ast::Operand::SelfIdent(ident) => Some(ident.span.clone()),
+            ast::Operand::Instance(instance) => path_span(&instance.name.path),
+            ast::Operand::Tuple(tuple) => tuple.elements.first().and_then(ast_expr_span),
+            ast::Operand::Expression(expr) => ast_expr_span(expr),
+            ast::Operand::If(if_expr) => ast_expr_span(&if_expr.condition.expression),
+            ast::Operand::Match(match_expr) => ast_expr_span(&match_expr.expr),
+            ast::Operand::Loop(_) | ast::Operand::LambdaDecl(_) | ast::Operand::Unsafe(_, _) => {
+                None
+            }
+            ast::Operand::NativeOperator(operator) => Some(operator.span.clone()),
+        }
+    }
+
+    fn ast_unary_span(unary: &ast::UnaryExpr) -> Option<Span> {
+        match unary {
+            ast::UnaryExpr::PrimaryExpr(primary) => operand_span(&primary.operand),
+            ast::UnaryExpr::UnaryExpr(operator, _) => Some(operator.span.clone()),
+        }
+    }
+
+    fn ast_expr_span(expression: &ast::Expression) -> Option<Span> {
+        match expression {
+            ast::Expression::BinopExpr(_, operator, _) => Some(operator.span.clone()),
+            ast::Expression::UnaryExpr(unary) => ast_unary_span(unary),
+            ast::Expression::CastExpr(_, ty) => Some(ty.span()),
+        }
+    }
+
+    match operand {
+        AstExprOperand::Unary(unary) => ast_unary_span(unary),
+        AstExprOperand::Cast(expression) => ast_expr_span(expression),
+    }
+}
+
 const APPLICATION_PRECEDENCE: u8 = 8;
 
 impl Lowerer {
@@ -38,7 +85,7 @@ impl Lowerer {
         })
     }
 
-    pub(crate) fn instantiate_function_type(&mut self, func: &HirFunction) -> Type {
+    pub(crate) fn instantiate_function_type(&mut self, func: &HirFunction, span: Span) -> Type {
         if func.generic_params.is_empty()
             && self.should_instantiate_inferred_function(func.id)
             && self
@@ -61,7 +108,7 @@ impl Lowerer {
                         .entry(representative)
                         .or_insert_with(|| {
                             let kind = self.engine.kind_of_type_var(representative);
-                            self.engine.fresh_type_var_of_kind(kind)
+                            self.engine.fresh_type_var_at_kind(span.clone(), kind)
                         })
                         .clone(),
                     resolved => resolved,
@@ -95,11 +142,13 @@ impl Lowerer {
                     .engine
                     .kind_of(&Type::Generic(param))
                     .unwrap_or(crate::type_services::kind::Kind::Type);
-                (param, self.engine.fresh_type_var_of_kind(kind))
+                (
+                    param,
+                    self.engine.fresh_type_var_at_kind(span.clone(), kind),
+                )
             })
             .collect();
 
-        let span = self.diagnostics.current_span().clone();
         let context = format!("call to generic function '{}'", func.name);
         for (generic_param, bounds) in &func.generic_bounds {
             let Some(ty) = subst.get(generic_param).cloned() else {
@@ -166,7 +215,8 @@ impl Lowerer {
                     .engine
                     .bind_pending_type_var(actual_id, &resolved_expected)
                 {
-                    self.diagnostics.push(error);
+                    self.diagnostics
+                        .push_type_with_span(error.render(&self.engine), actual.span.clone());
                 }
                 continue;
             }
@@ -189,7 +239,8 @@ impl Lowerer {
                     Ok(None) => {}
                     Err(error) => {
                         let message = self.display_selection_error(&error);
-                        self.diagnostics.push(message);
+                        self.diagnostics
+                            .push_selection_with_span(message, actual.span.clone());
                         return;
                     }
                 }
@@ -198,7 +249,8 @@ impl Lowerer {
             targets.dedup();
             if let [target] = targets.as_slice() {
                 if let Err(error) = self.engine.unify(&Type::TypeVar(constructor_id), target) {
-                    self.diagnostics.push(error);
+                    self.diagnostics
+                        .push_type_with_span(error.render(&self.engine), actual.span.clone());
                 }
             }
         }
@@ -207,15 +259,16 @@ impl Lowerer {
     pub(crate) fn instantiate_resolved_value_type(
         &mut self,
         resolved: &crate::lower::resolution::LowerResolvedValue,
+        span: Span,
     ) -> Type {
         if let Some(HirVarTarget::Function(function_id)) = resolved.target {
             if let Some(func) = self.items.function(function_id).cloned() {
-                return self.instantiate_function_type(&func);
+                return self.instantiate_function_type(&func, span);
             }
         }
 
         if resolved.should_instantiate {
-            self.instantiate_generics(resolved.ty.clone())
+            self.instantiate_generics(resolved.ty.clone(), span)
         } else {
             resolved.ty.clone()
         }
@@ -236,7 +289,7 @@ impl Lowerer {
         if matches!(expected_ty, Type::Reference { mutable: false, .. })
             && expected_ty != resolved_arg_ty
         {
-            let span = self.diagnostics.current_span().clone();
+            let span = arg.span.clone();
             return HirExpr {
                 ty: Type::Reference {
                     mutable: false,
@@ -297,12 +350,16 @@ impl Lowerer {
         &mut self,
         method_func: &HirFunction,
         method_name: &str,
+        span: Span,
     ) {
         if method_func.is_unsafe && !self.is_in_unsafe() {
-            self.diagnostics.push(format!(
-                "Call to unsafe function '{}' requires an unsafe block",
-                method_name
-            ));
+            self.diagnostics.push_selection_with_span(
+                format!(
+                    "Call to unsafe function '{}' requires an unsafe block",
+                    method_name
+                ),
+                span,
+            );
         }
     }
 
@@ -310,6 +367,7 @@ impl Lowerer {
         &mut self,
         target: Option<&HirVarTarget>,
         function_name: &str,
+        span: Span,
     ) {
         let is_unsafe = match target {
             Some(HirVarTarget::Function(function_id)) => self
@@ -323,10 +381,13 @@ impl Lowerer {
         };
 
         if is_unsafe && !self.is_in_unsafe() {
-            self.diagnostics.push(format!(
-                "Call to unsafe function '{}' requires an unsafe block",
-                function_name
-            ));
+            self.diagnostics.push_selection_with_span(
+                format!(
+                    "Call to unsafe function '{}' requires an unsafe block",
+                    function_name
+                ),
+                span,
+            );
         }
     }
 
@@ -414,7 +475,9 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_expression(&mut self, expr: &ast::Expression) -> HirExpr {
-        self.lower_expression_with_use(expr, ExprUse::Value)
+        let lowered = self.lower_expression_with_use(expr, ExprUse::Value);
+        self.source_map.record_expression(lowered.span.clone());
+        lowered
     }
 
     fn flatten_owned_binop(
@@ -578,9 +641,11 @@ impl Lowerer {
         // Handle `expr as Type` casts
         if let ast::Expression::CastExpr(inner, parse_ty) = expr {
             if use_kind == ExprUse::AssignmentPlace {
-                self.diagnostics
-                    .push("Cast expressions cannot be used as assignment places".to_string());
-                return self.error_expression();
+                self.diagnostics.push_type_with_span(
+                    "Cast expressions cannot be used as assignment places".to_string(),
+                    parse_ty.span(),
+                );
+                return self.error_expression_at(parse_ty.span());
             }
             let inner_hir = self.lower_expression_with_use(inner, use_kind);
             let target_ty = self.lower_parse_type(parse_ty);
@@ -589,20 +654,24 @@ impl Lowerer {
             let resolved_target_ty = self.resolve_projection_type(&self.engine.resolve(&target_ty));
 
             if Self::is_fat_raw_slice_pointer(&resolved_inner_ty) && target_ty.is_integer() {
-                self.diagnostics
-                    .push("Cannot cast fat raw slice pointer to integer".to_string());
+                self.diagnostics.push_type_with_span(
+                    "Cannot cast fat raw slice pointer to integer".to_string(),
+                    parse_ty.span(),
+                );
             }
 
             if resolved_inner_ty.is_integer() && Self::is_fat_raw_slice_pointer(&resolved_target_ty)
             {
-                self.diagnostics
-                    .push("Cannot cast integer to fat raw slice pointer".to_string());
+                self.diagnostics.push_with_span(
+                    "Cannot cast integer to fat raw slice pointer".to_string(),
+                    parse_ty.span(),
+                );
             }
 
             return HirExpr {
                 ty: target_ty.clone(),
                 kind: HirExprKind::Cast(Box::new(inner_hir), target_ty),
-                span: self.diagnostics.current_span().clone(),
+                span: parse_ty.span(),
             };
         }
 
@@ -677,8 +746,12 @@ impl Lowerer {
             let prec = match self.op_precedence(&operators[i]) {
                 Ok(prec) => prec,
                 Err(error) => {
-                    self.diagnostics.push(error);
-                    return self.error_expression();
+                    let Some(span) = ast_expr_operand_span(&operands[start]) else {
+                        self.diagnostics.push_toolchain(error);
+                        return self.lower_ast_expr_operand_with_use(&operands[start], use_kind);
+                    };
+                    self.diagnostics.push_with_span(error, span.clone());
+                    return self.error_expression_at(span);
                 }
             };
             if prec <= min_prec {
@@ -726,8 +799,9 @@ impl Lowerer {
             let prec = match self.op_precedence(&operators[i]) {
                 Ok(p) => p,
                 Err(e) => {
-                    self.diagnostics.push(e);
-                    return self.error_expression();
+                    let span = operands[start].span.clone();
+                    self.diagnostics.push_with_span(e, span.clone());
+                    return self.error_expression_at(span);
                 }
             };
             if prec <= min_prec {
@@ -744,15 +818,16 @@ impl Lowerer {
         // Assignment operator: special handling
         if op_str == "=" {
             if let Err(error) = self.engine.unify(&right.ty, &left.ty) {
-                self.diagnostics.push_with_span(
-                    format!("Assignment type mismatch: {}", error),
+                self.diagnostics.push_type_with_span(
+                    format!("Assignment type mismatch: {}", error.render(&self.engine)),
                     right.span.clone(),
                 );
             }
+            let operation_span = right.span.clone();
             return HirExpr {
                 ty: Type::Unit,
                 kind: HirExprKind::Assign(Box::new(left), Box::new(right)),
-                span: self.diagnostics.current_span().clone(),
+                span: operation_span,
             };
         }
 
@@ -760,11 +835,16 @@ impl Lowerer {
         if op_str == "&&" || op_str == "||" {
             // Comparison/logical ops: operands should be compatible
             if let Err(e) = self.engine.unify(&left.ty, &right.ty) {
-                self.diagnostics.push(format!(
-                    "Binary operator '{}': operand type mismatch: {}",
-                    op_str, e
-                ));
+                self.diagnostics.push_type_with_span(
+                    format!(
+                        "Binary operator '{}': operand type mismatch: {}",
+                        op_str,
+                        e.render(&self.engine)
+                    ),
+                    right.span.clone(),
+                );
             }
+            let operation_span = right.span.clone();
             let bin_op = if op_str == "&&" {
                 BinOp::And
             } else {
@@ -773,7 +853,7 @@ impl Lowerer {
             return HirExpr {
                 ty: Type::Bool,
                 kind: HirExprKind::BinOp(bin_op, Box::new(left), Box::new(right)),
-                span: self.diagnostics.current_span().clone(),
+                span: operation_span,
             };
         }
 
@@ -788,13 +868,14 @@ impl Lowerer {
                 ..
             } = &resolved_fn_ty
             {
+                let right_span = right.span.clone();
                 let borrowed_right = HirExpr {
                     ty: Type::Reference {
                         mutable: false,
                         inner: Box::new(right.ty.clone()),
                     },
                     kind: HirExprKind::Ref(false, Box::new(right)),
-                    span: self.diagnostics.current_span().clone(),
+                    span: right_span.clone(),
                 };
                 let arg = params
                     .first()
@@ -803,7 +884,7 @@ impl Lowerer {
                 let ret_ty = if params.len() == 1 {
                     ret.as_ref().clone()
                 } else {
-                    self.engine.fresh_type_var()
+                    self.engine.fresh_type_var_at(right_span)
                 };
                 let expected_fn_ty =
                     Type::function_with_safety(vec![arg.ty.clone()], ret_ty.clone(), *safety);
@@ -823,19 +904,24 @@ impl Lowerer {
                             .report_unsafe_operator_function_call_if_needed(
                                 Some(&reference.target),
                                 &reference.name,
+                                left.span.clone(),
                             ),
-                        HirExprKind::Var(function_name) => {
-                            self.report_unsafe_operator_function_call_if_needed(None, function_name)
-                        }
+                        HirExprKind::Var(function_name) => self
+                            .report_unsafe_operator_function_call_if_needed(
+                                None,
+                                function_name,
+                                left.span.clone(),
+                            ),
                         _ => {}
                     }
                 }
 
                 let target = self.call_target_for_callee(&left);
+                let operation_span = left.span.clone();
                 return HirExpr {
                     ty: self.resolve_projection_type(&self.engine.resolve(&ret_ty)),
                     kind: HirExprKind::Call(Box::new(left), vec![arg], target),
-                    span: self.diagnostics.current_span().clone(),
+                    span: operation_span,
                 };
             }
         }
@@ -859,7 +945,7 @@ impl Lowerer {
                     resolved_ty.clone(),
                     matches!(&left.kind, HirExprKind::Call(_, _, _)),
                 );
-            let span = self.diagnostics.current_span().clone();
+            let span = left.span.clone();
             if let Some(selected) = self.handle_optional_selection(result, span) {
                 let adjusted_recv = self.apply_receiver_adjustment(
                     selected.receiver.clone(),
@@ -869,9 +955,13 @@ impl Lowerer {
                 let Some((method_func, ret_ty, coerced_args, target)) =
                     self.selected_method_call_types(&selected, vec![right])
                 else {
-                    return self.error_expression();
+                    return self.error_expression_at(left.span.clone());
                 };
-                self.report_unsafe_operator_method_call_if_needed(&method_func, op_str);
+                self.report_unsafe_operator_method_call_if_needed(
+                    &method_func,
+                    op_str,
+                    left.span.clone(),
+                );
 
                 return HirExpr {
                     ty: ret_ty,
@@ -882,7 +972,7 @@ impl Lowerer {
                         method_func.self_receiver,
                         Some(target),
                     ),
-                    span: self.diagnostics.current_span().clone(),
+                    span: left.span.clone(),
                 };
             }
         }
@@ -899,7 +989,7 @@ impl Lowerer {
                     resolved_ty.clone(),
                     matches!(&left.kind, HirExprKind::Call(_, _, _)),
                 );
-            let span = self.diagnostics.current_span().clone();
+            let span = left.span.clone();
             if let Some(selected) = self.handle_optional_selection(result, span) {
                 let adjusted_recv = self.apply_receiver_adjustment(
                     selected.receiver.clone(),
@@ -909,9 +999,13 @@ impl Lowerer {
                 let Some((method_func, ret_ty, coerced_args, target)) =
                     self.selected_method_call_types(&selected, vec![right])
                 else {
-                    return self.error_expression();
+                    return self.error_expression_at(left.span.clone());
                 };
-                self.report_unsafe_operator_method_call_if_needed(&method_func, op_str);
+                self.report_unsafe_operator_method_call_if_needed(
+                    &method_func,
+                    op_str,
+                    left.span.clone(),
+                );
 
                 return HirExpr {
                     ty: ret_ty,
@@ -922,7 +1016,7 @@ impl Lowerer {
                         method_func.self_receiver,
                         Some(target),
                     ),
-                    span: self.diagnostics.current_span().clone(),
+                    span: left.span.clone(),
                 };
             }
         }
@@ -930,7 +1024,7 @@ impl Lowerer {
         let func_binding = crate::lower::resolution::LowerResolutionContext::new(self)
             .resolve_identifier_value(op_str.as_str())
             .map(|resolved| {
-                let func_ty = self.instantiate_resolved_value_type(&resolved);
+                let func_ty = self.instantiate_resolved_value_type(&resolved, left.span.clone());
                 (func_ty, resolved.name, resolved.target)
             });
 
@@ -940,7 +1034,7 @@ impl Lowerer {
             let (mut expected_ret_ty, safety) = match resolved_func_ty {
                 Type::Function { ret, safety, .. } => (*ret, safety),
                 _ => (
-                    self.engine.fresh_type_var(),
+                    self.engine.fresh_type_var_at(left.span.clone()),
                     crate::types::FunctionSafety::Safe,
                 ),
             };
@@ -950,34 +1044,47 @@ impl Lowerer {
                 safety,
             );
             if let Err(e) = self.engine.unify(&func_ty, &expected_fn_ty) {
-                if (e.contains("cannot infer a type constructor")
-                    || e.contains("ambiguous constructor heads"))
-                    && (Self::type_has_unresolved_parameter(&left.ty)
-                        || Self::type_has_unresolved_parameter(&right.ty))
+                if matches!(
+                    &e,
+                    crate::infer::UnifyError::ConstructorInference { .. }
+                        | crate::infer::UnifyError::AmbiguousConstructorHeads { .. }
+                ) && (Self::type_has_unresolved_parameter(&left.ty)
+                    || Self::type_has_unresolved_parameter(&right.ty))
                 {
+                    let span = left.span.clone();
                     self.constraint_store.add_equality(
                         func_ty.clone(),
                         expected_fn_ty.clone(),
-                        self.diagnostics.current_span().clone(),
+                        span,
                         &format!("Operator '{op_str}' function type mismatch"),
                     );
                 } else {
-                    self.diagnostics.push(format!(
-                        "Operator '{}': function type mismatch: {}",
-                        op_str, e
-                    ));
+                    self.diagnostics.push_type_with_span(
+                        format!(
+                            "Operator '{}': function type mismatch: {}",
+                            op_str,
+                            e.render(&self.engine)
+                        ),
+                        left.span.clone(),
+                    );
                 }
             }
 
             expected_ret_ty = match self.engine.normalize_resolved_type(&expected_ret_ty) {
                 Ok(ty) => ty,
                 Err(error) => {
-                    self.diagnostics.push(error);
+                    self.diagnostics
+                        .push_type_with_span(error, left.span.clone());
                     Type::Error
                 }
             };
-            self.report_unsafe_operator_function_call_if_needed(target.as_ref(), &hir_name);
+            self.report_unsafe_operator_function_call_if_needed(
+                target.as_ref(),
+                &hir_name,
+                left.span.clone(),
+            );
 
+            let operation_span = left.span.clone();
             return HirExpr {
                 ty: expected_ret_ty.clone(),
                 kind: {
@@ -990,12 +1097,12 @@ impl Lowerer {
                             }),
                             None => HirExprKind::Var(hir_name),
                         },
-                        span: self.diagnostics.current_span().clone(),
+                        span: operation_span.clone(),
                     };
                     let target = self.call_target_for_callee(&callee);
                     HirExprKind::Call(Box::new(callee), vec![left, right], target)
                 },
-                span: self.diagnostics.current_span().clone(),
+                span: operation_span,
             };
         }
 
@@ -1009,22 +1116,24 @@ impl Lowerer {
                 }
                 Ok(false) => {}
                 Err(SelectionDiagnostic::AmbiguousCandidates { .. }) => {
-                    let result_ty = self.engine.fresh_type_var();
+                    let result_ty = self.engine.fresh_type_var_at(left.span.clone());
+                    let operation_span = left.span.clone();
                     let callee = HirExpr {
                         ty: Type::function(vec![right.ty.clone()], result_ty.clone()),
                         kind: HirExprKind::FieldAccess(Box::new(left), method_name, None),
-                        span: self.diagnostics.current_span().clone(),
+                        span: operation_span.clone(),
                     };
                     return HirExpr {
                         ty: result_ty,
                         kind: HirExprKind::Call(Box::new(callee), vec![right], None),
-                        span: self.diagnostics.current_span().clone(),
+                        span: operation_span,
                     };
                 }
                 Err(error) => {
                     let message = self.display_selection_error(&error);
-                    self.diagnostics.push(message);
-                    return self.error_expression();
+                    self.diagnostics
+                        .push_selection_with_span(message, left.span.clone());
+                    return self.error_expression_at(left.span.clone());
                 }
             }
         }
@@ -1038,8 +1147,9 @@ impl Lowerer {
             Ok(selected) => selected,
             Err(error) => {
                 let message = self.display_selection_error(&error);
-                self.diagnostics.push(message);
-                return self.error_expression();
+                self.diagnostics
+                    .push_selection_with_span(message, left.span.clone());
+                return self.error_expression_at(left.span.clone());
             }
         };
 
@@ -1048,10 +1158,14 @@ impl Lowerer {
             let Some((method_func, result_ty, mut coerced_args, target)) =
                 self.selected_method_call_types(&selected, vec![right])
             else {
-                return self.error_expression();
+                return self.error_expression_at(left.span.clone());
             };
             let right = coerced_args.remove(0);
-            self.report_unsafe_operator_method_call_if_needed(&method_func, &method_name);
+            self.report_unsafe_operator_method_call_if_needed(
+                &method_func,
+                &method_name,
+                left.span.clone(),
+            );
 
             return HirExpr {
                 ty: result_ty,
@@ -1065,17 +1179,20 @@ impl Lowerer {
                     method_func.self_receiver,
                     Some(target),
                 ),
-                span: self.diagnostics.current_span().clone(),
+                span: left.span.clone(),
             };
         }
 
         let receiver_type = self.display_type(&resolved_ty);
-        self.diagnostics.push(format!(
-            "No implementation found for operator '{}' on type {}",
-            op_str, receiver_type
-        ));
+        self.diagnostics.push_selection_with_span(
+            format!(
+                "No implementation found for operator '{}' on type {}",
+                op_str, receiver_type
+            ),
+            left.span.clone(),
+        );
 
-        self.error_expression()
+        self.error_expression_at(left.span.clone())
     }
 
     fn infer_unresolved_binary_operator_receiver(
@@ -1314,10 +1431,6 @@ impl Lowerer {
         }
     }
 
-    pub(crate) fn error_expression(&self) -> HirExpr {
-        self.error_expression_at(self.diagnostics.current_span().clone())
-    }
-
     pub(crate) fn error_expression_at(&self, span: Span) -> HirExpr {
         HirExpr {
             ty: Type::Error,
@@ -1376,7 +1489,7 @@ impl Lowerer {
                     return HirExpr {
                         ty: ref_ty,
                         kind: HirExprKind::Ref(op.value == "&mut", Box::new(inner_hir)),
-                        span: self.diagnostics.current_span().clone(),
+                        span: op.span.clone(),
                     };
                 }
 
@@ -1385,17 +1498,18 @@ impl Lowerer {
                 // Special handling for * (dereference operator)
                 if op.value == "*" {
                     let resolved_inner_ty = self.engine.resolve(&inner_hir.ty);
+                    let inner_span = inner_hir.span.clone();
                     if let Type::Reference { inner, .. } = &resolved_inner_ty {
                         return HirExpr {
                             ty: (*inner.clone()),
                             kind: HirExprKind::Deref(Box::new(inner_hir)),
-                            span: self.diagnostics.current_span().clone(),
+                            span: inner_span.clone(),
                         };
                     }
 
                     if let Type::Pointer(inner) = &resolved_inner_ty {
                         if !self.is_in_unsafe() {
-                            self.diagnostics.push_with_span(
+                            self.diagnostics.push_selection_with_span(
                                 "Dereference of raw pointer requires an unsafe block".to_string(),
                                 op.span.clone(),
                             );
@@ -1404,7 +1518,7 @@ impl Lowerer {
                         return HirExpr {
                             ty: (*inner.clone()),
                             kind: HirExprKind::Deref(Box::new(inner_hir)),
-                            span: self.diagnostics.current_span().clone(),
+                            span: inner_span,
                         };
                     }
 
@@ -1418,14 +1532,14 @@ impl Lowerer {
 
                     let result_ty = resolved_inner_ty.clone();
                     let receiver_type = self.display_type(&resolved_inner_ty);
-                    self.diagnostics.push_with_span(
+                    self.diagnostics.push_type_with_span(
                         format!("Cannot dereference non-pointer type: {}", receiver_type),
                         op.span.clone(),
                     );
                     return HirExpr {
                         ty: result_ty,
                         kind: HirExprKind::Deref(Box::new(inner_hir)),
-                        span: self.diagnostics.current_span().clone(),
+                        span: op.span.clone(),
                     };
                 }
 
@@ -1443,7 +1557,7 @@ impl Lowerer {
                             }
                             Ok(false) => {}
                             Err(SelectionDiagnostic::AmbiguousCandidates { .. }) => {
-                                let result_ty = self.engine.fresh_type_var();
+                                let result_ty = self.engine.fresh_type_var_at(op.span.clone());
                                 let callee = HirExpr {
                                     ty: Type::function(Vec::new(), result_ty.clone()),
                                     kind: HirExprKind::FieldAccess(
@@ -1461,8 +1575,9 @@ impl Lowerer {
                             }
                             Err(error) => {
                                 let message = self.display_selection_error(&error);
-                                self.diagnostics.push_with_span(message, op.span.clone());
-                                return self.error_expression();
+                                self.diagnostics
+                                    .push_selection_with_span(message, op.span.clone());
+                                return self.error_expression_at(op.span.clone());
                             }
                         }
                     }
@@ -1511,11 +1626,12 @@ impl Lowerer {
                         let Some((method_func, result_ty, args, target)) =
                             self.selected_method_call_types(&selected, Vec::new())
                         else {
-                            return self.error_expression();
+                            return self.error_expression_at(op.span.clone());
                         };
                         self.report_unsafe_operator_method_call_if_needed(
                             &method_func,
                             method_name,
+                            inner_hir.span.clone(),
                         );
 
                         return HirExpr {
@@ -1530,7 +1646,7 @@ impl Lowerer {
                                 method_func.self_receiver,
                                 Some(target),
                             ),
-                            span: self.diagnostics.current_span().clone(),
+                            span: inner_hir.span.clone(),
                         };
                     }
 
@@ -1541,19 +1657,21 @@ impl Lowerer {
                             Ok(selected) => selected,
                             Err(error) => {
                                 let message = self.display_selection_error(&error);
-                                self.diagnostics.push_with_span(message, op.span.clone());
-                                return self.error_expression();
+                                self.diagnostics
+                                    .push_selection_with_span(message, op.span.clone());
+                                return self.error_expression_at(op.span.clone());
                             }
                         };
                     if let Some(selected) = selected {
                         let Some((method_func, result_ty, args, target)) =
                             self.selected_method_call_types(&selected, Vec::new())
                         else {
-                            return self.error_expression();
+                            return self.error_expression_at(op.span.clone());
                         };
                         self.report_unsafe_operator_method_call_if_needed(
                             &method_func,
                             method_name,
+                            op.span.clone(),
                         );
 
                         return HirExpr {
@@ -1568,19 +1686,19 @@ impl Lowerer {
                                 method_func.self_receiver,
                                 Some(target),
                             ),
-                            span: self.diagnostics.current_span().clone(),
+                            span: inner_hir.span.clone(),
                         };
                     }
 
                     let receiver_type = self.display_type(&resolved_ty);
-                    self.diagnostics.push_with_span(
+                    self.diagnostics.push_selection_with_span(
                         format!(
                             "No implementation found for operator '{}' on type {}",
                             op.value, receiver_type
                         ),
                         op.span.clone(),
                     );
-                    return self.error_expression();
+                    return self.error_expression_at(op.span.clone());
                 }
 
                 let unary_op = match op.value.as_str() {
@@ -1594,10 +1712,11 @@ impl Lowerer {
                     }
                 };
                 let ty = inner_hir.ty.clone();
+                let inner_span = inner_hir.span.clone();
                 HirExpr {
                     ty,
                     kind: HirExprKind::UnaryOp(unary_op, Box::new(inner_hir)),
-                    span: self.diagnostics.current_span().clone(),
+                    span: inner_span,
                 }
             }
         }
@@ -1624,10 +1743,13 @@ impl Lowerer {
 
         // Apply type annotation if present
         if let Some(ann) = &primary.type_annotation {
+            self.source_map.record_type_annotation(ann.span());
             let ann_ty = self.lower_parse_type(ann);
             if let Err(e) = self.engine.unify(&result.ty, &ann_ty) {
-                self.diagnostics
-                    .push(format!("Type annotation mismatch: {}", e));
+                self.diagnostics.push_type_with_span(
+                    format!("Type annotation mismatch: {}", e.render(&self.engine)),
+                    ann.span(),
+                );
             }
             result.ty = ann_ty;
         }
@@ -1700,6 +1822,10 @@ impl Lowerer {
             return None;
         }
 
+        let span = parameters
+            .first()
+            .and_then(Self::pattern_binding_span)
+            .expect("call-hole lambda has a generated parameter span");
         Some(ast::LambdaDecl {
             parameters,
             body: ast::Block {
@@ -1708,6 +1834,7 @@ impl Lowerer {
                 ))],
             },
             arrow_kind: ast::LambdaArrowKind::Normal,
+            span,
         })
     }
 
@@ -1757,7 +1884,7 @@ impl Lowerer {
                 }
 
                 // @field -> self.field
-                let mut field_ty = self.engine.fresh_type_var();
+                let mut field_ty = self.engine.fresh_type_var_at(ident.span.clone());
                 let resolved_self = self.engine.resolve(&self_ty);
                 let (base_expr, base_ty) = if let Type::Reference { inner, .. } = &resolved_self {
                     let deref_expr = HirExpr {
@@ -1804,6 +1931,15 @@ impl Lowerer {
                 } else {
                     None
                 };
+                if let Some(field) = field.as_ref() {
+                    self.record_source_reference(
+                        ident.span.clone(),
+                        crate::source_map::SourceSymbol::Field {
+                            owner: field.owner,
+                            field: field.field_id,
+                        },
+                    );
+                }
                 HirExpr {
                     ty: field_ty,
                     kind: HirExprKind::FieldAccess(Box::new(base_expr), ident.name.clone(), field),
@@ -1817,18 +1953,18 @@ impl Lowerer {
             ast::Operand::Match(match_expr) => self.lower_match(match_expr),
             ast::Operand::Loop(loop_expr) => self.lower_loop(loop_expr),
             ast::Operand::Expression(expr) => self.lower_expression_with_use(expr, use_kind),
-            ast::Operand::Unsafe(block) => {
+            ast::Operand::Unsafe(block, span) => {
                 let body = self.with_unsafe(|s| s.lower_block(block));
                 let ty = body.ty.clone();
                 HirExpr {
                     ty,
                     kind: HirExprKind::UnsafeBlock(body),
-                    span: self.diagnostics.current_span().clone(),
+                    span: span.clone(),
                 }
             }
             ast::Operand::NativeOperator(op) => {
                 // Native operator reference
-                let ty = self.engine.fresh_type_var();
+                let ty = self.engine.fresh_type_var_at(op.span.clone());
                 HirExpr {
                     ty,
                     kind: HirExprKind::Var(op.name.clone()),
@@ -1839,7 +1975,6 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_literal(&mut self, lit: &ast::Literal) -> HirExpr {
-        self.diagnostics.set_current_span(lit.span.clone());
         let span = lit.span.clone();
         match &lit.kind {
             ast::LiteralKind::Bool(b) => HirExpr {
@@ -1871,7 +2006,7 @@ impl Lowerer {
                 span,
             },
             ast::LiteralKind::Array(arr) => {
-                let elem_ty = self.engine.fresh_type_var();
+                let elem_ty = self.engine.fresh_type_var_at(span.clone());
                 let len = arr.elements.len();
                 let elements: Vec<HirExpr> = arr
                     .elements
@@ -1902,7 +2037,7 @@ impl Lowerer {
             }
             ast::LiteralKind::ArrayRepeat { value, len } => {
                 let value = self.lower_expression(value);
-                let elem_ty = self.engine.fresh_type_var();
+                let elem_ty = self.engine.fresh_type_var_at(value.span.clone());
                 let resolved_elem_ty = self.engine.resolve(&elem_ty);
                 let resolved_value_ty = self.engine.resolve(&value.ty);
                 if !matches!(value.kind, HirExprKind::Cast(_, _))
@@ -1935,14 +2070,14 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::ast::{
-        Expression, Ident, IdentOrType, IdentifierPath, Literal, LiteralKind, Operand, Operator,
-        PrimaryExpr, UnaryExpr,
+        Block, Expression, Ident, IdentOrType, IdentifierPath, Literal, LiteralKind, Operand,
+        Operator, PrimaryExpr, Statement, UnaryExpr,
     };
     use crate::hir::{
         HirBlock, HirCallTarget, HirEnum, HirExpr, HirExprKind, HirFunction, HirImpl, HirImplOwner,
         HirParam, HirStruct, HirVarTarget,
     };
-    use crate::ids::{CrateId, DefId, LocalDefId};
+    use crate::ids::{CrateId, DefId, HirLocalId, LocalDefId};
     use crate::lexer::Span;
     use crate::lower::Lowerer;
     use crate::selection::SelectionDiagnostic;
@@ -1950,6 +2085,63 @@ mod tests {
 
     fn def_id(index: u32) -> DefId {
         DefId::new(CrateId(0), LocalDefId(index))
+    }
+
+    #[test]
+    fn unsafe_control_statements_do_not_require_a_value_span() {
+        let mut lowerer = Lowerer::new_for_test();
+        for statement in [
+            Statement::Continue(None),
+            Statement::Return(None),
+            Statement::Break(None),
+        ] {
+            let operand = Operand::Unsafe(
+                Block {
+                    statements: vec![statement],
+                },
+                Span::test(),
+            );
+            let hir = lowerer.with_test_body_context(|lowerer| lowerer.lower_operand(&operand));
+            assert!(matches!(hir.kind, HirExprKind::UnsafeBlock(_)));
+            assert_eq!(hir.span, Span::test());
+        }
+    }
+
+    #[test]
+    fn raw_pointer_dereference_diagnostic_is_selection() {
+        let mut lowerer = Lowerer::new_for_test();
+        let operator = Operator {
+            value: "*".to_string(),
+            span: Span::test(),
+        };
+        let expression = UnaryExpr::UnaryExpr(
+            operator,
+            Box::new(UnaryExpr::PrimaryExpr(PrimaryExpr {
+                operand: Operand::Ident(IdentifierPath {
+                    path: vec![IdentOrType::Ident(Ident {
+                        name: "ptr".to_string(),
+                        span: Span::test(),
+                    })],
+                }),
+                secondaries: None,
+                type_annotation: None,
+            })),
+        );
+
+        lowerer.with_test_body_context(|lowerer| {
+            lowerer.scope.define_local(
+                "ptr".to_string(),
+                Type::Pointer(Box::new(Type::I64)),
+                false,
+                HirLocalId(0),
+            );
+            lowerer.lower_unary_expr(&expression);
+        });
+
+        assert_eq!(
+            lowerer.diagnostics.errors()[0].code,
+            crate::diagnostic::DiagnosticCode::Selection
+        );
     }
 
     fn test_function(id: DefId, name: &str, params: Vec<Type>, ret_type: Type) -> HirFunction {
@@ -2118,7 +2310,7 @@ mod tests {
         };
 
         assert_eq!(
-            lowerer.instantiate_resolved_value_type(&resolved),
+            lowerer.instantiate_resolved_value_type(&resolved, Span::test()),
             Type::I64
         );
     }

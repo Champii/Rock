@@ -222,6 +222,12 @@ pub struct MirFunction {
     pub ownership: MirOwnershipMetadata,
 }
 
+impl MirFunction {
+    pub fn terminator_origin(&self, terminator: &Terminator) -> MirOrigin {
+        terminator.origin()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BorrowKind {
     Shared,
@@ -235,6 +241,44 @@ pub enum ReferenceOrigin {
     Temporary(Local),
     Static,
     UnknownExternal,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirSyntheticOrigin {
+    Cleanup,
+    Temporary,
+    ClosureCapture,
+    ControlFlow,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MirOrigin {
+    Source(Span),
+    Synthetic {
+        kind: MirSyntheticOrigin,
+        origin: Option<Span>,
+    },
+}
+
+impl MirOrigin {
+    pub fn synthetic(kind: MirSyntheticOrigin, origin: Option<Span>) -> Self {
+        Self::Synthetic { kind, origin }
+    }
+
+    pub fn source_span(&self) -> Option<&Span> {
+        match self {
+            Self::Source(span) => Some(span),
+            Self::Synthetic { .. } => None,
+        }
+    }
+
+    pub fn synthetic_origin(&self) -> Option<&Span> {
+        match self {
+            Self::Source(_) => None,
+            Self::Synthetic { origin, .. } => origin.as_ref(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -279,6 +323,21 @@ pub struct LocalDecl {
     pub name: Option<String>,
     pub span: Option<Span>,
     pub source: LocalSource,
+}
+
+impl LocalDecl {
+    pub fn origin(&self) -> MirOrigin {
+        self.span.clone().map(MirOrigin::Source).unwrap_or_else(|| {
+            MirOrigin::synthetic(
+                if self.source.is_temporary() {
+                    MirSyntheticOrigin::Temporary
+                } else {
+                    MirSyntheticOrigin::Unknown
+                },
+                None,
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -328,6 +387,13 @@ impl MirClosureCapture {
             local: self.local,
             projection: vec![],
         }
+    }
+
+    pub fn origin(&self) -> MirOrigin {
+        self.span
+            .clone()
+            .map(MirOrigin::Source)
+            .unwrap_or_else(|| MirOrigin::synthetic(MirSyntheticOrigin::ClosureCapture, None))
     }
 }
 
@@ -409,6 +475,16 @@ pub struct StatementData {
 }
 
 impl StatementData {
+    pub fn origin(&self) -> MirOrigin {
+        self.span.clone().map(MirOrigin::Source).unwrap_or_else(|| {
+            if self.cleanup {
+                MirOrigin::synthetic(MirSyntheticOrigin::Cleanup, None)
+            } else {
+                MirOrigin::synthetic(MirSyntheticOrigin::Unknown, None)
+            }
+        })
+    }
+
     pub fn new(kind: StatementKind, span: Option<Span>) -> Self {
         Self {
             kind,
@@ -457,20 +533,200 @@ pub enum StatementKind {
 #[derive(Debug, Clone)]
 pub enum Terminator {
     Goto(BasicBlockId),
+    GotoWithOrigin {
+        target: BasicBlockId,
+        origin: MirOrigin,
+    },
     SwitchInt {
         discr: Operand,
         targets: Vec<(i64, BasicBlockId)>,
         otherwise: BasicBlockId,
     },
+    SwitchIntWithOrigin {
+        discr: Operand,
+        targets: Vec<(i64, BasicBlockId)>,
+        otherwise: BasicBlockId,
+        origin: MirOrigin,
+    },
     Return,
+    ReturnWithOrigin {
+        origin: MirOrigin,
+    },
     Call {
         func: Operand,
         args: Vec<Operand>,
         destination: Place,
         target: BasicBlockId,
+        span: Option<Span>,
     },
     Drop {
         place: Place,
         target: BasicBlockId,
     },
+    DropWithOrigin {
+        place: Place,
+        target: BasicBlockId,
+        origin: MirOrigin,
+    },
+}
+
+impl Terminator {
+    pub fn goto(target: BasicBlockId, origin: MirOrigin) -> Self {
+        Self::GotoWithOrigin { target, origin }
+    }
+
+    pub fn switch_int(
+        discr: Operand,
+        targets: Vec<(i64, BasicBlockId)>,
+        otherwise: BasicBlockId,
+        origin: MirOrigin,
+    ) -> Self {
+        Self::SwitchIntWithOrigin {
+            discr,
+            targets,
+            otherwise,
+            origin,
+        }
+    }
+
+    pub fn return_with_origin(origin: MirOrigin) -> Self {
+        Self::ReturnWithOrigin { origin }
+    }
+
+    pub fn drop(place: Place, target: BasicBlockId, origin: MirOrigin) -> Self {
+        Self::DropWithOrigin {
+            place,
+            target,
+            origin,
+        }
+    }
+
+    pub fn origin(&self) -> MirOrigin {
+        match self {
+            Self::Goto(_) | Self::SwitchInt { .. } | Self::Return | Self::Drop { .. } => {
+                MirOrigin::synthetic(MirSyntheticOrigin::ControlFlow, None)
+            }
+            Self::GotoWithOrigin { origin, .. }
+            | Self::SwitchIntWithOrigin { origin, .. }
+            | Self::ReturnWithOrigin { origin }
+            | Self::DropWithOrigin { origin, .. } => origin.clone(),
+            Self::Call { span, .. } => span
+                .clone()
+                .map(MirOrigin::Source)
+                .unwrap_or_else(|| MirOrigin::synthetic(MirSyntheticOrigin::Unknown, None)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn span(start: usize, end: usize) -> Span {
+        Span::new("/virtual/main.rk".into(), start, end)
+    }
+
+    #[test]
+    fn mir_origin_accessors_distinguish_source_and_synthetic_operations() {
+        let source_span = span(2, 6);
+        let source_statement = StatementData::assign(
+            Place {
+                local: Local(0),
+                projection: vec![],
+            },
+            Rvalue::Use(Operand::Constant(Constant::Unit)),
+            Some(source_span.clone()),
+        );
+        assert_eq!(
+            source_statement.origin(),
+            MirOrigin::Source(source_span.clone())
+        );
+        assert_eq!(
+            StatementData::cleanup(StatementKind::StorageDead(Local(0)), None).origin(),
+            MirOrigin::synthetic(MirSyntheticOrigin::Cleanup, None)
+        );
+        let linked = MirOrigin::synthetic(MirSyntheticOrigin::ControlFlow, Some(span(8, 9)));
+        assert_eq!(linked.synthetic_origin(), Some(&span(8, 9)));
+
+        let local = LocalDecl {
+            ty: TypeContext::new().intern_type(&crate::types::Type::Unit),
+            mutability: Mutability::Not,
+            name: None,
+            span: None,
+            source: LocalSource::Temporary,
+        };
+        assert_eq!(
+            local.origin(),
+            MirOrigin::synthetic(MirSyntheticOrigin::Temporary, None)
+        );
+        let capture = MirClosureCapture {
+            name: "value".to_string(),
+            local: Local(0),
+            kind: MirClosureCaptureKind::ByRef,
+            span: Some(source_span),
+        };
+        assert!(matches!(capture.origin(), MirOrigin::Source(_)));
+
+        let mut type_context = TypeContext::new();
+        let unit = type_context.intern_type(&crate::types::Type::Unit);
+        let function = MirFunction {
+            id: MirFunctionId::Function(crate::ids::DefId::new(
+                crate::ids::CrateId(0),
+                crate::ids::LocalDefId(0),
+            )),
+            name: "main".to_string(),
+            basic_blocks: vec![],
+            local_decls: vec![
+                local,
+                LocalDecl {
+                    ty: unit,
+                    mutability: Mutability::Not,
+                    name: None,
+                    span: Some(span(20, 24)),
+                    source: LocalSource::Temporary,
+                },
+            ],
+            closure_captures: vec![],
+            arg_count: 0,
+            ret_type: unit,
+            ownership: MirOwnershipMetadata::default(),
+        };
+        let call = Terminator::Call {
+            func: Operand::Constant(Constant::Unit),
+            args: vec![],
+            destination: Place {
+                local: Local(1),
+                projection: vec![],
+            },
+            target: BasicBlockId(0),
+            span: Some(span(2, 6)),
+        };
+        assert_eq!(
+            function.terminator_origin(&call),
+            MirOrigin::Source(span(2, 6))
+        );
+
+        let source = MirOrigin::Source(span(30, 35));
+        assert_eq!(
+            Terminator::switch_int(
+                Operand::Constant(Constant::Bool(true)),
+                vec![(1, BasicBlockId(1))],
+                BasicBlockId(2),
+                source.clone(),
+            )
+            .origin(),
+            source
+        );
+        assert!(matches!(
+            Terminator::goto(
+                BasicBlockId(1),
+                MirOrigin::synthetic(MirSyntheticOrigin::Cleanup, Some(span(40, 41))),
+            )
+            .origin(),
+            MirOrigin::Synthetic {
+                kind: MirSyntheticOrigin::Cleanup,
+                origin: Some(_),
+            }
+        ));
+    }
 }

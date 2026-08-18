@@ -412,10 +412,14 @@ fn compute_successors(func: &MirFunction) -> Vec<Vec<usize>> {
     for (block_idx, block) in func.basic_blocks.iter().enumerate() {
         if let Some(term) = &block.terminator {
             match term {
-                crate::mir::Terminator::Goto(target) => {
+                crate::mir::Terminator::Goto(target)
+                | crate::mir::Terminator::GotoWithOrigin { target, .. } => {
                     successors[block_idx].push(target.0);
                 }
                 crate::mir::Terminator::SwitchInt {
+                    targets, otherwise, ..
+                }
+                | crate::mir::Terminator::SwitchIntWithOrigin {
                     targets, otherwise, ..
                 } => {
                     for (_, target) in targets {
@@ -426,10 +430,12 @@ fn compute_successors(func: &MirFunction) -> Vec<Vec<usize>> {
                 crate::mir::Terminator::Call { target, .. } => {
                     successors[block_idx].push(target.0);
                 }
-                crate::mir::Terminator::Drop { target, .. } => {
+                crate::mir::Terminator::Drop { target, .. }
+                | crate::mir::Terminator::DropWithOrigin { target, .. } => {
                     successors[block_idx].push(target.0);
                 }
-                crate::mir::Terminator::Return => {}
+                crate::mir::Terminator::Return
+                | crate::mir::Terminator::ReturnWithOrigin { .. } => {}
             }
         }
     }
@@ -1032,7 +1038,7 @@ fn apply_statement_liveness(
 
 fn apply_terminator_liveness(term: &Terminator, live: &mut LocalSet, reference_locals: &LocalSet) {
     match term {
-        Terminator::SwitchInt { discr, .. } => {
+        Terminator::SwitchInt { discr, .. } | Terminator::SwitchIntWithOrigin { discr, .. } => {
             let mut locals = Vec::new();
             operand_reference_uses(discr, reference_locals, &mut locals);
             insert_locals(live, locals);
@@ -1054,12 +1060,15 @@ fn apply_terminator_liveness(term: &Terminator, live: &mut LocalSet, reference_l
             }
             insert_locals(live, locals);
         }
-        Terminator::Drop { place, .. } => {
+        Terminator::Drop { place, .. } | Terminator::DropWithOrigin { place, .. } => {
             let mut locals = Vec::new();
             place_reference_uses_vec(place, reference_locals, &mut locals);
             insert_locals(live, locals);
         }
-        Terminator::Goto(_) | Terminator::Return => {}
+        Terminator::Goto(_)
+        | Terminator::GotoWithOrigin { .. }
+        | Terminator::Return
+        | Terminator::ReturnWithOrigin { .. } => {}
     }
 }
 
@@ -2574,6 +2583,7 @@ mod tests {
                             projection: vec![],
                         },
                         target: BasicBlockId(1),
+                        span: Some(crate::lexer::Span::test()),
                     }),
                 },
                 BasicBlock {
@@ -2700,6 +2710,7 @@ mod tests {
                             projection: Vec::new(),
                         },
                         target: BasicBlockId(1),
+                        span: Some(crate::lexer::Span::test()),
                     }),
                 },
                 BasicBlock {

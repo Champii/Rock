@@ -107,6 +107,12 @@ impl TypeDisplayContext {
         self.generics.insert(id, name.into());
     }
 
+    pub fn insert_generic_names(&mut self, params: &[crate::types::GenericParamDecl]) {
+        for param in params {
+            self.insert_generic_name(param.id, param.name.clone());
+        }
+    }
+
     pub fn insert_associated_name(&mut self, id: AssociatedTypeKey, name: impl Into<String>) {
         self.associated_types.insert(id, name.into());
     }

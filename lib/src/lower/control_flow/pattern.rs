@@ -17,6 +17,17 @@ fn identifier_path_span(path: &ast::TypePath) -> crate::lexer::Span {
     }
 }
 
+fn inferred_pattern_span(
+    lowerer: &Lowerer,
+    pattern: &ast::Pattern,
+    expected_ty: &Type,
+) -> Option<crate::lexer::Span> {
+    lowerer
+        .engine
+        .span_for_type(expected_ty)
+        .or_else(|| Lowerer::pattern_binding_span(pattern))
+}
+
 impl Lowerer {
     fn report_pattern_type_mismatch(
         &mut self,
@@ -25,7 +36,7 @@ impl Lowerer {
         span: crate::lexer::Span,
     ) {
         let actual = self.display_type(actual);
-        self.diagnostics.push_with_span(
+        self.diagnostics.push_type_with_span(
             format!(
                 "pattern type mismatch: Type mismatch: {} vs {}",
                 actual, expected
@@ -45,8 +56,12 @@ impl Lowerer {
                 let ty = expected_ty.clone();
                 let local_id = self.fresh_local_id();
                 if let Some(owner) = self.current_body_def_id() {
-                    self.source_map
-                        .insert_local(owner, local_id, ident_pat.name.span.clone());
+                    self.source_map.insert_local_in_scope(
+                        owner,
+                        local_id,
+                        ident_pat.name.span.clone(),
+                        self.source_scope_stack.last().copied(),
+                    );
                 }
                 self.scope
                     .define_local(ident_pat.name.name.clone(), ty, ident_pat.mut_, local_id);
@@ -75,7 +90,7 @@ impl Lowerer {
                         Type::Reference { inner, .. } if matches!(inner.as_ref(), Type::Str)
                     ) {
                         let actual = self.display_type(&resolved);
-                        self.diagnostics.push_with_span(
+                        self.diagnostics.push_type_with_span(
                             format!(
                                 "string literal pattern requires a &Str scrutinee, got {}; call .as_str! before matching an owned String",
                                 actual
@@ -92,8 +107,13 @@ impl Lowerer {
                 _ => HirPattern::Wildcard,
             },
             ast::PatternKind::Tuple(pats) => {
+                let span = inferred_pattern_span(self, pattern, expected_ty);
                 let elem_types: Vec<Type> = (0..pats.len())
-                    .map(|_| self.engine.fresh_type_var())
+                    .map(|_| {
+                        span.clone()
+                            .map(|span| self.engine.fresh_type_var_at(span))
+                            .unwrap_or_else(|| self.engine.fresh_type_var())
+                    })
                     .collect();
                 let tuple_ty = Type::Tuple(elem_types.clone());
                 let _ = self.engine.unify(expected_ty, &tuple_ty);
@@ -143,8 +163,10 @@ impl Lowerer {
                                                 .generic_params
                                                 .iter()
                                                 .map(|param| {
-                                                    self.engine
-                                                        .fresh_type_var_of_kind(param.kind.clone())
+                                                    self.engine.fresh_type_var_at_kind(
+                                                        span.clone(),
+                                                        param.kind.clone(),
+                                                    )
                                                 })
                                                 .collect();
                                             let enum_ty = Type::Enum {
@@ -154,8 +176,11 @@ impl Lowerer {
                                             if let Err(err) =
                                                 self.engine.unify(expected_ty, &enum_ty)
                                             {
-                                                self.diagnostics.push_with_span(
-                                                    format!("pattern type mismatch: {}", err),
+                                                self.diagnostics.push_type_with_span(
+                                                    format!(
+                                                        "pattern type mismatch: {}",
+                                                        err.render(&self.engine)
+                                                    ),
                                                     span,
                                                 );
                                                 return HirPattern::Wildcard;
@@ -191,7 +216,7 @@ impl Lowerer {
                                     let Some(variant) =
                                         enum_info.variants.iter().find(|v| v.name == variant_name)
                                     else {
-                                        self.diagnostics.push_with_span(
+                                        self.diagnostics.push_type_with_span(
                                             format!(
                                                 "pattern type mismatch: enum {} has no variant {}",
                                                 enum_name, variant_name
@@ -208,7 +233,11 @@ impl Lowerer {
                                             .collect(),
                                         _ => args
                                             .iter()
-                                            .map(|_| self.engine.fresh_type_var())
+                                            .map(|_| {
+                                                self.engine.fresh_type_var_at(identifier_path_span(
+                                                    &inst_pat.name,
+                                                ))
+                                            })
                                             .collect(),
                                     };
 
@@ -274,7 +303,11 @@ impl Lowerer {
                                             }
                                             _ => args
                                                 .iter()
-                                                .map(|_| self.engine.fresh_type_var())
+                                                .map(|_| {
+                                                    self.engine.fresh_type_var_at(
+                                                        identifier_path_span(&inst_pat.name),
+                                                    )
+                                                })
                                                 .collect(),
                                         };
 
@@ -297,7 +330,7 @@ impl Lowerer {
                                     }
 
                                     let span = identifier_path_span(&inst_pat.name);
-                                    self.diagnostics.push_with_span(
+                                    self.diagnostics.push_type_with_span(
                                         format!(
                                             "pattern type mismatch: enum {} has no variant {}",
                                             enum_name, type_name
@@ -309,7 +342,7 @@ impl Lowerer {
 
                                 let span = identifier_path_span(&inst_pat.name);
                                 let actual = self.display_type(&resolved_expected_ty);
-                                self.diagnostics.push_with_span(
+                                self.diagnostics.push_type_with_span(
                                     format!(
                                         "pattern type mismatch: unknown enum scrutinee {}",
                                         actual
@@ -333,7 +366,9 @@ impl Lowerer {
                         let patterns: Vec<HirPattern> = args
                             .iter()
                             .map(|p| {
-                                let t = self.engine.fresh_type_var();
+                                let t = self
+                                    .engine
+                                    .fresh_type_var_at(identifier_path_span(&inst_pat.name));
                                 self.lower_pattern(p, &t)
                             })
                             .collect();
@@ -402,7 +437,7 @@ impl Lowerer {
                                     crate::lower::resolution::LowerResolutionContext::new(self)
                                         .resolve_enum_type(&enum_name)
                                 else {
-                                    self.diagnostics.push_with_span(
+                                    self.diagnostics.push_type_with_span(
                                         format!(
                                             "pattern type mismatch: unknown enum {}",
                                             enum_name
@@ -417,7 +452,7 @@ impl Lowerer {
                                     .find(|variant| variant.name == variant_name)
                                     .cloned()
                                 else {
-                                    self.diagnostics.push_with_span(
+                                    self.diagnostics.push_type_with_span(
                                         format!(
                                             "pattern type mismatch: enum {} has no variant {}",
                                             enum_name, variant_name
@@ -435,8 +470,10 @@ impl Lowerer {
                                             .generic_params
                                             .iter()
                                             .map(|param| {
-                                                self.engine
-                                                    .fresh_type_var_of_kind(param.kind.clone())
+                                                self.engine.fresh_type_var_at_kind(
+                                                    span.clone(),
+                                                    param.kind.clone(),
+                                                )
                                             })
                                             .collect();
                                         let enum_ty = Type::Enum {
@@ -444,8 +481,11 @@ impl Lowerer {
                                             args: fresh_type_args.clone(),
                                         };
                                         if let Err(err) = self.engine.unify(expected_ty, &enum_ty) {
-                                            self.diagnostics.push_with_span(
-                                                format!("pattern type mismatch: {}", err),
+                                            self.diagnostics.push_type_with_span(
+                                                format!(
+                                                    "pattern type mismatch: {}",
+                                                    err.render(&self.engine)
+                                                ),
                                                 span,
                                             );
                                             return HirPattern::Wildcard;
@@ -480,7 +520,7 @@ impl Lowerer {
 
                                 let HirVariantFields::Named(variant_fields) = &variant.fields
                                 else {
-                                    self.diagnostics.push_with_span(
+                                    self.diagnostics.push_type_with_span(
                                         format!(
                                             "pattern type mismatch: enum variant {}::{} does not have named fields",
                                             enum_name, variant_name
@@ -495,7 +535,7 @@ impl Lowerer {
                                         .iter()
                                         .any(|variant_field| variant_field.name == field.name.name)
                                     {
-                                        self.diagnostics.push_with_span(
+                                        self.diagnostics.push_type_with_span(
                                             format!(
                                                 "pattern type mismatch: enum variant {}::{} has no field '{}'",
                                                 enum_name, variant_name, field.name.name
@@ -553,7 +593,10 @@ impl Lowerer {
                                         .generic_params
                                         .iter()
                                         .map(|param| {
-                                            self.engine.fresh_type_var_of_kind(param.kind.clone())
+                                            self.engine.fresh_type_var_at_kind(
+                                                identifier_path_span(&inst_pat.name),
+                                                param.kind.clone(),
+                                            )
                                         })
                                         .collect()
                                 })
@@ -580,8 +623,10 @@ impl Lowerer {
                         };
                         if let Err(e) = self.engine.unify(expected_ty, &struct_ty) {
                             let span = identifier_path_span(&inst_pat.name);
-                            self.diagnostics
-                                .push_with_span(format!("pattern type mismatch: {}", e), span);
+                            self.diagnostics.push_type_with_span(
+                                format!("pattern type mismatch: {}", e.render(&self.engine)),
+                                span,
+                            );
                             return HirPattern::Wildcard;
                         }
 
@@ -602,13 +647,16 @@ impl Lowerer {
                                         &f.name.name,
                                         &f.name.span,
                                     )
-                                    .unwrap_or_else(|| self.engine.fresh_type_var());
+                                     .unwrap_or_else(|| {
+                                         self.engine
+                                             .fresh_type_var_at(f.name.span.clone())
+                                     });
                                 let pat = match &f.pattern.kind {
                                     ast::PatternKind::Wildcard | ast::PatternKind::Ident(_) => {
                                         self.lower_pattern(&f.pattern, &t)
                                     }
                                     _ => {
-                                        self.diagnostics.push_with_span(
+                                        self.diagnostics.push_type_with_span(
                                             "Struct field patterns currently only support bindings and wildcards"
                                                 .to_string(),
                                             f.name.span.clone(),

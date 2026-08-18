@@ -751,7 +751,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Ty::Array { len, .. } => Ok(Some(
                         self.context.i64_type().const_int(*len as u64, false).into(),
                     )),
-                    other => Err(CodegenError::from(format!(
+                    other => Err(CodegenError::layout(format!(
                         "ArrayLen expected slice/array, got {:?}",
                         other
                     ))),
@@ -759,7 +759,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ty::Array { len, .. } => Ok(Some(
                     self.context.i64_type().const_int(*len as u64, false).into(),
                 )),
-                other => Err(CodegenError::from(format!(
+                other => Err(CodegenError::layout(format!(
                     "ArrayLen expected slice/array, got {:?}",
                     other
                 ))),
@@ -829,7 +829,7 @@ impl<'ctx> CodeGen<'ctx> {
                     };
                     Ok(Some(ptr.into()))
                 }
-                other => Err(CodegenError::from(format!(
+                other => Err(CodegenError::layout(format!(
                     "ArrPtr expected slice/array, got {:?}",
                     other
                 ))),

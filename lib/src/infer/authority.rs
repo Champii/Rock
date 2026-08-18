@@ -533,7 +533,7 @@ pub(super) fn pending_authority_error(
         })
         .and_then(|obligation| obligation.span.clone())
         .expect("pending source authority obligation must carry its expression span");
-    ResolveError::with_span(message, span)
+    ResolveError::with_span_code(message, span, crate::diagnostic::DiagnosticCode::Selection)
 }
 
 pub(super) fn pending_authority_context(obligations: &[AuthorityObligation]) -> Option<&str> {
@@ -1128,6 +1128,7 @@ fn propagate_expr(
             *function_id,
             constrained_vars,
             errors,
+            &expr.span,
         );
     }
     match &mut expr.kind {
@@ -1158,7 +1159,7 @@ fn propagate_expr(
                 propagate_expr(hir, arg, constrained_vars, errors);
             }
             if let Some(target) = target {
-                propagate_method_result(hir, expr.ty.clone(), target, errors);
+                propagate_method_result(hir, expr.ty.clone(), target, errors, &expr.span);
             }
         }
         HirExprKind::Try { expr, .. } => propagate_expr(hir, expr, constrained_vars, errors),
@@ -1266,6 +1267,7 @@ fn propagate_function_value_instance(
     function_id: DefId,
     _constrained_vars: &HashMap<DefId, HashSet<crate::ids::TypeVarId>>,
     errors: &mut Vec<ResolveError>,
+    span: &crate::lexer::Span,
 ) {
     let Some(function) = hir
         .functions
@@ -1293,6 +1295,7 @@ fn propagate_function_value_instance(
         &source,
         errors,
         &format!("named callable '{}'", function.name),
+        span,
     );
 }
 
@@ -1361,7 +1364,7 @@ fn propagate_call_instance(
             let resolved_callee = hir.engine.resolve(&callee.ty);
             if let Type::Function { params, ret, .. } = resolved_callee {
                 for (arg, expected) in args.iter().zip(params.iter()) {
-                    propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors);
+                    propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors, &arg.span);
                 }
                 propagate_generic_scheme_type(&mut hir.engine, &source_ret, ret.as_ref());
                 let resolved_ret = hir.engine.resolve(ret.as_ref());
@@ -1442,7 +1445,7 @@ fn propagate_call_instance(
             }
         }
         for (arg, expected) in args.iter().zip(params.iter()) {
-            propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors);
+            propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors, &arg.span);
         }
         if let Some(source_result) = source_partial_result {
             let _ = hir.engine.unify(result_ty, &source_result);
@@ -1484,7 +1487,7 @@ fn propagate_call_instance(
     };
     let instance_ret = *ret;
     for (arg, expected) in args.iter().zip(params.iter()) {
-        propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors);
+        propagate_argument_type(&mut hir.engine, &arg.ty, expected, errors, &arg.span);
     }
     let result_type = if args.len() < params.len() {
         Type::function_with_safety(
@@ -1506,6 +1509,7 @@ fn propagate_argument_type(
     actual: &Type,
     expected: &Type,
     errors: &mut Vec<ResolveError>,
+    span: &crate::lexer::Span,
 ) {
     if let (
         Type::Function {
@@ -1522,9 +1526,10 @@ fn propagate_argument_type(
             expected_ret.as_ref(),
             errors,
             "callable return",
+            span,
         );
     }
-    unify_propagated_callable(engine, actual, expected, errors, "callable argument");
+    unify_propagated_callable(engine, actual, expected, errors, "callable argument", span);
 }
 
 fn unify_propagated_callable(
@@ -1533,6 +1538,7 @@ fn unify_propagated_callable(
     expected: &Type,
     errors: &mut Vec<ResolveError>,
     context: &str,
+    span: &crate::lexer::Span,
 ) -> bool {
     let mut probe = engine.clone_for_probe();
     match probe.unify(actual, expected) {
@@ -1544,9 +1550,10 @@ fn unify_propagated_callable(
             if !contains_recovery_type(&engine.resolve(actual))
                 && !contains_recovery_type(&engine.resolve(expected)) =>
         {
-            errors.push(ResolveError::new(format!(
-                "{context} type mismatch: {error}"
-            )));
+            errors.push(ResolveError::with_span(
+                format!("{context} type mismatch: {}", error.render(engine)),
+                span.clone(),
+            ));
             false
         }
         Err(_) => false,
@@ -1778,6 +1785,7 @@ fn propagate_method_result(
     result_ty: Type,
     target: &crate::hir::HirMethodCallTarget,
     errors: &mut Vec<ResolveError>,
+    span: &crate::lexer::Span,
 ) {
     let Some(method) = find_method(hir, target.method_id()) else {
         return;
@@ -1793,10 +1801,14 @@ fn propagate_method_result(
         return;
     }
     if let Err(error) = hir.engine.unify(&method_result, &result_ty) {
-        errors.push(ResolveError::new(format!(
-            "inferred method result for '{}' is incompatible with its solved scheme: {error}",
-            method.name
-        )));
+        errors.push(ResolveError::with_span(
+            format!(
+                "inferred method result for '{}' is incompatible with its solved scheme: {}",
+                method.name,
+                error.render(&hir.engine)
+            ),
+            span.clone(),
+        ));
     }
 }
 
@@ -2190,7 +2202,10 @@ impl MethodAuthorityContext<'_> {
             .into_iter()
             .map(|id| {
                 let kind = self.engine.borrow().kind_of_type_var(id);
-                let fresh = self.engine.borrow_mut().fresh_type_var_of_kind(kind);
+                let fresh = self
+                    .engine
+                    .borrow_mut()
+                    .fresh_type_var_at_kind(callee.span.clone(), kind);
                 (id, fresh)
             })
             .collect::<HashMap<_, _>>();
@@ -2875,10 +2890,15 @@ impl MethodAuthorityContext<'_> {
                         self.ambiguous = true;
                         continue;
                     }
-                    errors.push(ResolveError::new(format!(
-                        "Ambiguous selection for '{}' on type {}",
-                        method_name, candidate.expr.ty
-                    )));
+                    errors.push(ResolveError::with_span_code(
+                        format!(
+                            "Ambiguous selection for '{}' on type {}",
+                            method_name,
+                            self.display_type(&candidate.expr.ty)
+                        ),
+                        candidate.expr.span.clone(),
+                        crate::diagnostic::DiagnosticCode::Selection,
+                    ));
                     return None;
                 }
             }
@@ -2891,10 +2911,15 @@ impl MethodAuthorityContext<'_> {
                 self.ambiguous = true;
                 return None;
             }
-            errors.push(ResolveError::new(format!(
-                "Ambiguous selection for '{}' on type {}",
-                method_name, receiver.ty
-            )));
+            errors.push(ResolveError::with_span_code(
+                format!(
+                    "Ambiguous selection for '{}' on type {}",
+                    method_name,
+                    self.display_type(&receiver.ty)
+                ),
+                receiver.span.clone(),
+                crate::diagnostic::DiagnosticCode::Selection,
+            ));
             return None;
         }
         if deferred.is_empty()
@@ -2982,10 +3007,14 @@ impl MethodAuthorityContext<'_> {
                         }
                     }
                 }
-                errors.push(ResolveError::new(format!(
-                    "Ambiguous selection for '{}' on type {}",
-                    method_name, receiver.ty
-                )));
+                errors.push(ResolveError::with_span(
+                    format!(
+                        "Ambiguous selection for '{}' on type {}",
+                        method_name,
+                        self.display_type(&receiver.ty)
+                    ),
+                    receiver.span.clone(),
+                ));
                 return None;
             }
         }
@@ -2997,10 +3026,14 @@ impl MethodAuthorityContext<'_> {
                 self.ambiguous = true;
                 return None;
             }
-            errors.push(ResolveError::new(format!(
-                "Ambiguous selection for '{}' on type {}",
-                method_name, receiver.ty
-            )));
+            errors.push(ResolveError::with_span(
+                format!(
+                    "Ambiguous selection for '{}' on type {}",
+                    method_name,
+                    self.display_type(&receiver.ty)
+                ),
+                receiver.span.clone(),
+            ));
             return None;
         }
         if self
@@ -3011,10 +3044,13 @@ impl MethodAuthorityContext<'_> {
                 |ty| self.resolved_type(ty),
             )
         {
-            errors.push(ResolveError::new(format!(
-                "Cannot call mutable receiver method '{}' without a mutable receiver",
-                method_name
-            )));
+            errors.push(ResolveError::with_span(
+                format!(
+                    "Cannot call mutable receiver method '{}' without a mutable receiver",
+                    method_name
+                ),
+                receiver.span.clone(),
+            ));
         }
         None
     }
@@ -3090,19 +3126,22 @@ impl MethodAuthorityContext<'_> {
                 };
 
                 let Some(function) = selected.function.as_ref() else {
-                    errors.push(ResolveError::new(format!(
-                        "selected method '{}' has no executable body",
-                        method_name
-                    )));
+                    errors.push(ResolveError::with_span(
+                        format!("selected method '{}' has no executable body", method_name),
+                        expr.span.clone(),
+                    ));
                     return;
                 };
                 if selected.substituted_params.len() != args.len() {
-                    errors.push(ResolveError::new(format!(
-                        "selected method '{}' expects {} arguments but received {}",
-                        method_name,
-                        selected.substituted_params.len(),
-                        args.len()
-                    )));
+                    errors.push(ResolveError::with_span(
+                        format!(
+                            "selected method '{}' expects {} arguments but received {}",
+                            method_name,
+                            selected.substituted_params.len(),
+                            args.len()
+                        ),
+                        expr.span.clone(),
+                    ));
                     return;
                 }
 
@@ -3165,10 +3204,15 @@ impl MethodAuthorityContext<'_> {
                         if !self.strict {
                             return;
                         }
-                        errors.push(ResolveError::new(format!(
-                            "selected method '{}' argument type {} does not match {}",
-                            method_name, arg.ty, param.ty
-                        )));
+                        errors.push(ResolveError::with_span(
+                            format!(
+                                "selected method '{}' argument type {} does not match {}",
+                                method_name,
+                                self.display_type(&arg.ty),
+                                self.display_type(&param.ty)
+                            ),
+                            arg.span.clone(),
+                        ));
                         return;
                     }
                 }
@@ -3197,10 +3241,13 @@ impl MethodAuthorityContext<'_> {
                         if !self.strict {
                             return;
                         }
-                        errors.push(ResolveError::new(format!(
-                            "selected method '{}' leaves generic {:?} unresolved",
-                            method_name, param
-                        )));
+                        errors.push(ResolveError::with_span(
+                            format!(
+                                "selected method '{}' leaves a generic parameter unresolved",
+                                method_name
+                            ),
+                            expr.span.clone(),
+                        ));
                         return;
                     };
                     method_substitution.push(HirTypeBinding {
@@ -3226,10 +3273,14 @@ impl MethodAuthorityContext<'_> {
                     let mut engine = self.engine.borrow_mut();
                     if let Err(error) = engine.unify(&callee.ty, &selected_callable) {
                         if self.strict {
-                            errors.push(ResolveError::new(format!(
-                                "selected method '{}' callable type does not match its deferred call: {error}",
-                                method_name
-                            )));
+                            errors.push(ResolveError::with_span(
+                                format!(
+                                    "selected method '{}' callable type does not match its deferred call: {}",
+                                    method_name,
+                                    error.render(&engine)
+                                ),
+                                expr.span.clone(),
+                            ));
                             return;
                         }
                         self.ambiguous = true;
@@ -3253,8 +3304,9 @@ impl MethodAuthorityContext<'_> {
                     self.materialize_expr(arg, errors);
                 }
                 if selected_site && self.strict && target.is_none() {
-                    errors.push(ResolveError::new(
+                    errors.push(ResolveError::with_span(
                         "accepted HIR method call has no selected authority".to_string(),
+                        expr.span.clone(),
                     ));
                 }
             }
@@ -3373,11 +3425,14 @@ impl MethodAuthorityContext<'_> {
         };
         if params.len() != args.len() {
             if self.strict {
-                errors.push(ResolveError::new(format!(
-                    "callable expects {} arguments but received {}",
-                    params.len(),
-                    args.len()
-                )));
+                errors.push(ResolveError::with_span(
+                    format!(
+                        "callable expects {} arguments but received {}",
+                        params.len(),
+                        args.len()
+                    ),
+                    callee.span.clone(),
+                ));
             }
             return;
         }
@@ -3416,9 +3471,15 @@ impl MethodAuthorityContext<'_> {
             let mut probe = self.engine.borrow().clone_for_probe();
             match probe.unify(&actual, &expected) {
                 Ok(()) => self.engine.borrow_mut().commit_probe(probe),
-                Err(error) if self.strict => errors.push(ResolveError::new(format!(
-                    "callable argument type {actual} does not match {expected}: {error}"
-                ))),
+                Err(error) if self.strict => errors.push(ResolveError::with_span(
+                    format!(
+                        "callable argument type {} does not match {}: {}",
+                        self.display_type(&actual),
+                        self.display_type(&expected),
+                        error.render(&probe)
+                    ),
+                    arg.span.clone(),
+                )),
                 Err(_) => self.ambiguous = true,
             }
         }
@@ -3453,18 +3514,20 @@ impl MethodAuthorityContext<'_> {
         }
         let Some(protocol) = self.try_protocol.as_ref() else {
             if self.try_strict && self.strict {
-                errors.push(ResolveError::new(
+                errors.push(ResolveError::with_span(
                     "Cannot use '?' because the Try language-item protocol is unavailable"
                         .to_string(),
+                    expr.span.clone(),
                 ));
             }
             return;
         };
         let Some(try_trait) = self.traits.get(&protocol.try_trait_id) else {
             if self.try_strict && self.strict {
-                errors.push(ResolveError::new(
+                errors.push(ResolveError::with_span(
                     "Cannot use '?' because the Try language-item protocol is unavailable"
                         .to_string(),
+                    expr.span.clone(),
                 ));
             }
             return;
@@ -3474,9 +3537,10 @@ impl MethodAuthorityContext<'_> {
             let carrier_ty = self.resolved_type(&operand.ty);
             if try_carrier_has_unknown_head(&carrier_ty) {
                 if self.try_strict {
-                    errors.push(ResolveError::new(
+                    errors.push(ResolveError::with_span(
                         "Cannot use '?' because its carrier type is unresolved or generic"
                             .to_string(),
+                        expr.span.clone(),
                     ));
                 }
                 return;
@@ -3509,7 +3573,7 @@ impl MethodAuthorityContext<'_> {
                         _ => self.display_selection_error(&error),
                     };
                     if self.try_strict && self.strict {
-                        errors.push(ResolveError::new(message));
+                        errors.push(ResolveError::with_span(message, expr.span.clone()));
                     }
                     return;
                 }
@@ -3518,10 +3582,13 @@ impl MethodAuthorityContext<'_> {
             if let Some(function) = selected.function.as_ref() {
                 if function.is_unsafe && !self.unsafe_context.get() {
                     if self.try_strict && self.strict {
-                        errors.push(ResolveError::new(format!(
-                            "Call to unsafe function '{}' requires an unsafe block",
-                            function.name
-                        )));
+                        errors.push(ResolveError::with_span(
+                            format!(
+                                "Call to unsafe function '{}' requires an unsafe block",
+                                function.name
+                            ),
+                            expr.span.clone(),
+                        ));
                     }
                     return;
                 }
@@ -3531,9 +3598,10 @@ impl MethodAuthorityContext<'_> {
                 self.selected_try_associated_type(&selected, try_trait, protocol.output_id)
             else {
                 if self.try_strict && self.strict {
-                    errors.push(ResolveError::new(
+                    errors.push(ResolveError::with_span(
                         "Cannot use '?' because the Try language-item output type is unavailable"
                             .to_string(),
+                        expr.span.clone(),
                     ));
                 }
                 return;
@@ -3542,9 +3610,10 @@ impl MethodAuthorityContext<'_> {
                 self.selected_try_associated_type(&selected, try_trait, protocol.residual_id)
             else {
                 if self.try_strict && self.strict {
-                    errors.push(ResolveError::new(
+                    errors.push(ResolveError::with_span(
                         "Cannot use '?' because the Try language-item residual type is unavailable"
                             .to_string(),
+                        expr.span.clone(),
                     ));
                 }
                 return;
@@ -3554,18 +3623,26 @@ impl MethodAuthorityContext<'_> {
                 let mut engine = self.engine.borrow_mut();
                 if let Err(error) = engine.unify(output_ty, &selected_output) {
                     if self.try_strict && self.strict {
-                        errors.push(ResolveError::new(format!(
-                            "Cannot use '?' because its output type could not be resolved: {error}"
-                        )));
+                        errors.push(ResolveError::with_span(
+                            format!(
+                                "Cannot use '?' because its output type could not be resolved: {}",
+                                error.render(&engine)
+                            ),
+                            expr.span.clone(),
+                        ));
                     }
                     return;
                 }
                 expr.ty = engine.resolve(output_ty);
                 if let Err(error) = engine.unify(residual_ty, &selected_residual) {
                     if self.try_strict && self.strict {
-                        errors.push(ResolveError::new(format!(
-                            "Cannot use '?' because its residual type could not be resolved: {error}"
-                        )));
+                        errors.push(ResolveError::with_span(
+                            format!(
+                                "Cannot use '?' because its residual type could not be resolved: {}",
+                                error.render(&engine)
+                            ),
+                            expr.span.clone(),
+                        ));
                     }
                     return;
                 }
@@ -3573,9 +3650,10 @@ impl MethodAuthorityContext<'_> {
             let selected_residual = self.resolved_type(&selected_residual);
             if try_type_head_is_unresolved(&selected_residual) {
                 if self.try_strict && self.strict {
-                    errors.push(ResolveError::new(
+                    errors.push(ResolveError::with_span(
                         "Cannot use '?' because its Try residual type is unresolved or generic"
                             .to_string(),
+                        expr.span.clone(),
                     ));
                 }
                 return;
@@ -3602,9 +3680,10 @@ impl MethodAuthorityContext<'_> {
             let resolved_return_ty = self.resolved_type(return_ty);
             if try_type_head_is_unresolved(&resolved_return_ty) {
                 if self.try_strict && self.strict {
-                    errors.push(ResolveError::new(
+                    errors.push(ResolveError::with_span(
                         "Cannot use '?' because its enclosing return type is unresolved or generic"
                             .to_string(),
+                        expr.span.clone(),
                     ));
                 }
                 return;
@@ -3618,9 +3697,10 @@ impl MethodAuthorityContext<'_> {
             let Some(from_residual_trait) = self.traits.get(&protocol.from_residual_trait_id)
             else {
                 if self.try_strict && self.strict {
-                    errors.push(ResolveError::new(
+                    errors.push(ResolveError::with_span(
                         "Cannot use '?' because the FromResidual language-item trait is unavailable"
                             .to_string(),
+                        expr.span.clone(),
                     ));
                 }
                 return;
@@ -3658,7 +3738,7 @@ impl MethodAuthorityContext<'_> {
                         _ => self.display_selection_error(&error),
                     };
                     if self.try_strict && self.strict {
-                        errors.push(ResolveError::new(message));
+                        errors.push(ResolveError::with_span(message, expr.span.clone()));
                     }
                     return;
                 }
@@ -3666,10 +3746,13 @@ impl MethodAuthorityContext<'_> {
             if let Some(function) = selected.function.as_ref() {
                 if function.is_unsafe && !self.unsafe_context.get() {
                     if self.try_strict && self.strict {
-                        errors.push(ResolveError::new(format!(
-                            "Call to unsafe function '{}' requires an unsafe block",
-                            function.name
-                        )));
+                        errors.push(ResolveError::with_span(
+                            format!(
+                                "Call to unsafe function '{}' requires an unsafe block",
+                                function.name
+                            ),
+                            expr.span.clone(),
+                        ));
                     }
                     return;
                 }
@@ -3736,7 +3819,13 @@ impl MethodAuthorityContext<'_> {
         let mut substitution = function
             .generic_params
             .iter()
-            .map(|param| (param.id, engine.fresh_type_var_of_kind(param.kind.clone())))
+            .map(|param| {
+                (
+                    param.id,
+                    engine
+                        .fresh_type_var_at_kind(selected.receiver.span.clone(), param.kind.clone()),
+                )
+            })
             .collect::<HashMap<_, _>>();
         if function.is_method {
             if let Some(self_param) = function.params.first() {
@@ -3856,10 +3945,10 @@ impl MethodAuthorityContext<'_> {
         errors: &mut Vec<ResolveError>,
     ) {
         let Some(function) = selected.function.clone() else {
-            errors.push(ResolveError::new(format!(
-                "selected method '{}' has no executable body",
-                method_name
-            )));
+            errors.push(ResolveError::with_span(
+                format!("selected method '{}' has no executable body", method_name),
+                expr.span.clone(),
+            ));
             return;
         };
         let mut substitution = selected.owner_substitution.clone();
@@ -3867,7 +3956,7 @@ impl MethodAuthorityContext<'_> {
             substitution.entry(param.id).or_insert_with(|| {
                 self.engine
                     .borrow_mut()
-                    .fresh_type_var_of_kind(param.kind.clone())
+                    .fresh_type_var_at_kind(expr.span.clone(), param.kind.clone())
             });
         }
         let mut lambda_params = Vec::new();
@@ -3949,10 +4038,14 @@ impl MethodAuthorityContext<'_> {
         let receiver_ty = &receiver.ty;
         let Type::Struct { id, args } = receiver_ty else {
             if !contains_inference_type(receiver_ty) {
-                errors.push(ResolveError::new(format!(
-                    "Unknown field '{}' on type '{}'",
-                    field_name, receiver_ty
-                )));
+                errors.push(ResolveError::with_span(
+                    format!(
+                        "Unknown field '{}' on type '{}'",
+                        field_name,
+                        self.display_type(receiver_ty)
+                    ),
+                    expr.span.clone(),
+                ));
             }
             return;
         };
@@ -3964,20 +4057,26 @@ impl MethodAuthorityContext<'_> {
             .iter()
             .find(|field| field.name == *field_name)
         else {
-            errors.push(ResolveError::new(format!(
-                "Unknown field '{}' on struct '{}'",
-                field_name, structure.name
-            )));
+            errors.push(ResolveError::with_span(
+                format!(
+                    "Unknown field '{}' on struct '{}'",
+                    field_name, structure.name
+                ),
+                expr.span.clone(),
+            ));
             return;
         };
         if !field.public {
             if !self.strict {
                 return;
             }
-            errors.push(ResolveError::new(format!(
-                "field '{}' of struct '{}' is private",
-                field_name, structure.name
-            )));
+            errors.push(ResolveError::with_span(
+                format!(
+                    "field '{}' of struct '{}' is private",
+                    field_name, structure.name
+                ),
+                expr.span.clone(),
+            ));
             return;
         }
         *location = Some(HirFieldLocation {

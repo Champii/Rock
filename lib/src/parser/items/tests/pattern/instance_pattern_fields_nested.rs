@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -12,9 +13,9 @@ fn instance_pattern_fields_nested() {
 
     let (rest, pattern) = pattern.process(ParseCtx::from(&tokens, &config)).unwrap();
 
-    assert_eq!(
-        pattern,
-        Pattern {
+    assert_formatted_eq(
+        &pattern,
+        &Pattern {
             binding: None,
             kind: PatternKind::Instance(InstancePattern {
                 name: TypePath {
@@ -22,7 +23,7 @@ fn instance_pattern_fields_nested() {
                         name: "Player".to_string(),
                         generics: vec![],
                         span: Span::test(),
-                    }))]
+                    }))],
                 },
                 args: FieldsPatternOrArgumentsPattern::Fields(vec![
                     FieldPattern {
@@ -41,8 +42,8 @@ fn instance_pattern_fields_nested() {
                                                 name: "Ok".to_string(),
                                                 generics: vec![],
                                                 span: Span::test(),
-                                            }
-                                        ))]
+                                            },
+                                        ))],
                                     },
                                     args: FieldsPatternOrArgumentsPattern::Arguments(vec![
                                         Pattern {
@@ -50,12 +51,12 @@ fn instance_pattern_fields_nested() {
                                             kind: PatternKind::Literal(Literal {
                                                 kind: LiteralKind::Number(1),
                                                 span: Span::test(),
-                                            })
-                                        }
-                                    ])
-                                })
-                            }))
-                        }
+                                            }),
+                                        },
+                                    ]),
+                                }),
+                            })),
+                        },
                     },
                     FieldPattern {
                         name: Ident {
@@ -70,12 +71,12 @@ fn instance_pattern_fields_nested() {
                                     span: Span::test(),
                                 },
                                 mut_: false,
-                            })
-                        }
-                    }
-                ])
-            })
-        }
+                            }),
+                        },
+                    },
+                ]),
+            }),
+        },
     );
 
     assert_eq!(rest.len(), 0);

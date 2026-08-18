@@ -24,6 +24,8 @@
 - When the user asks whether an audit step is fully done, separate the scoped step verdict from the broader clean-slate/string-identity audit. Step 2 only covered production codegen name-keyed layout side tables; broader string/name-based identity remains in later audit items.
 
 ## Compiler Architecture
+- Source-aware diagnostics must use real source ownership through `SourceDatabase`, `DiagnosticSourceMap`, and exact `Span` values propagated from parser through lowering, inference, MIR, macro expansion, and CLI reporting. Do not add production `Span::default()`, `Span::test()`, definition-span, or ambient/module fallback spans for user-facing diagnostics; fix the phase that lost the real source instead.
+- `Span` equality includes path/range, so parser/unit tests that compare ASTs must build expected spans from the same test source context instead of weakening production `Span` semantics.
 - Current compiler cleanup prefers canonical IDs for semantic decisions. `DefId`, `InstanceId`, `HirVarTarget`, and `HirCallTarget` should drive callable selection when available; strings should remain compatibility, display, diagnostic, artifact metadata, or local lexical metadata.
 - `generic_function_by_id` and `external_generic_functions_by_id` are the preferred resolved generic lookup paths. `*_by_compat_name` helpers are for unresolved or legacy compatibility inputs only.
 - When updating `docs/superpowers/plans/master-audit-checklist.md` or roadmap docs, avoid overclaiming. String-keyed mono semantic lookup is complete only where canonical IDs are available; legacy non-pipeline HIR/name pruning helpers are removed; instance body representation and MIR/codegen metadata cleanup remain follow-ups.

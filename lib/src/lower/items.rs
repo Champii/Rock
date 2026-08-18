@@ -115,7 +115,7 @@ impl LowerItems {
     ) -> Result<(), crate::lower::ResolveError> {
         let id = impl_def.id;
         if self.declarations.impl_def(id).is_some() {
-            return Err(crate::lower::ResolveError::new(format!(
+            return Err(crate::lower::ResolveError::non_source(format!(
                 "duplicate impl declaration for DefId {id:?}"
             )));
         }
@@ -255,7 +255,7 @@ impl LowerItems {
                 .iter()
                 .any(|id| self.declarations.impl_def(*id).is_none())
         {
-            errors.push(crate::lower::ResolveError::new(
+            errors.push(crate::lower::ResolveError::non_source(
                 "impl order does not match impl declaration IDs".to_string(),
             ));
         }
@@ -392,6 +392,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         };
 
@@ -431,6 +432,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         };
 
@@ -473,6 +475,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         };
 
@@ -699,6 +702,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         };
 

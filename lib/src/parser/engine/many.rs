@@ -38,7 +38,11 @@ where
 
         if self.at_least_one_result && output.is_empty() {
             // If we have a deepest error, use it; otherwise use ExpectedOneOrMore
-            return Err(deepest_error.unwrap_or(ParseError::ExpectedOneOrMore));
+            let span = tokens
+                .seek()
+                .map(|token| token.span)
+                .unwrap_or_else(|_| tokens.eof_span());
+            return Err(deepest_error.unwrap_or(ParseError::ExpectedOneOrMore(span)));
         }
 
         Ok((tokens, output))

@@ -58,9 +58,9 @@ impl<'ctx> CodeGen<'ctx> {
             Rvalue::Discriminant(place) => {
                 let (_, ty) = self.compile_mir_place_local(context, place)?;
                 if !matches!(ty, Type::Enum { .. }) {
-                    return Err(CodegenError::from(format!(
+                    return Err(CodegenError::layout(format!(
                         "MIR discriminant codegen expected enum place, got {}",
-                        ty
+                        self.display_type_for_diagnostic(&ty)
                     )));
                 }
 
@@ -129,9 +129,9 @@ impl<'ctx> CodeGen<'ctx> {
                     let (data_ptr, len) = self.slice_parts_from_value(value, &source_ty)?;
                     self.make_fat_slice_value(data_ptr, len)
                 }
-                _ => Err(CodegenError::from(format!(
+                _ => Err(CodegenError::layout(format!(
                     "MIR fat reference expected slice-compatible source, got {}",
-                    source_ty
+                    self.display_type_for_diagnostic(&source_ty)
                 ))),
             };
         }
@@ -152,13 +152,12 @@ impl<'ctx> CodeGen<'ctx> {
             .get(&closure_function_id)
             .cloned()
             .ok_or_else(|| {
-                CodegenError::from(format!(
-                    "MIR closure function was not declared before codegen: {:?}",
-                    closure.id
-                ))
+                CodegenError::backend_contract(
+                    "MIR closure function was not declared before codegen",
+                )
             })?;
         let closure_fn = self.functions.get(&symbol).copied().ok_or_else(|| {
-            CodegenError::from(format!(
+            CodegenError::layout(format!(
                 "LLVM function '{}' not found for MIR closure",
                 symbol
             ))
@@ -295,19 +294,18 @@ impl<'ctx> CodeGen<'ctx> {
             ..
         } = expected_ty
         else {
-            return Err(CodegenError::from(format!(
+            return Err(CodegenError::layout(format!(
                 "MIR closure destination must be a function type, got {}",
-                expected_ty
+                self.display_type_for_diagnostic(expected_ty)
             )));
         };
         let metadata = self
             .mir_closure_metadata
             .get(closure_function_id)
             .ok_or_else(|| {
-                CodegenError::from(format!(
-                    "MIR closure metadata was not recorded before codegen: {:?}",
-                    closure.id
-                ))
+                CodegenError::backend_contract(
+                    "MIR closure metadata was not recorded before codegen",
+                )
             })?;
 
         let metadata_params = metadata
@@ -317,26 +315,28 @@ impl<'ctx> CodeGen<'ctx> {
             .collect::<Vec<_>>();
         let metadata_ret = self.structural_type_for(metadata.ret);
         if metadata_params != *expected_params || metadata_ret != **expected_ret {
-            return Err(CodegenError::from(format!(
+            let expected_ret_display = self.display_type_for_diagnostic(expected_ret);
+            let metadata_ret_display = self.display_type_for_diagnostic(&metadata_ret);
+            return Err(CodegenError::layout(format!(
                 "MIR closure signature mismatch for '{}': expected ({}) -> {}, target ({}) -> {}",
                 closure.display_name,
                 expected_params
                     .iter()
-                    .map(|ty| ty.to_string())
+                    .map(|ty| self.display_type_for_diagnostic(ty))
                     .collect::<Vec<_>>()
                     .join(", "),
-                expected_ret,
+                expected_ret_display,
                 metadata_params
                     .iter()
-                    .map(|ty| ty.to_string())
+                    .map(|ty| self.display_type_for_diagnostic(ty))
                     .collect::<Vec<_>>()
                     .join(", "),
-                metadata_ret
+                metadata_ret_display
             )));
         }
 
         if closure.captures.len() != metadata.captures.len() {
-            return Err(CodegenError::from(format!(
+            return Err(CodegenError::layout(format!(
                 "MIR closure capture layout mismatch for '{}': value has {} captures, target has {}",
                 closure.display_name,
                 closure.captures.len(),
@@ -362,9 +362,12 @@ impl<'ctx> CodeGen<'ctx> {
             };
             let target_ty = self.structural_type_for(*target_ty);
             if value_ty != target_ty {
-                return Err(CodegenError::from(format!(
+                return Err(CodegenError::layout(format!(
                     "MIR closure capture layout mismatch for '{}': capture {} has type {}, target expects {}",
-                    closure.display_name, index, value_ty, target_ty
+                    closure.display_name,
+                    index,
+                    self.display_type_for_diagnostic(&value_ty),
+                    self.display_type_for_diagnostic(&target_ty)
                 )));
             }
         }
@@ -383,9 +386,9 @@ impl<'ctx> CodeGen<'ctx> {
         match kind {
             AggregateKind::Tuple => {
                 let Type::Tuple(fields) = expected_ty else {
-                    return Err(CodegenError::from(format!(
+                    return Err(CodegenError::layout(format!(
                         "MIR tuple aggregate expected tuple destination, got {}",
-                        expected_ty
+                        self.display_type_for_diagnostic(expected_ty)
                     )));
                 };
                 self.validate_mir_aggregate_operand_count(
@@ -416,9 +419,9 @@ impl<'ctx> CodeGen<'ctx> {
             }
             AggregateKind::Array => {
                 let Type::Array(element_ty, len) = expected_ty else {
-                    return Err(CodegenError::from(format!(
+                    return Err(CodegenError::layout(format!(
                         "MIR array aggregate expected array destination, got {}",
-                        expected_ty
+                        self.display_type_for_diagnostic(expected_ty)
                     )));
                 };
                 self.validate_mir_aggregate_operand_count("array aggregate", *len, operands.len())?;
@@ -442,12 +445,11 @@ impl<'ctx> CodeGen<'ctx> {
             }
             AggregateKind::Struct { id, display_name } => {
                 let Type::Struct { id: ty_id, args } = expected_ty else {
-                    return Err(CodegenError::from(format!(
-                        "MIR struct aggregate expected struct destination in {}, got {} for {} {:?}",
+                    return Err(CodegenError::layout(format!(
+                        "MIR struct aggregate expected struct destination in {}, got {} for {}",
                         function.name,
-                        expected_ty,
-                        display_name,
-                        id
+                        self.display_type_for_diagnostic(expected_ty),
+                        display_name
                     )));
                 };
                 let layout_name = self
@@ -456,14 +458,15 @@ impl<'ctx> CodeGen<'ctx> {
                     .map(String::as_str)
                     .unwrap_or(display_name.as_str());
                 if id != ty_id {
-                    return Err(CodegenError::from(format!(
-                        "MIR struct aggregate DefId {:?} does not match destination {:?}",
-                        id, ty_id
-                    )));
+                    return Err(CodegenError::layout(
+                        "MIR struct aggregate identity does not match its destination",
+                    ));
                 }
-                let fields = self.struct_layouts_by_id.get(id).cloned().ok_or_else(|| {
-                    CodegenError::from(format!("Unknown MIR struct layout DefId {:?}", id))
-                })?;
+                let fields = self
+                    .struct_layouts_by_id
+                    .get(id)
+                    .cloned()
+                    .ok_or_else(|| CodegenError::layout("Unknown MIR struct layout"))?;
                 self.validate_mir_aggregate_operand_count(
                     &format!("struct aggregate {}", layout_name),
                     fields.len(),
@@ -501,9 +504,9 @@ impl<'ctx> CodeGen<'ctx> {
                 variant_name: _,
             } => {
                 let Type::Enum { id: ty_id, args } = expected_ty else {
-                    return Err(CodegenError::from(format!(
+                    return Err(CodegenError::layout(format!(
                         "MIR enum aggregate expected enum destination, got {}",
-                        expected_ty
+                        self.display_type_for_diagnostic(expected_ty)
                     )));
                 };
                 let layout_name = self
@@ -512,10 +515,9 @@ impl<'ctx> CodeGen<'ctx> {
                     .map(String::as_str)
                     .unwrap_or(enum_name.as_str());
                 if enum_id != ty_id {
-                    return Err(CodegenError::from(format!(
-                        "MIR enum aggregate DefId {:?} does not match destination {:?}",
-                        enum_id, ty_id
-                    )));
+                    return Err(CodegenError::layout(
+                        "MIR enum aggregate identity does not match its destination",
+                    ));
                 }
                 let variant_index = variant_id.0 as usize;
                 let expected_payload_count =
@@ -525,14 +527,9 @@ impl<'ctx> CodeGen<'ctx> {
                     expected_payload_count,
                     operands.len(),
                 )?;
-                let layout_types =
-                    self.enum_layout_types_by_id(*enum_id, args)
-                        .ok_or_else(|| {
-                            CodegenError::from(format!(
-                                "Unknown MIR enum layout DefId {:?}",
-                                enum_id
-                            ))
-                        })?;
+                let layout_types = self
+                    .enum_layout_types_by_id(*enum_id, args)
+                    .ok_or_else(|| CodegenError::layout("Unknown MIR enum layout"))?;
                 let enum_ty = self.context.struct_type(&layout_types, false);
                 let mut value = enum_ty.get_undef();
                 value = self
@@ -553,9 +550,9 @@ impl<'ctx> CodeGen<'ctx> {
                 let payload_ty = self
                     .enum_variant_payload_type_by_id(*enum_id, args, variant_index)
                     .ok_or_else(|| {
-                        CodegenError::from(format!(
-                            "Unknown MIR enum variant index {} for DefId {:?}",
-                            variant_index, enum_id
+                        CodegenError::layout(format!(
+                            "Unknown MIR enum variant index {}",
+                            variant_index
                         ))
                     })?;
                 let payload_llvm_ty = self.llvm_type(&payload_ty);
@@ -589,7 +586,7 @@ impl<'ctx> CodeGen<'ctx> {
             return Ok(());
         }
 
-        Err(CodegenError::from(format!(
+        Err(CodegenError::layout(format!(
             "MIR {} operand count mismatch: expected {}, got {}",
             context, expected, actual
         )))
@@ -602,10 +599,7 @@ impl<'ctx> CodeGen<'ctx> {
         display_name: &str,
     ) -> Result<usize, CodegenError> {
         let variants = self.enum_layouts_by_id.get(&enum_id).ok_or_else(|| {
-            CodegenError::from(format!(
-                "Unknown MIR enum layout DefId {:?}: {}",
-                enum_id, display_name
-            ))
+            CodegenError::layout(format!("Unknown MIR enum layout: {}", display_name))
         })?;
         let variant = variants.get(variant_index).ok_or_else(|| {
             CodegenError::from(format!(
@@ -661,10 +655,10 @@ impl<'ctx> CodeGen<'ctx> {
             return self.coerce_value(value, payload_llvm_ty);
         }
 
-        Err(CodegenError::from(format!(
+        Err(CodegenError::layout(format!(
             "MIR enum payload got {} operands for non-tuple payload {}",
             operands.len(),
-            payload_ty
+            self.display_type_for_diagnostic(payload_ty)
         )))
     }
 
@@ -684,7 +678,7 @@ impl<'ctx> CodeGen<'ctx> {
             Operand::Constant(Constant::Char(_)) => Ok(Type::U8),
             Operand::Constant(Constant::Unit) => Ok(Type::Unit),
             Operand::Constant(Constant::TypeId(id)) => Ok(self.type_context().type_for(*id)),
-            Operand::Constant(constant) => Err(CodegenError::from(format!(
+            Operand::Constant(constant) => Err(CodegenError::backend_contract(format!(
                 "MIR constant type is not available for codegen: {:?}",
                 constant
             ))),
@@ -722,7 +716,7 @@ impl<'ctx> CodeGen<'ctx> {
                 .id_for_type(&Type::Unit)
                 .ok_or_else(|| CodegenError::from("MIR TypeContext is missing Unit")),
             Operand::Constant(Constant::TypeId(id)) => Ok(*id),
-            Operand::Constant(constant) => Err(CodegenError::from(format!(
+            Operand::Constant(constant) => Err(CodegenError::backend_contract(format!(
                 "MIR constant type is not available for codegen: {:?}",
                 constant
             ))),
@@ -891,7 +885,8 @@ impl<'ctx> CodeGen<'ctx> {
             if !matches!(value, BasicValueEnum::StructValue(_)) {
                 return Err(CodegenError::from(format!(
                     "MIR fat pointer cast expected slice-layout value from {} to {}",
-                    from_ty, target_ty
+                    self.display_type_for_diagnostic(from_ty),
+                    self.display_type_for_diagnostic(target_ty)
                 )));
             }
             return Ok(value);
@@ -901,13 +896,15 @@ impl<'ctx> CodeGen<'ctx> {
             if from_is_fat_pointer || target_is_fat_pointer {
                 return Err(CodegenError::from(format!(
                     "Cannot cast between thin and fat MIR pointers from {} to {}",
-                    from_ty, target_ty
+                    self.display_type_for_diagnostic(from_ty),
+                    self.display_type_for_diagnostic(target_ty)
                 )));
             }
             let BasicValueEnum::PointerValue(pointer) = value else {
                 return Err(CodegenError::from(format!(
                     "MIR pointer-to-pointer cast expected pointer value from {} to {}",
-                    from_ty, target_ty
+                    self.display_type_for_diagnostic(from_ty),
+                    self.display_type_for_diagnostic(target_ty)
                 )));
             };
             return Ok(self
@@ -925,13 +922,15 @@ impl<'ctx> CodeGen<'ctx> {
             if from_is_fat_pointer {
                 return Err(CodegenError::from(format!(
                     "Cannot cast fat MIR pointer {} to integer {}",
-                    from_ty, target_ty
+                    self.display_type_for_diagnostic(from_ty),
+                    self.display_type_for_diagnostic(target_ty)
                 )));
             }
             let BasicValueEnum::PointerValue(pointer) = value else {
                 return Err(CodegenError::from(format!(
                     "MIR pointer-to-integer cast expected pointer value from {} to {}",
-                    from_ty, target_ty
+                    self.display_type_for_diagnostic(from_ty),
+                    self.display_type_for_diagnostic(target_ty)
                 )));
             };
             return Ok(self
@@ -945,13 +944,15 @@ impl<'ctx> CodeGen<'ctx> {
             if target_is_fat_pointer {
                 return Err(CodegenError::from(format!(
                     "Cannot cast integer to fat MIR pointer {} from {}",
-                    target_ty, from_ty
+                    self.display_type_for_diagnostic(target_ty),
+                    self.display_type_for_diagnostic(from_ty)
                 )));
             }
             let BasicValueEnum::IntValue(integer) = value else {
                 return Err(CodegenError::from(format!(
                     "MIR integer-to-pointer cast expected integer value from {} to {}",
-                    from_ty, target_ty
+                    self.display_type_for_diagnostic(from_ty),
+                    self.display_type_for_diagnostic(target_ty)
                 )));
             };
             return Ok(self
@@ -974,13 +975,15 @@ impl<'ctx> CodeGen<'ctx> {
             if from_is_fat_pointer || target_is_fat_pointer {
                 return Err(CodegenError::from(format!(
                     "Cannot cast fat MIR pointer {} to thin pointer {}",
-                    from_ty, target_ty
+                    self.display_type_for_diagnostic(from_ty),
+                    self.display_type_for_diagnostic(target_ty)
                 )));
             }
             if !matches!(value, BasicValueEnum::PointerValue(_)) {
                 return Err(CodegenError::from(format!(
                     "MIR reference-to-pointer cast expected pointer value from {} to {}",
-                    from_ty, target_ty
+                    self.display_type_for_diagnostic(from_ty),
+                    self.display_type_for_diagnostic(target_ty)
                 )));
             }
             return Ok(value);
@@ -992,7 +995,8 @@ impl<'ctx> CodeGen<'ctx> {
 
         Err(CodegenError::from(format!(
             "Unsupported MIR cast from {} to {}",
-            from_ty, target_ty
+            self.display_type_for_diagnostic(from_ty),
+            self.display_type_for_diagnostic(target_ty)
         )))
     }
 }

@@ -311,10 +311,13 @@ fn artifact_dependency_root_requests(
     for raw in &config.extern_artifact {
         let (name, path) = parse_name_path(raw, "extern-artifact")?;
         if !seen.insert(name.clone()) {
-            return Err(diagnostics_from_message(format!(
-                "Duplicate external artifact crate name '{}' for --print artifact-deps",
-                name
-            )));
+            return Err(diagnostics_from_artifact_message(
+                &path,
+                format!(
+                    "Duplicate external artifact crate name '{}' for --print artifact-deps",
+                    name
+                ),
+            ));
         }
         requests.push(ArtifactDependencyRequest {
             name,
@@ -341,10 +344,10 @@ impl ArtifactDependencyDiscovery {
         }
 
         if !self.visiting.insert(request.name.clone()) {
-            return Err(diagnostics_from_message(format!(
-                "Cyclic artifact dependency involving '{}'",
-                request.name
-            )));
+            return Err(diagnostics_from_artifact_message(
+                &request.path,
+                format!("Cyclic artifact dependency involving '{}'", request.name),
+            ));
         }
 
         let header = read_artifact_dependency_header(&request)?;
@@ -391,12 +394,15 @@ fn read_artifact_dependency_header(
             ),
             None => format!("external artifact '{}'", request.name),
         };
-        diagnostics_from_message(format!(
-            "Failed to read {} from {}: {}",
-            context,
-            request.path.display(),
-            err
-        ))
+        diagnostics_from_artifact_message(
+            &request.path,
+            format!(
+                "Failed to read {} from {}: {}",
+                context,
+                request.path.display(),
+                err
+            ),
+        )
     })
 }
 
@@ -405,17 +411,20 @@ fn validate_artifact_dependency_identity(
     artifact_identity: &ProductCrateIdentity,
 ) -> Result<(), Diagnostics> {
     if artifact_identity.name != request.name {
-        return Err(diagnostics_from_message(format!(
-            "Artifact dependency '{}' at {} contains crate '{}'",
-            request.name,
-            request.path.display(),
-            artifact_identity.name
-        )));
+        return Err(diagnostics_from_artifact_message(
+            &request.path,
+            format!(
+                "Artifact dependency '{}' at {} contains crate '{}'",
+                request.name,
+                request.path.display(),
+                artifact_identity.name
+            ),
+        ));
     }
 
     if let Some(expected_identity) = &request.expected_identity {
         if expected_identity != artifact_identity {
-            return Err(diagnostics_from_message(format!(
+            return Err(diagnostics_from_artifact_message(&request.path, format!(
                 "Artifact dependency '{}' at {} has identity metadata that does not match its dependent artifact",
                 request.name,
                 request.path.display()
@@ -431,11 +440,12 @@ fn artifact_dependency_requests_from_header(
     artifact_path: &Path,
     header: &ProductArtifactHeader,
 ) -> Result<Vec<ArtifactDependencyRequest>, Diagnostics> {
-    let expected_identities = artifact_dependency_identity_table_by_name(artifact_name, header)?;
-    let dependencies = artifact_product_dependencies_by_name(artifact_name, header)?;
+    let expected_identities =
+        artifact_dependency_identity_table_by_name(artifact_name, artifact_path, header)?;
+    let dependencies = artifact_product_dependencies_by_name(artifact_name, artifact_path, header)?;
     for dependency_name in expected_identities.keys() {
         if !dependencies.contains_key(dependency_name) {
-            return Err(diagnostics_from_message(format!(
+            return Err(diagnostics_from_artifact_message(artifact_path, format!(
                 "Artifact '{}' records dependency '{}' in its identity table without an artifact path",
                 artifact_name, dependency_name
             )));
@@ -445,10 +455,13 @@ fn artifact_dependency_requests_from_header(
     let mut requests = Vec::new();
     for (dependency_name, dependency) in dependencies {
         let Some(expected_identity) = expected_identities.get(&dependency_name) else {
-            return Err(diagnostics_from_message(format!(
-                "Artifact '{}' records dependency '{}' without matching identity metadata",
-                artifact_name, dependency_name
-            )));
+            return Err(diagnostics_from_artifact_message(
+                artifact_path,
+                format!(
+                    "Artifact '{}' records dependency '{}' without matching identity metadata",
+                    artifact_name, dependency_name
+                ),
+            ));
         };
 
         requests.push(ArtifactDependencyRequest {
@@ -465,6 +478,7 @@ fn artifact_dependency_requests_from_header(
 
 fn artifact_dependency_identity_table_by_name(
     artifact_name: &str,
+    artifact_path: &Path,
     header: &ProductArtifactHeader,
 ) -> Result<BTreeMap<String, ProductCrateIdentity>, Diagnostics> {
     let mut identities = BTreeMap::new();
@@ -473,10 +487,13 @@ fn artifact_dependency_identity_table_by_name(
             .insert(identity.name.clone(), identity.clone())
             .is_some()
         {
-            return Err(diagnostics_from_message(format!(
-                "Artifact '{}' records duplicate dependency identity for crate '{}'",
-                artifact_name, identity.name
-            )));
+            return Err(diagnostics_from_artifact_message(
+                artifact_path,
+                format!(
+                    "Artifact '{}' records duplicate dependency identity for crate '{}'",
+                    artifact_name, identity.name
+                ),
+            ));
         }
     }
 
@@ -485,6 +502,7 @@ fn artifact_dependency_identity_table_by_name(
 
 fn artifact_product_dependencies_by_name(
     artifact_name: &str,
+    artifact_path: &Path,
     header: &ProductArtifactHeader,
 ) -> Result<BTreeMap<String, ProductDependencyIdentity>, Diagnostics> {
     let mut dependencies = BTreeMap::new();
@@ -493,10 +511,13 @@ fn artifact_product_dependencies_by_name(
             .insert(dependency.name.clone(), dependency.clone())
             .is_some()
         {
-            return Err(diagnostics_from_message(format!(
-                "Artifact '{}' records duplicate dependency artifact path for crate '{}'",
-                artifact_name, dependency.name
-            )));
+            return Err(diagnostics_from_artifact_message(
+                artifact_path,
+                format!(
+                    "Artifact '{}' records duplicate dependency artifact path for crate '{}'",
+                    artifact_name, dependency.name
+                ),
+            ));
         }
     }
 
@@ -519,29 +540,38 @@ fn validate_existing_artifact_dependency(
     existing: &ArtifactDependencyRecord,
 ) -> Result<(), Diagnostics> {
     if !artifact_paths_match(&existing.path, &request.path) {
-        return Err(diagnostics_from_message(format!(
-            "Conflicting artifact dependency paths for crate '{}': {} and {}",
-            request.name,
-            existing.path.display(),
-            request.path.display()
-        )));
+        return Err(diagnostics_from_artifact_message(
+            &request.path,
+            format!(
+                "Conflicting artifact dependency paths for crate '{}': {} and {}",
+                request.name,
+                existing.path.display(),
+                request.path.display()
+            ),
+        ));
     }
 
     if existing.capabilities != request.capabilities {
-        return Err(diagnostics_from_message(format!(
-            "Conflicting artifact dependency capabilities for crate '{}' at {}",
-            request.name,
-            request.path.display()
-        )));
+        return Err(diagnostics_from_artifact_message(
+            &request.path,
+            format!(
+                "Conflicting artifact dependency capabilities for crate '{}' at {}",
+                request.name,
+                request.path.display()
+            ),
+        ));
     }
 
     if let Some(expected_identity) = &request.expected_identity {
         if expected_identity != &existing.identity {
-            return Err(diagnostics_from_message(format!(
-                "Conflicting artifact dependency identity metadata for crate '{}' at {}",
-                request.name,
-                request.path.display()
-            )));
+            return Err(diagnostics_from_artifact_message(
+                &request.path,
+                format!(
+                    "Conflicting artifact dependency identity metadata for crate '{}' at {}",
+                    request.name,
+                    request.path.display()
+                ),
+            ));
         }
     }
 
@@ -582,91 +612,25 @@ fn format_artifact_dependency_link_capability(
 fn load_program_for_source_command(
     rockc_config: &rock_lib::Config,
 ) -> Result<Program, Diagnostics> {
-    let mut source_db = rock_lib::source_loader::SourceDatabase::new();
-    source_db
-        .load_entry(rockc_config.entry_file.clone(), rockc_config)
-        .map(|graph| Program {
-            module: graph.root_module().clone(),
-        })
-        .map_err(source_load_errors_to_diagnostics)
+    load_program_with_source_database(rockc_config).map(|(program, _)| program)
 }
 
-fn source_load_errors_to_diagnostics(
-    errors: Vec<rock_lib::source_loader::SourceLoadError>,
-) -> Diagnostics {
-    let mut diagnostics = Diagnostics::default();
-    for error in errors {
-        match error {
-            rock_lib::source_loader::SourceLoadError::Io { path, message } => {
-                diagnostics.push(rock_lib::diagnostic::Diagnostic::for_file(
-                    format!("Failed to read source file {}: {}", path.display(), message),
-                    path,
-                ));
-            }
-            rock_lib::source_loader::SourceLoadError::MissingModule {
-                module,
-                searched,
-                span,
-            } => {
-                let searched_path = searched.first().cloned();
-                let searched = searched
-                    .iter()
-                    .map(|path| path.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let message = format!("Module '{}' not found; searched: {}", module, searched);
-                diagnostics.push(match span {
-                    Some(span) => rock_lib::diagnostic::Diagnostic::new(message, span),
-                    None => match searched_path {
-                        Some(path) => rock_lib::diagnostic::Diagnostic::for_file(message, path),
-                        None => rock_lib::diagnostic::Diagnostic::for_toolchain(message),
-                    },
-                });
-            }
-            rock_lib::source_loader::SourceLoadError::Parse { error, source, .. } => {
-                let mut parsed = Diagnostics::from(error);
-                if let Some(source) = source {
-                    let origin = match source.origin {
-                        rock_lib::source_loader::SourceOrigin::FileSystem => {
-                            rock_lib::diagnostic::DiagnosticSourceOrigin::FileSystem
-                        }
-                        rock_lib::source_loader::SourceOrigin::Virtual => {
-                            rock_lib::diagnostic::DiagnosticSourceOrigin::Virtual
-                        }
-                        rock_lib::source_loader::SourceOrigin::Artifact { artifact_path } => {
-                            rock_lib::diagnostic::DiagnosticSourceOrigin::Artifact { artifact_path }
-                        }
-                    };
-                    let source = rock_lib::diagnostic::DiagnosticSource {
-                        display_path: source.display_path,
-                        text: source.text,
-                        origin,
-                        related: std::collections::BTreeMap::new(),
-                    };
-                    for diagnostic in &mut parsed.0 {
-                        diagnostic.source = Some(source.clone());
-                    }
-                }
-                diagnostics.merge(parsed);
-            }
-            rock_lib::source_loader::SourceLoadError::CircularModule { path, stack } => {
-                let stack = stack
-                    .iter()
-                    .map(|path| path.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join(" -> ");
-                diagnostics.push(rock_lib::diagnostic::Diagnostic::for_file(
-                    format!(
-                        "Circular module load detected at {} via {}",
-                        path.display(),
-                        stack
-                    ),
-                    path,
-                ));
-            }
-        }
+fn load_program_with_source_database(
+    rockc_config: &rock_lib::Config,
+) -> Result<(Program, rock_lib::source_loader::SourceDatabase), Diagnostics> {
+    let mut source_db = rock_lib::source_loader::SourceDatabase::new();
+    for provider in &rockc_config.source_providers {
+        source_db.add_source_provider(provider);
     }
-    diagnostics
+    let graph = source_db
+        .load_entry(rockc_config.entry_file.clone(), rockc_config)
+        .map_err(rock_lib::source_load_errors_to_diagnostics)?;
+    Ok((
+        Program {
+            module: graph.root_module().clone(),
+        },
+        source_db,
+    ))
 }
 
 fn format_config(config: Config) -> Result<(), Diagnostics> {
@@ -693,35 +657,61 @@ fn expand_config(config: Config) -> Result<(), Diagnostics> {
         ..rock_lib::Config::default()
     };
 
-    let program = load_program_for_source_command(&rockc_config)?;
+    let (program, source_db) = load_program_with_source_database(&rockc_config)?;
+    let diagnostic_sources =
+        rock_lib::diagnostic::DiagnosticSourceMap::from_source_database(&source_db);
     let macro_context = rock_lib::macro_expansion::MacroExpansionContext::new(&rockc_config);
-    let expanded = rock_lib::macro_expansion::expand_macros_with_context(program, &macro_context)?;
+    let expanded = rock_lib::macro_expansion::expand_macros_with_context(program, &macro_context)
+        .map_err(|diagnostics| diagnostics.with_sources(&diagnostic_sources))?;
     expanded.visit(&mut ModulePrinter);
     Ok(())
 }
 
 fn validate_artifact(path: &std::path::Path) -> Result<(), Diagnostics> {
-    let header =
-        ProductArtifactHeader::read_from_path_bounded(path).map_err(diagnostics_from_message)?;
+    let header = ProductArtifactHeader::read_from_path_bounded(path).map_err(|error| {
+        diagnostics_from_artifact_message(path, format!("Failed to read artifact: {error}"))
+    })?;
     let products = PortableProductArtifact::read_payload_from_path_bounded(path, &header)
         .and_then(PortableProductArtifact::into_products)
-        .map_err(diagnostics_from_message)?;
+        .map_err(|error| {
+            diagnostics_from_artifact_message(
+                path,
+                format!("Failed to read artifact payload: {error}"),
+            )
+        })?;
     let Some(object_path) = products.link.object_path else {
-        return Err(diagnostics_from_message(format!(
-            "Product artifact {} does not reference an object file",
-            path.display()
-        )));
+        return Err(diagnostics_from_artifact_message(
+            path,
+            format!(
+                "Product artifact {} does not reference an object file",
+                path.display()
+            ),
+        ));
     };
     let object_path = resolve_artifact_object_path(path, object_path);
     if !object_path.exists() {
-        return Err(diagnostics_from_message(format!(
-            "Product artifact {} references missing object file {}",
-            path.display(),
-            object_path.display()
-        )));
+        let mut diagnostics = Diagnostics::default();
+        diagnostics.push(rock_lib::diagnostic::Diagnostic::for_file(
+            format!(
+                "Product artifact {} references missing object file {}",
+                path.display(),
+                object_path.display()
+            ),
+            object_path,
+        ));
+        return Err(diagnostics);
     }
 
     Ok(())
+}
+
+fn diagnostics_from_artifact_message(path: &Path, message: impl Into<String>) -> Diagnostics {
+    let mut diagnostics = Diagnostics::default();
+    diagnostics.push(rock_lib::diagnostic::Diagnostic::for_artifact(
+        message.into(),
+        path.to_path_buf(),
+    ));
+    diagnostics
 }
 
 fn resolve_artifact_object_path(artifact_path: &std::path::Path, object_path: PathBuf) -> PathBuf {
@@ -841,8 +831,8 @@ fn parse_name_path(input: &str, flag: &str) -> Result<(String, PathBuf), Diagnos
 #[cfg(test)]
 mod tests {
     use super::{
-        load_program_for_source_command, print_request_output, resolve_artifact_object_path,
-        run_config, Config,
+        load_program_for_source_command, load_program_with_source_database, print_request_output,
+        resolve_artifact_object_path, run_config, Config,
     };
     use clap::Parser;
     use std::collections::BTreeMap;
@@ -1685,6 +1675,33 @@ mod tests {
     }
 
     #[test]
+    fn source_command_loader_keeps_virtual_source_for_diagnostic_attachment() {
+        let path = PathBuf::from("/virtual/rockc/main.rk");
+        let text = "main = -> 0\n";
+        let config = rock_lib::Config {
+            entry_file: path.clone(),
+            no_std: true,
+            no_prelude: true,
+            source_providers: vec![rock_lib::SourceProvider::Virtual {
+                path: path.clone(),
+                text: text.to_string(),
+            }],
+            ..rock_lib::Config::default()
+        };
+
+        let (program, source_db) = load_program_with_source_database(&config).unwrap();
+        assert_eq!(program.module.filepath, Some(path.clone()));
+        let sources = rock_lib::diagnostic::DiagnosticSourceMap::from_source_database(&source_db);
+        let mut diagnostic = rock_lib::diagnostic::Diagnostic::new(
+            "source command failure".to_string(),
+            rock_lib::Span::new(path.clone(), 0, 4),
+        );
+        sources.attach(&mut diagnostic);
+
+        assert_eq!(diagnostic.source.as_ref().unwrap().text, text);
+    }
+
+    #[test]
     fn test_run_config_validate_artifact_rejects_corrupt_artifact() {
         let base = std::env::temp_dir().join(format!(
             "rockc_validate_artifact_{}_{}",
@@ -1703,7 +1720,62 @@ mod tests {
         ])
         .unwrap();
 
-        assert!(run_config(config).is_err());
+        let diagnostics = run_config(config).expect_err("corrupt artifact should fail");
+        assert_eq!(
+            diagnostics.0[0].location,
+            rock_lib::diagnostic::DiagnosticLocation::Artifact(artifact_path.clone())
+        );
+        assert_eq!(
+            diagnostics.0[0].code,
+            Some(rock_lib::diagnostic::DiagnosticCode::Artifact)
+        );
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_run_config_validate_artifact_reports_missing_object_as_file() {
+        let base = std::env::temp_dir().join(format!(
+            "rockc_validate_artifact_{}_{}",
+            std::process::id(),
+            "missing_object"
+        ));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        let artifact_path = base.join("dep.rkca");
+        let object_path = base.join("missing.o");
+        let products = rock_lib::products::CompilerProducts {
+            crate_identity: ProductCrateIdentity::local("dep".to_string()),
+            identity_table: Default::default(),
+            interface: rock_lib::products::ProductInterface::default(),
+            bodies: Default::default(),
+            link: rock_lib::products::ProductLinkData {
+                object_path: Some(PathBuf::from(object_path.file_name().unwrap())),
+                records: Default::default(),
+            },
+            dependencies: Vec::new(),
+            source_fingerprint: Default::default(),
+            proc_macros: Vec::new(),
+            infix_precedence: Default::default(),
+        };
+        products.write_artifact_to_path(&artifact_path).unwrap();
+
+        let config = Config::try_parse_from([
+            "rockc",
+            "--validate-artifact",
+            artifact_path.to_str().unwrap(),
+        ])
+        .unwrap();
+        let diagnostics = run_config(config).expect_err("missing object should fail");
+
+        assert_eq!(
+            diagnostics.0[0].location,
+            rock_lib::diagnostic::DiagnosticLocation::File(object_path.clone())
+        );
+        assert_eq!(
+            diagnostics.0[0].code,
+            Some(rock_lib::diagnostic::DiagnosticCode::File)
+        );
 
         let _ = std::fs::remove_dir_all(&base);
     }

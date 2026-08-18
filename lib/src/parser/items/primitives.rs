@@ -85,13 +85,18 @@ pub fn ident_token(stream: Input) -> IResult<Ident> {
 }
 
 pub fn indent(stream: Input) -> IResult<()> {
-    token!(stream, TokenType::Indent(level) => {
-        if *level as usize != stream.indent_level {
-            return Err(ParseError::UnexpectedIndent(*level));
+    let (stream, token) = stream.consume()?;
+    if let TokenType::Indent(level) = token.token_type {
+        if level as usize != stream.indent_level {
+            return Err(ParseError::UnexpectedIndent(level, token.span));
         }
-
-
-    })
+        Ok((stream, ()))
+    } else {
+        Err(ParseError::UnexpectedToken(
+            "indentation".to_string(),
+            token,
+        ))
+    }
 }
 
 // used to get any indent level

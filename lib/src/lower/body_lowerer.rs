@@ -25,7 +25,7 @@ impl<'a> BodyLowerer<'a> {
         else {
             self.lowerer
                 .diagnostics
-                .push("missing indexed root module while lowering bodies".to_string());
+                .push_toolchain("missing indexed root module while lowering bodies".to_string());
             return;
         };
         let mut edges = HashMap::new();
@@ -232,7 +232,7 @@ impl<'ast> ast::visit::Visitor<'ast> for FunctionReferenceCollector {
 
     fn visit_loop(&mut self, loop_: &'ast ast::Loop) {
         match loop_ {
-            ast::Loop::For(pattern, condition, body) => {
+            ast::Loop::For(pattern, condition, body, _) => {
                 self.visit_expression(condition);
                 let mut bindings = HashSet::new();
                 collect_pattern_bindings(pattern, &mut bindings);
@@ -241,11 +241,11 @@ impl<'ast> ast::visit::Visitor<'ast> for FunctionReferenceCollector {
                 self.visit_block(body);
                 self.scopes.pop();
             }
-            ast::Loop::While(condition, body) => {
+            ast::Loop::While(condition, body, _) => {
                 self.visit_condition(condition);
                 self.visit_block(body);
             }
-            ast::Loop::Loop(body) => self.visit_block(body),
+            ast::Loop::Loop(body, _) => self.visit_block(body),
         }
     }
 }
@@ -667,6 +667,15 @@ mod tests {
                 .all(|stmt| !matches!(stmt, crate::hir::HirStmt::Continue)),
             "right source-backed body should be lowered"
         );
+        let left_span = lowerer
+            .source_map
+            .definition_declaration_span(left_answer_id)
+            .expect("left module definition should retain its declaration span");
+        let right_span = lowerer
+            .source_map
+            .definition_declaration_span(right_answer_id)
+            .expect("right module definition should retain its declaration span");
+        assert_ne!(left_span.file_path, right_span.file_path);
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }

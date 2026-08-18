@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -12,9 +13,9 @@ fn test_parse_assignment_complex() {
 
     let (rest, statement) = statement.process(ParseCtx::from(&tokens, &config)).unwrap();
 
-    assert_eq!(
-        statement,
-        Statement::Assignment(Assignment {
+    assert_formatted_eq(
+        &statement,
+        &Statement::Assignment(Assignment {
             lhs: AssignmentLHS::Expression(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Ident(IdentifierPath {
                     path: vec![IdentOrType::Ident(Ident {
@@ -35,8 +36,8 @@ fn test_parse_assignment_complex() {
                             }),
                             secondaries: None,
                             type_annotation: None,
-                        }
-                    ))),),
+                        },
+                    )))),
                     SecondaryExpr::Dot(IdentOrNumber::Ident(Ident {
                         name: "c".to_string(),
                         span: Span::test(),
@@ -52,7 +53,7 @@ fn test_parse_assignment_complex() {
                 secondaries: None,
                 type_annotation: None,
             })),
-        })
+        }),
     );
 
     assert_eq!(rest.len(), 0);

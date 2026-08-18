@@ -7,19 +7,182 @@ use crate::infer::constraints::{Constraint, ConstraintStore};
 use crate::lexer::Span;
 use crate::type_services::facts::TypeFacts;
 use crate::type_services::kind::Kind;
-use crate::type_services::normalize::{TypeNormalizationEnv, TypeNormalizer};
+use crate::type_services::normalize::{NormalizeError, TypeNormalizationEnv, TypeNormalizer};
 use crate::type_services::visit::{fold_type, fold_type_children, TypeFolder};
 use crate::types::{TraitBound, Type};
 
 #[derive(Debug, Clone)]
+pub enum UnifyError {
+    Mismatch {
+        expected: Type,
+        found: Type,
+    },
+    InfiniteType {
+        variable: TypeVarId,
+        ty: Type,
+    },
+    KindMismatch {
+        expected: Kind,
+        found: Kind,
+        ty: Option<Type>,
+        context: &'static str,
+    },
+    ConstructorInference {
+        pattern: Type,
+        actual: Type,
+    },
+    AmbiguousConstructorHeads {
+        left: Type,
+        right: Type,
+    },
+    BinderEscape {
+        ty: Type,
+    },
+    FunctionSafetyMismatch {
+        expected: Type,
+        found: Type,
+    },
+    ArityMismatch {
+        kind: &'static str,
+        expected: usize,
+        found: usize,
+        left: Type,
+        right: Type,
+    },
+    MutabilityMismatch,
+    Normalization {
+        ty: Type,
+        detail: NormalizeError,
+    },
+    AmbiguousType {
+        kind: Kind,
+    },
+    NonCopyArrayRepeat {
+        found: Type,
+    },
+    Message(String),
+}
+
+impl UnifyError {
+    pub fn contains(&self, pattern: &str) -> bool {
+        self.render_with(|ty| ty.to_string()).contains(pattern)
+    }
+
+    pub fn render(&self, engine: &InferenceEngine) -> String {
+        self.render_with(|ty| engine.display_type(ty))
+    }
+
+    pub(crate) fn render_with(&self, display: impl Fn(&Type) -> String) -> String {
+        match self {
+            Self::Mismatch { expected, found } => {
+                format!("Type mismatch: {} vs {}", display(expected), display(found))
+            }
+            Self::InfiniteType { ty, .. } => {
+                format!("Infinite type: inferred type contains itself through {}", display(ty))
+            }
+            Self::KindMismatch {
+                expected,
+                found,
+                ty,
+                context,
+            } => match ty {
+                Some(ty) => format!(
+                    "kind mismatch while {context} an inferred type to {}: {expected} vs {found}",
+                    display(ty)
+                ),
+                None => format!("kind mismatch while {context}: {expected} vs {found}"),
+            },
+            Self::ConstructorInference { pattern, actual } => format!(
+                "cannot infer a type constructor from {} = {}; add an explicit constructor section annotation",
+                display(pattern),
+                display(actual)
+            ),
+            Self::AmbiguousConstructorHeads { left, right } => format!(
+                "ambiguous constructor heads: {} vs {}",
+                display(left),
+                display(right)
+            ),
+            Self::BinderEscape { ty } => {
+                format!("type lambda binder escapes while inferring {}", display(ty))
+            }
+            Self::FunctionSafetyMismatch { expected, found } => format!(
+                "Unsafe function cannot be used as safe function: {} vs {}",
+                display(expected),
+                display(found)
+            ),
+            Self::ArityMismatch {
+                kind,
+                expected,
+                found,
+                left,
+                right,
+            } => match *kind {
+                "tuple" => format!("Tuple length mismatch: {expected} vs {found}"),
+                "function" => format!("Function argument count mismatch: {expected} vs {found}"),
+                "generic" => format!(
+                    "Generic argument count mismatch for {}: {expected} vs {found}",
+                    display(left)
+                ),
+                "application" => format!(
+                    "Type application arity mismatch: {} vs {}",
+                    display(left),
+                    display(right)
+                ),
+                _ => format!("Type mismatch: {} vs {}", display(left), display(right)),
+            },
+            Self::MutabilityMismatch => "Mutability mismatch on references".to_string(),
+            Self::Normalization { ty, detail } => format!(
+                "failed to normalize finalized type {}: {}",
+                display(ty),
+                display_normalize_error(detail, &display)
+            ),
+            Self::AmbiguousType { kind } if kind == &Kind::Type => {
+                "ambiguous type: cannot determine type of expression; add a type annotation (e.g., `: I64`)".to_string()
+            }
+            Self::AmbiguousType { kind } => format!(
+                "ambiguous type constructor: cannot determine a value of kind {kind}; add an explicit constructor section annotation"
+            ),
+            Self::NonCopyArrayRepeat { found } => format!(
+                "array repeat initializer must be Copy, found '{}'",
+                display(found)
+            ),
+            Self::Message(message) => message.clone(),
+        }
+    }
+}
+
+fn display_normalize_error(error: &NormalizeError, display: &impl Fn(&Type) -> String) -> String {
+    match error {
+        NormalizeError::AliasCycle(_) => "type alias cycle".to_string(),
+        NormalizeError::DepthLimit { limit } => {
+            format!("type normalization depth limit exceeded ({limit})")
+        }
+        NormalizeError::NodeLimit { limit } => {
+            format!("type normalization node limit exceeded ({limit})")
+        }
+        NormalizeError::UnknownConstructor(_) => "unknown type constructor".to_string(),
+        NormalizeError::KindMismatch { expected, actual } => {
+            format!("kind mismatch: expected {expected}, found {actual}")
+        }
+        NormalizeError::NotApplicable { kind } => {
+            format!("type of kind {kind} is not applicable")
+        }
+        NormalizeError::NonCanonicalType { normalized } => format!(
+            "type is not canonical; normalized form is {}",
+            display(normalized)
+        ),
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct InferenceError {
-    pub message: String,
+    pub error: UnifyError,
     pub span: Option<Span>,
 }
 
 impl InferenceError {
     pub fn contains(&self, pattern: &str) -> bool {
-        self.message.contains(pattern)
+        self.error.contains(pattern)
     }
 }
 
@@ -92,16 +255,8 @@ impl TypeFolder for StrictFinalizer<'_> {
                 }
                 if self.reported.insert(id) {
                     let kind = self.var_kinds.get(&id).cloned().unwrap_or(Kind::Type);
-                    let message = if kind == Kind::Type {
-                        "ambiguous type: cannot determine type of expression; add a type annotation (e.g., `: I64`)".to_string()
-                    } else {
-                        format!(
-                            "ambiguous type constructor: cannot determine a value of kind {}; add an explicit constructor section annotation",
-                            kind
-                        )
-                    };
                     self.errors.push(InferenceError {
-                        message,
+                        error: UnifyError::AmbiguousType { kind },
                         span: self.var_spans.get(&id).cloned(),
                     });
                 }
@@ -155,6 +310,37 @@ mod tests {
             engine.resolve(&constructor_var),
             constructor(option, crate::types::NominalTypeKind::Enum)
         );
+    }
+
+    #[test]
+    fn unification_keeps_mismatch_types_until_rendering() {
+        let mut engine = InferenceEngine::new();
+        let error = engine.unify(&Type::Bool, &Type::Char).unwrap_err();
+
+        match &error {
+            UnifyError::Mismatch { expected, found } => {
+                assert_eq!(expected, &Type::Bool);
+                assert_eq!(found, &Type::Char);
+            }
+            other => panic!("expected structured mismatch, got {other:?}"),
+        }
+        assert!(error.render(&engine).contains("Bool"));
+        assert!(error.render(&engine).contains("Char"));
+    }
+
+    #[test]
+    fn unification_keeps_ambiguous_constructor_heads_structured() {
+        let mut engine = InferenceEngine::new();
+        let kind = Kind::arrow(Kind::Type, Kind::Type);
+        let left = apply(engine.fresh_type_var_of_kind(kind.clone()), vec![Type::I64]);
+        let right = apply(engine.fresh_type_var_of_kind(kind), vec![Type::I64]);
+
+        let error = engine.unify(&left, &right).unwrap_err();
+
+        assert!(matches!(
+            error,
+            UnifyError::AmbiguousConstructorHeads { .. }
+        ));
     }
 
     #[test]
@@ -969,6 +1155,18 @@ impl InferenceEngine {
         self.var_kinds.get(&id).cloned().unwrap_or(Kind::Type)
     }
 
+    pub fn span_for_type(&self, ty: &Type) -> Option<Span> {
+        let mut span = None;
+        crate::type_services::visit::visit_type(ty, &mut |nested: &Type| {
+            if span.is_none() {
+                if let Type::TypeVar(id) = nested {
+                    span = self.var_spans.get(id).cloned();
+                }
+            }
+        });
+        span
+    }
+
     pub fn kind_of(&self, ty: &Type) -> Result<Kind, String> {
         TypeNormalizer::new(&self.normalization_env)
             .kind_of(&self.resolve(ty))
@@ -1003,6 +1201,15 @@ impl InferenceEngine {
         Type::TypeVar(id)
     }
 
+    pub fn seed_var_spans(&mut self, spans: impl IntoIterator<Item = (TypeVarId, Span)>) {
+        for (id, span) in spans {
+            self.var_spans.insert(id, span);
+            self.var_kinds.insert(id, Kind::Type);
+            self.normalization_env
+                .register_inference_kind(id, Kind::Type);
+        }
+    }
+
     /// Find the representative type for a type variable (path compression)
     pub fn resolve(&self, ty: &Type) -> Type {
         fold_type(
@@ -1014,15 +1221,23 @@ impl InferenceEngine {
     }
 
     /// Unify two types, producing substitutions
-    pub fn unify(&mut self, a: &Type, b: &Type) -> Result<(), String> {
+    pub fn unify(&mut self, a: &Type, b: &Type) -> Result<(), UnifyError> {
         let original_a = a.clone();
         let original_b = b.clone();
+        let resolved_a = self.resolve(a);
         let a = TypeNormalizer::new(&self.normalization_env)
-            .normalize(&self.resolve(a))
-            .map_err(|error| error.to_string())?;
+            .normalize(&resolved_a)
+            .map_err(|error| UnifyError::Normalization {
+                ty: resolved_a.clone(),
+                detail: error,
+            })?;
+        let resolved_b = self.resolve(b);
         let b = TypeNormalizer::new(&self.normalization_env)
-            .normalize(&self.resolve(b))
-            .map_err(|error| error.to_string())?;
+            .normalize(&resolved_b)
+            .map_err(|error| UnifyError::Normalization {
+                ty: resolved_b.clone(),
+                detail: error,
+            })?;
 
         if a == b {
             if let Type::TypeVar(id) = original_a {
@@ -1037,16 +1252,23 @@ impl InferenceEngine {
 
         let a_kind = TypeNormalizer::new(&self.normalization_env)
             .kind_of(&a)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| UnifyError::Normalization {
+                ty: a.clone(),
+                detail: error,
+            })?;
         let b_kind = TypeNormalizer::new(&self.normalization_env)
             .kind_of(&b)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| UnifyError::Normalization {
+                ty: b.clone(),
+                detail: error,
+            })?;
         if a_kind != b_kind {
-            let a_display = self.display_type(&a);
-            let b_display = self.display_type(&b);
-            return Err(format!(
-                "kind mismatch while unifying {a_display} with {b_display}: {a_kind} vs {b_kind}"
-            ));
+            return Err(UnifyError::KindMismatch {
+                expected: a_kind,
+                found: b_kind,
+                ty: None,
+                context: "unifying",
+            });
         }
 
         if let Some(result) = self.try_unify_constructor_spine(&a, &b) {
@@ -1075,21 +1297,22 @@ impl InferenceEngine {
             (Type::Slice(a_inner), Type::Slice(b_inner)) => self.unify(a_inner, b_inner),
             (Type::Array(a_inner, a_len), Type::Array(b_inner, b_len)) => {
                 if a_len != b_len {
-                    return Err(format!(
-                        "Type mismatch: {} vs {}",
-                        self.display_type(&a),
-                        self.display_type(&b)
-                    ));
+                    return Err(UnifyError::Mismatch {
+                        expected: a.clone(),
+                        found: b.clone(),
+                    });
                 }
                 self.unify(a_inner, b_inner)
             }
             (Type::Tuple(a_elems), Type::Tuple(b_elems)) => {
                 if a_elems.len() != b_elems.len() {
-                    return Err(format!(
-                        "Tuple length mismatch: {} vs {}",
-                        a_elems.len(),
-                        b_elems.len()
-                    ));
+                    return Err(UnifyError::ArityMismatch {
+                        kind: "tuple",
+                        expected: a_elems.len(),
+                        found: b_elems.len(),
+                        left: a.clone(),
+                        right: b.clone(),
+                    });
                 }
                 for (ae, be) in a_elems.iter().zip(b_elems.iter()) {
                     self.unify(ae, be)?;
@@ -1113,18 +1336,19 @@ impl InferenceEngine {
                 if matches!(a_safety, crate::types::FunctionSafety::Unsafe)
                     && matches!(b_safety, crate::types::FunctionSafety::Safe)
                 {
-                    return Err(format!(
-                        "Unsafe function cannot be used as safe function: {} vs {}",
-                        self.display_type(&a),
-                        self.display_type(&b)
-                    ));
+                    return Err(UnifyError::FunctionSafetyMismatch {
+                        expected: a.clone(),
+                        found: b.clone(),
+                    });
                 }
                 if a_args.len() != b_args.len() {
-                    return Err(format!(
-                        "Function argument count mismatch: {} vs {}",
-                        a_args.len(),
-                        b_args.len()
-                    ));
+                    return Err(UnifyError::ArityMismatch {
+                        kind: "function",
+                        expected: a_args.len(),
+                        found: b_args.len(),
+                        left: a.clone(),
+                        right: b.clone(),
+                    });
                 }
                 for (aa, ba) in a_args.iter().zip(b_args.iter()) {
                     self.unify(ba, aa)?;
@@ -1154,19 +1378,19 @@ impl InferenceEngine {
                 },
             ) => {
                 if a_id != b_id {
-                    return Err(format!(
-                        "Type mismatch: {} vs {}",
-                        self.display_type(&a),
-                        self.display_type(&b)
-                    ));
+                    return Err(UnifyError::Mismatch {
+                        expected: a.clone(),
+                        found: b.clone(),
+                    });
                 }
                 if a_gen.len() != b_gen.len() {
-                    return Err(format!(
-                        "Generic argument count mismatch for {}: {} vs {}",
-                        self.display_type(&a),
-                        a_gen.len(),
-                        b_gen.len()
-                    ));
+                    return Err(UnifyError::ArityMismatch {
+                        kind: "generic",
+                        expected: a_gen.len(),
+                        found: b_gen.len(),
+                        left: a.clone(),
+                        right: b.clone(),
+                    });
                 }
                 for (ag, bg) in a_gen.iter().zip(b_gen.iter()) {
                     self.unify(ag, bg)?;
@@ -1184,7 +1408,7 @@ impl InferenceEngine {
                 },
             ) => {
                 if am != bm {
-                    return Err("Mutability mismatch on references".to_string());
+                    return Err(UnifyError::MutabilityMismatch);
                 }
                 if *am {
                     self.unify_invariant(ai, bi)
@@ -1210,11 +1434,10 @@ impl InferenceEngine {
                 },
             ) => {
                 if a_trait != b_trait || a_assoc != b_assoc || a_args.len() != b_args.len() {
-                    return Err(format!(
-                        "Type mismatch: {} vs {}",
-                        self.display_type(&a),
-                        self.display_type(&b)
-                    ));
+                    return Err(UnifyError::Mismatch {
+                        expected: a.clone(),
+                        found: b.clone(),
+                    });
                 }
                 self.unify(a_ty, b_ty)?;
                 for (a_arg, b_arg) in a_args.iter().zip(b_args.iter()) {
@@ -1246,19 +1469,20 @@ impl InferenceEngine {
                     (a_constructor.as_ref(), b_constructor.as_ref())
                 {
                     if a_id != b_id {
-                        return Err(format!(
-                            "ambiguous constructor heads while unifying {} with {}",
-                            self.display_type(&a),
-                            self.display_type(&b)
-                        ));
+                        return Err(UnifyError::AmbiguousConstructorHeads {
+                            left: a.clone(),
+                            right: b.clone(),
+                        });
                     }
                 }
                 if a_args.len() != b_args.len() {
-                    return Err(format!(
-                        "Type application arity mismatch: {} vs {}",
-                        self.display_type(&a),
-                        self.display_type(&b)
-                    ));
+                    return Err(UnifyError::ArityMismatch {
+                        kind: "application",
+                        expected: a_args.len(),
+                        found: b_args.len(),
+                        left: a.clone(),
+                        right: b.clone(),
+                    });
                 }
                 self.unify(a_constructor, b_constructor)?;
                 for (a_arg, b_arg) in a_args.iter().zip(b_args) {
@@ -1277,11 +1501,10 @@ impl InferenceEngine {
                 },
             ) => {
                 if a_params != b_params {
-                    return Err(format!(
-                        "Type lambda binder kind mismatch: {} vs {}",
-                        self.display_type(&a),
-                        self.display_type(&b)
-                    ));
+                    return Err(UnifyError::Mismatch {
+                        expected: a.clone(),
+                        found: b.clone(),
+                    });
                 }
                 self.unify(a_body, b_body)
             }
@@ -1302,41 +1525,37 @@ impl InferenceEngine {
                 // We'll allow implicit integer coercion for now
                 Ok(())
             }
-            _ => Err(format!(
-                "Type mismatch: {} vs {}",
-                self.display_type(&a),
-                self.display_type(&b)
-            )),
+            _ => Err(UnifyError::Mismatch {
+                expected: a.clone(),
+                found: b.clone(),
+            }),
         }
     }
 
-    fn bind_type_var(&mut self, id: TypeVarId, ty: Type) -> Result<(), String> {
+    fn bind_type_var(&mut self, id: TypeVarId, ty: Type) -> Result<(), UnifyError> {
         if self.substitutions.get(&id) == Some(&ty) {
             return Ok(());
         }
         let variable_kind = self.kind_of_type_var(id);
         let type_kind = TypeNormalizer::new(&self.normalization_env)
             .kind_of(&ty)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| UnifyError::Normalization {
+                ty: ty.clone(),
+                detail: error,
+            })?;
         if variable_kind != type_kind {
-            return Err(format!(
-                "kind mismatch while binding an inferred type to {}: {} vs {}",
-                self.display_type(&ty),
-                variable_kind,
-                type_kind
-            ));
+            return Err(UnifyError::KindMismatch {
+                expected: variable_kind,
+                found: type_kind,
+                ty: Some(ty),
+                context: "binding",
+            });
         }
         if Self::has_escaping_bound_var(&ty, 0) {
-            return Err(format!(
-                "type lambda binder escapes while inferring {}",
-                self.display_type(&ty)
-            ));
+            return Err(UnifyError::BinderEscape { ty });
         }
         if self.occurs_in(id, &ty) {
-            return Err(format!(
-                "Infinite type: inferred type contains itself through {}",
-                self.display_type(&ty)
-            ));
+            return Err(UnifyError::InfiniteType { variable: id, ty });
         }
         if let (Type::TypeVar(target_id), Some(span)) = (&ty, self.var_spans.get(&id).cloned()) {
             self.var_spans.entry(*target_id).or_insert(span);
@@ -1355,7 +1574,11 @@ impl InferenceEngine {
         Ok(())
     }
 
-    pub(crate) fn bind_pending_type_var(&mut self, id: TypeVarId, ty: &Type) -> Result<(), String> {
+    pub(crate) fn bind_pending_type_var(
+        &mut self,
+        id: TypeVarId,
+        ty: &Type,
+    ) -> Result<(), UnifyError> {
         match self.resolve(&Type::TypeVar(id)) {
             Type::TypeVar(current) => self.bind_type_var(current, ty.clone()),
             current => self.unify(&current, ty),
@@ -1391,7 +1614,7 @@ impl InferenceEngine {
         &mut self,
         pattern: &Type,
         actual: &Type,
-    ) -> Option<Result<(), String>> {
+    ) -> Option<Result<(), UnifyError>> {
         let Type::Apply {
             constructor,
             args: pattern_args,
@@ -1565,10 +1788,11 @@ impl InferenceEngine {
         }
     }
 
-    fn constructor_inference_error(pattern: &Type, actual: &Type) -> String {
-        format!(
-            "cannot infer a type constructor from {pattern} = {actual}; add an explicit constructor section annotation"
-        )
+    fn constructor_inference_error(pattern: &Type, actual: &Type) -> UnifyError {
+        UnifyError::ConstructorInference {
+            pattern: pattern.clone(),
+            actual: actual.clone(),
+        }
     }
 
     fn has_escaping_bound_var(ty: &Type, binder_depth: u32) -> bool {
@@ -1618,22 +1842,27 @@ impl InferenceEngine {
         }
     }
 
-    pub(crate) fn unify_invariant(&mut self, a: &Type, b: &Type) -> Result<(), String> {
+    pub(crate) fn unify_invariant(&mut self, a: &Type, b: &Type) -> Result<(), UnifyError> {
         let mut probe = self.clone_for_probe();
         probe.unify(a, b)?;
         probe.unify(b, a)?;
         let resolved_a = TypeNormalizer::new(&probe.normalization_env)
             .normalize(&probe.resolve(a))
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| UnifyError::Normalization {
+                ty: probe.resolve(a),
+                detail: error,
+            })?;
         let resolved_b = TypeNormalizer::new(&probe.normalization_env)
             .normalize(&probe.resolve(b))
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| UnifyError::Normalization {
+                ty: probe.resolve(b),
+                detail: error,
+            })?;
         if !Self::same_unification_shape(&resolved_a, &resolved_b) {
-            return Err(format!(
-                "Type mismatch: {} vs {}",
-                probe.display_type(&resolved_a),
-                probe.display_type(&resolved_b)
-            ));
+            return Err(UnifyError::Mismatch {
+                expected: resolved_a,
+                found: resolved_b,
+            });
         }
         *self = probe;
         Ok(())
@@ -1873,10 +2102,10 @@ impl InferenceEngine {
                     }
                 });
                 errors.push(InferenceError {
-                    message: format!(
-                        "failed to normalize finalized type {}: {error}",
-                        self.display_type(&finalized)
-                    ),
+                    error: UnifyError::Normalization {
+                        ty: finalized.clone(),
+                        detail: error,
+                    },
                     span,
                 });
                 Type::Error

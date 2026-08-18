@@ -50,18 +50,18 @@ impl<'ctx> CodeGen<'ctx> {
                 len
             }
             ty => {
-                return Err(CodegenError::from(format!(
+                return Err(CodegenError::layout(format!(
                     "Unsupported MIR bounds check base: {}",
-                    ty
+                    self.display_type_for_diagnostic(ty)
                 )))
             }
         };
         let index_ty = self.mir_operand_ty(context, index)?;
         let index_value = self.compile_mir_operand(function, context, index)?;
         let BasicValueEnum::IntValue(index) = index_value else {
-            return Err(CodegenError::from(format!(
+            return Err(CodegenError::layout(format!(
                 "MIR bounds check expected integer index, got {}",
-                index_ty
+                self.display_type_for_diagnostic(&index_ty)
             )));
         };
         let index = self

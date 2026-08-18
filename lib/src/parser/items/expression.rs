@@ -116,9 +116,13 @@ fn multiline_operator_continuation(stream: Input) -> IResult<(Operator, Expressi
     // Match empty lines
     let (stream, _) = empty_lines.process(stream)?;
     // Match indent token and check it's at the expected level
+    let indent_span = stream
+        .seek()
+        .map(|token| token.span)
+        .unwrap_or_else(|_| stream.eof_span());
     let (stream, level) = indent_token.process(stream)?;
     if (level as usize) != expected_indent {
-        return Err(ParseError::UnexpectedIndent(level));
+        return Err(ParseError::UnexpectedIndent(level, indent_span));
     }
     // Parse operator and expression WITHOUT increasing indent context
     // This allows subsequent continuations at the same indent level
@@ -248,7 +252,8 @@ pub fn operand(stream: Input) -> IResult<Operand> {
         .map(Operand::If)
         .or(r#loop.map(Box::new).map(Operand::Loop))
         .or(r#match.map(Box::new).map(Operand::Match))
-        .or(preceded(TokenType::Keyword("unsafe".to_string()), block).map(Operand::Unsafe))
+        .or((get_span, TokenType::Keyword("unsafe".to_string()), block)
+            .map(|(span, _, block)| Operand::Unsafe(block, span)))
         .or(self_ident)
         .or(instance.map(Operand::Instance))
         .or(tuple
@@ -513,11 +518,11 @@ pub fn multiline_arguments_context_aware(stream: Input) -> IResult<Vec<Argument>
     // Arguments must be indented MORE than the current context to avoid ambiguity
 
     // Check the actual indentation level of the arguments
-    let arg_indent_level = if let Ok(token) = stream.seek() {
+    let (arg_indent_level, arg_indent_span) = if let Ok(token) = stream.seek() {
         if let TokenType::Indent(level) = token.token_type {
-            level as usize
+            (level as usize, token.span)
         } else {
-            0
+            (0, token.span)
         }
     } else {
         return Err(ParseError::UnexpectedEOF(stream.eof_span()));
@@ -526,7 +531,10 @@ pub fn multiline_arguments_context_aware(stream: Input) -> IResult<Vec<Argument>
     // Arguments must be indented MORE than the current context
     if arg_indent_level <= stream.indent_level {
         // Not indented at all - definitely not arguments
-        return Err(ParseError::UnexpectedIndent(arg_indent_level as u8));
+        return Err(ParseError::UnexpectedIndent(
+            arg_indent_level as u8,
+            arg_indent_span.clone(),
+        ));
     }
 
     // Prevent ambiguous cases where arguments could be confused with method chains
@@ -536,7 +544,10 @@ pub fn multiline_arguments_context_aware(stream: Input) -> IResult<Vec<Argument>
         if arg_indent_level == stream.indent_step {
             // At base level immediately after a multiline dot chain, one indent step is ambiguous:
             // it could start arguments or continue the surrounding call chain.
-            return Err(ParseError::UnexpectedIndent(arg_indent_level as u8));
+            return Err(ParseError::UnexpectedIndent(
+                arg_indent_level as u8,
+                arg_indent_span,
+            ));
         }
     }
 

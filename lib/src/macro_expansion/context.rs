@@ -5,7 +5,10 @@ use std::{
 };
 
 use crate::{
-    diagnostic::Diagnostic, lexer::Span, macro_expansion::proc_macro::ProcMacroArtifact, Config,
+    diagnostic::{Diagnostic, DiagnosticLocation, Diagnostics},
+    lexer::Span,
+    macro_expansion::proc_macro::ProcMacroArtifact,
+    Config,
 };
 
 use super::{ExpansionId, GeneratedSourceId, MacroExpansionRecord, MacroSourceMap};
@@ -51,6 +54,7 @@ impl<'a> MacroExpansionContext<'a> {
 
     pub fn depth_exceeded_diagnostic(&self, span: Span) -> Diagnostic {
         Diagnostic::new("Macro expansion depth exceeded".to_string(), span)
+            .with_code(crate::diagnostic::DiagnosticCode::Macro)
     }
 
     pub fn record_expansion(&self, record: MacroExpansionRecord) -> ExpansionId {
@@ -69,6 +73,45 @@ impl<'a> MacroExpansionContext<'a> {
 
     pub fn trace_labels(&self, id: ExpansionId) -> Vec<(String, Span)> {
         self.source_map.borrow().trace_labels(id)
+    }
+
+    /// Generated parser spans use a virtual path when the macro host does not
+    /// provide source locations. Point those diagnostics at the invocation so
+    /// the compilation source database can attach the real source snapshot.
+    pub fn map_generated_diagnostics(&self, diagnostics: &mut Diagnostics, id: ExpansionId) {
+        let Some(invocation_span) = self
+            .source_map
+            .borrow()
+            .record(id)
+            .map(|record| record.invocation_span.clone())
+        else {
+            return;
+        };
+        for diagnostic in &mut diagnostics.0 {
+            let DiagnosticLocation::Source(span) = &diagnostic.location else {
+                continue;
+            };
+            if span
+                .file_path
+                .to_string_lossy()
+                .starts_with("<macro-expansion:")
+            {
+                diagnostic.location = DiagnosticLocation::Source(invocation_span.clone());
+                if let Some(primary) = &mut diagnostic.primary {
+                    primary.span = invocation_span.clone();
+                }
+                for label in &mut diagnostic.secondary {
+                    if label
+                        .span
+                        .file_path
+                        .to_string_lossy()
+                        .starts_with("<macro-expansion:")
+                    {
+                        label.span = invocation_span.clone();
+                    }
+                }
+            }
+        }
     }
 
     pub fn record_generated_invocation_parent(&self, span: &Span, parent: ExpansionId) {

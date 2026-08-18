@@ -55,20 +55,18 @@ pub fn lambda_decl(stream: Input) -> IResult<LambdaDecl> {
     function_shorthand
         .or((
             parameters,
-            TokenType::Arrow
-                .or(TokenType::UnitArrow)
-                .or(TokenType::CurriedArrow),
+            (get_span, TokenType::Arrow)
+                .map(|(span, _)| (span, LambdaArrowKind::Normal))
+                .or((get_span, TokenType::UnitArrow).map(|(span, _)| (span, LambdaArrowKind::Unit)))
+                .or((get_span, TokenType::CurriedArrow)
+                    .map(|(span, _)| (span, LambdaArrowKind::Curried))),
             lambda_block,
         )
-            .map(|(parameters, arrow, body)| LambdaDecl {
+            .map(|(parameters, (span, arrow_kind), body)| LambdaDecl {
                 parameters,
                 body,
-                arrow_kind: match arrow {
-                    TokenType::Arrow => LambdaArrowKind::Normal,
-                    TokenType::UnitArrow => LambdaArrowKind::Unit,
-                    TokenType::CurriedArrow => LambdaArrowKind::Curried,
-                    _ => unreachable!(),
-                },
+                arrow_kind,
+                span,
             }))
         .process(stream)
         .map_err(|e| e.with_context("lambda declaration"))

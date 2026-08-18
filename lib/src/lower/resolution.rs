@@ -276,24 +276,19 @@ impl<'a> LowerResolutionContext<'a> {
             [(imp, method)] => (*imp, *method),
             _ => {
                 return Err(format!(
-                    "ambiguous static method `{}`: candidate impl IDs {:?}",
-                    segments.join("::"),
-                    matches.iter().map(|(imp, _)| imp.id).collect::<Vec<_>>()
+                    "ambiguous static method `{}`: multiple implementations match",
+                    segments.join("::")
                 ));
             }
         };
         let owner_name = owner.name;
         let selected_trait = match imp.trait_id {
             Some(trait_id) => {
-                let trait_def = self
-                    .lowerer
-                    .items
-                    .trait_def(trait_id)
-                    .ok_or_else(|| {
-                        format!(
-                            "static method `{owner_name}::{method_name}` resolved to unknown trait {trait_id:?}"
-                        )
-                    })?;
+                let trait_def = self.lowerer.items.trait_def(trait_id).ok_or_else(|| {
+                    format!(
+                        "static method `{owner_name}::{method_name}` resolved to an unknown trait"
+                    )
+                })?;
                 let member_id = trait_def
                     .methods
                     .get(method_name)
@@ -306,7 +301,7 @@ impl<'a> LowerResolutionContext<'a> {
                     })
                     .ok_or_else(|| {
                         format!(
-                            "static method `{owner_name}::{method_name}` is missing trait member authority in trait {trait_id:?}"
+                            "static method `{owner_name}::{method_name}` is missing trait member authority"
                         )
                     })?;
                 Some(HirSelectedTraitMember {

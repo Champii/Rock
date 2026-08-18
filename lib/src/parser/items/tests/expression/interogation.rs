@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -136,9 +137,9 @@ fn trailing_interogation_after_bang_call_applies_to_call() {
 
 #[test]
 fn receiver_chain_and_call_interogation_compose() {
-    assert_eq!(
-        parse_expr("maybe?.get 0?"),
-        ident_expr(
+    assert_formatted_eq(
+        &parse_expr("maybe?.get 0?"),
+        &ident_expr(
             "maybe",
             Some(vec![
                 SecondaryExpr::Interogation,

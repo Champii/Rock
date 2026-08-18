@@ -11,7 +11,7 @@ pub mod solve;
 mod type_vars;
 
 pub use constraints::{ConstraintOwner, ConstraintStore, ObligationId, ObligationState};
-pub use engine::{InferenceEngine, InferenceError};
+pub use engine::{InferenceEngine, InferenceError, UnifyError};
 pub use generalize::{generalize_single_function, generalize_single_function_with_exclusions};
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
@@ -110,7 +110,7 @@ impl ResolvedHirProgram {
 
     pub fn require_type_id_at(&self, location: HirTypeLocation) -> Result<TypeId, ResolveError> {
         self.type_id_at(&location).ok_or_else(|| {
-            ResolveError::new(format!("missing finalized HIR TypeId at {:?}", location))
+            ResolveError::non_source(format!("missing finalized HIR TypeId at {:?}", location))
         })
     }
 
@@ -159,19 +159,6 @@ pub struct PartialHir {
 }
 
 impl PartialHir {
-    fn error_at_definition(&self, id: DefId, message: String) -> ResolveError {
-        if id.crate_id == self.root_crate_id {
-            let span = self
-                .source_map
-                .definition_span(id)
-                .cloned()
-                .expect("current-crate definition error requires its indexed source span");
-            ResolveError::with_span(message, span)
-        } else {
-            ResolveError::new(message)
-        }
-    }
-
     fn validate_item_ids(&self) -> Result<(), Vec<ResolveError>> {
         let mut mismatches = Vec::new();
         validate_item_ids(
@@ -228,13 +215,10 @@ impl PartialHir {
             Err(mismatches
                 .into_iter()
                 .map(|mismatch| {
-                    self.error_at_definition(
-                        mismatch.key,
-                        format!(
-                            "{} ID mismatch: key {:?}, payload {:?}",
-                            mismatch.category, mismatch.key, mismatch.payload_id
-                        ),
-                    )
+                    ResolveError::non_source(format!(
+                        "{} ID mismatch in compiler state",
+                        mismatch.category
+                    ))
                 })
                 .collect())
         }
@@ -243,7 +227,6 @@ impl PartialHir {
 
 struct ItemIdMismatch {
     key: DefId,
-    payload_id: DefId,
     category: &'static str,
 }
 
@@ -258,7 +241,6 @@ fn validate_item_ids<T>(
         if *key != payload_id {
             mismatches.push(ItemIdMismatch {
                 key: *key,
-                payload_id,
                 category,
             });
         }
@@ -271,7 +253,7 @@ fn validate_method_ids(hir: &PartialHir) -> Result<(), Vec<ResolveError>> {
 
     let mut record = |id: DefId, owner: String, errors: &mut Vec<ResolveError>| {
         if id.crate_id == CrateId(u32::MAX) {
-            errors.push(ResolveError::new(format!(
+            errors.push(ResolveError::non_source(format!(
                 "provisional method identity is not allowed for {owner}"
             )));
             return;
@@ -279,7 +261,7 @@ fn validate_method_ids(hir: &PartialHir) -> Result<(), Vec<ResolveError>> {
 
         if let Some(previous_owner) = seen.get(&id) {
             if previous_owner != &owner {
-                errors.push(ResolveError::new(format!(
+                errors.push(ResolveError::non_source(format!(
                     "duplicate method identity {:?} used by {} and {}",
                     id, previous_owner, owner
                 )));
@@ -495,13 +477,13 @@ pub fn finalize(mut hir: PartialHir) -> Result<ResolvedHirProgram, Vec<ResolveEr
     if !authority_errors.is_empty() {
         return Err(authority_errors
             .into_iter()
-            .map(ResolveError::new)
+            .map(ResolveError::non_source)
             .collect());
     }
     let program = AcceptedHirProgram::try_from(program).map_err(|errors| {
         errors
             .into_iter()
-            .map(ResolveError::new)
+            .map(ResolveError::non_source)
             .collect::<Vec<_>>()
     })?;
     Ok(ResolvedHirProgram::from_accepted_with_normalization_env(
@@ -564,7 +546,13 @@ fn drive_inference_to_quiescence(hir: &mut PartialHir) -> Result<(), Vec<Resolve
                         return Err(solved
                             .errors
                             .into_iter()
-                            .map(|error| ResolveError::with_span(error.message, error.span))
+                            .map(|error| {
+                                ResolveError::with_span_code(
+                                    error.render(&hir.engine),
+                                    error.span,
+                                    crate::diagnostic::DiagnosticCode::Type,
+                                )
+                            })
                             .collect());
                     }
                     let changed = solved.changed_type_vars.into_iter().collect::<HashSet<_>>();
@@ -724,7 +712,13 @@ fn drive_inference_to_quiescence(hir: &mut PartialHir) -> Result<(), Vec<Resolve
             return Err(solved
                 .errors
                 .into_iter()
-                .map(|error| ResolveError::with_span(error.message, error.span))
+                .map(|error| {
+                    ResolveError::with_span_code(
+                        error.render(&hir.engine),
+                        error.span,
+                        crate::diagnostic::DiagnosticCode::Type,
+                    )
+                })
                 .collect());
         }
     }
@@ -1059,9 +1053,9 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         let expected = vec![
-            "function declaration ID mismatch: key DefId { crate_id: CrateId(0), local: LocalDefId(1) }, payload DefId { crate_id: CrateId(0), local: LocalDefId(11) }".to_string(),
-            "struct declaration ID mismatch: key DefId { crate_id: CrateId(0), local: LocalDefId(1) }, payload DefId { crate_id: CrateId(0), local: LocalDefId(13) }".to_string(),
-            "function declaration ID mismatch: key DefId { crate_id: CrateId(0), local: LocalDefId(2) }, payload DefId { crate_id: CrateId(0), local: LocalDefId(12) }".to_string(),
+            "function declaration ID mismatch in compiler state".to_string(),
+            "struct declaration ID mismatch in compiler state".to_string(),
+            "function declaration ID mismatch in compiler state".to_string(),
         ];
 
         assert_eq!(strict(false), expected);

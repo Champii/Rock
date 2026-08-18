@@ -8,6 +8,8 @@ use crate::mir::{
 
 impl<'a> MirBuilder<'a> {
     pub(super) fn finish_scope_locals(&mut self, block_locals: Vec<crate::mir::Local>) {
+        let previous_cleanup_mode = self.cleanup_mode;
+        self.cleanup_mode = true;
         let mut current_opt = self.current_block;
         for local in block_locals.into_iter().rev() {
             if let Some(current) = current_opt {
@@ -26,6 +28,7 @@ impl<'a> MirBuilder<'a> {
                 }
             }
         }
+        self.cleanup_mode = previous_cleanup_mode;
     }
 
     pub(super) fn emit_drop_for_place(
@@ -38,21 +41,23 @@ impl<'a> MirBuilder<'a> {
             let drop_block = self.new_block();
             let next_block = self.new_block();
             if let Some(current) = self.current_block {
-                self.blocks[current.0].terminator = Some(Terminator::SwitchInt {
-                    discr: Operand::Copy(Place {
+                self.blocks[current.0].terminator = Some(Terminator::switch_int(
+                    Operand::Copy(Place {
                         local: flag,
                         projection: vec![],
                     }),
-                    targets: vec![(1, drop_block)],
-                    otherwise: next_block,
-                });
+                    vec![(1, drop_block)],
+                    next_block,
+                    self.cleanup_origin(&place),
+                ));
             }
 
             self.current_block = Some(drop_block);
             self.set_drop_flag_for_place(&place, false, None);
             self.emit_unconditional_drop_for_place(ty, place.clone());
             if let Some(current) = self.current_block {
-                self.blocks[current.0].terminator = Some(Terminator::Goto(next_block));
+                self.blocks[current.0].terminator =
+                    Some(Terminator::goto(next_block, self.cleanup_origin(&place)));
             }
 
             if let Some(local) = storage_dead {
@@ -108,10 +113,11 @@ impl<'a> MirBuilder<'a> {
                 DropObligationKind::Direct,
             );
             if let Some(current) = self.current_block {
-                self.blocks[current.0].terminator = Some(Terminator::Drop {
-                    place: place.clone(),
-                    target: next_block,
-                });
+                self.blocks[current.0].terminator = Some(Terminator::drop(
+                    place.clone(),
+                    next_block,
+                    self.drop_origin(&place),
+                ));
             }
             self.current_block = Some(next_block);
         }
@@ -303,18 +309,19 @@ impl<'a> MirBuilder<'a> {
             .map(|_| self.new_block())
             .collect::<Vec<_>>();
         if let Some(current) = self.current_block {
-            self.blocks[current.0].terminator = Some(Terminator::SwitchInt {
-                discr: Operand::Copy(Place {
+            self.blocks[current.0].terminator = Some(Terminator::switch_int(
+                Operand::Copy(Place {
                     local: discr_local,
                     projection: vec![],
                 }),
-                targets: variant_fields
+                variant_fields
                     .iter()
                     .zip(variant_blocks.iter())
                     .map(|((variant_id, _), block)| (variant_id.0 as i64, *block))
                     .collect(),
-                otherwise: done_block,
-            });
+                done_block,
+                self.cleanup_origin(&place),
+            ));
         }
 
         for ((variant_id, fields), block) in variant_fields.into_iter().zip(variant_blocks) {
@@ -340,7 +347,8 @@ impl<'a> MirBuilder<'a> {
                 }
             }
             if let Some(current) = self.current_block {
-                self.blocks[current.0].terminator = Some(Terminator::Goto(done_block));
+                self.blocks[current.0].terminator =
+                    Some(Terminator::goto(done_block, self.cleanup_origin(&place)));
             }
         }
 
@@ -409,7 +417,10 @@ impl<'a> MirBuilder<'a> {
         self.current_block = Some(cleanup_block);
         self.finish_scope_locals(block_locals);
         if let Some(current) = self.current_block {
-            self.blocks[current.0].terminator = Some(Terminator::Goto(target));
+            self.blocks[current.0].terminator = Some(Terminator::goto(
+                target,
+                crate::mir::MirOrigin::synthetic(crate::mir::MirSyntheticOrigin::Cleanup, None),
+            ));
         }
         self.current_block = previous_block;
         cleanup_block
@@ -441,6 +452,7 @@ impl<'a> MirBuilder<'a> {
             match stmt {
                 HirStmt::Let {
                     name,
+                    local_id,
                     ty,
                     value,
                     mutable,
@@ -451,12 +463,12 @@ impl<'a> MirBuilder<'a> {
                     } else {
                         Mutability::Not
                     };
-                    let local = self.new_local_with_span_and_source(
+                    let local = self.new_local_with_source(
                         self.type_id_for(ty),
                         mutability,
                         Some(name.clone()),
-                        value.span.clone(),
                         LocalSource::UserBinding,
+                        self.source_local_span(self.current_source_owner, *local_id),
                     );
                     self.var_map.insert(name.clone(), local);
                     if let Some(scope_locals) = self.scope_locals.last_mut() {
@@ -508,21 +520,38 @@ impl<'a> MirBuilder<'a> {
                         let temp_locals = self.scope_locals.pop().unwrap_or_default();
                         self.finish_scope_locals(temp_locals);
                     }
-                    self.terminate_with_cleanup(0, Terminator::Return);
+                    let return_span = self.source_operation_span(
+                        self.current_source_owner,
+                        expr.as_ref().map(|expr| expr.span.clone()),
+                    );
+                    self.terminate_with_cleanup(
+                        0,
+                        Terminator::return_with_origin(self.source_origin(return_span)),
+                    );
                 }
-                HirStmt::Break(_expr) => {
-                    if let Some(loop_targets) = self.loop_stack.last() {
+                HirStmt::Break(expr) => {
+                    if let Some(loop_targets) = self.loop_stack.last().copied() {
+                        let branch_span = self.source_operation_span(
+                            self.current_source_owner,
+                            expr.as_ref().map(|expr| expr.span.clone()),
+                        );
                         self.terminate_with_cleanup(
                             loop_targets.cleanup_depth,
-                            Terminator::Goto(loop_targets.break_target),
+                            Terminator::goto(
+                                loop_targets.break_target,
+                                self.source_origin(branch_span),
+                            ),
                         );
                     }
                 }
                 HirStmt::Continue => {
-                    if let Some(loop_targets) = self.loop_stack.last() {
+                    if let Some(loop_targets) = self.loop_stack.last().copied() {
                         self.terminate_with_cleanup(
                             loop_targets.cleanup_depth,
-                            Terminator::Goto(loop_targets.continue_target),
+                            Terminator::goto(
+                                loop_targets.continue_target,
+                                self.source_origin(None),
+                            ),
                         );
                     }
                 }

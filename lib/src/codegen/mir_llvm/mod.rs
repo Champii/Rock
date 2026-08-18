@@ -34,8 +34,10 @@ pub(crate) fn compile_mir_program(
 #[allow(dead_code)]
 impl<'ctx> CodeGen<'ctx> {
     fn compile_mir_program_bodies(&mut self, program: &MirProgram) -> Result<(), CodegenError> {
-        self.ensure_mir_type_context(program)?;
-        self.declare_mir_closure_functions(program)?;
+        self.ensure_mir_type_context(program)
+            .map_err(CodegenError::internalize)?;
+        self.declare_mir_closure_functions(program)
+            .map_err(CodegenError::internalize)?;
 
         for (_, function) in program.functions() {
             self.compile_mir_function(function)?;
@@ -135,8 +137,13 @@ impl<'ctx> CodeGen<'ctx> {
         terminator: &Terminator,
     ) -> Result<(), CodegenError> {
         match terminator {
-            Terminator::Return | Terminator::Goto(_) | Terminator::Drop { .. } => Ok(()),
-            Terminator::SwitchInt { discr, .. } => {
+            Terminator::Return
+            | Terminator::ReturnWithOrigin { .. }
+            | Terminator::Goto(_)
+            | Terminator::GotoWithOrigin { .. }
+            | Terminator::Drop { .. }
+            | Terminator::DropWithOrigin { .. } => Ok(()),
+            Terminator::SwitchInt { discr, .. } | Terminator::SwitchIntWithOrigin { discr, .. } => {
                 self.validate_mir_operand_type_ids(program, discr)
             }
             Terminator::Call { func, args, .. } => {
@@ -189,7 +196,7 @@ impl<'ctx> CodeGen<'ctx> {
                         .get(capture.local.0)
                         .map(|local| local.ty)
                         .ok_or_else(|| {
-                            CodegenError::from(format!(
+                            CodegenError::internal(format!(
                                 "MIR closure '{}' capture local {} is missing",
                                 function.name, capture.local.0
                             ))
@@ -201,7 +208,7 @@ impl<'ctx> CodeGen<'ctx> {
                 .backend_contract
                 .callable(&closure_key)
                 .ok_or_else(|| {
-                    CodegenError::from(format!(
+                    CodegenError::internal(format!(
                         "MIR closure '{}' is missing backend contract callable",
                         function.name
                     ))
@@ -212,7 +219,7 @@ impl<'ctx> CodeGen<'ctx> {
                 .cloned()
                 .unwrap_or_else(|| declaration.llvm_symbol.clone());
             if !self.functions.contains_key(&symbol) {
-                return Err(CodegenError::from(format!(
+                return Err(CodegenError::internal(format!(
                     "MIR closure contract callable '{}' was not declared before codegen",
                     symbol
                 )));
@@ -268,13 +275,13 @@ impl<'ctx> CodeGen<'ctx> {
             .get(&mir_function.id)
             .cloned()
             .ok_or_else(|| {
-                CodegenError::from(format!(
+                CodegenError::internal(format!(
                     "MIR function '{}' was not declared before codegen",
                     mir_function.name
                 ))
             })?;
         let function = *self.functions.get(&symbol).ok_or_else(|| {
-            CodegenError::from(format!(
+            CodegenError::internal(format!(
                 "LLVM function '{}' not found for MIR function '{}'",
                 symbol, mir_function.name
             ))
@@ -283,7 +290,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.current_function = Some(function);
         let result = (|| {
             if mir_function.basic_blocks.is_empty() {
-                return Err(CodegenError::from(format!(
+                return Err(CodegenError::internal(format!(
                     "MIR function '{}' has no basic blocks",
                     mir_function.name
                 )));
@@ -325,7 +332,7 @@ impl<'ctx> CodeGen<'ctx> {
             for param_index in 0..mir_function.arg_count {
                 let local_index = param_index + 1;
                 let Some(Some((pointer, ty))) = locals.get(local_index).cloned() else {
-                    return Err(CodegenError::from(format!(
+                    return Err(CodegenError::internal(format!(
                         "MIR function '{}' argument local {} is missing",
                         mir_function.name, local_index
                     )));
@@ -336,7 +343,7 @@ impl<'ctx> CodeGen<'ctx> {
                     param_index
                 };
                 let Some(param) = function.get_nth_param(llvm_param_index as u32) else {
-                    return Err(CodegenError::from(format!(
+                    return Err(CodegenError::internal(format!(
                         "LLVM function for MIR function '{}' is missing parameter {}",
                         mir_function.name, llvm_param_index
                     )));
@@ -413,7 +420,7 @@ impl<'ctx> CodeGen<'ctx> {
             .function
             .get_nth_param(0)
             .ok_or_else(|| {
-                CodegenError::from(format!(
+                CodegenError::internal(format!(
                     "MIR closure '{}' is missing environment parameter",
                     mir_function.name
                 ))
@@ -425,7 +432,7 @@ impl<'ctx> CodeGen<'ctx> {
                 .iter()
                 .map(|capture| {
                     let Some(Some((_, ty))) = context.locals.get(capture.local.0) else {
-                        return Err(CodegenError::from(format!(
+                        return Err(CodegenError::internal(format!(
                             "MIR closure capture local {} is missing",
                             capture.local.0
                         )));
@@ -446,7 +453,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         for (index, capture) in mir_function.closure_captures.iter().enumerate() {
             let Some(Some((local_ptr, local_ty))) = context.locals.get(capture.local.0) else {
-                return Err(CodegenError::from(format!(
+                return Err(CodegenError::internal(format!(
                     "MIR closure capture local {} is missing",
                     capture.local.0
                 )));
@@ -488,12 +495,22 @@ impl<'ctx> CodeGen<'ctx> {
         for (index, block) in mir_function.basic_blocks.iter().enumerate() {
             self.builder.position_at_end(context.blocks[index]);
 
-            if self.compile_mir_direct_constant_return(block, context)? {
+            let direct_return_origin = block
+                .statements
+                .first()
+                .and_then(|statement| statement.origin().source_span().cloned());
+            if self
+                .compile_mir_direct_constant_return(block, context)
+                .map_err(|error| error.with_operation_span(direct_return_origin))?
+            {
                 continue;
             }
 
             for statement in &block.statements {
-                self.compile_mir_statement(mir_function, context, statement)?;
+                self.compile_mir_statement(mir_function, context, statement)
+                    .map_err(|error| {
+                        error.with_operation_span(statement.origin().source_span().cloned())
+                    })?;
             }
 
             let terminator = block.terminator.as_ref().ok_or_else(|| {
@@ -502,7 +519,10 @@ impl<'ctx> CodeGen<'ctx> {
                     index, mir_function.name
                 ))
             })?;
-            self.compile_mir_terminator(mir_function, terminator, context)?;
+            self.compile_mir_terminator(mir_function, terminator, context)
+                .map_err(|error| {
+                    error.with_operation_span(terminator.origin().source_span().cloned())
+                })?;
         }
 
         Ok(())
@@ -513,7 +533,10 @@ impl<'ctx> CodeGen<'ctx> {
         block: &crate::mir::BasicBlock,
         context: &MirFunctionContext<'ctx>,
     ) -> Result<bool, CodegenError> {
-        if !matches!(block.terminator, Some(Terminator::Return)) {
+        if !matches!(
+            block.terminator,
+            Some(Terminator::Return | Terminator::ReturnWithOrigin { .. })
+        ) {
             return Ok(false);
         }
 
@@ -2887,6 +2910,7 @@ mod tests {
                         args: vec![Operand::Constant(Constant::Int(41))],
                         destination: root_place(0),
                         target: crate::mir::BasicBlockId(1),
+                        span: None,
                     }),
                 },
                 BasicBlock {
@@ -2954,6 +2978,7 @@ mod tests {
                         ))],
                         destination: root_place(0),
                         target: crate::mir::BasicBlockId(1),
+                        span: None,
                     }),
                 },
                 BasicBlock {
@@ -3076,6 +3101,7 @@ mod tests {
                     args: vec![],
                     destination: root_place(0),
                     target: crate::mir::BasicBlockId(0),
+                    span: None,
                 }),
             }],
             local_decls: vec![local_decl(&type_context, Type::I64, "return_place")],

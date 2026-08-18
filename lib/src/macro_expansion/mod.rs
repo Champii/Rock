@@ -314,14 +314,16 @@ fn parse_generated_top_levels(
 
     append_generated_parse_token(&mut stream, TokenType::Eof, context, expansion_id, &tokens);
 
-    let module =
-        generated_parser::parse_generated_module(&stream, context.config).map_err(|diags| {
+    let module = generated_parser::parse_generated_module(&stream, context.config).map_err(
+        |mut diags| {
             if let Some(expansion_id) = expansion_id {
+                context.map_generated_diagnostics(&mut diags, expansion_id);
                 with_expansion_trace(diags, context, expansion_id)
             } else {
                 diags
             }
-        })?;
+        },
+    )?;
 
     if let Some(expansion_id) = expansion_id {
         for top_level in &module.top_levels {
@@ -382,7 +384,17 @@ fn with_expansion_trace(
     diagnostics.0 = diagnostics
         .0
         .into_iter()
-        .map(|diagnostic| diagnostic.with_labels(labels.clone()))
+        .map(|mut diagnostic| {
+            diagnostic.code = Some(crate::diagnostic::DiagnosticCode::Macro);
+            if matches!(
+                &diagnostic.location,
+                crate::diagnostic::DiagnosticLocation::Source(_)
+            ) {
+                diagnostic.with_labels(labels.clone())
+            } else {
+                diagnostic
+            }
+        })
         .collect();
 
     diagnostics
@@ -390,7 +402,9 @@ fn with_expansion_trace(
 
 fn proc_macro_error(message: impl Into<String>, span: Span) -> Diagnostics {
     let mut diagnostics = Diagnostics::default();
-    diagnostics.push(Diagnostic::new(message.into(), span));
+    diagnostics.push(
+        Diagnostic::new(message.into(), span).with_code(crate::diagnostic::DiagnosticCode::Macro),
+    );
     diagnostics
 }
 
@@ -511,6 +525,13 @@ mod tests {
         }
     }
 
+    fn assert_program_semantically_eq(actual: &Program, expected: &Program) {
+        assert_eq!(
+            crate::fmt::format(crate::fmt::FormatInput::program(actual)),
+            crate::fmt::format(crate::fmt::FormatInput::program(expected)),
+        );
+    }
+
     #[test]
     fn macro_expansion_uses_context_depth_limit_instead_of_panicking() {
         let input = r#"macro repeat
@@ -534,9 +555,10 @@ mod tests {
             })
             .expect("expected depth diagnostic");
         assert!(diagnostic
-            .labels
+            .primary
             .iter()
-            .any(|(label, _)| label.contains("expanded from macro 'repeat'")));
+            .chain(diagnostic.secondary.iter())
+            .any(|label| label.message.contains("expanded from macro 'repeat'")));
     }
 
     #[test]
@@ -567,13 +589,15 @@ macro repeat_b
             .expect("expected depth diagnostic");
 
         assert!(diagnostic
-            .labels
+            .primary
             .iter()
-            .any(|(label, _)| label.contains("expanded from macro 'repeat_a'")));
+            .chain(diagnostic.secondary.iter())
+            .any(|label| label.message.contains("expanded from macro 'repeat_a'")));
         assert!(!diagnostic
-            .labels
+            .primary
             .iter()
-            .any(|(label, _)| label.contains("expanded from macro 'repeat_b'")));
+            .chain(diagnostic.secondary.iter())
+            .any(|label| label.message.contains("expanded from macro 'repeat_b'")));
     }
 
     #[test]
@@ -601,9 +625,10 @@ macro repeat_b
             .expect("expected depth diagnostic");
 
         assert!(!diagnostic
-            .labels
+            .primary
             .iter()
-            .any(|(label, _)| label.contains("expanded from macro 'known'")));
+            .chain(diagnostic.secondary.iter())
+            .any(|label| label.message.contains("expanded from macro 'known'")));
     }
 
     #[test]
@@ -654,6 +679,41 @@ macro repeat_b
     }
 
     #[test]
+    fn generated_parse_errors_point_back_to_macro_invocation_source() {
+        let config = test_config();
+        let generated_tokens = vec![
+            Token::from(TokenType::Indent(0)),
+            Token::from(TokenType::Ident("main".to_string())),
+            Token::from(TokenType::Equal),
+            Token::from(TokenType::Arrow),
+            Token::from(TokenType::Eof),
+        ];
+        let response = proc_macro::ProcMacroResponse::Expand {
+            output: proc_macro::encode_tokens(&generated_tokens).unwrap(),
+        };
+        let (artifact, temp_dir) = proc_macro_artifact_with_response("broken", response);
+        let input_program = parse_string("%broken", &config).unwrap();
+        let invocation_span = match &input_program.module.top_levels[0] {
+            TopLevel::MacroInvoc(invocation) => invocation.name.span.clone(),
+            other => panic!("expected macro invocation, got {other:?}"),
+        };
+        let context = MacroExpansionContext::new(&config).with_proc_macro_artifact(artifact);
+
+        let diagnostics = expand_macros_with_context(input_program, &context)
+            .expect_err("invalid generated source should fail parsing");
+        let diagnostic = diagnostics
+            .0
+            .first()
+            .expect("expected generated parse diagnostic");
+        assert_eq!(
+            diagnostic.location,
+            crate::diagnostic::DiagnosticLocation::Source(invocation_span)
+        );
+
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
     fn proc_macro_diagnostics_use_invocation_span() {
         let config = test_config();
         let (artifact, temp_dir) = proc_macro_artifact_with_response(
@@ -670,6 +730,10 @@ macro repeat_b
 
         let diagnostic = diagnostics.0.first().expect("expected diagnostic");
         assert!(diagnostic.message.contains("fail_macro"));
+        assert_eq!(
+            diagnostic.code,
+            Some(crate::diagnostic::DiagnosticCode::Macro)
+        );
         let crate::diagnostic::DiagnosticLocation::Source(span) = &diagnostic.location else {
             panic!("macro diagnostic should have a source location");
         };
@@ -695,9 +759,10 @@ macro repeat_b
 
         let diagnostic = diagnostics.0.first().expect("expected diagnostic");
         assert!(diagnostic
-            .labels
+            .primary
             .iter()
-            .any(|(label, _)| label.contains("expanded from macro 'fail_macro'")));
+            .chain(diagnostic.secondary.iter())
+            .any(|label| label.message.contains("expanded from macro 'fail_macro'")));
 
         let _ = fs::remove_dir_all(temp_dir);
     }
@@ -721,8 +786,8 @@ macro outer
         let labels = diagnostics
             .0
             .iter()
-            .flat_map(|diagnostic| diagnostic.labels.iter())
-            .map(|(label, _)| label.as_str())
+            .flat_map(|diagnostic| diagnostic.primary.iter().chain(diagnostic.secondary.iter()))
+            .map(|label| label.message.as_str())
             .collect::<Vec<_>>();
         assert!(
             labels
@@ -770,11 +835,12 @@ macro outer
         let outer_trace_spans = diagnostics
             .0
             .iter()
-            .flat_map(|diagnostic| diagnostic.labels.iter())
-            .filter_map(|(label, span)| {
+            .flat_map(|diagnostic| diagnostic.primary.iter().chain(diagnostic.secondary.iter()))
+            .filter_map(|label| {
                 label
+                    .message
                     .contains("expanded from macro 'outer'")
-                    .then_some(span)
+                    .then_some(label.span.clone())
             })
             .collect::<Vec<_>>();
         assert!(outer_trace_spans
@@ -850,7 +916,7 @@ three = -> 1"#;
             expand_macros_with_context(parse_string(input, &config).unwrap(), &context).unwrap();
         let expected = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected);
+        assert_program_semantically_eq(&expanded, &expected);
     }
 
     #[test]
@@ -871,7 +937,7 @@ two = -> value"#;
             expand_macros_with_context(parse_string(input, &config).unwrap(), &context).unwrap();
         let expected = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected);
+        assert_program_semantically_eq(&expanded, &expected);
     }
 
     #[test]
@@ -926,7 +992,7 @@ main = -> 1"#;
 
         let expected_program = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected_program);
+        assert_program_semantically_eq(&expanded, &expected_program);
     }
 
     #[test]
@@ -995,7 +1061,7 @@ x = y -> z"#;
 
         let expected_program = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected_program);
+        assert_program_semantically_eq(&expanded, &expected_program);
     }
 
     #[test]
@@ -1018,7 +1084,7 @@ a = b, c, d, -> e"#;
 
         let expected_program = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected_program);
+        assert_program_semantically_eq(&expanded, &expected_program);
     }
 
     #[test]
@@ -1047,7 +1113,7 @@ x = -> 1"#;
 
         let expected_program = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected_program);
+        assert_program_semantically_eq(&expanded, &expected_program);
     }
 
     #[test]
@@ -1069,7 +1135,7 @@ a = -> c"#;
 
         let expected_program = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected_program);
+        assert_program_semantically_eq(&expanded, &expected_program);
     }
 
     #[test]
@@ -1092,7 +1158,7 @@ a = -> 1"#;
 
         let expected_program = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected_program);
+        assert_program_semantically_eq(&expanded, &expected_program);
     }
 
     #[test]
@@ -1116,6 +1182,6 @@ main = -> 1 + 2"#;
 
         let expected_program = parse_string(expected, &config).unwrap();
 
-        assert_eq!(expanded, expected_program);
+        assert_program_semantically_eq(&expanded, &expected_program);
     }
 }

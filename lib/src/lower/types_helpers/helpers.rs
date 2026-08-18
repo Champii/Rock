@@ -177,7 +177,7 @@ impl Lowerer {
             1 => candidates.pop().unwrap(),
             _ => {
                 let receiver_type = self.display_type(&expr.ty);
-                self.diagnostics.push_with_span(
+                self.diagnostics.push_selection_with_span(
                     format!("Ambiguous auto-deref for type {}", receiver_type),
                     expr.span.clone(),
                 );
@@ -554,6 +554,7 @@ impl Lowerer {
     ) -> HirExpr {
         match adjustment {
             ReceiverAdjustment::AutorefShared | ReceiverAdjustment::AutorefMut => {
+                let span = expr.span.clone();
                 let resolved_ty = self.resolve_projection_type(&self.engine.resolve(&expr.ty));
                 if !matches!(resolved_ty, Type::Str | Type::Slice(_)) {
                     return expr;
@@ -566,7 +567,7 @@ impl Lowerer {
                         inner: Box::new(expr.ty.clone()),
                     },
                     kind: HirExprKind::Ref(mutable, Box::new(expr)),
-                    span: self.diagnostics.current_span().clone(),
+                    span,
                 }
             }
             ReceiverAdjustment::MutToSharedRef => self
@@ -657,6 +658,7 @@ impl Lowerer {
         recv_ty: &Type,
         method_func: &HirFunction,
         args: &[HirExpr],
+        operation_span: crate::lexer::Span,
     ) -> HashMap<GenericParamId, Type> {
         let inferable_generics: HashSet<_> = method_func
             .generic_params
@@ -669,7 +671,8 @@ impl Lowerer {
             .map(|param| {
                 (
                     param.id,
-                    self.engine.fresh_type_var_of_kind(param.kind.clone()),
+                    self.engine
+                        .fresh_type_var_at_kind(operation_span.clone(), param.kind.clone()),
                 )
             })
             .collect();

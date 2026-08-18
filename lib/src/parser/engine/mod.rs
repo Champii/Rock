@@ -84,7 +84,9 @@ pub struct ParseCtx<'a> {
     pub indent_level: usize,
     pub config: &'a Config,
     pub indent_step: usize,
-    pub invalid_indent: Option<u8>,
+    // Borrowed from the token stream so parser contexts remain cheap Copy values;
+    // ParseError takes an owned clone when the error escapes the parser.
+    pub invalid_indent: Option<(u8, &'a Span)>,
     pub disallowed_multiline_fn_call: bool,
     pub inside_argument_list: bool,
     pub inside_inline_argument_list: bool, // For comma-separated args, not multiline
@@ -114,8 +116,8 @@ impl ParseCtx<'_> {
     }
 
     pub fn consume(&self) -> Result<(Self, Token), ParseError> {
-        if let Some(level) = self.invalid_indent {
-            return Err(ParseError::UnexpectedIndent(level));
+        if let Some((level, span)) = self.invalid_indent {
+            return Err(ParseError::UnexpectedIndent(level, span.clone()));
         }
 
         if self.tokens.is_empty() {
@@ -132,8 +134,8 @@ impl ParseCtx<'_> {
     }
 
     pub fn indent(&self) -> Result<Self, ParseError> {
-        if let Some(level) = self.invalid_indent {
-            return Err(ParseError::UnexpectedIndent(level));
+        if let Some((level, span)) = self.invalid_indent {
+            return Err(ParseError::UnexpectedIndent(level, span.clone()));
         }
 
         Ok(ParseCtx {
@@ -143,8 +145,8 @@ impl ParseCtx<'_> {
     }
 
     pub fn dedent(&self) -> Result<Self, ParseError> {
-        if let Some(level) = self.invalid_indent {
-            return Err(ParseError::UnexpectedIndent(level));
+        if let Some((level, span)) = self.invalid_indent {
+            return Err(ParseError::UnexpectedIndent(level, span.clone()));
         }
 
         Ok(ParseCtx {
@@ -165,8 +167,8 @@ impl ParseCtx<'_> {
     }
 
     pub fn seek(&self) -> Result<Token, ParseError> {
-        if let Some(level) = self.invalid_indent {
-            return Err(ParseError::UnexpectedIndent(level));
+        if let Some((level, span)) = self.invalid_indent {
+            return Err(ParseError::UnexpectedIndent(level, span.clone()));
         }
 
         if self.tokens.is_empty() {
@@ -177,8 +179,8 @@ impl ParseCtx<'_> {
     }
 
     pub fn seek_nth(&self, n: usize) -> Result<Token, ParseError> {
-        if let Some(level) = self.invalid_indent {
-            return Err(ParseError::UnexpectedIndent(level));
+        if let Some((level, span)) = self.invalid_indent {
+            return Err(ParseError::UnexpectedIndent(level, span.clone()));
         }
 
         if self.tokens.len() < n {
@@ -214,7 +216,10 @@ impl ParseCtx<'_> {
         }
     }
 
-    fn determine_indent_step(tokens: &[Token], _config: &Config) -> (usize, Option<u8>) {
+    fn determine_indent_step<'a>(
+        tokens: &'a [Token],
+        _config: &Config,
+    ) -> (usize, Option<(u8, &'a Span)>) {
         let mut indent_step = 0;
         let mut invalid_indent = None;
 
@@ -222,7 +227,7 @@ impl ParseCtx<'_> {
             if let TokenType::Indent(level) = token.token_type {
                 if level > 0 {
                     if level % 2 != 0 {
-                        invalid_indent = Some(level);
+                        invalid_indent = Some((level, &token.span));
                         break;
                     }
 

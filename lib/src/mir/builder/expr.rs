@@ -202,16 +202,23 @@ impl<'a> MirBuilder<'a> {
 
                 let else_target = else_block.unwrap_or(merge_block);
 
-                self.blocks[current_block.0].terminator = Some(Terminator::SwitchInt {
-                    discr: Operand::Copy(cond_place),
-                    targets: vec![(1, then_block)],
-                    otherwise: else_target,
-                });
+                self.blocks[current_block.0].terminator = Some(Terminator::switch_int(
+                    Operand::Copy(cond_place),
+                    vec![(1, then_block)],
+                    else_target,
+                    self.source_origin(span.clone()),
+                ));
 
                 self.current_block = Some(then_block);
                 self.lower_block(then_branch, dest.clone());
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(Terminator::Goto(merge_block));
+                    self.blocks[current.0].terminator = Some(Terminator::goto(
+                        merge_block,
+                        crate::mir::MirOrigin::synthetic(
+                            crate::mir::MirSyntheticOrigin::ControlFlow,
+                            span.clone(),
+                        ),
+                    ));
                 }
 
                 if let Some(else_b) = else_branch {
@@ -219,7 +226,13 @@ impl<'a> MirBuilder<'a> {
                     self.current_block = Some(else_block);
                     self.lower_block(else_b, dest.clone());
                     if let Some(current) = self.current_block {
-                        self.blocks[current.0].terminator = Some(Terminator::Goto(merge_block));
+                        self.blocks[current.0].terminator = Some(Terminator::goto(
+                            merge_block,
+                            crate::mir::MirOrigin::synthetic(
+                                crate::mir::MirSyntheticOrigin::ControlFlow,
+                                span.clone(),
+                            ),
+                        ));
                     }
                 }
 
@@ -232,7 +245,13 @@ impl<'a> MirBuilder<'a> {
                 let merge_block = self.new_block();
 
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(Terminator::Goto(cond_block));
+                    self.blocks[current.0].terminator = Some(Terminator::goto(
+                        cond_block,
+                        crate::mir::MirOrigin::synthetic(
+                            crate::mir::MirSyntheticOrigin::ControlFlow,
+                            Some(condition.span.clone()),
+                        ),
+                    ));
                 }
 
                 self.current_block = Some(cond_block);
@@ -247,11 +266,12 @@ impl<'a> MirBuilder<'a> {
                 self.lower_expr(condition, cond_place.clone());
 
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(Terminator::SwitchInt {
-                        discr: Operand::Copy(cond_place),
-                        targets: vec![(1, body_block)],
-                        otherwise: merge_block,
-                    });
+                    self.blocks[current.0].terminator = Some(Terminator::switch_int(
+                        Operand::Copy(cond_place),
+                        vec![(1, body_block)],
+                        merge_block,
+                        self.source_origin(Some(condition.span.clone())),
+                    ));
                 }
 
                 self.current_block = Some(body_block);
@@ -268,15 +288,25 @@ impl<'a> MirBuilder<'a> {
                 self.loop_stack.pop();
 
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(Terminator::Goto(cond_block));
+                    self.blocks[current.0].terminator = Some(Terminator::goto(
+                        cond_block,
+                        crate::mir::MirOrigin::synthetic(
+                            crate::mir::MirSyntheticOrigin::ControlFlow,
+                            Some(condition.span.clone()),
+                        ),
+                    ));
                 }
 
                 self.current_block = Some(merge_block);
                 self.emit_assign(dest, Rvalue::Use(Operand::Constant(Constant::Unit)), span);
             }
             HirExprKind::For {
-                var, iter, body, ..
+                var,
+                local_id,
+                iter,
+                body,
             } => {
+                let binding_span = self.source_local_span(self.current_source_owner, *local_id);
                 let cond_block = self.new_block();
                 let body_block = self.new_block();
                 let inc_block = self.new_block();
@@ -289,6 +319,7 @@ impl<'a> MirBuilder<'a> {
                             Mutability::Mut,
                             Some(var.clone()),
                             LocalSource::UserBinding,
+                            binding_span.clone(),
                         );
                         self.register_scoped_temp(loop_local);
                         self.emit_storage_live(loop_local, Some(start.span.clone()));
@@ -343,7 +374,7 @@ impl<'a> MirBuilder<'a> {
                                 projection: vec![],
                             },
                             Rvalue::Use(Operand::Constant(Constant::Int(0))),
-                            Some(iter.span.clone()),
+                            binding_span.clone(),
                         );
 
                         let (elem_ty, len) = match &iter.ty {
@@ -356,9 +387,10 @@ impl<'a> MirBuilder<'a> {
                             Mutability::Not,
                             Some(var.clone()),
                             LocalSource::UserBinding,
+                            binding_span.clone(),
                         );
                         self.register_scoped_temp(loop_local);
-                        self.emit_storage_live(loop_local, Some(iter.span.clone()));
+                        self.emit_storage_live(loop_local, binding_span.clone());
 
                         (
                             counter,
@@ -369,7 +401,13 @@ impl<'a> MirBuilder<'a> {
                     };
 
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(Terminator::Goto(cond_block));
+                    self.blocks[current.0].terminator = Some(Terminator::goto(
+                        cond_block,
+                        crate::mir::MirOrigin::synthetic(
+                            crate::mir::MirSyntheticOrigin::ControlFlow,
+                            Some(iter.span.clone()),
+                        ),
+                    ));
                 }
 
                 let previous_binding = self.var_map.insert(
@@ -401,14 +439,15 @@ impl<'a> MirBuilder<'a> {
                     Some(iter.span.clone()),
                 );
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(Terminator::SwitchInt {
-                        discr: Operand::Copy(Place {
+                    self.blocks[current.0].terminator = Some(Terminator::switch_int(
+                        Operand::Copy(Place {
                             local: cond_temp,
                             projection: vec![],
                         }),
-                        targets: vec![(1, body_block)],
-                        otherwise: merge_block,
-                    });
+                        vec![(1, body_block)],
+                        merge_block,
+                        self.source_origin(Some(iter.span.clone())),
+                    ));
                 }
 
                 self.current_block = Some(body_block);
@@ -447,7 +486,13 @@ impl<'a> MirBuilder<'a> {
                 self.lower_block(body, body_dest);
                 self.loop_stack.pop();
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(Terminator::Goto(inc_block));
+                    self.blocks[current.0].terminator = Some(Terminator::goto(
+                        inc_block,
+                        crate::mir::MirOrigin::synthetic(
+                            crate::mir::MirSyntheticOrigin::ControlFlow,
+                            Some(iter.span.clone()),
+                        ),
+                    ));
                 }
 
                 self.current_block = Some(inc_block);
@@ -481,7 +526,13 @@ impl<'a> MirBuilder<'a> {
                     Some(iter.span.clone()),
                 );
                 if let Some(current) = self.current_block {
-                    self.blocks[current.0].terminator = Some(Terminator::Goto(cond_block));
+                    self.blocks[current.0].terminator = Some(Terminator::goto(
+                        cond_block,
+                        crate::mir::MirOrigin::synthetic(
+                            crate::mir::MirSyntheticOrigin::ControlFlow,
+                            Some(iter.span.clone()),
+                        ),
+                    ));
                 }
 
                 if let Some(previous) = previous_binding {
@@ -664,6 +715,7 @@ impl<'a> MirBuilder<'a> {
                             args: arg_operands,
                             destination: dest.clone(),
                             target: merge_block,
+                            span: span.clone(),
                         },
                     );
                 }
@@ -746,6 +798,7 @@ impl<'a> MirBuilder<'a> {
                             args: arg_operands,
                             destination: dest.clone(),
                             target: merge_block,
+                            span: span.clone(),
                         },
                     );
                 }
@@ -1052,6 +1105,7 @@ impl<'a> MirBuilder<'a> {
                     params.clone(),
                     body.clone(),
                     captures.clone(),
+                    expr.span.clone(),
                 );
                 let closure_captures = self.lower_closure_captures(captures);
                 self.emit_assign(
@@ -1147,7 +1201,13 @@ impl<'a> MirBuilder<'a> {
                 };
                 if let Some(current) = self.current_block {
                     let target = check_blocks.first().copied().unwrap_or(merge_block);
-                    self.blocks[current.0].terminator = Some(Terminator::Goto(target));
+                    self.blocks[current.0].terminator = Some(Terminator::goto(
+                        target,
+                        crate::mir::MirOrigin::synthetic(
+                            crate::mir::MirSyntheticOrigin::ControlFlow,
+                            Some(scrutinee.span.clone()),
+                        ),
+                    ));
                 }
 
                 for (index, arm) in arms.iter().enumerate() {
@@ -1176,11 +1236,12 @@ impl<'a> MirBuilder<'a> {
                             } else {
                                 next_block
                             };
-                            self.blocks[current.0].terminator = Some(Terminator::SwitchInt {
-                                discr: Operand::Copy(discr_place),
-                                targets: vec![(variant_id.0 as i64, variant_success)],
+                            self.blocks[current.0].terminator = Some(Terminator::switch_int(
+                                Operand::Copy(discr_place),
+                                vec![(variant_id.0 as i64, variant_success)],
                                 otherwise,
-                            });
+                                self.source_origin(Some(scrutinee.span.clone())),
+                            ));
                         }
                         if variant_success != matched_block {
                             self.current_block = Some(variant_success);
@@ -1190,12 +1251,18 @@ impl<'a> MirBuilder<'a> {
                                 &scrutinee.ty,
                                 matched_block,
                                 next_block,
+                                Some(scrutinee.span.clone()),
                             );
                         }
                     } else if self.match_arm_is_catch_all(&arm.pattern) {
                         if let Some(current) = self.current_block {
-                            self.blocks[current.0].terminator =
-                                Some(Terminator::Goto(matched_block));
+                            self.blocks[current.0].terminator = Some(Terminator::goto(
+                                matched_block,
+                                crate::mir::MirOrigin::synthetic(
+                                    crate::mir::MirSyntheticOrigin::ControlFlow,
+                                    Some(scrutinee.span.clone()),
+                                ),
+                            ));
                         }
                     } else {
                         self.lower_match_pattern_check(
@@ -1204,6 +1271,7 @@ impl<'a> MirBuilder<'a> {
                             &scrutinee.ty,
                             matched_block,
                             next_block,
+                            Some(scrutinee.span.clone()),
                         );
                     }
 
@@ -1246,14 +1314,21 @@ impl<'a> MirBuilder<'a> {
                         let guard_false_cleanup =
                             self.scope_cleanup_block(cleanup_locals, next_block);
                         if let Some(current) = self.current_block {
-                            self.blocks[current.0].terminator = Some(Terminator::SwitchInt {
-                                discr: Operand::Copy(guard_place),
-                                targets: vec![(1, body_block)],
-                                otherwise: guard_false_cleanup,
-                            });
+                            self.blocks[current.0].terminator = Some(Terminator::switch_int(
+                                Operand::Copy(guard_place),
+                                vec![(1, body_block)],
+                                guard_false_cleanup,
+                                self.source_origin(Some(guard.span.clone())),
+                            ));
                         }
                     } else if let Some(current) = self.current_block {
-                        self.blocks[current.0].terminator = Some(Terminator::Goto(body_block));
+                        self.blocks[current.0].terminator = Some(Terminator::goto(
+                            body_block,
+                            crate::mir::MirOrigin::synthetic(
+                                crate::mir::MirSyntheticOrigin::ControlFlow,
+                                Some(scrutinee.span.clone()),
+                            ),
+                        ));
                     }
 
                     self.current_block = Some(body_block);
@@ -1272,7 +1347,13 @@ impl<'a> MirBuilder<'a> {
                     self.finish_scope_locals(binding_locals);
                     self.restore_match_bindings(restored_bindings);
                     if let Some(current) = self.current_block {
-                        self.blocks[current.0].terminator = Some(Terminator::Goto(merge_block));
+                        self.blocks[current.0].terminator = Some(Terminator::goto(
+                            merge_block,
+                            crate::mir::MirOrigin::synthetic(
+                                crate::mir::MirSyntheticOrigin::ControlFlow,
+                                Some(scrutinee.span.clone()),
+                            ),
+                        ));
                     }
                 }
 
@@ -1430,11 +1511,12 @@ impl<'a> MirBuilder<'a> {
         let continue_block = self.new_block();
         let break_block = self.new_block();
         let merge_block = self.new_block();
-        self.blocks[current.0].terminator = Some(Terminator::SwitchInt {
-            discr: Operand::Copy(discr_place),
-            targets: vec![(continue_variant.variant_id.0 as i64, continue_block)],
-            otherwise: break_block,
-        });
+        self.blocks[current.0].terminator = Some(Terminator::switch_int(
+            Operand::Copy(discr_place),
+            vec![(continue_variant.variant_id.0 as i64, continue_block)],
+            break_block,
+            self.source_origin(span.clone()),
+        ));
 
         self.current_block = Some(break_block);
         let Some(from_residual_callable) =
@@ -1465,6 +1547,7 @@ impl<'a> MirBuilder<'a> {
                         projection: vec![],
                     },
                     target: after_from_residual,
+                    span: span.clone(),
                 },
             );
         }
@@ -1474,7 +1557,10 @@ impl<'a> MirBuilder<'a> {
             projection: vec![],
         };
         self.mark_place_initialized(&ret_place, span.clone());
-        self.terminate_with_cleanup(0, Terminator::Return);
+        self.terminate_with_cleanup(
+            0,
+            Terminator::return_with_origin(self.source_origin(span.clone())),
+        );
 
         self.current_block = Some(continue_block);
         let mut output_place = branch_place;
@@ -1488,7 +1574,13 @@ impl<'a> MirBuilder<'a> {
         let output_operand = self.operand_for_place(output_ty, output_place, false);
         self.emit_assign(dest.clone(), Rvalue::Use(output_operand), span.clone());
         if let Some(current) = self.current_block {
-            self.blocks[current.0].terminator = Some(Terminator::Goto(merge_block));
+            self.blocks[current.0].terminator = Some(Terminator::goto(
+                merge_block,
+                crate::mir::MirOrigin::synthetic(
+                    crate::mir::MirSyntheticOrigin::ControlFlow,
+                    span.clone(),
+                ),
+            ));
         }
 
         self.current_block = Some(merge_block);
@@ -1526,26 +1618,39 @@ impl<'a> MirBuilder<'a> {
             _ => unreachable!("short-circuit lowering only handles boolean operators"),
         };
 
-        self.blocks[lhs_block.0].terminator = Some(Terminator::SwitchInt {
-            discr: Operand::Copy(lhs_place),
-            targets: vec![(1, true_target)],
-            otherwise: false_target,
-        });
+        self.blocks[lhs_block.0].terminator = Some(Terminator::switch_int(
+            Operand::Copy(lhs_place),
+            vec![(1, true_target)],
+            false_target,
+            self.source_origin(span.clone()),
+        ));
 
         self.current_block = Some(default_block);
         self.emit_assign(
             dest.clone(),
             Rvalue::Use(Operand::Constant(Constant::Bool(default_value))),
-            span,
+            span.clone(),
         );
         if let Some(current) = self.current_block {
-            self.blocks[current.0].terminator = Some(Terminator::Goto(merge_block));
+            self.blocks[current.0].terminator = Some(Terminator::goto(
+                merge_block,
+                crate::mir::MirOrigin::synthetic(
+                    crate::mir::MirSyntheticOrigin::ControlFlow,
+                    span.clone(),
+                ),
+            ));
         }
 
         self.current_block = Some(rhs_block);
         self.lower_expr(rhs, dest);
         if let Some(current) = self.current_block {
-            self.blocks[current.0].terminator = Some(Terminator::Goto(merge_block));
+            self.blocks[current.0].terminator = Some(Terminator::goto(
+                merge_block,
+                crate::mir::MirOrigin::synthetic(
+                    crate::mir::MirSyntheticOrigin::ControlFlow,
+                    span.clone(),
+                ),
+            ));
         }
 
         self.current_block = Some(merge_block);

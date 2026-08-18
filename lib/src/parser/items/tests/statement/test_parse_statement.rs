@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -12,16 +13,16 @@ fn test_parse_statement() {
 
     let (rest, statement) = statement.process(ParseCtx::from(&tokens, &config)).unwrap();
 
-    assert_eq!(
-        statement,
-        Statement::Expression(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+    assert_formatted_eq(
+        &statement,
+        &Statement::Expression(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Literal(Literal {
                 kind: crate::ast::LiteralKind::Number(1),
                 span: Span::test(),
             }),
             secondaries: None,
             type_annotation: None,
-        })))
+        }))),
     );
 
     assert_eq!(rest.len(), 0);

@@ -380,6 +380,8 @@ pub struct LambdaDecl {
     pub parameters: Vec<Pattern>,
     pub body: Block,
     pub arrow_kind: LambdaArrowKind,
+    /// Span of the lambda introducer arrow (or the preserved shorthand span).
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -445,7 +447,7 @@ pub enum Operand {
     If(Box<If>),
     Match(Box<Match>),
     Loop(Box<Loop>),
-    Unsafe(Block),
+    Unsafe(Block, Span),
     Expression(Box<Expression>), // parenthesis
 }
 
@@ -545,9 +547,9 @@ pub enum Else {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Loop {
-    While(Condition, Block),
-    For(Pattern, Expression, Block),
-    Loop(Block),
+    While(Condition, Block, Span),
+    For(Pattern, Expression, Block, Span),
+    Loop(Block, Span),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

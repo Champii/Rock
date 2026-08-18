@@ -10,7 +10,7 @@ impl Lowerer {
     /// Executable dependency bodies remain accepted HIR and enter at monomorphization.
     pub(crate) fn lower_crate_trait_bodies(&mut self, ctx: &CrateContext) {
         for message in ctx.dependency_errors_for_phase("lowering") {
-            self.diagnostics.push_once(message);
+            self.diagnostics.push_toolchain_once(message);
         }
     }
 
@@ -18,7 +18,7 @@ impl Lowerer {
     /// Dependency interfaces already supply declarations for name and type resolution.
     pub(crate) fn lower_crate_module_bodies(&mut self, ctx: &CrateContext) {
         for message in ctx.dependency_errors_for_phase("lowering") {
-            self.diagnostics.push_once(message);
+            self.diagnostics.push_toolchain_once(message);
         }
     }
 

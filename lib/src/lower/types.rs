@@ -8,8 +8,16 @@ use crate::types::Type;
 use crate::lower::Lowerer;
 
 impl TypeLoweringContext for Lowerer {
-    fn push_type_error(&mut self, message: String) {
-        self.diagnostics.push(message);
+    fn push_type_error(&mut self, message: String, span: crate::lexer::Span) {
+        self.diagnostics.push(message, span);
+    }
+
+    fn record_type_reference(
+        &mut self,
+        span: crate::lexer::Span,
+        target: crate::source_map::SourceSymbol,
+    ) {
+        self.record_source_reference(span, target);
     }
 
     fn current_module_prefix(&self) -> Option<String> {
@@ -34,8 +42,8 @@ impl TypeLoweringContext for Lowerer {
         self.items.type_alias(id).cloned()
     }
 
-    fn generic_type_for_name(&mut self, name: &str) -> Type {
-        self.current_generic_type_for_name(name)
+    fn generic_type_for_name(&mut self, name: &str, span: crate::lexer::Span) -> Type {
+        self.current_generic_type_for_name(name, span)
             .unwrap_or(Type::Error)
     }
 
@@ -265,6 +273,12 @@ mod tests {
                 args: vec![Type::Bool],
             }
         );
+        assert!(lowerer.source_map.references().iter().any(|reference| {
+            reference.target == crate::source_map::SourceSymbol::Definition(def_id(10))
+        }));
+        assert!(lowerer.source_map.references().iter().any(|reference| {
+            reference.target == crate::source_map::SourceSymbol::Definition(def_id(20))
+        }));
     }
 
     #[test]

@@ -56,7 +56,7 @@ impl<'a> LoweringPipeline<'a> {
             .find(|module| module.kind == ModuleKind::Root)
             .map(|module| module.module_id)
         else {
-            lowerer.diagnostics.push(
+            lowerer.diagnostics.push_toolchain(
                 "missing indexed root module while lowering trait default bodies".to_string(),
             );
             return;
@@ -251,7 +251,7 @@ mod tests {
         let entry = temp_dir.join("main.rk");
         std::fs::write(
             &entry,
-            "answer: I64\nanswer = -> 42\nmain: I64\nmain = -> answer!\n",
+            "answer: I64\nanswer = -> 42\ncaller = ->\n    local = -> 1\n    local!\nmain: I64\nmain = -> answer!\n",
         )
         .unwrap();
 
@@ -289,6 +289,48 @@ mod tests {
                 > 0,
             "pipeline should lower the root main body"
         );
+        let answer_id = lowered
+            .resolver
+            .item_paths
+            .get("demo::answer")
+            .or_else(|| lowered.resolver.item_paths.get("answer"))
+            .copied()
+            .expect("answer function should be indexed");
+        assert!(lowered
+            .source_map
+            .definition_declaration_span(answer_id)
+            .is_some());
+        assert!(lowered
+            .source_map
+            .references()
+            .iter()
+            .any(|reference| reference.target
+                == crate::source_map::SourceSymbol::Definition(answer_id)));
+        assert!(lowered
+            .source_map
+            .scopes()
+            .iter()
+            .any(|scope| scope.parent.is_some()));
+        let caller_id = lowered
+            .resolver
+            .item_paths
+            .get("caller")
+            .or_else(|| lowered.resolver.item_paths.get("demo::caller"))
+            .copied()
+            .expect("caller function should be indexed");
+        let caller_body = &lowered.functions[&caller_id].body;
+        let local_id = match &caller_body.stmts[0] {
+            crate::hir::HirStmt::Let { local_id, .. } => *local_id,
+            statement => panic!("expected shadowing local binding, got {statement:?}"),
+        };
+        assert!(lowered.source_map.references().iter().any(|reference| {
+            reference.target
+                == crate::source_map::SourceSymbol::Local {
+                    owner: caller_id,
+                    local: local_id,
+                }
+                && reference.scope_id.is_some()
+        }));
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }

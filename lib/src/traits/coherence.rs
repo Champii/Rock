@@ -4,8 +4,8 @@ use crate::hir::{HirEnum, HirImpl, HirImplReceiverPattern, HirStruct, HirTrait, 
 use crate::ids::DefId;
 use crate::lower::Lowerer;
 use crate::type_services::kind::Kind;
-use crate::type_services::normalize::{TypeNormalizationEnv, TypeNormalizer};
-use crate::types::{GenericParamId, NominalTypeKind, Type};
+use crate::type_services::normalize::{NormalizeError, TypeNormalizationEnv, TypeNormalizer};
+use crate::types::{AssociatedTypeKey, GenericParamId, NominalTypeKind, Type};
 
 pub struct CoherencePhase;
 
@@ -26,17 +26,210 @@ impl CoherencePhase {
                 .as_ref()
                 .map(|items| items.trait_id),
         );
-        for (impl_id, error) in errors {
-            if impl_id.crate_id == lowerer.root_crate_id {
-                let span = lowerer
-                    .source_map
-                    .definition_span(impl_id)
-                    .cloned()
-                    .expect("current-crate coherence error requires its impl source span");
-                lowerer.diagnostics.push_with_span(error, span);
-            } else {
-                lowerer.diagnostics.push_toolchain_once(error);
-            }
+        for error in errors {
+            let Some(primary_impl_id) = error.current_impl_id(lowerer.root_crate_id) else {
+                lowerer
+                    .diagnostics
+                    .push_toolchain_once(error.render_toolchain());
+                continue;
+            };
+            let span = lowerer
+                .source_map
+                .definition_span(primary_impl_id)
+                .cloned()
+                .expect("current-crate coherence error requires its impl source span");
+            let message = error.render_with(
+                |ty| lowerer.display_type(ty),
+                |id| {
+                    lowerer
+                        .canonical_name_for_def_id(id)
+                        .unwrap_or("<unknown item>")
+                        .to_string()
+                },
+            );
+            let labels = error
+                .overlapping_other_impl_id(primary_impl_id)
+                .filter(|id| id.crate_id == lowerer.root_crate_id)
+                .and_then(|id| lowerer.source_map.definition_span(id).cloned())
+                .into_iter()
+                .map(|span| {
+                    crate::diagnostic::DiagnosticLabel::new("overlapping implementation", span)
+                })
+                .collect();
+            lowerer
+                .diagnostics
+                .push_with_span_and_labels(message, span, labels);
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoherenceError {
+    pub impl_id: DefId,
+    pub kind: CoherenceErrorKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CoherenceErrorKind {
+    InvalidTarget {
+        trait_id: DefId,
+        target: HirImplReceiverPattern,
+        error: NormalizeError,
+    },
+    TargetKindMismatch {
+        trait_id: DefId,
+        expected: Kind,
+        actual: Kind,
+    },
+    TargetCategoryMismatch {
+        trait_id: DefId,
+        expected: Kind,
+    },
+    InvalidConstructorTarget {
+        trait_id: DefId,
+        target: Type,
+        reason: String,
+    },
+    Orphan {
+        trait_id: DefId,
+        target: CanonicalTarget,
+    },
+    InvalidTraitArguments {
+        trait_id: DefId,
+        error: NormalizeError,
+    },
+    Overlapping {
+        left_impl_id: DefId,
+        right_impl_id: DefId,
+        trait_id: DefId,
+        left_target: CanonicalTarget,
+        right_target: CanonicalTarget,
+        witness: Vec<CoherenceWitnessBinding>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoherenceWitnessBinding {
+    pub parameter: GenericParamId,
+    pub value: Type,
+}
+
+impl CoherenceError {
+    fn render_with(
+        &self,
+        display_type: impl Fn(&Type) -> String,
+        display_name: impl Fn(DefId) -> String,
+    ) -> String {
+        let trait_name = |id| display_name(id);
+        match &self.kind {
+            CoherenceErrorKind::InvalidTarget {
+                trait_id,
+                target,
+                error,
+            } => format!(
+                "invalid impl target for trait `{}`: `{}` cannot be normalized ({})",
+                trait_name(*trait_id),
+                render_receiver_pattern(target, &display_type),
+                render_normalize_error(error, &display_type),
+            ),
+            CoherenceErrorKind::TargetKindMismatch {
+                trait_id,
+                expected,
+                actual,
+            } => format!(
+                "constructor impl target for trait `{}` has kind {actual}, but the trait requires {expected}",
+                trait_name(*trait_id),
+            ),
+            CoherenceErrorKind::TargetCategoryMismatch {
+                trait_id,
+                expected,
+            } => format!(
+                "impl target for trait `{}` does not match the required target kind `{expected}`",
+                trait_name(*trait_id),
+            ),
+            CoherenceErrorKind::InvalidConstructorTarget {
+                trait_id,
+                target,
+                reason,
+            } => format!(
+                "invalid constructor impl target `{}` for trait `{}`: {reason}",
+                display_type(target),
+                trait_name(*trait_id),
+            ),
+            CoherenceErrorKind::Orphan { trait_id, target } => format!(
+                "orphan impl for trait `{}` is illegal: trait and normalized target `{}` are both foreign",
+                trait_name(*trait_id),
+                render_target(target, &display_type),
+            ),
+            CoherenceErrorKind::InvalidTraitArguments { trait_id, error } => format!(
+                "invalid trait arguments for trait `{}`: {}",
+                trait_name(*trait_id),
+                render_normalize_error(error, &display_type),
+            ),
+            CoherenceErrorKind::Overlapping {
+                trait_id,
+                left_target,
+                right_target,
+                witness,
+                ..
+            } => format!(
+                "overlapping impls for trait `{}`: normalized targets `{}` and `{}`; witness {}",
+                trait_name(*trait_id),
+                render_target(left_target, &display_type),
+                render_target(right_target, &display_type),
+                render_witness(witness, &display_type),
+            ),
+        }
+    }
+
+    fn render_toolchain(&self) -> String {
+        format!(
+            "invalid coherence metadata in an external implementation: {}",
+            self.neutral_reason()
+        )
+    }
+
+    fn neutral_reason(&self) -> &'static str {
+        match &self.kind {
+            CoherenceErrorKind::InvalidTarget { .. } => "invalid target",
+            CoherenceErrorKind::TargetKindMismatch { .. } => "target kind mismatch",
+            CoherenceErrorKind::TargetCategoryMismatch { .. } => "target category mismatch",
+            CoherenceErrorKind::InvalidConstructorTarget { .. } => "invalid constructor target",
+            CoherenceErrorKind::Orphan { .. } => "orphan implementation",
+            CoherenceErrorKind::InvalidTraitArguments { .. } => "invalid trait arguments",
+            CoherenceErrorKind::Overlapping { .. } => "overlapping implementations",
+        }
+    }
+
+    fn current_impl_id(&self, root_crate_id: crate::ids::CrateId) -> Option<DefId> {
+        if self.impl_id.crate_id == root_crate_id {
+            return Some(self.impl_id);
+        }
+        match &self.kind {
+            CoherenceErrorKind::Overlapping {
+                left_impl_id,
+                right_impl_id,
+                ..
+            } => [*left_impl_id, *right_impl_id]
+                .into_iter()
+                .find(|id| id.crate_id == root_crate_id),
+            _ => None,
+        }
+    }
+
+    fn overlapping_other_impl_id(&self, primary_impl_id: DefId) -> Option<DefId> {
+        match &self.kind {
+            CoherenceErrorKind::Overlapping {
+                left_impl_id,
+                right_impl_id,
+                ..
+            } if *left_impl_id == primary_impl_id => Some(*right_impl_id),
+            CoherenceErrorKind::Overlapping {
+                left_impl_id,
+                right_impl_id,
+                ..
+            } if *right_impl_id == primary_impl_id => Some(*left_impl_id),
+            _ => None,
         }
     }
 }
@@ -49,10 +242,36 @@ pub fn validate_coherence<'a>(
     aliases: impl IntoIterator<Item = &'a HirTypeAlias>,
     sized_trait_id: Option<DefId>,
 ) -> Vec<String> {
-    validate_coherence_with_ids(traits, impls, structs, enums, aliases, sized_trait_id)
-        .into_iter()
-        .map(|(_, message)| message)
-        .collect()
+    let traits = traits.into_iter().collect::<Vec<_>>();
+    let impls = impls.into_iter().collect::<Vec<_>>();
+    let structs = structs.into_iter().collect::<Vec<_>>();
+    let enums = enums.into_iter().collect::<Vec<_>>();
+    let aliases = aliases.into_iter().collect::<Vec<_>>();
+    let display_context = coherence_display_context(&traits, &impls, &structs, &enums, &aliases);
+    validate_coherence_with_ids(
+        traits.iter().copied(),
+        impls.iter().copied(),
+        structs.iter().copied(),
+        enums.iter().copied(),
+        aliases.iter().copied(),
+        sized_trait_id,
+    )
+    .into_iter()
+    .map(|error| {
+        error.render_with(
+            |ty| {
+                crate::type_services::display::display_type_with_context(ty, &display_context)
+                    .to_string()
+            },
+            |id| {
+                display_context
+                    .definition_name(id)
+                    .unwrap_or("<unknown item>")
+                    .to_string()
+            },
+        )
+    })
+    .collect()
 }
 
 fn validate_coherence_with_ids<'a>(
@@ -62,7 +281,7 @@ fn validate_coherence_with_ids<'a>(
     enums: impl IntoIterator<Item = &'a HirEnum>,
     aliases: impl IntoIterator<Item = &'a HirTypeAlias>,
     sized_trait_id: Option<DefId>,
-) -> Vec<(DefId, String)> {
+) -> Vec<CoherenceError> {
     let traits = traits.into_iter().collect::<Vec<_>>();
     let mut impls = impls.into_iter().collect::<Vec<_>>();
     let structs = structs.into_iter().collect::<Vec<_>>();
@@ -90,13 +309,14 @@ fn validate_coherence_with_ids<'a>(
         let target = match normalize_target(&env, &imp.receiver_pattern) {
             Ok(target) => target,
             Err(error) => {
-                diagnostics.push((
-                    imp.id,
-                    format!(
-                        "invalid impl target for {}: {error}",
-                        display_def_id(imp.id)
-                    ),
-                ));
+                diagnostics.push(CoherenceError {
+                    impl_id: imp.id,
+                    kind: CoherenceErrorKind::InvalidTarget {
+                        trait_id,
+                        target: imp.receiver_pattern.clone(),
+                        error,
+                    },
+                });
                 continue;
             }
         };
@@ -108,44 +328,48 @@ fn validate_coherence_with_ids<'a>(
         let actual_kind = match target.kind(&env) {
             Ok(kind) => kind,
             Err(error) => {
-                diagnostics.push((
-                    imp.id,
-                    format!(
-                        "invalid impl target for {}: {error}",
-                        display_def_id(imp.id)
-                    ),
-                ));
+                diagnostics.push(CoherenceError {
+                    impl_id: imp.id,
+                    kind: CoherenceErrorKind::InvalidTarget {
+                        trait_id,
+                        target: imp.receiver_pattern.clone(),
+                        error,
+                    },
+                });
                 continue;
             }
         };
         if actual_kind != expected_kind {
-            diagnostics.push((imp.id, format!(
-                "constructor impl target has kind {actual_kind}, but trait {} requires {expected_kind} in {}",
-                display_def_id(trait_id),
-                display_def_id(imp.id),
-            )));
+            diagnostics.push(CoherenceError {
+                impl_id: imp.id,
+                kind: CoherenceErrorKind::TargetKindMismatch {
+                    trait_id,
+                    expected: expected_kind,
+                    actual: actual_kind,
+                },
+            });
             continue;
         }
         if target.is_constructor() != !matches!(expected_kind, Kind::Type) {
-            diagnostics.push((
-                imp.id,
-                format!(
-                "impl target category does not match trait {} target kind {expected_kind} in {}",
-                display_def_id(trait_id),
-                display_def_id(imp.id),
-            ),
-            ));
+            diagnostics.push(CoherenceError {
+                impl_id: imp.id,
+                kind: CoherenceErrorKind::TargetCategoryMismatch {
+                    trait_id,
+                    expected: expected_kind,
+                },
+            });
             continue;
         }
         if let CanonicalTarget::Constructor(ty) = &target {
             if let Err(error) = validate_constructor_header(ty, &imp_generic_ids(imp)) {
-                diagnostics.push((
-                    imp.id,
-                    format!(
-                        "invalid constructor impl target `{ty}` in {}: {error}",
-                        display_def_id(imp.id),
-                    ),
-                ));
+                diagnostics.push(CoherenceError {
+                    impl_id: imp.id,
+                    kind: CoherenceErrorKind::InvalidConstructorTarget {
+                        trait_id,
+                        target: ty.clone(),
+                        reason: error,
+                    },
+                });
                 continue;
             }
         }
@@ -154,38 +378,29 @@ fn validate_coherence_with_ids<'a>(
         if trait_id.crate_id != imp.id.crate_id
             && outer.is_none_or(|outer_id| outer_id.crate_id != imp.id.crate_id)
         {
-            diagnostics.push((
-                imp.id,
-                format!(
-                "orphan impl {} is illegal: trait {} and normalized target `{}` are both foreign",
-                display_def_id(imp.id),
-                display_def_id(trait_id),
-                target,
-            ),
-            ));
+            diagnostics.push(CoherenceError {
+                impl_id: imp.id,
+                kind: CoherenceErrorKind::Orphan {
+                    trait_id,
+                    target: target.clone(),
+                },
+            });
         }
 
         let normalized_args = imp
             .trait_arg_types
             .iter()
-            .map(|arg| {
-                TypeNormalizer::new(&env)
-                    .normalize(arg)
-                    .map_err(|error| error.to_string())
-            })
+            .map(|arg| TypeNormalizer::new(&env).normalize(arg))
             .collect::<Result<Vec<_>, _>>();
         match normalized_args {
             Ok(args) => {
                 targets.insert(imp.id, target);
                 trait_args.insert(imp.id, args);
             }
-            Err(error) => diagnostics.push((
-                imp.id,
-                format!(
-                    "invalid trait arguments for {}: {error}",
-                    display_def_id(imp.id)
-                ),
-            )),
+            Err(error) => diagnostics.push(CoherenceError {
+                impl_id: imp.id,
+                kind: CoherenceErrorKind::InvalidTraitArguments { trait_id, error },
+            }),
         }
     }
 
@@ -218,23 +433,27 @@ fn validate_coherence_with_ids<'a>(
             {
                 continue;
             }
-            diagnostics.push((left.id, format!(
-                "overlapping impls {} and {} for trait {}: normalized targets `{left_target}` and `{right_target}`; witness {}",
-                display_def_id(left.id),
-                display_def_id(right.id),
-                display_def_id(trait_id),
-                unifier.witness(),
-            )));
+            diagnostics.push(CoherenceError {
+                impl_id: left.id,
+                kind: CoherenceErrorKind::Overlapping {
+                    left_impl_id: left.id,
+                    right_impl_id: right.id,
+                    trait_id,
+                    left_target: left_target.clone(),
+                    right_target: right_target.clone(),
+                    witness: unifier.witness(),
+                },
+            });
         }
     }
 
-    diagnostics.sort();
+    diagnostics.sort_by_key(coherence_error_sort_key);
     diagnostics.dedup();
     diagnostics
 }
 
-#[derive(Clone)]
-enum CanonicalTarget {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CanonicalTarget {
     Exact(Type),
     SliceFamily(Type),
     Constructor(Type),
@@ -245,12 +464,10 @@ impl CanonicalTarget {
         matches!(self, Self::Constructor(_))
     }
 
-    fn kind(&self, env: &TypeNormalizationEnv) -> Result<Kind, String> {
+    fn kind(&self, env: &TypeNormalizationEnv) -> Result<Kind, NormalizeError> {
         match self {
             Self::SliceFamily(_) => Ok(Kind::Type),
-            Self::Exact(ty) | Self::Constructor(ty) => TypeNormalizer::new(env)
-                .kind_of(ty)
-                .map_err(|error| error.to_string()),
+            Self::Exact(ty) | Self::Constructor(ty) => TypeNormalizer::new(env).kind_of(ty),
         }
     }
 
@@ -262,33 +479,162 @@ impl CanonicalTarget {
     }
 }
 
-impl std::fmt::Display for CanonicalTarget {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Exact(ty) | Self::Constructor(ty) => write!(f, "{ty}"),
-            Self::SliceFamily(element) => write!(f, "slice-family<{element}>"),
-        }
-    }
-}
-
 fn normalize_target(
     env: &TypeNormalizationEnv,
     target: &HirImplReceiverPattern,
-) -> Result<CanonicalTarget, String> {
+) -> Result<CanonicalTarget, NormalizeError> {
     match target {
         HirImplReceiverPattern::Exact(ty) => TypeNormalizer::new(env)
             .normalize(ty)
-            .map(CanonicalTarget::Exact)
-            .map_err(|error| error.to_string()),
+            .map(CanonicalTarget::Exact),
         HirImplReceiverPattern::SliceFamily { element } => TypeNormalizer::new(env)
             .normalize(element)
-            .map(CanonicalTarget::SliceFamily)
-            .map_err(|error| error.to_string()),
+            .map(CanonicalTarget::SliceFamily),
         HirImplReceiverPattern::Constructor(ty) => TypeNormalizer::new(env)
             .normalize(ty)
-            .map(CanonicalTarget::Constructor)
-            .map_err(|error| error.to_string()),
+            .map(CanonicalTarget::Constructor),
     }
+}
+
+fn coherence_display_context(
+    traits: &[&HirTrait],
+    impls: &[&HirImpl],
+    structs: &[&HirStruct],
+    enums: &[&HirEnum],
+    aliases: &[&HirTypeAlias],
+) -> crate::type_services::display::TypeDisplayContext {
+    let mut context = crate::type_services::display::TypeDisplayContext::default();
+    for structure in structs {
+        context.insert_definition_name(structure.id, structure.name.clone());
+        for generic in &structure.generic_params {
+            context.insert_generic_name(generic.id, generic.name.clone());
+        }
+    }
+    for enumeration in enums {
+        context.insert_definition_name(enumeration.id, enumeration.name.clone());
+        for generic in &enumeration.generic_params {
+            context.insert_generic_name(generic.id, generic.name.clone());
+        }
+    }
+    for alias in aliases {
+        context.insert_definition_name(alias.id, alias.name.clone());
+        for generic in &alias.generic_params {
+            context.insert_generic_name(generic.id, generic.name.clone());
+        }
+    }
+    for trait_def in traits {
+        context.insert_definition_name(trait_def.id, trait_def.name.clone());
+        for generic in &trait_def.generic_params {
+            context.insert_generic_name(generic.id, generic.name.clone());
+        }
+        if let Some(target) = &trait_def.target {
+            context.insert_generic_name(target.id, target.name.clone());
+        }
+        for associated in &trait_def.associated_types {
+            context.insert_associated_name(
+                AssociatedTypeKey {
+                    owner: trait_def.id,
+                    assoc_type_id: associated.id,
+                },
+                associated.name.clone(),
+            );
+        }
+    }
+    for imp in impls {
+        for generic in imp.type_generics.iter().chain(&imp.trait_generics) {
+            context.insert_generic_name(generic.id, generic.name.clone());
+        }
+        for associated in &imp.associated_types {
+            context.insert_associated_name(
+                AssociatedTypeKey {
+                    owner: imp.id,
+                    assoc_type_id: associated.id,
+                },
+                associated.name.clone(),
+            );
+        }
+    }
+    context
+}
+
+fn render_receiver_pattern(
+    target: &HirImplReceiverPattern,
+    display_type: &impl Fn(&Type) -> String,
+) -> String {
+    match target {
+        HirImplReceiverPattern::Exact(ty) | HirImplReceiverPattern::Constructor(ty) => {
+            display_type(ty)
+        }
+        HirImplReceiverPattern::SliceFamily { element } => format!("[{}]", display_type(element)),
+    }
+}
+
+fn render_target(target: &CanonicalTarget, display_type: &impl Fn(&Type) -> String) -> String {
+    match target {
+        CanonicalTarget::Exact(ty) | CanonicalTarget::Constructor(ty) => display_type(ty),
+        CanonicalTarget::SliceFamily(element) => format!("[{}]", display_type(element)),
+    }
+}
+
+fn render_normalize_error(
+    error: &NormalizeError,
+    display_type: &impl Fn(&Type) -> String,
+) -> String {
+    match error {
+        NormalizeError::AliasCycle(_) => "type alias cycle".to_string(),
+        NormalizeError::DepthLimit { .. } => "type normalization depth limit exceeded".to_string(),
+        NormalizeError::NodeLimit { .. } => "type normalization node limit exceeded".to_string(),
+        NormalizeError::UnknownConstructor(_) => "unknown type constructor".to_string(),
+        NormalizeError::KindMismatch { expected, actual } => {
+            format!("kind mismatch: expected {expected}, found {actual}")
+        }
+        NormalizeError::NotApplicable { kind } => {
+            format!("type of kind {kind} is not applicable")
+        }
+        NormalizeError::NonCanonicalType { normalized } => format!(
+            "type is not canonical; normalized form is `{}`",
+            display_type(normalized)
+        ),
+    }
+}
+
+fn render_witness(
+    witness: &[CoherenceWitnessBinding],
+    display_type: &impl Fn(&Type) -> String,
+) -> String {
+    if witness.is_empty() {
+        return "<identity>".to_string();
+    }
+    witness
+        .iter()
+        .map(|binding| {
+            format!(
+                "{} = {}",
+                display_type(&Type::Generic(binding.parameter)),
+                display_type(&binding.value)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn coherence_error_sort_key(error: &CoherenceError) -> (u32, u32, u8, u32, u32) {
+    let (kind, other) = match &error.kind {
+        CoherenceErrorKind::InvalidTarget { .. } => (0, (0, 0)),
+        CoherenceErrorKind::TargetKindMismatch { .. } => (1, (0, 0)),
+        CoherenceErrorKind::TargetCategoryMismatch { .. } => (2, (0, 0)),
+        CoherenceErrorKind::InvalidConstructorTarget { .. } => (3, (0, 0)),
+        CoherenceErrorKind::Orphan { .. } => (4, (0, 0)),
+        CoherenceErrorKind::InvalidTraitArguments { .. } => (5, (0, 0)),
+        CoherenceErrorKind::Overlapping { right_impl_id, .. } => (6, def_id_key(*right_impl_id)),
+    };
+    (
+        error.impl_id.crate_id.0,
+        error.impl_id.local.0,
+        kind,
+        other.0,
+        other.1,
+    )
 }
 
 fn normalization_env(
@@ -421,7 +767,6 @@ struct FirstOrderUnifier<'a> {
     flexible: HashSet<GenericParamId>,
     requires_sized: HashSet<GenericParamId>,
     generic_kinds: HashMap<GenericParamId, Kind>,
-    names: HashMap<GenericParamId, String>,
     bindings: HashMap<GenericParamId, Type>,
     env: &'a TypeNormalizationEnv,
 }
@@ -436,15 +781,10 @@ impl<'a> FirstOrderUnifier<'a> {
         let mut flexible = HashSet::new();
         let mut requires_sized = HashSet::new();
         let mut generic_kinds = HashMap::new();
-        let mut names = HashMap::new();
         for imp in [left, right] {
             for param in &imp.type_generics {
                 flexible.insert(param.id);
                 generic_kinds.insert(param.id, param.kind.clone());
-                names.insert(
-                    param.id,
-                    format!("{}@{}", param.name, display_def_id(imp.id)),
-                );
             }
             if let Some(sized_trait_id) = sized_trait_id {
                 for (param, bounds) in &imp.bounds {
@@ -458,7 +798,6 @@ impl<'a> FirstOrderUnifier<'a> {
             flexible,
             requires_sized,
             generic_kinds,
-            names,
             bindings: HashMap::new(),
             env,
         }
@@ -678,7 +1017,7 @@ impl<'a> FirstOrderUnifier<'a> {
         true
     }
 
-    fn witness(&self) -> String {
+    fn witness(&self) -> Vec<CoherenceWitnessBinding> {
         let mut bindings = self
             .bindings
             .iter()
@@ -691,33 +1030,20 @@ impl<'a> FirstOrderUnifier<'a> {
                     }
                     resolved = next;
                 }
-                (
-                    self.names
-                        .get(id)
-                        .cloned()
-                        .unwrap_or_else(|| format!("G{}", id.index)),
-                    resolved,
-                )
+                CoherenceWitnessBinding {
+                    parameter: *id,
+                    value: resolved,
+                }
             })
             .collect::<Vec<_>>();
-        bindings.sort_by(|left, right| left.0.cmp(&right.0));
-        if bindings.is_empty() {
-            return "<identity>".to_string();
-        }
         bindings
-            .into_iter()
-            .map(|(name, ty)| format!("{name} = {ty}"))
-            .collect::<Vec<_>>()
-            .join(", ")
+            .sort_by_key(|binding| (def_id_key(binding.parameter.owner), binding.parameter.index));
+        bindings
     }
 }
 
 fn type_is_definitely_unsized(ty: &Type) -> bool {
     matches!(ty, Type::Slice(_) | Type::Str)
-}
-
-fn display_def_id(id: DefId) -> String {
-    format!("impl#{}::{}", id.crate_id.0, id.local.0)
 }
 
 fn def_id_key(id: DefId) -> (u32, u32) {
@@ -895,7 +1221,9 @@ mod tests {
                 .count(),
             1
         );
-        assert!(errors.iter().any(|error| error.contains("impl#0::12")));
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("Trait4") && error.contains("Type1")));
     }
 
     #[test]
@@ -1022,9 +1350,85 @@ mod tests {
             &[],
         );
 
-        assert!(errors
+        assert!(errors.iter().any(|error| {
+            error.contains("Trait1") && error.contains("Type2") && error.contains("E = I64")
+        }));
+    }
+
+    #[test]
+    fn overlap_errors_retain_semantic_ids_targets_and_witnesses() {
+        let trait_id = id(0, 1);
+        let target_id = id(0, 2);
+        let left_id = id(0, 3);
+        let right_id = id(0, 4);
+        let generic = GenericParamDecl::type_param(
+            GenericParamId {
+                owner: left_id,
+                index: 0,
+            },
+            "T",
+        );
+        let target = |ty| {
+            HirImplReceiverPattern::Exact(Type::Struct {
+                id: target_id,
+                args: vec![ty],
+            })
+        };
+        let impls = vec![
+            trait_impl(
+                left_id,
+                trait_id,
+                target(Type::Generic(generic.id)),
+                vec![generic.clone()],
+            ),
+            trait_impl(right_id, trait_id, target(Type::I64), Vec::new()),
+        ];
+
+        let errors = validate_coherence_with_ids(
+            [&trait_def(trait_id, Kind::Type)].into_iter(),
+            impls.iter(),
+            [&structure(target_id, 1)].into_iter(),
+            std::iter::empty(),
+            std::iter::empty(),
+            None,
+        );
+        let error = errors
             .iter()
-            .any(|error| error.contains("E@impl#0::3 = I64")));
+            .find(|error| matches!(&error.kind, CoherenceErrorKind::Overlapping { .. }))
+            .expect("overlap error");
+
+        assert_eq!(error.impl_id, left_id);
+        let CoherenceErrorKind::Overlapping {
+            left_impl_id,
+            right_impl_id,
+            trait_id: found_trait_id,
+            left_target,
+            right_target,
+            witness,
+        } = &error.kind
+        else {
+            unreachable!();
+        };
+        assert_eq!(*left_impl_id, left_id);
+        assert_eq!(*right_impl_id, right_id);
+        assert_eq!(*found_trait_id, trait_id);
+        assert!(matches!(
+            left_target,
+            CanonicalTarget::Exact(Type::Struct { id, args })
+                if *id == target_id && args == &vec![Type::Generic(generic.id)]
+        ));
+        assert!(matches!(
+            right_target,
+            CanonicalTarget::Exact(Type::Struct { id, args })
+                if *id == target_id && args == &vec![Type::I64]
+        ));
+        assert_eq!(
+            witness,
+            &vec![CoherenceWitnessBinding {
+                parameter: generic.id,
+                value: Type::I64,
+            }]
+        );
     }
 
     #[test]
@@ -1049,9 +1453,9 @@ mod tests {
             &[],
         );
 
-        assert!(errors
-            .iter()
-            .any(|error| error.contains("impl#0::3") && error.contains("impl#1::4")));
+        assert!(errors.iter().any(|error| {
+            error.contains("Trait1") && error.contains("Type2") && !error.contains("impl#")
+        }));
     }
 
     #[test]

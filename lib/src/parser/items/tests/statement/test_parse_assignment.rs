@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -12,9 +13,9 @@ fn test_parse_assignment() {
 
     let (rest, statement) = statement.process(ParseCtx::from(&tokens, &config)).unwrap();
 
-    assert_eq!(
-        statement,
-        Statement::Assignment(Assignment {
+    assert_formatted_eq(
+        &statement,
+        &Statement::Assignment(Assignment {
             lhs: AssignmentLHS::Pattern {
                 pattern: Pattern {
                     binding: None,
@@ -24,7 +25,7 @@ fn test_parse_assignment() {
                             span: Span::test(),
                         },
                         mut_: false,
-                    })
+                    }),
                 },
                 type_annotation: None,
             },
@@ -36,7 +37,7 @@ fn test_parse_assignment() {
                 secondaries: None,
                 type_annotation: None,
             })),
-        })
+        }),
     );
 
     assert_eq!(rest.len(), 0);

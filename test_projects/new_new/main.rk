@@ -107,6 +107,7 @@ receive_with = stream, mut target, write ->
                         Result::Ok written => total = total + written
                         Result::Err _ => return total
             Result::Err _ => return total
+        buff.printn!
     total
 
 impl ServerClient

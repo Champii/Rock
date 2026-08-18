@@ -15,19 +15,19 @@ use super::{CodeGen, CodegenError};
 
 impl<'ctx> CodeGen<'ctx> {
     /// Write the LLVM IR to a file
-    pub fn write_ir(&self, path: &Path) -> Result<(), CodegenError> {
+    pub(crate) fn write_ir(&self, path: &Path) -> Result<(), CodegenError> {
         self.module
             .print_to_file(path)
-            .map_err(|e| CodegenError::from(e.to_string()))
+            .map_err(|e| CodegenError::output(e.to_string(), path))
     }
 
     /// Get the LLVM IR as a string
-    pub fn get_ir(&self) -> String {
+    pub(crate) fn get_ir(&self) -> String {
         self.module.print_to_string().to_string()
     }
 
     /// Compile to an object file
-    pub fn write_object(
+    pub(crate) fn write_object(
         &self,
         path: &Path,
         opt_level: OptimizationLevel,
@@ -38,7 +38,8 @@ impl<'ctx> CodeGen<'ctx> {
         });
 
         let triple = TargetMachine::get_default_triple();
-        let target = Target::from_triple(&triple).map_err(|e| CodegenError::from(e.to_string()))?;
+        let target =
+            Target::from_triple(&triple).map_err(|e| CodegenError::toolchain(e.to_string()))?;
         let machine = target
             .create_target_machine(
                 &triple,
@@ -48,7 +49,7 @@ impl<'ctx> CodeGen<'ctx> {
                 RelocMode::Default,
                 CodeModel::Default,
             )
-            .ok_or(CodegenError::from("Failed to create target machine"))?;
+            .ok_or_else(|| CodegenError::toolchain("Failed to create target machine"))?;
 
         // Run optimization passes (skip at O0 — saves time without losing correctness)
         if opt_level != OptimizationLevel::None {
@@ -60,12 +61,12 @@ impl<'ctx> CodeGen<'ctx> {
             };
             self.module
                 .run_passes(passes, &machine, PassBuilderOptions::create())
-                .map_err(|e| CodegenError::from(e.to_string()))?;
+                .map_err(|e| CodegenError::toolchain(e.to_string()))?;
         }
 
         machine
             .write_to_file(&self.module, FileType::Object, path)
-            .map_err(|e| CodegenError::from(e.to_string()))
+            .map_err(|e| CodegenError::output(e.to_string(), path))
     }
 
     /// Compile to an executable by producing an object and linking
@@ -74,7 +75,7 @@ impl<'ctx> CodeGen<'ctx> {
     /// * `output_path` - Path to the output executable
     /// * `opt_level` - Optimization level (0-3)
     /// * `crate_objects` - List of object files from external crates to link
-    pub fn write_executable(
+    pub(crate) fn write_executable(
         &self,
         output_path: &Path,
         opt_level: OptimizationLevel,
@@ -98,10 +99,12 @@ impl<'ctx> CodeGen<'ctx> {
 
         let status = cmd
             .status()
-            .map_err(|e| CodegenError::from(format!("Failed to run linker: {}", e)))?;
+            .map_err(|e| CodegenError::link(format!("Failed to run linker: {}", e)))?;
 
         if !status.success() {
-            return Err(CodegenError::from("Linking failed"));
+            return Err(CodegenError::link(format!(
+                "Linking failed with status {status}"
+            )));
         }
 
         let _ = std::fs::remove_file(&obj_path);

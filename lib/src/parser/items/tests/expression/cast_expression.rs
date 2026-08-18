@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -9,7 +10,7 @@ fn default_span() -> Span {
     Span {
         start: 0,
         end: 0,
-        file_path: PathBuf::default(),
+        file_path: PathBuf::from("/test.rk"),
     }
 }
 
@@ -54,7 +55,7 @@ fn test_cast_simple() {
     );
     if let Expression::CastExpr(inner, ty) = expr {
         assert!(matches!(*inner, Expression::UnaryExpr(_)));
-        assert_eq!(ty, parse_type_i32());
+        assert_formatted_eq(&ty, &parse_type_i32());
     }
 }
 
@@ -70,7 +71,7 @@ fn test_cast_ident() {
     assert_eq!(rest.len(), 0);
     assert!(matches!(expr, Expression::CastExpr(_, _)));
     if let Expression::CastExpr(_, ty) = expr {
-        assert_eq!(ty, parse_type_f64());
+        assert_formatted_eq(&ty, &parse_type_f64());
     }
 }
 
@@ -111,7 +112,7 @@ fn test_cast_to_char() {
     assert_eq!(rest.len(), 0);
     assert!(matches!(expr, Expression::CastExpr(_, _)));
     if let Expression::CastExpr(_, ty) = expr {
-        assert_eq!(ty, parse_type_char());
+        assert_formatted_eq(&ty, &parse_type_char());
     }
 }
 
@@ -132,6 +133,6 @@ fn test_cast_parenthesised_expr() {
         expr
     );
     if let Expression::CastExpr(_, ty) = expr {
-        assert_eq!(ty, parse_type_i32());
+        assert_formatted_eq(&ty, &parse_type_i32());
     }
 }

@@ -39,13 +39,14 @@ fn parse_for() {
                     UnaryExpr::PrimaryExpr(PrimaryExpr {
                         operand: Operand::Literal(Literal {
                             kind: LiteralKind::Number(2),
-                            span: tokens[5].span.clone()
+                            span: tokens[6].span.clone()
                         }),
                         secondaries: None,
                         type_annotation: None,
                     })
                 ))],
-            }
+            },
+            tokens[0].span.clone(),
         )
     );
     assert_eq!(remaining.len(), 0);

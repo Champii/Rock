@@ -3,17 +3,21 @@ use crate::lexer::{Span, Token};
 #[derive(Debug, Clone)]
 pub enum ParseError {
     UnexpectedToken(String, Token), // expected, got
+    /// End-of-file location is a zero-width span at the source byte length.
     UnexpectedEOF(Span),
     UnknownFile(String),
     Lexer(crate::lexer::LexerError),
-    UnexpectedIndent(u8),
-    ExpectedOneOrMore,
+    /// The indentation token that caused the mismatch is retained verbatim.
+    UnexpectedIndent(u8, Span),
+    /// The location where the parser attempted to start the required item.
+    ExpectedOneOrMore(Span),
     MacroNoCorrespondance {
         macro_name: Span,
         invoc_name: Span,
         invoc_arg: Option<Span>,
     },
-    // used to short-circuit the parser
+    // Used to short-circuit the parser. These are internal control flow and
+    // must never be rendered as source diagnostics.
     Fail,
     ShortCircuit, // should not be bubbled up to the user
     AssertFailed,
@@ -33,8 +37,8 @@ impl ParseError {
             ParseError::UnexpectedEOF(_) => "UnexpectedEOF",
             ParseError::UnknownFile(_) => "UnknownFile",
             ParseError::Lexer(_) => "Lexer",
-            ParseError::UnexpectedIndent(_) => "UnexpectedIndent",
-            ParseError::ExpectedOneOrMore => "ExpectedOneOrMore",
+            ParseError::UnexpectedIndent(_, _) => "UnexpectedIndent",
+            ParseError::ExpectedOneOrMore(_) => "ExpectedOneOrMore",
             ParseError::MacroNoCorrespondance { .. } => "MacroNoCorrespondance",
             ParseError::Fail => "Fail",
             ParseError::ShortCircuit => "ShortCircuit",
@@ -52,10 +56,10 @@ impl ParseError {
             ParseError::UnexpectedToken(_, token) => token.span.start,
             ParseError::UnexpectedEOF(_) => usize::MAX, // EOF errors are always at the end
             ParseError::MacroNoCorrespondance { invoc_name, .. } => invoc_name.start,
-            ParseError::UnexpectedIndent(_) => 0,
-            ParseError::ExpectedOneOrMore => 0,
+            ParseError::UnexpectedIndent(_, span) => span.start,
+            ParseError::ExpectedOneOrMore(span) => span.start,
             ParseError::UnknownFile(_) => 0,
-            ParseError::Lexer(_) => 0,
+            ParseError::Lexer(crate::lexer::LexerError::UnknownToken(_, span)) => span.start,
             ParseError::Fail => 0,
             ParseError::ShortCircuit => 0,
             ParseError::AssertFailed => 0,

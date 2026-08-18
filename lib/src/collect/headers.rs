@@ -148,6 +148,46 @@ fn collect_constructor_generic_kinds<F>(
     }
 }
 
+fn parse_type_name_span(ty: &ast::ParseType, name: &str) -> Option<crate::lexer::Span> {
+    match ty {
+        ast::ParseType::Type(inner) => {
+            if inner.name == name {
+                return Some(inner.span.clone());
+            }
+            inner
+                .generics
+                .iter()
+                .find_map(|generic| parse_type_name_span(generic, name))
+        }
+        ast::ParseType::Application(application) => {
+            parse_type_name_span(&application.constructor, name).or_else(|| {
+                application
+                    .args
+                    .iter()
+                    .find_map(|arg| parse_type_name_span(arg, name))
+            })
+        }
+        ast::ParseType::Function(types) | ast::ParseType::Tuple(types) => {
+            types.iter().find_map(|ty| parse_type_name_span(ty, name))
+        }
+        ast::ParseType::Lambda(lambda) => parse_type_name_span(&lambda.body, name),
+        ast::ParseType::Associated { base, .. } => {
+            if base.name == name {
+                Some(base.span.clone())
+            } else {
+                base.generics
+                    .iter()
+                    .find_map(|generic| parse_type_name_span(generic, name))
+            }
+        }
+        ast::ParseType::Slice(inner)
+        | ast::ParseType::Array { inner, .. }
+        | ast::ParseType::Reference { pointee: inner, .. }
+        | ast::ParseType::Pointer(inner) => parse_type_name_span(inner, name),
+        ast::ParseType::Hole(_) | ast::ParseType::Unit(_) => None,
+    }
+}
+
 fn collect_declared_generic_kinds<F>(
     ty: &ast::ParseType,
     kinds: &mut HashMap<String, crate::type_services::kind::Kind>,
@@ -290,7 +330,10 @@ fn lower_where_clauses(
             continue;
         };
         let Some((trait_bound, type_args)) = simple_trait_bound(trait_bound) else {
-            context.push_error("unsupported trait bound shape in where clause".to_string());
+            context.push_error_with_span(
+                "unsupported trait bound shape in where clause".to_string(),
+                clause.trait_bound.as_ref().unwrap().span(),
+            );
             continue;
         };
         let Some(trait_id) = context
@@ -309,10 +352,10 @@ fn lower_where_clauses(
                 candidates.next().is_none().then_some(candidate)
             })
         else {
-            context.push_error(format!(
-                "unknown trait '{}' in where clause",
-                trait_bound.name
-            ));
+            context.push_error_with_span(
+                format!("unknown trait '{}' in where clause", trait_bound.name),
+                clause.trait_bound.as_ref().unwrap().span(),
+            );
             continue;
         };
 
@@ -434,8 +477,17 @@ pub(crate) fn build_struct_with_id(
         .iter()
         .map(|param| param.kind.clone())
         .collect();
-    let (prev_owner, prev_params, prev_kinds) =
-        context.push_generic_context_with_kinds(id, generic_param_names, generic_param_kinds);
+    let generic_spans = sd
+        .generic_params
+        .iter()
+        .map(|param| param.span.clone())
+        .collect::<Vec<_>>();
+    let (prev_owner, prev_params, prev_kinds) = context.push_generic_context_with_kinds_at(
+        id,
+        generic_param_names,
+        generic_param_kinds,
+        &generic_spans,
+    );
     let fields = sd
         .fields
         .iter()
@@ -471,8 +523,13 @@ pub(crate) fn build_type_alias_with_id(
         .iter()
         .map(|param| param.kind.clone())
         .collect();
-    let (previous_owner, previous_params, previous_kinds) =
-        context.push_generic_context_with_kinds(id, generic_names, generic_kinds);
+    let generic_spans = name
+        .generics
+        .iter()
+        .map(|param| param.span())
+        .collect::<Vec<_>>();
+    let (previous_owner, previous_params, previous_kinds) = context
+        .push_generic_context_with_kinds_at(id, generic_names, generic_kinds, &generic_spans);
     let mut ty = crate::type_lowering::TypeLowerer::lower_parse_type_term(context, target);
     context.pop_generic_context_with_kinds(previous_owner, previous_params, previous_kinds);
     if !generic_params.is_empty() {
@@ -539,8 +596,18 @@ pub(crate) fn build_enum_with_id(
         .iter()
         .map(|param| param.kind.clone())
         .collect();
-    let (prev_owner, prev_params, prev_kinds) =
-        context.push_generic_context_with_kinds(id, generic_param_names, generic_param_kinds);
+    let generic_spans = ed
+        .name
+        .generics
+        .iter()
+        .map(|param| param.span())
+        .collect::<Vec<_>>();
+    let (prev_owner, prev_params, prev_kinds) = context.push_generic_context_with_kinds_at(
+        id,
+        generic_param_names,
+        generic_param_kinds,
+        &generic_spans,
+    );
     let mut next_field_id = 0;
     let variants = ed
         .variants
@@ -621,7 +688,8 @@ pub(crate) fn build_function_sig_with_id(
             params.push("Self".to_string());
             kinds.push(crate::type_services::kind::Kind::Type);
         }
-        Some(context.push_generic_context_with_kinds(owner, params, kinds))
+        let spans = vec![sig.sig.span(); params.len()];
+        Some(context.push_generic_context_with_kinds_at(owner, params, kinds, &spans))
     } else {
         None
     };
@@ -642,9 +710,17 @@ pub(crate) fn build_function_sig_with_id(
             {
                 let declared_kind = context.current_generic_kinds[index].clone();
                 if declared_kind != kind {
-                    context.push_error(format!(
-                        "generic parameter '{name}' was declared with kind {declared_kind}, but its constructor binder requires {kind}",
-                    ));
+                    let span = sig
+                        .where_clauses
+                        .iter()
+                        .find_map(|clause| parse_type_name_span(&clause.subject, &name))
+                        .unwrap_or_else(|| sig.sig.span());
+                    context.push_error_with_span(
+                        format!(
+                            "generic parameter '{name}' was declared with kind {declared_kind}, but its constructor binder requires {kind}",
+                        ),
+                        span,
+                    );
                 }
             } else {
                 context.current_generic_params.push(name);
@@ -667,7 +743,7 @@ pub(crate) fn build_function_sig_with_id(
     let mut lowered_type = context.lower_parse_type(&sig.sig);
     let mut receiver_ty = sig
         .self_receiver
-        .map(|self_receiver| context.receiver_ty_for_self(self_receiver));
+        .map(|self_receiver| context.receiver_ty_for_self(self_receiver, sig.name.span.clone()));
     let lowered_generic_bounds = lower_where_clauses(context, &sig.where_clauses);
     let mut generic_param_ids = Vec::new();
     collect_generic_ids_from_type(&lowered_type, &mut generic_param_ids);
@@ -781,14 +857,15 @@ pub(crate) fn build_function_header_with_id(
     let mut all_param_types = Vec::new();
 
     if let Some(self_receiver) = fd.self_receiver {
-        let self_param = context.build_self_param(self_receiver);
+        let self_param = context.build_self_param_at(self_receiver, lambda.span.clone());
         collect_type_var_ids(&self_param.ty, &mut func_type_vars);
         all_param_types.push(self_param.ty.clone());
         all_params.push(self_param);
     }
 
     for param in &lambda.parameters {
-        let (name, ty, mutable, is_ref) = context.lower_param_pattern(param);
+        let (name, ty, mutable, is_ref) =
+            context.lower_param_pattern_at(param, lambda.span.clone());
         collect_type_var_ids(&ty, &mut func_type_vars);
         all_param_types.push(ty.clone());
         all_params.push(HirParam {
@@ -803,7 +880,7 @@ pub(crate) fn build_function_header_with_id(
     let ret_type = if matches!(lambda.arrow_kind, ast::LambdaArrowKind::Unit) {
         Type::Unit
     } else {
-        context.type_vars.fresh_type_var()
+        context.type_vars.fresh_type_var_at(lambda.span.clone())
     };
     collect_type_var_ids(&ret_type, &mut func_type_vars);
 
@@ -932,7 +1009,7 @@ pub(crate) fn build_function_header_with_sig(
     let mut all_params = Vec::new();
 
     if let Some(self_receiver) = fd.self_receiver {
-        let mut self_param = context.build_self_param(self_receiver);
+        let mut self_param = context.build_self_param_at(self_receiver, lambda.span.clone());
         if let Some(sig_self_ty) = sig_params.first() {
             self_param.ty = sig_self_ty.clone();
         }
@@ -942,11 +1019,15 @@ pub(crate) fn build_function_header_with_sig(
 
     let param_start = if fd.self_receiver.is_some() { 1 } else { 0 };
     for (i, param) in lambda.parameters.iter().enumerate() {
-        let (name, _decl_ty, mutable, is_ref) = context.lower_param_pattern(param);
+        let (name, _decl_ty, mutable, is_ref) =
+            context.lower_param_pattern_at(param, fd.lambda.span.clone());
         let ty = if param_start + i < sig.params.len() {
             sig_params[param_start + i].clone()
         } else {
-            context.type_vars.fresh_type_var()
+            context.type_vars.fresh_type_var_at(
+                crate::lower::Lowerer::pattern_binding_span(param)
+                    .unwrap_or_else(|| fd.lambda.span.clone()),
+            )
         };
         collect_type_var_ids(&ty, &mut func_type_vars);
         all_params.push(HirParam {
@@ -1042,8 +1123,23 @@ pub(crate) fn build_trait_with_id(
             .map(|target| crate::type_lowering::lower_generic_param_kind(target.kind.as_ref()))
             .unwrap_or(crate::type_services::kind::Kind::Type),
     );
-    let (prev_owner, prev_params, prev_kinds) =
-        context.push_generic_context_with_kinds(id, generic_context_params, generic_context_kinds);
+    let mut generic_context_spans = td
+        .generic_params
+        .iter()
+        .map(|param| param.span.clone())
+        .collect::<Vec<_>>();
+    generic_context_spans.push(
+        td.for_
+            .as_ref()
+            .map(|target| target.name.span.clone())
+            .unwrap_or_else(|| td.name.span.clone()),
+    );
+    let (prev_owner, prev_params, prev_kinds) = context.push_generic_context_with_kinds_at(
+        id,
+        generic_context_params,
+        generic_context_kinds,
+        &generic_context_spans,
+    );
 
     let associated_types: Vec<HirAssociatedTypeDecl> = td
         .associated_types
@@ -1296,9 +1392,9 @@ pub(crate) fn build_impl_with_id(
         );
     }
     for (name, declared, required) in impl_generic_kind_conflicts {
-        context.push_error(format!(
+        context.push_error_with_span(format!(
             "generic parameter '{name}' was declared with kind {declared}, but a later binder requires {required}",
-        ));
+        ), imp.name.span.clone());
     }
     let generic_kinds = impl_generic_params
         .iter()
@@ -1309,8 +1405,13 @@ pub(crate) fn build_impl_with_id(
                 .unwrap_or(crate::type_services::kind::Kind::Type)
         })
         .collect();
-    let (prev_owner, prev_params, prev_kinds) =
-        context.push_generic_context_with_kinds(id, impl_generic_params, generic_kinds);
+    let generic_spans = vec![imp.name.span.clone(); impl_generic_params.len()];
+    let (prev_owner, prev_params, prev_kinds) = context.push_generic_context_with_kinds_at(
+        id,
+        impl_generic_params,
+        generic_kinds,
+        &generic_spans,
+    );
 
     let (type_name, type_generics, mut receiver_pattern, trait_name) = if imp.for_.is_some() {
         let (type_name, type_generics, receiver_pattern) = context.impl_type_info(imp);
@@ -1362,11 +1463,23 @@ pub(crate) fn build_impl_with_id(
             .map(|target| target.kind.clone())
             .unwrap_or(crate::type_services::kind::Kind::Type);
         match crate::type_lowering::TypeLowerer::kind_of(context, &impl_target_ty) {
-            Ok(actual_kind) if actual_kind != target_kind => context.push_error(format!(
-                "impl target has kind {actual_kind}, but trait '{}' requires {target_kind}",
-                trait_def.name
-            )),
-            Err(error) => context.push_error(error),
+            Ok(actual_kind) if actual_kind != target_kind => context.push_error_with_span(
+                format!(
+                    "impl target has kind {actual_kind}, but trait '{}' requires {target_kind}",
+                    trait_def.name
+                ),
+                imp.for_
+                    .as_ref()
+                    .map(|ty| ty.span())
+                    .unwrap_or_else(|| imp.name.span.clone()),
+            ),
+            Err(error) => context.push_error_with_span(
+                error,
+                imp.for_
+                    .as_ref()
+                    .map(|ty| ty.span())
+                    .unwrap_or_else(|| imp.name.span.clone()),
+            ),
             _ => {}
         }
         if !matches!(target_kind, crate::type_services::kind::Kind::Type) {
@@ -1459,34 +1572,43 @@ pub(crate) fn build_impl_with_id(
             .find(|decl| decl.name == assoc.name.name);
         let id = declaration.map(|decl| decl.id).unwrap_or_else(|| {
             if trait_def.is_some() {
-                context.push_error(format!(
-                    "unknown associated type '{}' for trait '{}'",
-                    assoc.name.name,
-                    trait_name.as_deref().unwrap_or("<unknown>")
-                ));
+                context.push_error_with_span(
+                    format!(
+                        "unknown associated type '{}' for trait '{}'",
+                        assoc.name.name,
+                        trait_name.as_deref().unwrap_or("<unknown>")
+                    ),
+                    assoc.name.span.clone(),
+                );
             }
             AssocTypeId(index as u32)
         });
         let kind = crate::type_lowering::lower_associated_type_kind(assoc.kind.as_ref());
         if let Some(declaration) = declaration {
             if declaration.kind != kind {
-                context.push_error(format!(
-                    "associated type '{}' has kind {}, but trait '{}' requires {}",
-                    assoc.name.name,
-                    kind,
-                    trait_name.as_deref().unwrap_or("<unknown>"),
-                    declaration.kind,
-                ));
+                context.push_error_with_span(
+                    format!(
+                        "associated type '{}' has kind {}, but trait '{}' requires {}",
+                        assoc.name.name,
+                        kind,
+                        trait_name.as_deref().unwrap_or("<unknown>"),
+                        declaration.kind,
+                    ),
+                    assoc.name.span.clone(),
+                );
             }
         }
         let ty = context.lower_parse_type(&assoc.ty);
         if !matches!(ty, Type::Error) {
             match crate::type_lowering::TypeLowerer::kind_of(context, &ty) {
-                Ok(actual) if actual != kind => context.push_error(format!(
-                    "associated type '{}' defines kind {}, but its body has kind {}",
-                    assoc.name.name, kind, actual,
-                )),
-                Err(error) => context.push_error(error),
+                Ok(actual) if actual != kind => context.push_error_with_span(
+                    format!(
+                        "associated type '{}' defines kind {}, but its body has kind {}",
+                        assoc.name.name, kind, actual,
+                    ),
+                    assoc.ty.span(),
+                ),
+                Err(error) => context.push_error_with_span(error, assoc.ty.span()),
                 _ => {}
             }
         }
@@ -1670,6 +1792,7 @@ mod tests {
                 parameters: params.iter().map(|name| ident_pattern(name)).collect(),
                 body: ast::Block { statements: vec![] },
                 arrow_kind,
+                span: crate::lexer::Span::test(),
             },
             self_receiver,
             is_unsafe: false,
@@ -2172,6 +2295,10 @@ mod tests {
             .errors
             .iter()
             .any(|error| error.message == "unknown trait 'Missing' in where clause"));
+        assert!(lowerer.errors.iter().any(|error| {
+            error.message == "unknown trait 'Missing' in where clause"
+                && error.span() == Some(Span::test())
+        }));
     }
 
     #[test]

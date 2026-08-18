@@ -222,7 +222,7 @@ impl<'ast> Visitor<'ast> for AstValidator {
         self.push_ctx("Loop");
 
         match node {
-            Loop::For(_, _, block) | Loop::While(_, block) | Loop::Loop(block) => {
+            Loop::For(_, _, block, _) | Loop::While(_, block, _) | Loop::Loop(block, _) => {
                 if block.statements.is_empty() {
                     self.error("Loop body is empty");
                 }
@@ -2422,7 +2422,7 @@ fn loop_as_assignment_value_structure() {
 
     if let Operand::Loop(lp) = &pe.operand {
         match lp.as_ref() {
-            Loop::Loop(block) => {
+            Loop::Loop(block, _) => {
                 assert_eq!(block.statements.len(), 1);
                 assert!(matches!(&block.statements[0], Statement::Break(Some(_))));
             }
@@ -2507,7 +2507,7 @@ fn for_loop_body_contains_if_with_break() {
 
     if let Operand::Loop(lp) = &loop_pe.operand {
         match lp.as_ref() {
-            Loop::For(pattern, iter_expr, body) => {
+            Loop::For(pattern, iter_expr, body, _) => {
                 // Pattern should be `i`
                 assert!(matches!(&pattern.kind, PatternKind::Ident(ip) if ip.name.name == "i"));
                 // Iterator should be an array literal
@@ -2542,7 +2542,7 @@ fn while_condition_is_binop() {
 
     if let Operand::Loop(lp) = &while_pe.operand {
         match lp.as_ref() {
-            Loop::While(cond, body) => {
+            Loop::While(cond, body, _) => {
                 // Condition should be a binop `x < 10`
                 assert!(
                     matches!(&cond.expression, Expression::BinopExpr(_, _, _)),

@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -18,16 +19,16 @@ fn multiline_fn_call() {
         .process(ParseCtx::from(&tokens, &config))
         .unwrap();
 
-    assert_eq!(
-        expression,
-        Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+    assert_formatted_eq(
+        &expression,
+        &Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "foo".to_string(),
                     span: Span {
                         start: 0,
                         end: 3,
-                        file_path: PathBuf::default(),
+                        file_path: PathBuf::from("/test.rk"),
                     },
                 })],
             }),
@@ -40,7 +41,7 @@ fn multiline_fn_call() {
                                 span: Span {
                                     start: 4,
                                     end: 7,
-                                    file_path: PathBuf::default(),
+                                    file_path: PathBuf::from("/test.rk"),
                                 },
                             })],
                         }),
@@ -56,7 +57,7 @@ fn multiline_fn_call() {
                                 span: Span {
                                     start: 8,
                                     end: 11,
-                                    file_path: PathBuf::default(),
+                                    file_path: PathBuf::from("/test.rk"),
                                 },
                             })],
                         }),
@@ -72,7 +73,7 @@ fn multiline_fn_call() {
                                 span: Span {
                                     start: 12,
                                     end: 13,
-                                    file_path: PathBuf::default(),
+                                    file_path: PathBuf::from("/test.rk"),
                                 },
                             }),
                             secondaries: None,
@@ -83,7 +84,7 @@ fn multiline_fn_call() {
                             span: Span {
                                 start: 14,
                                 end: 15,
-                                file_path: PathBuf::default(),
+                                file_path: PathBuf::from("/test.rk"),
                             },
                         },
                         Box::new(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
@@ -92,12 +93,12 @@ fn multiline_fn_call() {
                                 span: Span {
                                     start: 16,
                                     end: 17,
-                                    file_path: PathBuf::default(),
+                                    file_path: PathBuf::from("/test.rk"),
                                 },
                             }),
                             secondaries: None,
                             type_annotation: None,
-                        })))
+                        }))),
                     ),
                 },
             ])]),

@@ -17,7 +17,7 @@ impl<'a> LowerCrateRegistration<'a> {
 
     pub(crate) fn register_crate_resolvers(&self, lowerer: &mut Lowerer) {
         for message in self.ctx.dependency_errors_for_phase("lowering") {
-            lowerer.diagnostics.push_once(message);
+            lowerer.diagnostics.push_toolchain_once(message);
         }
 
         for dep in self.ctx.extern_crates() {
@@ -74,7 +74,7 @@ impl<'a> LowerCrateRegistration<'a> {
 
         for ext in interface.extern_items() {
             let Some(name) = lowerer.canonical_name_for_def_id(ext.id).map(str::to_owned) else {
-                lowerer.diagnostics.push_once(format!(
+                lowerer.diagnostics.push_toolchain_once(format!(
                     "missing canonical extern declaration name for DefId {:?}",
                     ext.id
                 ));
@@ -108,7 +108,7 @@ impl<'a> LowerCrateRegistration<'a> {
 
         for imp in interface.impl_items() {
             if let Err(error) = lowerer.items.insert_impl(imp.clone()) {
-                lowerer.diagnostics.push(error.message);
+                lowerer.diagnostics.push_toolchain(error.message);
             }
         }
 

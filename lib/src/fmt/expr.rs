@@ -152,7 +152,7 @@ impl FormatNode for Operand {
                 expr.fmt_with(context, f)?;
                 write!(f, ")")
             }
-            Operand::Unsafe(block) => {
+            Operand::Unsafe(block, _) => {
                 write!(f, "unsafe")?;
                 display_block(context, block, true, f)
             }
@@ -366,19 +366,19 @@ impl FormatNode for Else {
 impl FormatNode for Loop {
     fn fmt_with<W: Write>(&self, context: &mut FormatContext, f: &mut W) -> fmt::Result {
         match self {
-            Loop::While(cond, block) => {
+            Loop::While(cond, block, _) => {
                 write!(f, "while ")?;
                 cond.fmt_with(context, f)?;
                 display_block(context, block, true, f)
             }
-            Loop::For(ident, cond, block) => {
+            Loop::For(ident, cond, block, _) => {
                 write!(f, "for ")?;
                 ident.fmt_with(context, f)?;
                 write!(f, " in ")?;
                 cond.fmt_with(context, f)?;
                 display_block(context, block, true, f)
             }
-            Loop::Loop(block) => {
+            Loop::Loop(block, _) => {
                 write!(f, "loop")?;
                 display_block(context, block, true, f)
             }

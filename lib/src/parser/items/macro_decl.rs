@@ -217,13 +217,13 @@ fn parse_macro_block_recursive_inner<'a>(
                         return Ok((block, remaining_tokens));
                     }
                     if level % 2 != 0 {
-                        return Err(ParseError::UnexpectedIndent(level));
+                        return Err(ParseError::UnexpectedIndent(level, token.span.clone()));
                     }
                     let Some(base_indent) = (parse_ctx.indent_step as u8).checked_mul(2) else {
-                        return Err(ParseError::UnexpectedIndent(level));
+                        return Err(ParseError::UnexpectedIndent(level, token.span.clone()));
                     };
                     let Some(adjusted_indent) = level.checked_sub(base_indent) else {
-                        return Err(ParseError::UnexpectedIndent(level));
+                        return Err(ParseError::UnexpectedIndent(level, token.span.clone()));
                     };
                     token.token_type = TokenType::Indent(adjusted_indent);
                 }

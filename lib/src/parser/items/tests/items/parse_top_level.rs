@@ -310,6 +310,11 @@ fn parse_top_level() {
                     ))]
                 },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: Span {
+                    start: 8,
+                    end: 10,
+                    file_path: PathBuf::from("/test.rk"),
+                },
             },
             self_receiver: None,
             is_unsafe: false,

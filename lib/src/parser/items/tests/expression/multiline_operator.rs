@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -17,9 +18,9 @@ fn multiline_operator() {
         .process(ParseCtx::from(&tokens, &config))
         .unwrap();
 
-    assert_eq!(
-        expression,
-        Expression::BinopExpr(
+    assert_formatted_eq(
+        &expression,
+        &Expression::BinopExpr(
             UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Ident(IdentifierPath {
                     path: vec![IdentOrType::Ident(Ident {
@@ -41,8 +42,8 @@ fn multiline_operator() {
                 }),
                 secondaries: None,
                 type_annotation: None,
-            })))
-        )
+            }))),
+        ),
     );
     assert_eq!(rest.len(), 0);
 }
@@ -59,9 +60,9 @@ fn multiline_operator_indented() {
         .process(ParseCtx::from(&tokens, &config))
         .unwrap();
 
-    assert_eq!(
-        expression,
-        Expression::BinopExpr(
+    assert_formatted_eq(
+        &expression,
+        &Expression::BinopExpr(
             UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Ident(IdentifierPath {
                     path: vec![IdentOrType::Ident(Ident {
@@ -83,8 +84,8 @@ fn multiline_operator_indented() {
                 }),
                 secondaries: None,
                 type_annotation: None,
-            })))
-        )
+            }))),
+        ),
     );
     assert_eq!(rest.len(), 0);
 }

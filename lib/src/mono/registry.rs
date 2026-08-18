@@ -158,16 +158,23 @@ pub struct MonomorphizedProgram {
     pub pre_mir_instance_bodies: PreMirInstanceBodies,
     pub generated_drop_instances: BTreeMap<TypeId, GeneratedMethodInstance>,
     pub type_context: TypeContext,
+    /// Session-only source locations; products and artifacts never serialize this map.
+    pub(crate) source_map: crate::source_map::SemanticSourceMap,
 }
 
 impl MonomorphizedProgram {
-    pub fn new(program: HirProgram, type_context: TypeContext) -> Self {
+    pub(crate) fn new(
+        program: HirProgram,
+        type_context: TypeContext,
+        source_map: crate::source_map::SemanticSourceMap,
+    ) -> Self {
         Self {
             program,
             instances: BTreeMap::new(),
             pre_mir_instance_bodies: PreMirInstanceBodies::new(),
             generated_drop_instances: BTreeMap::new(),
             type_context,
+            source_map,
         }
     }
 }

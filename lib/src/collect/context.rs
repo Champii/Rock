@@ -342,8 +342,8 @@ pub(crate) struct LocalCollection {
 }
 
 impl TypeLoweringContext for CollectContext {
-    fn push_type_error(&mut self, message: String) {
-        self.push_error(message);
+    fn push_type_error(&mut self, message: String, span: Span) {
+        self.push_error_with_span(message, span);
     }
 
     fn current_module_prefix(&self) -> Option<String> {
@@ -433,8 +433,8 @@ impl TypeLoweringContext for CollectContext {
             })
     }
 
-    fn generic_type_for_name(&mut self, name: &str) -> Type {
-        CollectContext::generic_type_for_name(self, name)
+    fn generic_type_for_name(&mut self, name: &str, span: Span) -> Type {
+        CollectContext::generic_type_for_name(self, name, span)
     }
 
     fn populate_type_normalization_env(
@@ -797,25 +797,22 @@ impl CollectContext {
     }
 
     pub(crate) fn push_error(&mut self, message: String) {
-        self.errors.push(ResolveError {
-            message,
-            span: None,
-        });
+        self.errors.push(ResolveError::non_source(message));
     }
 
     pub(crate) fn push_error_with_span(&mut self, message: String, span: Span) {
-        self.errors.push(ResolveError {
-            message,
-            span: Some(span),
-        });
+        self.errors.push(ResolveError::with_span(message, span));
     }
 
-    pub(crate) fn generic_type_for_name(&mut self, name: &str) -> Type {
+    pub(crate) fn generic_type_for_name(&mut self, name: &str, span: Span) -> Type {
         let Some(owner) = self.current_generic_owner else {
-            self.push_error(format!(
-                "generic type parameter '{}' appears outside a generic declaration",
-                name
-            ));
+            self.push_error_with_span(
+                format!(
+                    "generic type parameter '{}' appears outside a generic declaration",
+                    name
+                ),
+                span,
+            );
             return Type::Error;
         };
 
@@ -836,7 +833,7 @@ impl CollectContext {
                     None
                 }
             }) else {
-            self.push_error(format!("unknown type '{}'", name));
+            self.push_error_with_span(format!("unknown type '{}'", name), span);
             return Type::Error;
         };
 
@@ -867,11 +864,32 @@ impl CollectContext {
         Vec<String>,
         Vec<crate::type_services::kind::Kind>,
     ) {
+        self.push_generic_context_with_kinds_at(owner, params, kinds, &[])
+    }
+
+    pub(crate) fn push_generic_context_with_kinds_at(
+        &mut self,
+        owner: DefId,
+        params: Vec<String>,
+        kinds: Vec<crate::type_services::kind::Kind>,
+        spans: &[Span],
+    ) -> (
+        Option<DefId>,
+        Vec<String>,
+        Vec<crate::type_services::kind::Kind>,
+    ) {
         debug_assert_eq!(params.len(), kinds.len());
         let mut seen = HashSet::new();
-        for param in &params {
+        for (index, param) in params.iter().enumerate() {
             if !seen.insert(param.clone()) {
-                self.push_error(format!("duplicate generic parameter '{}'", param));
+                if let Some(span) = spans.get(index).cloned() {
+                    self.push_error_with_span(
+                        format!("duplicate generic parameter '{}'", param),
+                        span,
+                    );
+                } else {
+                    self.push_error(format!("duplicate generic parameter '{}'", param));
+                }
             }
         }
         let prev_owner = self.current_generic_owner;
@@ -1339,17 +1357,25 @@ impl CollectContext {
         }
     }
 
-    pub(crate) fn build_self_param(&mut self, self_receiver: ast::SelfReceiverMode) -> HirParam {
+    pub(crate) fn build_self_param_at(
+        &mut self,
+        self_receiver: ast::SelfReceiverMode,
+        span: crate::lexer::Span,
+    ) -> HirParam {
         HirParam {
             name: "self".to_string(),
             local_id: crate::ids::HirLocalId(0),
-            ty: self.receiver_ty_for_self(self_receiver),
+            ty: self.receiver_ty_for_self(self_receiver, span),
             mutable: matches!(self_receiver, ast::SelfReceiverMode::Mut),
             is_ref: false,
         }
     }
 
-    pub(crate) fn receiver_ty_for_self(&mut self, self_receiver: ast::SelfReceiverMode) -> Type {
+    pub(crate) fn receiver_ty_for_self(
+        &mut self,
+        self_receiver: ast::SelfReceiverMode,
+        span: crate::lexer::Span,
+    ) -> Type {
         let base = if let Some(index) = self
             .current_generic_params
             .iter()
@@ -1362,9 +1388,9 @@ impl CollectContext {
                         index: index as u32,
                     })
                 })
-                .unwrap_or_else(|| self.type_vars.fresh_type_var())
+                .unwrap_or_else(|| self.type_vars.fresh_type_var_at(span.clone()))
         } else {
-            self.type_vars.fresh_type_var()
+            self.type_vars.fresh_type_var_at(span)
         };
 
         match self_receiver {
@@ -1380,29 +1406,32 @@ impl CollectContext {
         }
     }
 
-    pub(crate) fn lower_param_pattern(
+    pub(crate) fn lower_param_pattern_at(
         &mut self,
         pattern: &ast::Pattern,
+        fallback: crate::lexer::Span,
     ) -> (String, Type, bool, bool) {
         match &pattern.kind {
             ast::PatternKind::Reference {
                 pattern: inner,
                 mutable,
             } => {
-                let (name, ty, inner_mut, _) = self.lower_param_pattern(inner);
+                let (name, ty, inner_mut, _) = self.lower_param_pattern_at(inner, fallback.clone());
                 (name, ty, inner_mut || *mutable, true)
             }
-            ast::PatternKind::Nested(inner) => self.lower_param_pattern(inner),
+            ast::PatternKind::Nested(inner) => self.lower_param_pattern_at(inner, fallback.clone()),
             ast::PatternKind::Ident(ident_pat) => {
-                let ty = self.type_vars.fresh_type_var();
+                let ty = self
+                    .type_vars
+                    .fresh_type_var_at(ident_pat.name.span.clone());
                 (ident_pat.name.name.clone(), ty, ident_pat.mut_, false)
             }
             ast::PatternKind::Wildcard => {
-                let ty = self.type_vars.fresh_type_var();
+                let ty = self.type_vars.fresh_type_var_at(fallback.clone());
                 ("_".to_string(), ty, false, false)
             }
             _ => {
-                let ty = self.type_vars.fresh_type_var();
+                let ty = self.type_vars.fresh_type_var_at(fallback);
                 let name = pattern
                     .binding
                     .as_ref()
@@ -2206,6 +2235,25 @@ mod tests {
         assert_eq!(ty, Type::Generic(GenericParamId { owner, index: 0 }));
         assert_eq!(context.current_generic_params, vec!["T".to_string()]);
         assert!(context.errors.is_empty());
+    }
+
+    #[test]
+    fn collect_context_unknown_generic_error_keeps_parse_span() {
+        let owner = def_id(71);
+        let span = Span::new("/virtual/types.rk".into(), 9, 10);
+        let mut context = CollectContext::new();
+        context.current_generic_owner = Some(owner);
+        context.current_generic_params = vec!["U".to_string()];
+        context.current_generic_kinds = vec![crate::type_services::kind::Kind::Type];
+
+        let ty = context.lower_parse_type(&ParseType::Type(ParseTypeInner {
+            name: "missing".to_string(),
+            generics: Vec::new(),
+            span: span.clone(),
+        }));
+
+        assert_eq!(ty, Type::Error);
+        assert_eq!(context.errors[0].span(), Some(span));
     }
 
     #[test]

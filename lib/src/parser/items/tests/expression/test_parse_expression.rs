@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -15,16 +16,16 @@ fn test_parse_expression() {
         .process(ParseCtx::from(&tokens, &config))
         .unwrap();
 
-    assert_eq!(
-        expression,
-        Expression::BinopExpr(
+    assert_formatted_eq(
+        &expression,
+        &Expression::BinopExpr(
             UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Literal(Literal {
                     kind: crate::ast::LiteralKind::Number(1),
                     span: Span {
                         start: 0,
                         end: 1,
-                        file_path: PathBuf::default(),
+                        file_path: PathBuf::from("/test.rk"),
                     },
                 }),
                 secondaries: None,
@@ -35,7 +36,7 @@ fn test_parse_expression() {
                 span: Span {
                     start: 2,
                     end: 3,
-                    file_path: PathBuf::default(),
+                    file_path: PathBuf::from("/test.rk"),
                 },
             },
             Box::new(Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
@@ -44,13 +45,13 @@ fn test_parse_expression() {
                     span: Span {
                         start: 4,
                         end: 5,
-                        file_path: PathBuf::default(),
+                        file_path: PathBuf::from("/test.rk"),
                     },
                 }),
                 secondaries: None,
                 type_annotation: None,
-            })))
-        )
+            }))),
+        ),
     );
 
     assert_eq!(rest.len(), 0);

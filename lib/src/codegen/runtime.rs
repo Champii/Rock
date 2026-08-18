@@ -1000,9 +1000,9 @@ impl<'ctx> CodeGen<'ctx> {
                         .map_err(|e| CodegenError::from(format!("Failed to negate int: {}", e)))?;
                     Ok(Some(result.into()))
                 } else {
-                    Err(CodegenError::from(format!(
-                        "Unary negation `-` is not valid for type {:?} (only signed integers and floats)",
-                        ty
+                    Err(CodegenError::layout(format!(
+                        "Unary negation `-` is not valid for type {} (only signed integers and floats)",
+                        self.display_type_for_diagnostic(ty)
                     )))
                 }
             }

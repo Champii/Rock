@@ -112,7 +112,7 @@ impl Lowerer {
         } = resolved
         {
             if !self.is_in_unsafe() {
-                self.diagnostics.push_with_span(
+                self.diagnostics.push_selection_with_span(
                     "Call to unsafe function value requires an unsafe block".to_string(),
                     callee.span.clone(),
                 );
@@ -222,7 +222,8 @@ impl Lowerer {
         }
 
         if let Err(err) = self.engine.unify(&arg.ty, &resolved_expected) {
-            self.diagnostics.push_with_span(err, arg.span.clone());
+            self.diagnostics
+                .push_type_with_span(err.render(&self.engine), arg.span.clone());
             return HirExpr {
                 ty: Type::Error,
                 kind: arg.kind,
@@ -323,7 +324,7 @@ impl Lowerer {
                         continue;
                     }
                     let receiver_type = self.display_type(&receiver_candidate.expr.ty);
-                    self.diagnostics.push_with_span(
+                    self.diagnostics.push_selection_with_span(
                         format!(
                             "Ambiguous selection for '{}' on type {}: multiple matching implementations",
                             method_name, receiver_type
@@ -361,7 +362,7 @@ impl Lowerer {
                 |ty| self.resolve_projection_type(&self.engine.resolve(ty)),
             )
         {
-            self.diagnostics.push_with_span(
+            self.diagnostics.push_selection_with_span(
                 format!(
                     "Cannot call mutable receiver method '{}' without a mutable receiver",
                     method_name
@@ -380,8 +381,14 @@ impl Lowerer {
     ) -> Option<(HirFunction, Type, Vec<HirExpr>, HirMethodCallTarget)> {
         let method_func = selected.function.clone()?;
         let recv_resolved = self.engine.resolve(&selected.receiver.ty);
-        let initial_method_subst =
-            self.infer_selected_method_substitution(selected, &recv_resolved, &method_func, &args);
+        let operation_span = selected.receiver.span.clone();
+        let initial_method_subst = self.infer_selected_method_substitution(
+            selected,
+            &recv_resolved,
+            &method_func,
+            &args,
+            operation_span.clone(),
+        );
 
         let mut coerced_args = Vec::with_capacity(args.len());
         for (index, arg) in args.into_iter().enumerate() {
@@ -402,6 +409,7 @@ impl Lowerer {
             &recv_resolved,
             &method_func,
             &coerced_args,
+            operation_span,
         );
         let ret_ty = if method_subst.is_empty() {
             selected.return_type.clone()
@@ -463,6 +471,7 @@ impl Lowerer {
     fn fresh_method_generic_subst(
         &mut self,
         method_func: &HirFunction,
+        span: Span,
     ) -> HashMap<GenericParamId, Type> {
         method_func
             .generic_params
@@ -470,7 +479,8 @@ impl Lowerer {
             .map(|param| {
                 (
                     param.id,
-                    self.engine.fresh_type_var_of_kind(param.kind.clone()),
+                    self.engine
+                        .fresh_type_var_at_kind(span.clone(), param.kind.clone()),
                 )
             })
             .collect()
@@ -482,8 +492,9 @@ impl Lowerer {
         recv_ty: &Type,
         method_func: &HirFunction,
         args: &[HirExpr],
+        span: Span,
     ) -> HashMap<GenericParamId, Type> {
-        let mut subst = self.infer_method_substitution(recv_ty, method_func, args);
+        let mut subst = self.infer_method_substitution(recv_ty, method_func, args, span.clone());
         for (param, ty) in &selected.owner_substitution {
             subst.insert(*param, ty.clone());
         }
@@ -494,7 +505,7 @@ impl Lowerer {
                 .unwrap_or(crate::type_services::kind::Kind::Type);
             subst
                 .entry(*param)
-                .or_insert_with(|| self.engine.fresh_type_var_of_kind(kind));
+                .or_insert_with(|| self.engine.fresh_type_var_at_kind(span.clone(), kind));
         }
         subst
     }
@@ -660,7 +671,7 @@ impl Lowerer {
                     };
                 }
             }
-            let ret_ty = self.engine.fresh_type_var();
+            let ret_ty = self.engine.fresh_type_var_at(span.clone());
             let safety = match self.resolve_projection_type(&self.engine.resolve(&expr.ty)) {
                 Type::Function { safety, .. } => safety,
                 _ => crate::types::FunctionSafety::Safe,
@@ -693,7 +704,7 @@ impl Lowerer {
         use_kind: ExprUse,
         method_as_value: bool,
     ) -> HirExpr {
-        let span = self.diagnostics.current_span().clone();
+        let span = expr.span.clone();
         match secondary {
             ast::SecondaryExpr::Arguments(args) => {
                 let mut expr = expr;
@@ -795,15 +806,15 @@ impl Lowerer {
                             })
                             .collect();
                         if hir_args.is_empty() && !selected.substituted_params.is_empty() {
-                            self.diagnostics.push_with_span(
+                            self.diagnostics.push_type_with_span(
                                 format!(
                                     "Type mismatch: method '{}' expected {} args, got 0",
                                     method_name,
                                     selected.substituted_params.len()
                                 ),
-                                span,
+                                span.clone(),
                             );
-                            return self.error_expression();
+                            return self.error_expression_at(span.clone());
                         }
 
                         let adjusted_recv = self.apply_receiver_adjustment(
@@ -813,15 +824,24 @@ impl Lowerer {
                         let Some((method_func, ret_ty, coerced_args, target)) =
                             self.selected_method_call_types(&selected, hir_args)
                         else {
-                            return self.error_expression();
+                            return self.error_expression_at(span.clone());
                         };
+                        if let Some(method_id) = target.method_id() {
+                            self.record_source_reference(
+                                span.clone(),
+                                crate::source_map::SourceSymbol::Definition(method_id),
+                            );
+                        }
                         hir_args = coerced_args;
 
                         if method_func.is_unsafe && !self.is_in_unsafe() {
-                            self.diagnostics.push(format!(
-                                "Call to unsafe function '{}' requires an unsafe block",
-                                method_name
-                            ));
+                            self.diagnostics.push_selection_with_span(
+                                format!(
+                                    "Call to unsafe function '{}' requires an unsafe block",
+                                    method_name
+                                ),
+                                span.clone(),
+                            );
                         }
 
                         if method_func.is_curried && !hir_args.is_empty() {
@@ -912,7 +932,7 @@ impl Lowerer {
                                 .map(|enum_info| enum_info.id)
                         });
                     let Some(enum_id) = enum_id else {
-                        return self.error_expression();
+                        return self.error_expression_at(span.clone());
                     };
                     let type_args = if let Some(enum_info) =
                         self.items.enumeration(enum_id).cloned()
@@ -921,7 +941,7 @@ impl Lowerer {
                             let mut type_var_mapping: HashMap<GenericParamId, Type> =
                                 HashMap::new();
                             for (index, _) in enum_info.generic_params.iter().enumerate() {
-                                let tv = self.engine.fresh_type_var();
+                                let tv = self.engine.fresh_type_var_at(span.clone());
                                 type_var_mapping.insert(
                                     GenericParamId {
                                         owner: enum_info.id,
@@ -991,18 +1011,23 @@ impl Lowerer {
                             "AtomicU64Store",
                         ];
                         if unsafe_intrinsics.contains(&name.as_str()) && !self.is_in_unsafe() {
-                            self.diagnostics
-                                .push(format!("Intrinsic '~{}' requires an unsafe block", name));
+                            self.diagnostics.push_selection_with_span(
+                                format!("Intrinsic '~{}' requires an unsafe block", name),
+                                span.clone(),
+                            );
                         }
                         let expected_arg_types = infer_intrinsic_arg_types(name);
                         let is_atomic = name.starts_with("AtomicU64");
                         if is_atomic && hir_args.len() != expected_arg_types.len() {
-                            self.diagnostics.push(format!(
-                                "Intrinsic '~{}' expects exactly {} arguments, found {}",
-                                name,
-                                expected_arg_types.len(),
-                                hir_args.len()
-                            ));
+                            self.diagnostics.push_with_span(
+                                format!(
+                                    "Intrinsic '~{}' expects exactly {} arguments, found {}",
+                                    name,
+                                    expected_arg_types.len(),
+                                    hir_args.len()
+                                ),
+                                span.clone(),
+                            );
                         }
                         for (arg, expected_ty) in hir_args.iter().zip(expected_arg_types.iter()) {
                             let _ = self.engine.unify(&arg.ty, expected_ty);
@@ -1011,10 +1036,13 @@ impl Lowerer {
                                 if resolved != *expected_ty {
                                     let expected = self.display_type(expected_ty);
                                     let found = self.display_type(&resolved);
-                                    self.diagnostics.push(format!(
-                                        "Intrinsic '~{}' expected argument type {}, found {}",
-                                        name, expected, found
-                                    ));
+                                    self.diagnostics.push_with_span(
+                                        format!(
+                                            "Intrinsic '~{}' expected argument type {}, found {}",
+                                            name, expected, found
+                                        ),
+                                        arg.span.clone(),
+                                    );
                                 }
                             }
                         }
@@ -1046,7 +1074,7 @@ impl Lowerer {
                                     intrinsic_ty_error = true;
                                 }
                                 _ => {
-                                    let elem_ty = self.engine.fresh_type_var();
+                                    let elem_ty = self.engine.fresh_type_var_at(span.clone());
                                     let array_ty = Type::Slice(Box::new(elem_ty.clone()));
                                     let _ = self.engine.unify(&hir_args[0].ty, &array_ty);
                                     if name == "ArrPtr" {
@@ -1057,20 +1085,20 @@ impl Lowerer {
                         }
                         if name == "DropInPlace" {
                             if hir_args.len() != 1 {
-                                self.diagnostics.push_with_span(
+                                self.diagnostics.push_type_with_span(
                                     "DropInPlace requires exactly one argument".to_string(),
                                     span.clone(),
                                 );
                                 intrinsic_ty_error = true;
                             } else {
-                                let pointee_ty = self.engine.fresh_type_var();
+                                let pointee_ty = self.engine.fresh_type_var_at(span.clone());
                                 let ptr_ty = Type::Pointer(Box::new(pointee_ty));
                                 if self.engine.unify(&hir_args[0].ty, &ptr_ty).is_err() {
                                     let resolved_arg_ty = self.resolve_projection_type(
                                         &self.engine.resolve(&hir_args[0].ty),
                                     );
                                     let actual = self.display_type(&resolved_arg_ty);
-                                    self.diagnostics.push_with_span(
+                                    self.diagnostics.push_type_with_span(
                                         format!("DropInPlace expected raw pointer, got {}", actual),
                                         hir_args[0].span.clone(),
                                     );
@@ -1101,15 +1129,18 @@ impl Lowerer {
                     if let Some(func) = function_id.and_then(|id| self.items.function(id)).cloned()
                     {
                         if func.is_unsafe && !self.is_in_unsafe() {
-                            self.diagnostics.push(format!(
-                                "Call to unsafe function '{}' requires an unsafe block",
-                                func_name
-                            ));
+                            self.diagnostics.push_selection_with_span(
+                                format!(
+                                    "Call to unsafe function '{}' requires an unsafe block",
+                                    func_name
+                                ),
+                                span.clone(),
+                            );
                         }
                         if !func.generic_params.is_empty()
                             && !matches!(expr.ty, Type::Function { .. })
                         {
-                            expr.ty = self.instantiate_function_type(&func);
+                            expr.ty = self.instantiate_function_type(&func, expr.span.clone());
                         }
                     }
                 }
@@ -1117,15 +1148,18 @@ impl Lowerer {
                     if let HirVarTarget::Function(function_id) = reference.target {
                         if let Some(func) = self.current_function(function_id).cloned() {
                             if func.is_unsafe && !self.is_in_unsafe() {
-                                self.diagnostics.push(format!(
-                                    "Call to unsafe function '{}' requires an unsafe block",
-                                    reference.name
-                                ));
+                                self.diagnostics.push_selection_with_span(
+                                    format!(
+                                        "Call to unsafe function '{}' requires an unsafe block",
+                                        reference.name
+                                    ),
+                                    span.clone(),
+                                );
                             }
                             if !func.generic_params.is_empty()
                                 && !matches!(expr.ty, Type::Function { .. })
                             {
-                                expr.ty = self.instantiate_function_type(&func);
+                                expr.ty = self.instantiate_function_type(&func, expr.span.clone());
                             }
                         }
                     }
@@ -1152,7 +1186,7 @@ impl Lowerer {
                     hir_args = coerced_args;
 
                     if params.len() != hir_args.len() {
-                        self.diagnostics.push_with_span(
+                        self.diagnostics.push_selection_with_span(
                             format!(
                                 "Type mismatch: function expected {} args, got {}",
                                 params.len(),
@@ -1169,7 +1203,7 @@ impl Lowerer {
                     }
                 }
 
-                let ret_ty = self.engine.fresh_type_var();
+                let ret_ty = self.engine.fresh_type_var_at(span.clone());
                 let arg_types: Vec<Type> = hir_args
                     .iter()
                     .map(|arg| {
@@ -1180,7 +1214,7 @@ impl Lowerer {
                                     if matches!(inner.as_ref(), Type::Array(_, _))
                             )
                         {
-                            let expected = self.engine.fresh_type_var();
+                            let expected = self.engine.fresh_type_var_at(arg.span.clone());
                             self.constraint_store.add_coercion(
                                 arg.ty.clone(),
                                 expected.clone(),
@@ -1305,23 +1339,24 @@ impl Lowerer {
                             found_method = inferred.into_iter().next();
                         } else if inferred.len() > 1 {
                             let receiver_type = self.display_type(&recv_ty);
-                            self.diagnostics.push_with_span(
+                            self.diagnostics.push_selection_with_span(
                                 format!(
                                     "Ambiguous selection for '{}' on type {}",
                                     ident.name, receiver_type
                                 ),
                                 span.clone(),
                             );
-                            return self.error_expression();
+                            return self.error_expression_at(span.clone());
                         }
                     }
 
                     if method_as_value {
                         if let Some(selected) = found_method.clone() {
                             let Some(method_func) = selected.function.clone() else {
-                                return self.error_expression();
+                                return self.error_expression_at(span.clone());
                             };
-                            let method_subst = self.fresh_method_generic_subst(&method_func);
+                            let method_subst =
+                                self.fresh_method_generic_subst(&method_func, span.clone());
                             let lambda_params: Vec<HirParam> = selected
                                 .substituted_params
                                 .iter()
@@ -1356,10 +1391,13 @@ impl Lowerer {
                                 "method value",
                             );
                             if method_func.is_unsafe && !self.is_in_unsafe() {
-                                self.diagnostics.push(format!(
-                                    "Call to unsafe function '{}' requires an unsafe block",
-                                    ident.name
-                                ));
+                                self.diagnostics.push_selection_with_span(
+                                    format!(
+                                        "Call to unsafe function '{}' requires an unsafe block",
+                                        ident.name
+                                    ),
+                                    span.clone(),
+                                );
                             }
                             let adjusted_receiver = self.apply_receiver_adjustment(
                                 selected.receiver.clone(),
@@ -1429,7 +1467,7 @@ impl Lowerer {
                     }
 
                     let field_name = &ident.name;
-                    let mut field_ty = self.engine.fresh_type_var();
+                    let mut field_ty = self.engine.fresh_type_var_at(span.clone());
                     let resolved_ty = self.engine.resolve(&expr.ty);
                     let original_expr = expr.clone();
 
@@ -1474,9 +1512,10 @@ impl Lowerer {
 
                     if let Some(selected) = found_method {
                         let Some(method_func) = selected.function.as_ref() else {
-                            return self.error_expression();
+                            return self.error_expression_at(span.clone());
                         };
-                        let method_subst = self.fresh_method_generic_subst(method_func);
+                        let method_subst =
+                            self.fresh_method_generic_subst(method_func, span.clone());
                         self.record_pending_impl_bounds(&selected, &method_subst, "method value");
                         self.record_function_generic_bounds(
                             method_func,
@@ -1485,10 +1524,13 @@ impl Lowerer {
                             "method value",
                         );
                         if method_func.is_unsafe && !self.is_in_unsafe() {
-                            self.diagnostics.push(format!(
-                                "Call to unsafe function '{}' requires an unsafe block",
-                                ident.name
-                            ));
+                            self.diagnostics.push_selection_with_span(
+                                format!(
+                                    "Call to unsafe function '{}' requires an unsafe block",
+                                    ident.name
+                                ),
+                                span.clone(),
+                            );
                         }
                         let param_types = selected
                             .substituted_params
@@ -1541,7 +1583,10 @@ impl Lowerer {
                             let type_args = structure
                                 .generic_params
                                 .iter()
-                                .map(|param| self.engine.fresh_type_var_of_kind(param.kind.clone()))
+                                .map(|param| {
+                                    self.engine
+                                        .fresh_type_var_at_kind(span.clone(), param.kind.clone())
+                                })
                                 .collect::<Vec<_>>();
                             field_ty = self
                                 .lower_struct_field_type(struct_name, &type_args, field_name, &span)
@@ -1608,7 +1653,7 @@ impl Lowerer {
                         Type::Tuple(elems) if (*n as usize) < elems.len() => {
                             elems[*n as usize].clone()
                         }
-                        _ => self.engine.fresh_type_var(),
+                        _ => self.engine.fresh_type_var_at(span.clone()),
                     };
 
                     HirExpr {
@@ -1645,8 +1690,10 @@ impl Lowerer {
                                 span: ident.span.clone(),
                             }
                         } else {
-                            self.diagnostics
-                                .push(format!("Unknown variable in range: {}", ident.name));
+                            self.diagnostics.push_with_span(
+                                format!("Unknown variable in range: {}", ident.name),
+                                ident.span.clone(),
+                            );
                             HirExpr {
                                 ty: Type::I64,
                                 kind: HirExprKind::IntLiteral(0),
@@ -1674,7 +1721,7 @@ impl Lowerer {
                         Type::Reference { inner, .. } if matches!(inner.as_ref(), Type::Str)
                     )
                 {
-                    self.diagnostics.push_with_span(
+                    self.diagnostics.push_selection_with_span(
                         "cannot index Str by integer; string slices are UTF-8 text, use an explicit string or byte API"
                             .to_string(),
                         span.clone(),
@@ -1759,7 +1806,7 @@ impl Lowerer {
                 let Some((index_trait_id, index_method_id, index_output_id, index_mutable)) =
                     index_protocol
                 else {
-                    self.diagnostics.push_with_span(
+                    self.diagnostics.push_selection_with_span(
                         if use_kind == ExprUse::AssignmentPlace {
                             "Cannot use mutable indexing because the IndexMut language-item protocol is unavailable".to_string()
                         } else {
@@ -1784,7 +1831,7 @@ impl Lowerer {
                         if is_unresolved_receiver => {}
                     Err(crate::selection::SelectionDiagnostic::NoImplementation { .. }) => {
                         let display_ty = self.index_display_type(&resolved_expr_ty);
-                        self.diagnostics.push_with_span(
+                        self.diagnostics.push_selection_with_span(
                             if use_kind == ExprUse::AssignmentPlace {
                                 format!(
                                     "No mutable indexing implementation found for operator '[]' on type {}",
@@ -1802,7 +1849,8 @@ impl Lowerer {
                     }
                     Err(error) => {
                         let message = self.display_selection_error(&error);
-                        self.diagnostics.push_with_span(message, span.clone());
+                        self.diagnostics
+                            .push_selection_with_span(message, span.clone());
                         return self.error_expression_at(span.clone());
                     }
                 }
@@ -1825,7 +1873,7 @@ impl Lowerer {
                     _ if selected_index.is_some() => {}
                     _ if TypeFacts::is_concrete(&resolved_expr_ty) => {
                         let display_ty = self.index_display_type(&resolved_expr_ty);
-                        self.diagnostics.push_with_span(
+                        self.diagnostics.push_selection_with_span(
                             if use_kind == ExprUse::AssignmentPlace {
                                 format!(
                                     "No mutable indexing implementation found for operator '[]' on type {}",
@@ -1889,10 +1937,13 @@ impl Lowerer {
                         .is_some_and(|func| func.is_unsafe)
                         && !self.is_in_unsafe()
                     {
-                        self.diagnostics.push(format!(
-                            "Call to unsafe function '{}' requires an unsafe block",
-                            selected_method_name
-                        ));
+                        self.diagnostics.push_selection_with_span(
+                            format!(
+                                "Call to unsafe function '{}' requires an unsafe block",
+                                selected_method_name
+                            ),
+                            span.clone(),
+                        );
                     }
                     self.record_pending_impl_bounds(&selected, &HashMap::new(), "index operator");
                     let selected_return_type = &selected.return_type;
@@ -1927,7 +1978,7 @@ impl Lowerer {
                         _ => false,
                     };
                     if !return_matches {
-                        self.diagnostics.push_with_span(
+                        self.diagnostics.push_selection_with_span(
                             format!(
                                 "Index implementation must return {}",
                                 if index_mutable {
@@ -1999,11 +2050,11 @@ impl Lowerer {
         expr.ty = carrier_ty.clone();
         let return_ty = self
             .current_body_return_type()
-            .unwrap_or_else(|| self.engine.fresh_type_var());
+            .unwrap_or_else(|| self.engine.fresh_type_var_at(span.clone()));
         let return_ty = self.resolve_projection_type(&self.engine.resolve(&return_ty));
 
         let Some(try_protocol) = self.language_items.try_protocol.clone() else {
-            self.diagnostics.push_with_span(
+            self.diagnostics.push_selection_with_span(
                 "Cannot use '?' because the Try language-item protocol is unavailable".to_string(),
                 span.clone(),
             );
@@ -2015,16 +2066,16 @@ impl Lowerer {
         };
 
         let Some(try_trait) = self.trait_by_id(try_protocol.try_trait_id).cloned() else {
-            self.diagnostics.push_with_span(
+            self.diagnostics.push_selection_with_span(
                 "Cannot use '?' because the Try language-item protocol is unavailable".to_string(),
                 span.clone(),
             );
-            return self.error_expression();
+            return self.error_expression_at(span.clone());
         };
 
         if matches!(carrier_ty, Type::TypeVar(_)) {
-            let output_ty = self.engine.fresh_type_var();
-            let residual_ty = self.engine.fresh_type_var();
+            let output_ty = self.engine.fresh_type_var_at(span.clone());
+            let residual_ty = self.engine.fresh_type_var_at(span.clone());
             return self.build_try_expression(
                 expr,
                 None,
@@ -2039,8 +2090,8 @@ impl Lowerer {
         }
 
         if Self::try_type_contains_unresolved(&carrier_ty) {
-            let output_ty = self.engine.fresh_type_var();
-            let residual_ty = self.engine.fresh_type_var();
+            let output_ty = self.engine.fresh_type_var_at(span.clone());
+            let residual_ty = self.engine.fresh_type_var_at(span.clone());
             return self.build_try_expression(
                 expr,
                 None,
@@ -2071,7 +2122,8 @@ impl Lowerer {
                     }
                     _ => self.display_selection_error(&error),
                 };
-                self.diagnostics.push_with_span(message, span.clone());
+                self.diagnostics
+                    .push_selection_with_span(message, span.clone());
                 return HirExpr {
                     ty: Type::Error,
                     kind: expr.kind,
@@ -2084,14 +2136,20 @@ impl Lowerer {
             .function
             .as_ref()
             .map(|func| {
-                self.infer_selected_method_substitution(&selected_branch, &carrier_ty, func, &[])
+                self.infer_selected_method_substitution(
+                    &selected_branch,
+                    &carrier_ty,
+                    func,
+                    &[],
+                    span.clone(),
+                )
             })
             .unwrap_or_default();
         self.record_pending_impl_bounds(&selected_branch, &HashMap::new(), "try operator");
         if let Some(func) = selected_branch.function.as_ref() {
             self.record_function_generic_bounds(func, &branch_subst, span.clone(), "try operator");
             if func.is_unsafe && !self.is_in_unsafe() {
-                self.diagnostics.push_with_span(
+                self.diagnostics.push_selection_with_span(
                     format!(
                         "Call to unsafe function '{}' requires an unsafe block",
                         func.name
@@ -2109,7 +2167,7 @@ impl Lowerer {
                     .to_string(),
                 span.clone(),
             );
-            return self.error_expression();
+            return self.error_expression_at(span.clone());
         };
         let Some(residual_ty) =
             self.selected_associated_type(&selected_branch, &try_trait, try_protocol.residual_id)
@@ -2119,7 +2177,7 @@ impl Lowerer {
                     .to_string(),
                 span.clone(),
             );
-            return self.error_expression();
+            return self.error_expression_at(span.clone());
         };
 
         let branch_method =
@@ -2175,7 +2233,7 @@ impl Lowerer {
                     .to_string(),
                 span.clone(),
             );
-            return self.error_expression();
+            return self.error_expression_at(span.clone());
         };
         let return_owner = HirExpr {
             ty: return_ty.clone(),
@@ -2202,8 +2260,9 @@ impl Lowerer {
                     }
                     _ => self.display_selection_error(&error),
                 };
-                self.diagnostics.push_with_span(message, span.clone());
-                return self.error_expression();
+                self.diagnostics
+                    .push_selection_with_span(message, span.clone());
+                return self.error_expression_at(span.clone());
             }
         };
 
@@ -2221,6 +2280,7 @@ impl Lowerer {
                     &return_ty,
                     func,
                     &[residual_arg],
+                    span.clone(),
                 )
             })
             .unwrap_or_default();
@@ -2233,7 +2293,7 @@ impl Lowerer {
                 "try operator",
             );
             if func.is_unsafe && !self.is_in_unsafe() {
-                self.diagnostics.push_with_span(
+                self.diagnostics.push_selection_with_span(
                     format!(
                         "Call to unsafe function '{}' requires an unsafe block",
                         func.name
@@ -2838,10 +2898,10 @@ mod tests {
             start: 10,
             end: 15,
         };
-        lowerer.diagnostics.set_current_span(source_span.clone());
-
+        let mut receiver = receiver_expr(Type::Str);
+        receiver.span = source_span.clone();
         let lowered = lowerer.apply_secondary(
-            receiver_expr(Type::Str),
+            receiver,
             &SecondaryExpr::Indice(Box::new(number_expression(0))),
             ExprUse::Value,
             false,
@@ -2856,8 +2916,8 @@ mod tests {
             HirExprKind::Var(ref name) if name == "<error>"
         ));
         assert!(!lowerer.errors().is_empty());
-        let diagnostic_span = lowerer.errors()[0]
-            .span
+        let diagnostic_origin = lowerer.errors()[0].span();
+        let diagnostic_span = diagnostic_origin
             .as_ref()
             .expect("unsupported index diagnostic should have a span");
         assert_eq!(diagnostic_span.file_path, source_span.file_path);

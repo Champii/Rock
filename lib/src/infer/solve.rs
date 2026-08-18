@@ -14,21 +14,75 @@ use crate::hir::{HirEnum, HirImpl, HirImplReceiverPattern, HirStruct, HirVariant
 use crate::ids::DefId;
 use crate::ids::{Idx, TypeVarId};
 use crate::infer::constraints::{Constraint, ConstraintOwner, ConstraintStore, ObligationState};
-use crate::infer::InferenceEngine;
+use crate::infer::{InferenceEngine, UnifyError};
 use crate::language_items::LanguageItems;
 use crate::type_services::facts::TypeFacts;
 use crate::type_services::normalize::TypeNormalizer;
 use crate::types::{CallableKind, CaptureKind, GenericParamId, TraitBound, Type};
 
 #[derive(Debug, Clone)]
+pub enum SolveErrorKind {
+    Unify {
+        context: String,
+        error: UnifyError,
+    },
+    TraitNotImplemented {
+        ty: Type,
+        trait_name: String,
+        context: String,
+    },
+    TryNonCarrier {
+        ty: Type,
+    },
+    IntegerLiteral {
+        found: Type,
+    },
+    Message(String),
+}
+
+#[derive(Debug, Clone)]
 pub struct SolveError {
-    pub message: String,
+    pub kind: SolveErrorKind,
     pub span: crate::lexer::Span,
 }
 
 impl SolveError {
     pub fn contains(&self, pattern: &str) -> bool {
-        self.message.contains(pattern)
+        self.message().contains(pattern)
+    }
+
+    pub fn message(&self) -> String {
+        self.render_with(|ty| ty.to_string())
+    }
+
+    pub fn render(&self, engine: &InferenceEngine) -> String {
+        self.render_with(|ty| engine.display_type(ty))
+    }
+
+    fn render_with(&self, display: impl Fn(&Type) -> String) -> String {
+        match &self.kind {
+            SolveErrorKind::Unify { context, error } => {
+                format!("{context}: {}", error.render_with(&display))
+            }
+            SolveErrorKind::TraitNotImplemented {
+                ty,
+                trait_name,
+                context,
+            } => format!(
+                "type `{}` does not implement trait `{}` (required by {})",
+                display(ty),
+                trait_name,
+                context
+            ),
+            SolveErrorKind::TryNonCarrier { ty } => {
+                format!("Cannot use '?' on non-carrier type {}", display(ty))
+            }
+            SolveErrorKind::IntegerLiteral { found } => format!(
+                "integer literal resolved to non-integer type `{}`",
+                display(found)
+            ),
+            SolveErrorKind::Message(message) => message.clone(),
+        }
     }
 }
 
@@ -194,7 +248,7 @@ fn solve_constraints_in_place_mode(
                 && !contains_unresolved_type(&resolved_right)
             {
                 errors.push(SolveError {
-                    message: format!("{context}: {error}"),
+                    kind: SolveErrorKind::Unify { context, error },
                     span,
                 });
                 store.set_state(id, ObligationState::Failed);
@@ -243,7 +297,7 @@ fn solve_constraints_in_place_mode(
                 && !contains_unresolved_type(&resolved_expected)
             {
                 errors.push(SolveError {
-                    message: format!("{context}: {error}"),
+                    kind: SolveErrorKind::Unify { context, error },
                     span,
                 });
                 store.set_state(id, ObligationState::Failed);
@@ -334,10 +388,9 @@ fn solve_constraints_in_place_mode(
                                     .is_some_and(|protocol| bound.trait_id == protocol.try_trait_id)
                             {
                                 errors.push(SolveError {
-                                    message: format!(
-                                        "Cannot use '?' on non-carrier type {}",
-                                        engine.display_type(concrete_ty)
-                                    ),
+                                    kind: SolveErrorKind::TryNonCarrier {
+                                        ty: concrete_ty.clone(),
+                                    },
                                     span,
                                 });
                                 continue;
@@ -346,13 +399,14 @@ fn solve_constraints_in_place_mode(
                                 .get(&resolved_bound.trait_id)
                                 .map(|trait_def| trait_def.name.as_str())
                                 .unwrap_or("<unknown trait>");
-                            let msg = format!(
-                                "type `{}` does not implement trait `{}` (required by {})",
-                                engine.display_type(concrete_ty),
-                                trait_name,
-                                context
-                            );
-                            errors.push(SolveError { message: msg, span });
+                            errors.push(SolveError {
+                                kind: SolveErrorKind::TraitNotImplemented {
+                                    ty: concrete_ty.clone(),
+                                    trait_name: trait_name.to_string(),
+                                    context: context.clone(),
+                                },
+                                span,
+                            });
                             store.set_state(id, ObligationState::Failed);
                         } else if finalize_pending {
                             store.set_state(id, ObligationState::Solved);
@@ -371,10 +425,9 @@ fn solve_constraints_in_place_mode(
                     ty if TypeFacts::is_integer(ty) => {}
                     other => {
                         errors.push(SolveError {
-                            message: format!(
-                                "integer literal resolved to non-integer type `{}`",
-                                engine.display_type(other)
-                            ),
+                            kind: SolveErrorKind::IntegerLiteral {
+                                found: other.clone(),
+                            },
                             span,
                         });
                         store.set_state(id, ObligationState::Failed);
@@ -441,9 +494,9 @@ fn solve_constraints_in_place_mode(
                 | Constraint::Try { span, .. } => span.clone(),
             };
             errors.push(SolveError {
-                message: format!(
+                kind: SolveErrorKind::Message(format!(
                     "ambiguous constraint at quiescence: {context}; add type information to select one canonical solution"
-                ),
+                )),
                 span,
             });
         }
@@ -557,12 +610,13 @@ fn solve_structural_constraints_to_fixed_point(
                     }
                 }
             }
-            Constraint::Trait { ty, bound, .. }
-                if matches!(engine.resolve(&ty), Type::TypeVar(_))
-                    && engine
-                        .kind_of(&ty)
-                        .map(|kind| kind != crate::type_services::kind::Kind::Type)
-                        .unwrap_or(false) =>
+            Constraint::Trait {
+                ty, bound, span, ..
+            } if matches!(engine.resolve(&ty), Type::TypeVar(_))
+                && engine
+                    .kind_of(&ty)
+                    .map(|kind| kind != crate::type_services::kind::Kind::Type)
+                    .unwrap_or(false) =>
             {
                 infer_constructor_trait_obligation(
                     engine,
@@ -572,6 +626,7 @@ fn solve_structural_constraints_to_fixed_point(
                     structs,
                     enums,
                     builtin_traits,
+                    &span,
                 )
             }
             Constraint::Trait { ty, bound, .. }
@@ -691,7 +746,7 @@ fn unify_argument_coercion(
     engine: &mut InferenceEngine,
     actual: &Type,
     expected: &Type,
-) -> Result<(), String> {
+) -> Result<(), UnifyError> {
     if let (
         Type::Reference {
             mutable: actual_mutable,
@@ -805,6 +860,7 @@ fn infer_constructor_trait_obligation(
     structs: &HashMap<DefId, HirStruct>,
     enums: &HashMap<DefId, HirEnum>,
     builtin_traits: BuiltinTraitIds,
+    operation_span: &crate::lexer::Span,
 ) -> ObligationState {
     let Type::TypeVar(var) = engine.resolve(ty) else {
         return ObligationState::Solved;
@@ -828,7 +884,12 @@ fn infer_constructor_trait_obligation(
         let subst = imp
             .type_generics
             .iter()
-            .map(|param| (param.id, probe.fresh_type_var_of_kind(param.kind.clone())))
+            .map(|param| {
+                (
+                    param.id,
+                    probe.fresh_type_var_at_kind(operation_span.clone(), param.kind.clone()),
+                )
+            })
             .collect::<HashMap<_, _>>();
         let candidate = receiver.substitute_generics(&subst);
         if probe.unify(&Type::TypeVar(var), &candidate).is_err() {
@@ -1404,6 +1465,26 @@ mod tests {
     use crate::language_items::FnOnceLanguageItems;
     use crate::lexer::Span;
     use crate::types::TraitBound;
+
+    #[test]
+    fn solve_errors_keep_unification_payload_until_rendering() {
+        let error = SolveError {
+            kind: SolveErrorKind::Unify {
+                context: "assignment".to_string(),
+                error: UnifyError::Mismatch {
+                    expected: Type::I64,
+                    found: Type::Bool,
+                },
+            },
+            span: Span::test(),
+        };
+        let engine = InferenceEngine::new();
+        assert!(matches!(error.kind, SolveErrorKind::Unify { .. }));
+        assert!(error.render(&engine).contains("assignment"));
+        assert!(error.render(&engine).contains("I64"));
+        assert!(error.render(&engine).contains("Bool"));
+        assert!(error.contains("Type mismatch"));
+    }
 
     fn def_id(index: u32) -> DefId {
         DefId::new(CrateId(0), LocalDefId(index))

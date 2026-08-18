@@ -66,7 +66,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::ast::TopLevel;
-    use crate::parser::{parse_source, parse_string};
+    use crate::parser::{parse_source, parse_string, ParseError};
     use crate::Config;
 
     #[test]
@@ -106,6 +106,20 @@ mod tests {
         let result = parse_string("main = ->\n x\n", &Config::default());
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_string_reports_odd_indentation_at_the_indent_token() {
+        let input = "main = ->\n x\n";
+        let error = parse_string(input, &Config::default()).expect_err("odd indent should fail");
+
+        let ParseError::UnexpectedIndent(level, span) = error else {
+            panic!("expected an indentation error");
+        };
+        assert_eq!(level, 1);
+        assert_eq!(span.file_path, PathBuf::from("<memory>"));
+        assert_eq!(span.start, 10);
+        assert_eq!(span.end, 11);
     }
 
     #[test]

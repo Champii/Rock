@@ -1,7 +1,7 @@
 # Source-Aware User-Facing Diagnostics Design
 
 **Date:** 2026-08-17
-**Status:** Accepted for implementation
+**Status:** Implemented
 **Scope:** Compiler diagnostics from source loading through code generation, including source ownership, semantic-name rendering, typed diagnostic payloads, CLI reporting, virtual sources, and the shared foundation required by a future Rock language server
 
 ## Purpose
@@ -395,3 +395,14 @@ This work substantially reduces future LSP scope. The LSP will reuse:
 - stable diagnostic codes for client filtering and code actions.
 
 The LSP will still need document synchronization, UTF-16 position conversion, project lifecycle, cancellation, incremental analysis, and incomplete-buffer recovery. It will not need a second diagnostic engine or name formatter.
+
+## Completion Evidence
+
+Implemented on 2026-08-18. The completed compiler contract includes structured diagnostic families, validated source and non-source locations, attached filesystem/virtual/artifact sources, contextual Rock type rendering, structured inference/selection/mono/codegen errors, a session-only semantic source map, MIR operation origins, protocol-neutral serialization, and CLI coverage. Repository enforcement removes default or fabricated production spans and keeps editor source metadata out of product artifacts.
+
+Verification at completion:
+
+- `cargo test -p rock-lib --lib`: 2,316 passed.
+- `cargo test -p rock-lib --test integration`: 626 passed.
+- `cargo test -p rock-lib --test test_parse_struct_with_fields`: 1 passed.
+- `cargo test -p rockc`: 46 passed across unit and CLI integration suites.

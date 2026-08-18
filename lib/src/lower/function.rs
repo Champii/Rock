@@ -43,12 +43,13 @@ impl Lowerer {
         owner: DefId,
         generic_params: &[String],
         type_param: &str,
+        span: crate::lexer::Span,
     ) -> Option<GenericParamId> {
         let Some(index) = generic_params.iter().position(|param| param == type_param) else {
-            self.diagnostics.push(format!(
-                "unknown generic parameter '{}' in where clause",
-                type_param
-            ));
+            self.diagnostics.push_with_span(
+                format!("unknown generic parameter '{}' in where clause", type_param),
+                span,
+            );
             return None;
         };
 
@@ -129,13 +130,11 @@ impl Lowerer {
         });
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn build_self_param(&mut self, self_receiver: ast::SelfReceiverMode) -> HirParam {
-        let local_id = self.fresh_local_id();
-        self.build_self_param_with_local_id(self_receiver, local_id)
-    }
-
-    fn receiver_ty_for_self(&mut self, self_receiver: ast::SelfReceiverMode) -> Type {
+    fn receiver_ty_for_self(
+        &mut self,
+        self_receiver: ast::SelfReceiverMode,
+        span: crate::lexer::Span,
+    ) -> Type {
         let base = if let Some(index) = self
             .current_generic_params()
             .iter()
@@ -148,9 +147,9 @@ impl Lowerer {
                         index: index as u32,
                     })
                 })
-                .unwrap_or_else(|| self.engine.fresh_type_var())
+                .unwrap_or_else(|| self.engine.fresh_type_var_at(span.clone()))
         } else {
-            self.engine.fresh_type_var()
+            self.engine.fresh_type_var_at(span)
         };
 
         match self_receiver {
@@ -170,11 +169,12 @@ impl Lowerer {
         &mut self,
         self_receiver: ast::SelfReceiverMode,
         local_id: HirLocalId,
+        span: crate::lexer::Span,
     ) -> HirParam {
         HirParam {
             name: "self".to_string(),
             local_id,
-            ty: self.receiver_ty_for_self(self_receiver),
+            ty: self.receiver_ty_for_self(self_receiver, span),
             mutable: matches!(self_receiver, ast::SelfReceiverMode::Mut),
             is_ref: false,
         }
@@ -220,9 +220,9 @@ impl Lowerer {
         let (lowered_type, receiver_ty, generic_owner, generic_context_params) =
             if let Some(owner) = self.current_generic_owner() {
                 let ty = self.lower_parse_type(&sig.sig);
-                let receiver_ty = sig
-                    .self_receiver
-                    .map(|self_receiver| self.receiver_ty_for_self(self_receiver));
+                let receiver_ty = sig.self_receiver.map(|self_receiver| {
+                    self.receiver_ty_for_self(self_receiver, sig.name.span.clone())
+                });
                 (
                     ty,
                     receiver_ty,
@@ -239,9 +239,9 @@ impl Lowerer {
                 let ((ty, receiver_ty), params) =
                     self.with_generic_context(owner, params, |lowerer| {
                         let ty = lowerer.lower_parse_type(&sig.sig);
-                        let receiver_ty = sig
-                            .self_receiver
-                            .map(|self_receiver| lowerer.receiver_ty_for_self(self_receiver));
+                        let receiver_ty = sig.self_receiver.map(|self_receiver| {
+                            lowerer.receiver_ty_for_self(self_receiver, sig.name.span.clone())
+                        });
                         (ty, receiver_ty)
                     });
                 (ty, receiver_ty, owner, params)
@@ -277,18 +277,25 @@ impl Lowerer {
             let Some(trait_bound) = clause.trait_bound.as_ref() else {
                 continue;
             };
+            let trait_bound_span = clause
+                .trait_bound
+                .as_ref()
+                .expect("trait bound checked above")
+                .span();
             let Some((trait_bound, type_args)) = simple_trait_bound(trait_bound) else {
-                self.diagnostics
-                    .push("unsupported trait bound shape in where clause".to_string());
+                self.diagnostics.push_with_span(
+                    "unsupported trait bound shape in where clause".to_string(),
+                    clause.subject.span(),
+                );
                 continue;
             };
             let Some(trait_id) = crate::lower::resolution::LowerResolutionContext::new(self)
                 .resolve_trait_id(&trait_bound.name)
             else {
-                self.diagnostics.push(format!(
-                    "unknown trait '{}' in where clause",
-                    trait_bound.name
-                ));
+                self.diagnostics.push_with_span(
+                    format!("unknown trait '{}' in where clause", trait_bound.name),
+                    trait_bound_span,
+                );
                 continue;
             };
             let declared_param_name = match &clause.subject {
@@ -311,9 +318,14 @@ impl Lowerer {
                 _ => None,
             };
             let subject = if let Some(name) = declared_param_name {
-                self.where_clause_generic_param_id(generic_owner, &generic_context_params, name)
-                    .map(Type::Generic)
-                    .unwrap_or(Type::Error)
+                self.where_clause_generic_param_id(
+                    generic_owner,
+                    &generic_context_params,
+                    name,
+                    clause.subject.span(),
+                )
+                .map(Type::Generic)
+                .unwrap_or(Type::Error)
             } else {
                 self.with_generic_context(
                     generic_owner,
@@ -467,14 +479,19 @@ impl Lowerer {
 
         // If this is a method, add the implicit self parameter.
         if let Some(self_receiver) = fd.self_receiver {
-            let self_param = self.build_self_param_with_local_id(self_receiver, local_ids.fresh());
+            let self_param = self.build_self_param_with_local_id(
+                self_receiver,
+                local_ids.fresh(),
+                fd.lambda.span.clone(),
+            );
             Self::collect_type_var_ids(&self_param.ty, &mut func_type_vars);
             all_param_types.push(self_param.ty.clone());
             all_params.push(self_param);
         }
 
         for param in &lambda.parameters {
-            let (name, ty, mutable, is_ref) = self.lower_param_pattern(param);
+            let (name, ty, mutable, is_ref) =
+                self.lower_param_pattern_at(param, lambda.span.clone());
             Self::collect_type_var_ids(&ty, &mut func_type_vars);
             all_param_types.push(ty.clone());
             let local_id = local_ids.fresh();
@@ -490,7 +507,7 @@ impl Lowerer {
         let ret_type = if matches!(lambda.arrow_kind, ast::LambdaArrowKind::Unit) {
             Type::Unit
         } else {
-            self.engine.fresh_type_var()
+            self.engine.fresh_type_var_at(lambda.span.clone())
         };
         Self::collect_type_var_ids(&ret_type, &mut func_type_vars);
 
@@ -631,7 +648,11 @@ impl Lowerer {
         // If this is a method, add the implicit self parameter.
         if let Some(self_receiver) = fd.self_receiver {
             let local_id = local_ids.fresh();
-            let mut self_param = self.build_self_param_with_local_id(self_receiver, local_id);
+            let mut self_param = self.build_self_param_with_local_id(
+                self_receiver,
+                local_id,
+                fd.lambda.span.clone(),
+            );
             if let Some(sig_self_ty) = sig_params.first() {
                 self_param.ty = sig_self_ty.clone();
             }
@@ -642,11 +663,14 @@ impl Lowerer {
         // Merge parameter names from declaration with types from signature
         let param_start = if fd.self_receiver.is_some() { 1 } else { 0 };
         for (i, param) in lambda.parameters.iter().enumerate() {
-            let (name, _decl_ty, mutable, is_ref) = self.lower_param_pattern(param);
+            let (name, _decl_ty, mutable, is_ref) =
+                self.lower_param_pattern_at(param, fd.lambda.span.clone());
             let ty = if param_start + i < sig.params.len() {
                 sig_params[param_start + i].clone()
             } else {
-                self.engine.fresh_type_var()
+                self.engine.fresh_type_var_at(
+                    Self::pattern_binding_span(param).unwrap_or_else(|| fd.lambda.span.clone()),
+                )
             };
             Self::collect_type_var_ids(&ty, &mut func_type_vars);
             let local_id = local_ids.fresh();
@@ -699,11 +723,10 @@ impl Lowerer {
         }
     }
 
-    /// Lower a parameter pattern, returning (name, type, mutable, is_ref)
-    /// is_ref is true when the pattern is a reference pattern like &x or &mut x
-    pub(crate) fn lower_param_pattern(
+    pub(crate) fn lower_param_pattern_at(
         &mut self,
         pattern: &ast::Pattern,
+        fallback: crate::lexer::Span,
     ) -> (String, Type, bool, bool) {
         match &pattern.kind {
             ast::PatternKind::Reference {
@@ -712,21 +735,21 @@ impl Lowerer {
             } => {
                 // Reference pattern: &name or &mut name
                 // Recursively lower the inner pattern
-                let (name, ty, inner_mut, _) = self.lower_param_pattern(inner);
+                let (name, ty, inner_mut, _) = self.lower_param_pattern_at(inner, fallback.clone());
                 // The parameter is a reference
                 (name, ty, inner_mut || *mutable, true)
             }
-            ast::PatternKind::Nested(inner) => self.lower_param_pattern(inner),
+            ast::PatternKind::Nested(inner) => self.lower_param_pattern_at(inner, fallback.clone()),
             ast::PatternKind::Ident(ident_pat) => {
-                let ty = self.engine.fresh_type_var();
+                let ty = self.engine.fresh_type_var_at(ident_pat.name.span.clone());
                 (ident_pat.name.name.clone(), ty, ident_pat.mut_, false)
             }
             ast::PatternKind::Wildcard => {
-                let ty = self.engine.fresh_type_var();
+                let ty = self.engine.fresh_type_var_at(fallback.clone());
                 ("_".to_string(), ty, false, false)
             }
             _ => {
-                let ty = self.engine.fresh_type_var();
+                let ty = self.engine.fresh_type_var_at(fallback);
                 // For complex patterns, use a generated name
                 let name = pattern
                     .binding
@@ -815,6 +838,7 @@ mod tests {
                 parameters: vec![binding_pattern(param)],
                 body: Block { statements: vec![] },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: crate::lexer::Span::test(),
             },
             self_receiver: None,
             is_unsafe: false,
@@ -833,6 +857,7 @@ mod tests {
                 parameters: vec![binding_pattern(param)],
                 body: Block { statements: vec![] },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: crate::lexer::Span::test(),
             },
             self_receiver: Some(self_receiver),
             is_unsafe: false,

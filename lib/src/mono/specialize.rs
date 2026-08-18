@@ -530,7 +530,7 @@ impl Monomorphizer {
         let old_var_types = self.var_types.clone();
         self.var_types.clear();
         let mut params_for_body = signature.params.clone();
-        self.process_params(&mut params_for_body);
+        self.process_params(Some(generic_func.id), &mut params_for_body);
         self.process_block(&mut body);
         self.var_types = old_var_types;
 

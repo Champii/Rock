@@ -1020,6 +1020,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context: mono.type_context.clone(),
+            source_map: crate::source_map::SemanticSourceMap::default(),
         }
     }
 

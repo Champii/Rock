@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -15,16 +16,16 @@ fn indice_expression() {
         .process(ParseCtx::from(&tokens, &config))
         .unwrap();
 
-    assert_eq!(
-        expression,
-        Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+    assert_formatted_eq(
+        &expression,
+        &Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
             operand: Operand::Ident(IdentifierPath {
                 path: vec![IdentOrType::Ident(Ident {
                     name: "hello".to_string(),
                     span: Span {
                         start: 0,
                         end: 5,
-                        file_path: PathBuf::default(),
+                        file_path: PathBuf::from("/test.rk"),
                     },
                 })],
             }),
@@ -35,12 +36,12 @@ fn indice_expression() {
                         span: Span {
                             start: 6,
                             end: 7,
-                            file_path: PathBuf::default(),
+                            file_path: PathBuf::from("/test.rk"),
                         },
                     }),
                     secondaries: None,
                     type_annotation: None,
-                }))
+                })),
             ))]),
             type_annotation: None,
         })),

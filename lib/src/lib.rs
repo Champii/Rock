@@ -210,7 +210,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     ) {
         Ok(d) => d,
         Err(errors) => {
-            return Err(Diagnostics::from(errors).with_sources(&diagnostic_sources));
+            return Err(Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources));
         }
     };
     let loaded_prelude_export_ids = decls.loaded_prelude_export_ids.clone();
@@ -226,7 +226,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     ) {
         Ok(h) => h,
         Err(errors) => {
-            return Err(Diagnostics::from(errors).with_sources(&diagnostic_sources));
+            return Err(Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources));
         }
     };
 
@@ -234,7 +234,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     let hir = match infer::finalize(partial_hir) {
         Ok(h) => h,
         Err(errors) => {
-            return Err(Diagnostics::from(errors).with_sources(&diagnostic_sources));
+            return Err(Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources));
         }
     };
     if config.has_debug_print(DebugPrint::Hir) {
@@ -266,7 +266,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
         )
         .map_err(|error| {
             let mut diagnostics = Diagnostics::default();
-            diagnostics.push(diagnostic::Diagnostic::for_toolchain(error));
+            diagnostics.push(diagnostic::Diagnostic::for_internal(error));
             diagnostics
         })?;
         if config.current_crate_name.as_deref() == Some("stdlib") {
@@ -302,7 +302,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     let agreement = mir::agreement::check_mir_runtime_agreement(&mir_program);
     if !agreement.is_clean() {
         let mut diagnostics = Diagnostics::default();
-        diagnostics.push(diagnostic::Diagnostic::for_toolchain(format!(
+        diagnostics.push(diagnostic::Diagnostic::for_internal(format!(
             "MIR/codegen agreement failed: {:?}",
             agreement
         )));
@@ -323,7 +323,9 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     let link_inputs = crate_ctx.dependency_link_inputs();
 
     if let Err(e) = codegen.compile_program_from_mir(&mir_program) {
-        let diagnostics = Diagnostics::from(vec![e]).with_sources(&diagnostic_sources);
+        let mut diagnostics = Diagnostics::default();
+        diagnostics.push(e.into_diagnostic());
+        let diagnostics = diagnostics.with_sources(&diagnostic_sources);
         return Err(diagnostics);
     }
     attach_product_link_records(
@@ -334,7 +336,7 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     )
     .map_err(|error| {
         let mut diagnostics = Diagnostics::default();
-        diagnostics.push(diagnostic::Diagnostic::for_toolchain(error));
+        diagnostics.push(diagnostic::Diagnostic::for_internal(error));
         diagnostics
     })?;
 
@@ -382,13 +384,15 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
             let _ = std::fs::create_dir_all(parent);
         }
         if let Err(e) = codegen.write_object(&obj_path, opt) {
-            let diagnostics = Diagnostics::from(vec![e]);
+            let mut diagnostics = Diagnostics::default();
+            diagnostics.push(e.into_diagnostic());
             return Err(diagnostics);
         }
         attach_product_object_path(&mut products, &obj_path);
     } else {
         if let Err(e) = codegen.write_executable(&exe_path, opt, &link_inputs.object_paths) {
-            let diagnostics = Diagnostics::from(vec![e]);
+            let mut diagnostics = Diagnostics::default();
+            diagnostics.push(e.into_diagnostic());
             return Err(diagnostics);
         }
     }
@@ -515,11 +519,7 @@ fn validate_extern_artifact_names(
                     "External artifact crate name '{}' conflicts with current crate name '{}'",
                     name, name
                 ),
-                config
-                    .entry_file
-                    .parent()
-                    .unwrap_or(&config.entry_file)
-                    .to_path_buf(),
+                config.entry_file.clone(),
             ));
             return Err(diagnostics);
         }
@@ -527,11 +527,7 @@ fn validate_extern_artifact_names(
             let mut diagnostics = Diagnostics::default();
             diagnostics.push(diagnostic::Diagnostic::for_project(
                 format!("Duplicate external artifact crate name '{}'", name),
-                config
-                    .entry_file
-                    .parent()
-                    .unwrap_or(&config.entry_file)
-                    .to_path_buf(),
+                config.entry_file.clone(),
             ));
             return Err(diagnostics);
         }
@@ -540,7 +536,9 @@ fn validate_extern_artifact_names(
     Ok(())
 }
 
-fn source_load_errors_to_diagnostics(errors: Vec<source_loader::SourceLoadError>) -> Diagnostics {
+pub fn source_load_errors_to_diagnostics(
+    errors: Vec<source_loader::SourceLoadError>,
+) -> Diagnostics {
     let mut diagnostics = Diagnostics::default();
     for error in errors {
         match error {
@@ -554,6 +552,7 @@ fn source_load_errors_to_diagnostics(errors: Vec<source_loader::SourceLoadError>
                 module,
                 searched,
                 span,
+                parent_source,
             } => {
                 let searched_path = searched.first().cloned();
                 let searched = searched
@@ -563,7 +562,29 @@ fn source_load_errors_to_diagnostics(errors: Vec<source_loader::SourceLoadError>
                     .join(", ");
                 let message = format!("Module '{}' not found; searched: {}", module, searched);
                 diagnostics.push(match span {
-                    Some(span) => diagnostic::Diagnostic::new(message, span),
+                    Some(span) => {
+                        let mut diagnostic = diagnostic::Diagnostic::new(message, span);
+                        if let Some(source) = parent_source {
+                            let origin = match source.origin {
+                                source_loader::SourceOrigin::FileSystem => {
+                                    diagnostic::DiagnosticSourceOrigin::FileSystem
+                                }
+                                source_loader::SourceOrigin::Virtual => {
+                                    diagnostic::DiagnosticSourceOrigin::Virtual
+                                }
+                                source_loader::SourceOrigin::Artifact { artifact_path } => {
+                                    diagnostic::DiagnosticSourceOrigin::Artifact { artifact_path }
+                                }
+                            };
+                            diagnostic.source = Some(diagnostic::DiagnosticSource {
+                                display_path: source.display_path,
+                                text: source.text,
+                                origin,
+                                related: std::collections::BTreeMap::new(),
+                            });
+                        }
+                        diagnostic
+                    }
                     None => match searched_path {
                         Some(path) => diagnostic::Diagnostic::for_file(message, path),
                         None => diagnostic::Diagnostic::for_toolchain(message),
@@ -591,7 +612,12 @@ fn source_load_errors_to_diagnostics(errors: Vec<source_loader::SourceLoadError>
                         related: std::collections::BTreeMap::new(),
                     };
                     for diagnostic in &mut parse_diagnostics.0 {
-                        diagnostic.source = Some(diagnostic_source.clone());
+                        if matches!(
+                            &diagnostic.location,
+                            diagnostic::DiagnosticLocation::Source(_)
+                        ) {
+                            diagnostic.source = Some(diagnostic_source.clone());
+                        }
                     }
                 }
                 diagnostics.merge(parse_diagnostics);
@@ -1173,6 +1199,7 @@ mod tests {
             pre_mir_instance_bodies,
             generated_drop_instances: Default::default(),
             type_context: crate::type_context::TypeContext::new(),
+            source_map: crate::source_map::SemanticSourceMap::default(),
         };
         let mut instance_bodies =
             crate::mir::builder::MirBuilder::take_mir_instance_bodies(&mut monomorphized);
@@ -2208,5 +2235,31 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn source_load_conversion_attaches_text_only_to_source_diagnostics() {
+        let path = PathBuf::from("/virtual/loader.rk");
+        let source = crate::source_loader::SourceFile {
+            original_path: path.clone(),
+            canonical_path: path.clone(),
+            display_path: path.clone(),
+            text: "source".to_string(),
+            origin: crate::source_loader::SourceOrigin::Virtual,
+        };
+        let diagnostics = super::source_load_errors_to_diagnostics(vec![
+            crate::source_loader::SourceLoadError::Parse {
+                path,
+                source: Some(source),
+                error: crate::parser::ParseError::Fail,
+            },
+        ]);
+
+        assert_eq!(diagnostics.0.len(), 1);
+        assert!(matches!(
+            &diagnostics.0[0].location,
+            crate::diagnostic::DiagnosticLocation::Toolchain
+        ));
+        assert!(diagnostics.0[0].source.is_none());
     }
 }

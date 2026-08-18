@@ -42,10 +42,11 @@ impl Lowerer {
     pub(crate) fn lower_lambda_body(&mut self, lambda: &ast::LambdaDecl) -> HirBlock {
         let mut body = self.lower_block(&lambda.body);
         if matches!(lambda.arrow_kind, ast::LambdaArrowKind::Unit) {
+            let span = lambda.span.clone();
             body.stmts.push(HirStmt::Expr(HirExpr {
                 ty: Type::Unit,
                 kind: HirExprKind::Unit,
-                span: self.diagnostics.current_span().clone(),
+                span,
             }));
             body.ty = Type::Unit;
         }
@@ -103,10 +104,13 @@ impl Lowerer {
                         .map(|binding| binding.ty.clone())
                         .unwrap_or_else(|| rhs.ty.clone());
                     if let Err(e) = self.engine.unify(&rhs.ty, &lhs_ty) {
-                        let span = self.diagnostics.current_span().clone();
-                        self.diagnostics
-                            .push_with_span(format!("Assignment type mismatch: {}", e), span);
+                        let span = rhs.span.clone();
+                        self.diagnostics.push_type_with_span(
+                            format!("Assignment type mismatch: {}", e.render(&self.engine)),
+                            span,
+                        );
                     }
+                    let operation_span = rhs.span.clone();
                     let lhs_kind = binding
                         .and_then(|binding| binding.local_id)
                         .map(|local_id| {
@@ -119,22 +123,29 @@ impl Lowerer {
                     let lhs_expr = HirExpr {
                         ty: lhs_ty,
                         kind: lhs_kind,
-                        span: self.diagnostics.current_span().clone(),
+                        span: operation_span.clone(),
                     };
                     return HirStmt::Expr(HirExpr {
                         ty: Type::Unit,
                         kind: HirExprKind::Assign(Box::new(lhs_expr), Box::new(rhs)),
-                        span: self.diagnostics.current_span().clone(),
+                        span: operation_span,
                     });
                 }
 
                 let mut ty = rhs.ty.clone();
 
                 if let Some(ann) = type_annotation {
+                    self.source_map.record_type_annotation(ann.span());
                     let ann_ty = self.lower_parse_type(ann);
                     if let Err(e) = self.engine.unify(&ty, &ann_ty) {
-                        self.diagnostics
-                            .push(format!("Type annotation mismatch for '{}': {}", name, e));
+                        self.diagnostics.push_type_with_span(
+                            format!(
+                                "Type annotation mismatch for '{}': {}",
+                                name,
+                                e.render(&self.engine)
+                            ),
+                            ann.span(),
+                        );
                     }
                     ty = ann_ty;
                     self.resolve_all_types_in_expr(&mut rhs);
@@ -145,7 +156,12 @@ impl Lowerer {
                     self.current_body_def_id(),
                     Self::pattern_binding_span(pattern),
                 ) {
-                    self.source_map.insert_local(owner, local_id, span);
+                    self.source_map.insert_local_in_scope(
+                        owner,
+                        local_id,
+                        span,
+                        self.source_scope_stack.last().copied(),
+                    );
                 }
                 self.scope
                     .define_local(name.clone(), ty.clone(), mutable, local_id);
@@ -168,21 +184,22 @@ impl Lowerer {
                 // enabling `substitute_generics({"T"→TypeVar(K)})` at call sites.
                 if let HirExprKind::Deref(_) = &lhs_expr.kind {
                     if let Err(e) = self.engine.unify(&rhs.ty, &lhs_expr.ty) {
-                        self.diagnostics.push_with_span(
-                            format!("Assignment type mismatch: {}", e),
+                        self.diagnostics.push_type_with_span(
+                            format!("Assignment type mismatch: {}", e.render(&self.engine)),
                             rhs.span.clone(),
                         );
                     }
                 } else if let Err(e) = self.engine.unify(&rhs.ty, &lhs_expr.ty) {
-                    self.diagnostics.push_with_span(
-                        format!("Assignment type mismatch: {}", e),
+                    self.diagnostics.push_type_with_span(
+                        format!("Assignment type mismatch: {}", e.render(&self.engine)),
                         rhs.span.clone(),
                     );
                 }
+                let operation_span = rhs.span.clone();
                 HirStmt::Expr(HirExpr {
                     ty: Type::Unit,
                     kind: HirExprKind::Assign(Box::new(lhs_expr), Box::new(rhs)),
-                    span: self.diagnostics.current_span().clone(),
+                    span: operation_span,
                 })
             }
         }
@@ -195,6 +212,7 @@ impl Lowerer {
     ) -> Vec<HirStmt> {
         let mut stmts = Vec::new();
         let rhs_expr = self.lower_expression(rhs);
+        let rhs_span = rhs_expr.span.clone();
 
         // Create a temp variable for the tuple value
         let uid = self.tuple_temp_counter;
@@ -225,7 +243,7 @@ impl Lowerer {
             // Determine the element type from the tuple type
             let elem_ty = match &tmp_ty {
                 Type::Tuple(types) if idx < types.len() => types[idx].clone(),
-                _ => self.engine.fresh_type_var(),
+                _ => self.engine.fresh_type_var_at(rhs_span.clone()),
             };
 
             let index_expr = HirExpr {
@@ -237,11 +255,11 @@ impl Lowerer {
                             name: tmp_name.clone(),
                             target: HirVarTarget::Local(tmp_local_id),
                         }),
-                        span: self.diagnostics.current_span().clone(),
+                        span: rhs_span.clone(),
                     }),
                     idx as u32,
                 ),
-                span: self.diagnostics.current_span().clone(),
+                span: rhs_span.clone(),
             };
 
             let local_id = self.fresh_local_id();

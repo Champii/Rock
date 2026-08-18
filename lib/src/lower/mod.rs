@@ -27,7 +27,7 @@ pub mod traits;
 pub mod r#types;
 pub mod types_helpers;
 
-pub use error::ResolveError;
+pub use error::{ResolveError, ResolveErrorKind};
 pub use program::lower_with_crates_and_options;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -86,6 +86,7 @@ pub struct Lowerer {
     pub(crate) body_context: Option<BodyLoweringContext>,
     pub(crate) tuple_temp_counter: u32,
     pub(crate) source_map: crate::source_map::SemanticSourceMap,
+    pub(crate) source_scope_stack: Vec<u32>,
 }
 
 impl Lowerer {
@@ -198,10 +199,7 @@ impl Lowerer {
 
     #[cfg(test)]
     pub(crate) fn new_for_test() -> Self {
-        let mut lowerer = Self::new();
-        lowerer
-            .diagnostics
-            .set_current_span(crate::lexer::Span::test());
+        let lowerer = Self::new();
         lowerer
     }
 
@@ -236,6 +234,7 @@ impl Lowerer {
             body_context: None,
             tuple_temp_counter: 0,
             source_map: Default::default(),
+            source_scope_stack: Vec::new(),
         }
     }
 
@@ -284,6 +283,15 @@ impl Lowerer {
             | BodyOwner::ImplMethod { method_id: id, .. }
             | BodyOwner::TraitMethod { method_id: id, .. } => ConstraintOwner::Body(*id),
         };
+        let source_owner = match context.owner() {
+            BodyOwner::Function(id)
+            | BodyOwner::ImplMethod { method_id: id, .. }
+            | BodyOwner::TraitMethod { method_id: id, .. } => *id,
+        };
+        let previous_source_scope_stack =
+            std::mem::replace(&mut self.source_scope_stack, Vec::new());
+        let root_scope = self.source_map.insert_scope(source_owner, None);
+        self.source_scope_stack.push(root_scope);
         let previous_constraint_owner = self.constraint_store.replace_owner(owner);
         self.body_context = Some(context);
 
@@ -296,8 +304,26 @@ impl Lowerer {
         self.constraint_store
             .replace_owner(previous_constraint_owner);
         self.body_context = previous_context;
+        self.source_scope_stack = previous_source_scope_stack;
 
         result
+    }
+
+    pub(crate) fn push_scope(&mut self) {
+        self.scope.push();
+        let Some(owner) = self.current_body_def_id() else {
+            return;
+        };
+        let parent = self.source_scope_stack.last().copied();
+        let scope = self.source_map.insert_scope(owner, parent);
+        self.source_scope_stack.push(scope);
+    }
+
+    pub(crate) fn pop_scope(&mut self) {
+        self.scope.pop();
+        if self.current_body_def_id().is_some() {
+            self.source_scope_stack.pop();
+        }
     }
 
     #[allow(dead_code)]
@@ -320,6 +346,20 @@ impl Lowerer {
             | BodyOwner::ImplMethod { method_id: id, .. }
             | BodyOwner::TraitMethod { method_id: id, .. } => Some(id),
         }
+    }
+
+    pub(crate) fn record_source_reference(
+        &mut self,
+        span: Span,
+        target: crate::source_map::SourceSymbol,
+    ) {
+        let owner = self.current_body_def_id().or_else(|| match &target {
+            crate::source_map::SourceSymbol::Generic(generic) => Some(generic.owner),
+            _ => None,
+        });
+        let scope_id = self.source_scope_stack.last().copied();
+        self.source_map
+            .record_reference_in_scope(span, target, owner, scope_id);
     }
 
     pub(crate) fn pattern_binding_span(pattern: &ast::Pattern) -> Option<Span> {
@@ -375,13 +415,13 @@ impl Lowerer {
                     .impl_def(impl_id)
                     .and_then(|impl_def| impl_def.methods.get(&method_name));
                 let Some(method) = method else {
-                    self.diagnostics.push(format!(
+                    self.diagnostics.push_toolchain(format!(
                         "lowering invariant: impl {impl_id:?} has no body method '{method_name}'"
                     ));
                     return None;
                 };
                 if method.id != method_id {
-                    self.diagnostics.push(format!(
+                    self.diagnostics.push_toolchain(format!(
                         "lowering invariant: impl {impl_id:?} method '{method_name}' has DefId {:?}, expected {method_id:?}",
                         method.id
                     ));
@@ -399,13 +439,13 @@ impl Lowerer {
                     .trait_def(trait_id)
                     .and_then(|trait_def| trait_def.methods.get(&method_name));
                 let Some(method) = method else {
-                    self.diagnostics.push(format!(
+                    self.diagnostics.push_toolchain(format!(
                         "lowering invariant: trait {trait_id:?} has no body method '{method_name}'"
                     ));
                     return None;
                 };
                 if method.id != method_id {
-                    self.diagnostics.push(format!(
+                    self.diagnostics.push_toolchain(format!(
                         "lowering invariant: trait {trait_id:?} method '{method_name}' has DefId {:?}, expected {method_id:?}",
                         method.id
                     ));
@@ -578,7 +618,11 @@ impl Lowerer {
         None
     }
 
-    pub(crate) fn current_generic_type_for_name(&mut self, name: &str) -> Option<Type> {
+    pub(crate) fn current_generic_type_for_name(
+        &mut self,
+        name: &str,
+        _span: crate::lexer::Span,
+    ) -> Option<Type> {
         if let Some(param) = self
             .body_context
             .as_ref()
@@ -744,7 +788,7 @@ impl Lowerer {
             ) => None,
             Err(error) => {
                 let message = self.display_selection_error(&error);
-                self.diagnostics.push_with_span(message, span);
+                self.diagnostics.push_selection_with_span(message, span);
                 None
             }
         }
@@ -780,6 +824,7 @@ impl Lowerer {
             module_file_cache: _,
             source_modules,
             dependency_root_export_ids: _,
+            source_map,
             language_items,
         } = decls;
 
@@ -812,7 +857,7 @@ impl Lowerer {
             .into_iter()
             .find(|id| !resolver.item_names_by_id.contains_key(id))
         {
-            return Err(vec![ResolveError::new(format!(
+            return Err(vec![ResolveError::non_source(format!(
                 "missing canonical function declaration name for DefId {id:?}"
             ))]);
         }
@@ -823,7 +868,7 @@ impl Lowerer {
         enum_names.sort();
         for id in enum_names {
             let Some(name) = resolver.item_names_by_id.get(&id) else {
-                return Err(vec![ResolveError::new(format!(
+                return Err(vec![ResolveError::non_source(format!(
                     "missing canonical enum declaration name for DefId {id:?}"
                 ))]);
             };
@@ -886,15 +931,16 @@ impl Lowerer {
             .into_iter()
             .find(|id| !resolver.item_names_by_id.contains_key(id))
         {
-            return Err(vec![ResolveError::new(format!(
+            return Err(vec![ResolveError::non_source(format!(
                 "missing canonical extern declaration name for DefId {id:?}"
             ))]);
         }
 
+        let mut inference_engine =
+            crate::infer::InferenceEngine::with_next_type_var(type_vars.next_raw());
+        inference_engine.seed_var_spans(type_vars.var_spans().clone());
         let services = LowererServices {
-            engine: LowerInferenceService::new(crate::infer::InferenceEngine::with_next_type_var(
-                type_vars.next_raw(),
-            )),
+            engine: LowerInferenceService::new(inference_engine),
             scope: LowerScopeService::new(scope),
             items: LowerItemService::new(lower_items),
             diagnostics: LowerDiagnosticService::new(
@@ -919,8 +965,7 @@ impl Lowerer {
         lowerer.root_crate_id = indexing_ids.root_crate_id();
         lowerer.local_def_ids = indexing_ids.into_local_def_ids();
         lowerer.item_index = item_index;
-        lowerer.source_map =
-            crate::source_map::SemanticSourceMap::from_item_index(&lowerer.item_index);
+        lowerer.source_map = source_map;
         lowerer.language_items = language_items;
         lowerer.refresh_inference_normalization_env();
         lowerer.refresh_type_display_context();
@@ -1061,6 +1106,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         }
     }
@@ -1871,8 +1917,7 @@ mod tests {
             })
             .expect("missing source-backed module should report its declaration");
         let span = error
-            .span
-            .as_ref()
+            .span()
             .expect("missing source-backed module error should be span-aware");
         assert_eq!(span.file_path, helper_span.file_path);
         assert_eq!(span.start, helper_span.start);
@@ -1907,6 +1952,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         };
 
@@ -1956,6 +2002,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         };
         let mut lowerer = Lowerer::from_declarations(decls).unwrap();
@@ -2010,6 +2057,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         };
         let mut lowerer = Lowerer::from_declarations(decls).unwrap();
@@ -2203,6 +2251,7 @@ mod tests {
             module_file_cache: HashMap::new(),
             source_modules: crate::source_loader::SourceModuleSet::default(),
             dependency_root_export_ids: HashMap::new(),
+            source_map: Default::default(),
             language_items: Default::default(),
         };
 

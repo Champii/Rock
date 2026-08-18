@@ -206,7 +206,7 @@ impl Lowerer {
             }
             Err(err) => self
                 .diagnostics
-                .push(format!("Failed to import {}: {}", module_label, err)),
+                .push_toolchain(format!("Failed to import {}: {}", module_label, err)),
         }
     }
 
@@ -264,7 +264,7 @@ impl Lowerer {
 
         match span {
             Some(span) => self.diagnostics.push_with_span(message, span),
-            None => self.diagnostics.push(message),
+            None => self.diagnostics.push_toolchain(message),
         }
     }
 
@@ -286,16 +286,14 @@ impl Lowerer {
                         continue;
                     };
                     let Some(record) = lowerer.item_index.item_at_source(module_id, ordinal) else {
-                        lowerer.diagnostics.push_with_span(
+                        lowerer.diagnostics.push_toolchain(
                             "missing indexed impl declaration while lowering bodies".to_string(),
-                            imp.name.span.clone(),
                         );
                         continue;
                     };
                     if !record.kind.matches_top_level(top_level) {
-                        lowerer.diagnostics.push_with_span(
+                        lowerer.diagnostics.push_toolchain(
                             "indexed declaration kind does not match impl syntax".to_string(),
-                            imp.name.span.clone(),
                         );
                         continue;
                     }
@@ -308,17 +306,15 @@ impl Lowerer {
                         continue;
                     };
                     let Some(record) = lowerer.item_index.item_at_source(module_id, ordinal) else {
-                        lowerer.diagnostics.push_with_span(
+                        lowerer.diagnostics.push_toolchain(
                             "missing indexed function declaration while lowering bodies"
                                 .to_string(),
-                            fd.name.span.clone(),
                         );
                         continue;
                     };
                     if !record.kind.matches_top_level(top_level) {
-                        lowerer.diagnostics.push_with_span(
+                        lowerer.diagnostics.push_toolchain(
                             "indexed declaration kind does not match function syntax".to_string(),
-                            fd.name.span.clone(),
                         );
                         continue;
                     }
@@ -349,13 +345,10 @@ impl Lowerer {
                                 .item_index
                                 .child_module_id(module_id, &module_name.name)
                             else {
-                                lowerer.diagnostics.push_with_span(
-                                    format!(
-                                        "missing indexed module '{}' while lowering bodies",
-                                        new_prefix
-                                    ),
-                                    module_name.span.clone(),
-                                );
+                                lowerer.diagnostics.push_toolchain(format!(
+                                    "missing indexed module '{}' while lowering bodies",
+                                    new_prefix
+                                ));
                                 continue;
                             };
                             lowerer.lower_module_bodies_qualified_impl(
@@ -368,13 +361,10 @@ impl Lowerer {
                             let Some(_child_module_id) =
                                 lowerer.item_index.child_module_id(module_id, &ident.name)
                             else {
-                                lowerer.diagnostics.push_with_span(
-                                    format!(
-                                        "missing indexed module '{}' while lowering bodies",
-                                        ident.name
-                                    ),
-                                    ident.span.clone(),
-                                );
+                                lowerer.diagnostics.push_toolchain(format!(
+                                    "missing indexed module '{}' while lowering bodies",
+                                    ident.name
+                                ));
                                 continue;
                             };
                             let new_prefix = match module_prefix {

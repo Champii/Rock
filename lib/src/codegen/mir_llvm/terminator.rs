@@ -20,8 +20,15 @@ impl<'ctx> CodeGen<'ctx> {
         ctx: &MirFunctionContext<'ctx>,
     ) -> Result<(), CodegenError> {
         match terminator {
-            Terminator::Return => self.compile_mir_return(ctx),
+            Terminator::Return | Terminator::ReturnWithOrigin { .. } => {
+                self.compile_mir_return(ctx)
+            }
             Terminator::Goto(target) => self
+                .builder
+                .build_unconditional_branch(self.mir_target_block(ctx, *target, "goto")?)
+                .map(|_| ())
+                .map_err(|e| CodegenError::from(format!("Failed to build MIR goto: {}", e))),
+            Terminator::GotoWithOrigin { target, .. } => self
                 .builder
                 .build_unconditional_branch(self.mir_target_block(ctx, *target, "goto")?)
                 .map(|_| ())
@@ -70,7 +77,54 @@ impl<'ctx> CodeGen<'ctx> {
                         CodegenError::from(format!("Failed to build MIR switch default: {}", e))
                     })
             }
-            Terminator::Drop { place, target, .. } => {
+            Terminator::SwitchIntWithOrigin {
+                discr,
+                targets,
+                otherwise,
+                ..
+            } => {
+                let discr = self.compile_mir_operand(function, ctx, discr)?;
+                let BasicValueEnum::IntValue(discr) = discr else {
+                    return Err(CodegenError::from(
+                        "MIR SwitchInt discriminant must lower to an integer",
+                    ));
+                };
+
+                for (index, (value, target)) in targets.iter().enumerate() {
+                    let next_block = self
+                        .context
+                        .append_basic_block(ctx.function, &format!("switch.next{}", index));
+                    let expected = discr.get_type().const_int(*value as u64, true);
+                    let condition = self
+                        .builder
+                        .build_int_compare(IntPredicate::EQ, discr, expected, "switch_eq")
+                        .map_err(|e| {
+                            CodegenError::from(format!("Failed to build MIR switch compare: {}", e))
+                        })?;
+                    let target_block = self.mir_target_block(ctx, *target, "switch target")?;
+                    self.builder
+                        .build_conditional_branch(condition, target_block, next_block)
+                        .map_err(|e| {
+                            CodegenError::from(format!("Failed to build MIR switch branch: {}", e))
+                        })?;
+                    self.builder.position_at_end(next_block);
+                }
+
+                self.builder
+                    .build_unconditional_branch(self.mir_target_block(
+                        ctx,
+                        *otherwise,
+                        "switch otherwise",
+                    )?)
+                    .map(|_| ())
+                    .map_err(|e| {
+                        CodegenError::from(format!("Failed to build MIR switch default: {}", e))
+                    })
+            }
+            Terminator::Drop { place, target } => {
+                self.compile_mir_drop_terminator(function, ctx, place, *target)
+            }
+            Terminator::DropWithOrigin { place, target, .. } => {
                 self.compile_mir_drop_terminator(function, ctx, place, *target)
             }
             Terminator::Call {
@@ -78,6 +132,7 @@ impl<'ctx> CodeGen<'ctx> {
                 args,
                 destination,
                 target,
+                ..
             } => self.compile_mir_call_terminator(function, ctx, func, args, destination, *target),
         }
     }
@@ -115,19 +170,14 @@ impl<'ctx> CodeGen<'ctx> {
         }
         let symbol = self
             .resolve_mir_drop_glue_symbol(place_ty)
-            .map_err(|error| {
-                CodegenError::from(format!(
-                    "{} in MIR function '{}'",
-                    error.message, function.name
-                ))
-            })?;
+            .map_err(|error| error.with_note(format!("MIR function '{}'", function.name)))?;
         let callee = self
             .functions
             .get(&symbol)
             .copied()
             .or_else(|| self.module.get_function(&symbol));
         let callee = callee.ok_or_else(|| {
-            CodegenError::from(format!(
+            CodegenError::backend_contract(format!(
                 "Missing drop glue symbol '{}' for MIR function '{}'",
                 symbol, function.name
             ))
@@ -139,10 +189,9 @@ impl<'ctx> CodeGen<'ctx> {
                 .and_then(|signature| signature.params.first())
                 .cloned()
                 .ok_or_else(|| {
-                    CodegenError::from(format!(
-                        "Drop glue for type {:?} references callable {:?} without receiver parameter",
-                        place_ty, key
-                    ))
+                    CodegenError::backend_contract(
+                        "Drop glue callable is missing its receiver parameter",
+                    )
                 })?;
             self.compile_mir_place_as_param(ctx, place, &param)?
         } else {
@@ -242,9 +291,9 @@ impl<'ctx> CodeGen<'ctx> {
                 ..
             } = callable_ty
             else {
-                return Err(CodegenError::from(format!(
+                return Err(CodegenError::layout(format!(
                     "MIR call expected function operand, got {}",
-                    callable_ty
+                    self.display_type_for_diagnostic(&callable_ty)
                 )));
             };
             let callable_val = self.compile_mir_operand(function, ctx, func)?;
@@ -496,7 +545,9 @@ impl<'ctx> CodeGen<'ctx> {
         let return_type = ctx.function.get_type().get_return_type();
         if let Some(return_type) = return_type {
             let Some(Some((return_place, return_place_ty))) = ctx.locals.get(0) else {
-                return Err(CodegenError::from("MIR return local 0 is missing"));
+                return Err(CodegenError::backend_contract(
+                    "MIR return local is missing",
+                ));
             };
             let value = self
                 .builder

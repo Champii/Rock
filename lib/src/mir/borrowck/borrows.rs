@@ -28,7 +28,7 @@ pub fn collect_statement_borrows(stmt: &StatementData, created_at: Location) -> 
             place: place.clone(),
             kind: AccessKind::for_borrow(*mutability),
             created_at,
-            origin_span: stmt.span.clone(),
+            origin_span: stmt.origin().source_span().cloned(),
         }],
         StatementKind::Assign(dest, Rvalue::Closure(closure)) => closure
             .captures
@@ -45,7 +45,7 @@ pub fn collect_statement_borrows(stmt: &StatementData, created_at: Location) -> 
                     place: capture.place(),
                     kind,
                     created_at,
-                    origin_span: stmt.span.clone(),
+                    origin_span: stmt.origin().source_span().cloned(),
                 })
             })
             .collect(),
@@ -97,6 +97,9 @@ fn collect_terminator_borrows_with_context(
         &HashMap<MirFunctionId, HashSet<ReferenceOrigin>>,
     )>,
 ) -> Vec<BorrowData> {
+    let term_span = context
+        .as_ref()
+        .and_then(|(func, _, _, _)| func.terminator_origin(term).source_span().cloned());
     let Terminator::Call {
         func,
         args,
@@ -171,6 +174,7 @@ fn collect_terminator_borrows_with_context(
                             created_at,
                             mir_func,
                             type_view,
+                            term_span.clone(),
                         )
                     })
                 })
@@ -190,7 +194,7 @@ fn collect_terminator_borrows_with_context(
         place: root,
         kind: AccessKind::BorrowShared,
         created_at,
-        origin_span: None,
+        origin_span: term_span,
     }]
 }
 
@@ -201,6 +205,7 @@ fn borrow_from_reference_argument(
     created_at: Location,
     func: &MirFunction,
     type_view: TypeView<'_>,
+    origin_span: Option<Span>,
 ) -> Option<BorrowData> {
     let (Operand::Copy(source) | Operand::Move(source)) = arg else {
         return None;
@@ -225,7 +230,7 @@ fn borrow_from_reference_argument(
         place,
         kind,
         created_at,
-        origin_span: None,
+        origin_span,
     })
 }
 
@@ -341,6 +346,7 @@ mod tests {
                 projection: vec![],
             },
             target: BasicBlockId(1),
+            span: Some(crate::lexer::Span::test()),
         };
 
         let borrows = collect_terminator_borrows(

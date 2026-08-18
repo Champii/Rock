@@ -22,6 +22,11 @@ impl Monomorphizer {
                     ((impl_id, trait_method_id), impl_method_id)
                 },
             ));
+        for (&(_, trait_method_id), &impl_method_id) in &program.indexes.effective_trait_methods {
+            if trait_method_id != impl_method_id {
+                self.source_map.remap_owner(trait_method_id, impl_method_id);
+            }
+        }
     }
 
     pub(super) fn method_for_selected_target<'a>(
@@ -178,17 +183,26 @@ impl Monomorphizer {
     }
 
     pub(super) fn process_function(&mut self, mut func: HirFunction) -> HirFunction {
+        let previous_owner = self.current_function_owner;
+        self.current_function_owner = Some(func.id);
         self.var_types.clear();
-        self.process_params(&mut func.params);
+        self.process_params(Some(func.id), &mut func.params);
         func.ret_type = self.substitute_generics(&func.ret_type);
         self.process_block(&mut func.body);
+        self.current_function_owner = previous_owner;
         func
     }
 
-    pub(super) fn process_params(&mut self, params: &mut [crate::hir::HirParam]) {
+    pub(super) fn process_params(
+        &mut self,
+        owner: Option<DefId>,
+        params: &mut [crate::hir::HirParam],
+    ) {
         for param in params {
             param.ty = self.substitute_generics(&param.ty);
-            self.monomorphize_drop_for_type(&param.ty, None);
+            let param_span =
+                owner.and_then(|owner| self.source_map.local_span(owner, param.local_id).cloned());
+            self.monomorphize_drop_for_type(&param.ty, param_span);
             let ty_id = self.intern_type(&param.ty);
             self.var_types.insert(param.local_id, ty_id);
         }
@@ -320,7 +334,8 @@ impl Monomorphizer {
                             expr.ty = ret_ty;
                         }
                         Err(error) => {
-                            let diagnostic = error.diagnostic(&self.resolver);
+                            let diagnostic =
+                                error.diagnostic_with_context(&self.diagnostic_context());
                             self.diagnostics.push(diagnostic);
                         }
                     }
@@ -454,7 +469,8 @@ impl Monomorphizer {
                         if let Err(error) =
                             self.monomorphize_trait_method_call(&method_name_clone, &all_args, expr)
                         {
-                            let diagnostic = error.diagnostic(&self.resolver);
+                            let diagnostic =
+                                error.diagnostic_with_context(&self.diagnostic_context());
                             self.diagnostics.push(diagnostic);
                         }
                     }
@@ -464,7 +480,8 @@ impl Monomorphizer {
                             &all_args,
                             expr,
                         ) {
-                            let diagnostic = error.diagnostic(&self.resolver);
+                            let diagnostic =
+                                error.diagnostic_with_context(&self.diagnostic_context());
                             self.diagnostics.push(diagnostic);
                         }
                     }
@@ -520,7 +537,7 @@ impl Monomorphizer {
                     if let Err(error) =
                         self.monomorphize_trait_method_call("branch", &args, &mut branch_call)
                     {
-                        let diagnostic = error.diagnostic(&self.resolver);
+                        let diagnostic = error.diagnostic_with_context(&self.diagnostic_context());
                         self.diagnostics.push(diagnostic);
                     }
                     if let HirExprKind::Call(_, _, Some(HirCallTarget::Instance(instance_id))) =
@@ -547,7 +564,8 @@ impl Monomorphizer {
                     ) {
                         Ok((_, call_target, _)) => *from_residual_target = call_target,
                         Err(error) => {
-                            let diagnostic = error.diagnostic(&self.resolver);
+                            let diagnostic =
+                                error.diagnostic_with_context(&self.diagnostic_context());
                             self.diagnostics.push(diagnostic);
                         }
                     }
@@ -609,7 +627,7 @@ impl Monomorphizer {
                 captures,
             } => {
                 let old_var_types = self.var_types.clone();
-                self.process_params(params);
+                self.process_params(self.current_function_owner, params);
                 for capture in captures {
                     capture.ty = self.substitute_generics(&capture.ty);
                     let ty_id = self.intern_type(&capture.ty);

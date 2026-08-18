@@ -9586,7 +9586,19 @@ fn compile_should_fail_with_source_diagnostic(source: &str, expected_error: &str
 
     let diagnostics = rock_lib::compile(&config).expect_err("expected compilation to fail");
     for diagnostic in &diagnostics.0 {
-        for forbidden in ["struct#", "enum#", "generic#", "trait#", "?T"] {
+        for forbidden in [
+            "struct#",
+            "enum#",
+            "generic#",
+            "trait#",
+            "?T",
+            "DefId",
+            "TypeVarId",
+            "GenericParamId",
+            "FieldId",
+            "VariantId",
+            "Local(",
+        ] {
             assert!(
                 !diagnostic.message.contains(forbidden),
                 "source diagnostic exposed compiler identity {forbidden:?}: {}",

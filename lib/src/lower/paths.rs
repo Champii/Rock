@@ -4,13 +4,56 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast;
 use crate::hir::*;
+use crate::lexer::Span;
 use crate::types::{
     CallableKind, CaptureKind, FunctionCapture, FunctionSafety, GenericParamId, Type,
 };
 
 use crate::lower::{path_names, seg_name, Lowerer};
 
+fn display_type_without_ids(ty: &Type) -> String {
+    let context = crate::type_services::display::TypeDisplayContext::default();
+    crate::type_services::display::display_type_with_context(ty, &context).to_string()
+}
+
 impl Lowerer {
+    fn full_path_span(path: &[ast::IdentOrType]) -> Span {
+        let first = path.first().expect("path must not be empty");
+        let last = path.last().expect("path must not be empty");
+        let start = match first {
+            ast::IdentOrType::Ident(ident) => ident.span.start,
+            ast::IdentOrType::Type(ty) => ty.span().start,
+        };
+        let end = match last {
+            ast::IdentOrType::Ident(ident) => ident.span.end,
+            ast::IdentOrType::Type(ty) => ty.span().end,
+        };
+        let file_path = match first {
+            ast::IdentOrType::Ident(ident) => ident.span.file_path.clone(),
+            ast::IdentOrType::Type(ty) => ty.span().file_path,
+        };
+        Span::new(file_path, start, end)
+    }
+
+    fn record_var_reference(&mut self, span: Span, target: &HirVarTarget) {
+        let symbol = match target {
+            HirVarTarget::Local(local) => {
+                self.current_body_def_id()
+                    .map(|owner| crate::source_map::SourceSymbol::Local {
+                        owner,
+                        local: *local,
+                    })
+            }
+            HirVarTarget::Function(id) | HirVarTarget::Extern(id) => {
+                Some(crate::source_map::SourceSymbol::Definition(*id))
+            }
+            HirVarTarget::Instance(_) => None,
+        };
+        if let Some(symbol) = symbol {
+            self.record_source_reference(span, symbol);
+        }
+    }
+
     pub(crate) fn lambda_function_type(
         params: Vec<Type>,
         ret: Type,
@@ -35,7 +78,7 @@ impl Lowerer {
     /// Replace semantic generic parameters in `ty` with fresh TypeVars in the current engine.
     /// This is called at every function reference site so generic functions can be
     /// independently instantiated per call (like HM polymorphism).
-    pub(crate) fn instantiate_generics(&mut self, ty: Type) -> Type {
+    pub(crate) fn instantiate_generics(&mut self, ty: Type, span: Span) -> Type {
         let mut generic_params = std::collections::HashSet::new();
         ty.collect_generic_params(&mut generic_params);
         if generic_params.is_empty() {
@@ -48,7 +91,10 @@ impl Lowerer {
                     .engine
                     .kind_of(&Type::Generic(param))
                     .unwrap_or(crate::type_services::kind::Kind::Type);
-                (param, self.engine.fresh_type_var_of_kind(kind))
+                (
+                    param,
+                    self.engine.fresh_type_var_at_kind(span.clone(), kind),
+                )
             })
             .collect();
         ty.substitute_generics(&subst)
@@ -70,8 +116,9 @@ impl Lowerer {
         &mut self,
         owner_name: &str,
         method_name: &str,
+        span: Span,
     ) -> Result<Option<(Type, HirStaticMethodTarget)>, String> {
-        self.resolve_static_bound_member_path(owner_name, None, method_name)
+        self.resolve_static_bound_member_path(owner_name, None, method_name, span)
     }
 
     pub(crate) fn resolve_static_qualified_bound_method_path(
@@ -79,12 +126,13 @@ impl Lowerer {
         owner_name: &str,
         trait_name: &str,
         method_name: &str,
+        span: Span,
     ) -> Result<Option<(Type, HirStaticMethodTarget)>, String> {
         let trait_id = self
             .trait_by_name(trait_name)
             .map(|trait_def| trait_def.id)
             .ok_or_else(|| format!("unknown constructor trait `{trait_name}`"))?;
-        self.resolve_static_bound_member_path(owner_name, Some(trait_id), method_name)
+        self.resolve_static_bound_member_path(owner_name, Some(trait_id), method_name, span)
     }
 
     fn resolve_static_bound_member_path(
@@ -92,6 +140,7 @@ impl Lowerer {
         owner_name: &str,
         required_trait_id: Option<crate::ids::DefId>,
         method_name: &str,
+        operation_span: Span,
     ) -> Result<Option<(Type, HirStaticMethodTarget)>, String> {
         let Some(owner_param) = self.current_generic_param_id_for_name(owner_name) else {
             return Ok(None);
@@ -329,7 +378,9 @@ impl Lowerer {
                 target.method_substitution = method_generic_params
                     .into_iter()
                     .map(|param| {
-                        let ty = self.engine.fresh_type_var_of_kind(param.kind);
+                        let ty = self
+                            .engine
+                            .fresh_type_var_at_kind(operation_span.clone(), param.kind);
                         method_subst.insert(param.id, ty.clone());
                         HirTypeBinding {
                             param: param.id,
@@ -352,7 +403,7 @@ impl Lowerer {
                                     .map(|arg| arg.substitute_generics(&method_subst))
                                     .collect(),
                             },
-                            self.diagnostics.current_span().clone(),
+                            operation_span.clone(),
                             "static constructor trait member",
                         );
                     }
@@ -422,11 +473,14 @@ impl Lowerer {
         target_ty: &Type,
         required_trait_id: Option<crate::ids::DefId>,
         method_name: &str,
+        span: Span,
     ) -> Result<Option<crate::selection::SelectedConstructorMember>, String> {
-        let target_kind = self
-            .engine
-            .kind_of(target_ty)
-            .map_err(|error| format!("invalid constructor target `{target_ty}`: {error}"))?;
+        let target_kind = self.engine.kind_of(target_ty).map_err(|error| {
+            format!(
+                "invalid constructor target `{}`: {error}",
+                self.display_type(target_ty)
+            )
+        })?;
         let mut trait_ids = self
             .items
             .trait_defs()
@@ -457,7 +511,8 @@ impl Lowerer {
                     .unwrap_or(crate::type_services::kind::Kind::Type);
                 if expected_kind != target_kind {
                     return Err(format!(
-                        "constructor target `{target_ty}` has kind {target_kind}, but trait '{}' requires {expected_kind}",
+                        "constructor target `{}` has kind {target_kind}, but trait '{}' requires {expected_kind}",
+                        self.display_type(target_ty),
                         trait_def.name
                     ));
                 }
@@ -479,7 +534,8 @@ impl Lowerer {
                 mismatches.sort_by_key(|(trait_id, _, _)| *trait_id);
                 if let Some((_, trait_name, expected_kind)) = mismatches.first() {
                     return Err(format!(
-                        "constructor target `{target_ty}` has kind {target_kind}, but trait '{trait_name}' requires {expected_kind}"
+                        "constructor target `{}` has kind {target_kind}, but trait '{trait_name}' requires {expected_kind}",
+                        self.display_type(target_ty)
                     ));
                 }
             }
@@ -506,7 +562,10 @@ impl Lowerer {
             let trait_args = trait_def
                 .generic_params
                 .iter()
-                .map(|param| self.engine.fresh_type_var_of_kind(param.kind.clone()))
+                .map(|param| {
+                    self.engine
+                        .fresh_type_var_at_kind(span.clone(), param.kind.clone())
+                })
                 .collect::<Vec<_>>();
             match self.selection_service().select_constructor_trait_member(
                 target_ty,
@@ -530,11 +589,8 @@ impl Lowerer {
             0 => Ok(None),
             1 => Ok(candidates.pop()),
             _ => Err(format!(
-                "ambiguous constructor trait member `{method_name}` for `{target_ty}`: candidate impl IDs {:?}",
-                candidates
-                    .iter()
-                    .filter_map(|selected| selected.target.impl_id())
-                    .collect::<Vec<_>>()
+                "ambiguous constructor trait member `{method_name}` for `{}`: multiple implementations match",
+                self.display_type(target_ty)
             )),
         }
     }
@@ -544,6 +600,7 @@ impl Lowerer {
         target_ty: Type,
         mut selected: crate::selection::SelectedConstructorMember,
         display_name: String,
+        span: Span,
     ) -> Result<(HirExpr, HirStaticMethodTarget), String> {
         let raw_ty = Type::function_with_safety(
             selected
@@ -555,7 +612,7 @@ impl Lowerer {
             selected.function.ret_type.clone(),
             crate::types::FunctionSafety::from_is_unsafe(selected.function.is_unsafe),
         );
-        let ty = self.instantiate_function_type(&selected.function);
+        let ty = self.instantiate_function_type(&selected.function, span.clone());
         let mut substitution = HashMap::new();
         Self::infer_generic_subst_from_types(&raw_ty, &ty, &mut substitution);
         let owner_params = selected
@@ -599,6 +656,7 @@ impl Lowerer {
             .map(|binding| (binding.param, binding.ty.clone()))
             .collect::<HashMap<_, _>>();
         bound_substitution.extend(substitution.iter().map(|(&param, ty)| (param, ty.clone())));
+        let operation_span = span.clone();
         for (subject, bound) in &selected.pending_impl_bounds {
             self.constraint_store.add_trait(
                 subject.substitute_generics(&bound_substitution),
@@ -610,7 +668,7 @@ impl Lowerer {
                         .map(|arg| arg.substitute_generics(&bound_substitution))
                         .collect(),
                 },
-                self.diagnostics.current_span().clone(),
+                operation_span.clone(),
                 "constructor trait member",
             );
         }
@@ -620,7 +678,7 @@ impl Lowerer {
                 name: display_name,
                 target: HirVarTarget::Function(selected.function.id),
             }),
-            span: self.diagnostics.current_span().clone(),
+            span,
         };
         Ok((
             callee,
@@ -636,6 +694,7 @@ impl Lowerer {
         callee: HirExpr,
         target: HirStaticMethodTarget,
     ) -> HirExpr {
+        let span = callee.span.clone();
         let Type::Function {
             params,
             ret,
@@ -643,11 +702,12 @@ impl Lowerer {
             ..
         } = callee.ty.clone()
         else {
-            self.diagnostics
-                .push("selected static method value is not callable".to_string());
-            return self.error_expression();
+            self.diagnostics.push_with_span(
+                "selected static method value is not callable".to_string(),
+                span.clone(),
+            );
+            return self.error_expression_at(span);
         };
-        let span = callee.span.clone();
         let lambda_params = params
             .iter()
             .enumerate()
@@ -676,25 +736,29 @@ impl Lowerer {
             .and_then(|impl_id| self.items.impl_def(impl_id))
             .and_then(|imp| {
                 let method_id = target.method.method_id()?;
-                imp.methods
-                    .iter()
-                    .find_map(|(name, method)| (method.id == method_id).then_some((name, method)))
+                imp.methods.iter().find_map(|(name, method)| {
+                    (method.id == method_id).then_some((name.clone(), method.clone()))
+                })
             });
         let method_info = method_info.or_else(|| {
             target.method.method_id().and_then(|method_id| {
                 self.items
                     .impl_defs_in_order()
                     .flat_map(|(_, imp)| imp.methods.iter())
-                    .find_map(|(name, method)| (method.id == method_id).then_some((name, method)))
+                    .find_map(|(name, method)| {
+                        (method.id == method_id).then_some((name.clone(), method.clone()))
+                    })
             })
         });
         let call = if let Some((method_name, method)) =
             method_info.filter(|(_, method)| method.self_receiver.is_some())
         {
             let Some(receiver) = args.first().cloned() else {
-                self.diagnostics
-                    .push("selected receiver method value has no receiver parameter".to_string());
-                return self.error_expression();
+                self.diagnostics.push_with_span(
+                    "selected receiver method value has no receiver parameter".to_string(),
+                    span.clone(),
+                );
+                return self.error_expression_at(span.clone());
             };
             HirExpr {
                 ty: ret.as_ref().clone(),
@@ -738,9 +802,10 @@ impl Lowerer {
     fn instantiate_static_method_value(
         &mut self,
         resolved: crate::lower::resolution::LowerResolvedStaticMethod,
+        span: Span,
     ) -> Result<(HirExpr, HirStaticMethodTarget), String> {
-        let resolved_ty = self.instantiate_resolved_value_type(&resolved.value);
-        let (ty, fresh_substitution) = self.freshen_type_vars(resolved_ty);
+        let resolved_ty = self.instantiate_resolved_value_type(&resolved.value, span.clone());
+        let (ty, fresh_substitution) = self.freshen_type_vars(resolved_ty, span.clone());
         let mut substitution = HashMap::new();
         Self::infer_generic_subst_from_types(&resolved.value.ty, &ty, &mut substitution);
         let mut method_generic_params = if !resolved.method_generic_params.is_empty() {
@@ -826,7 +891,7 @@ impl Lowerer {
                     .map(|ty| HirTypeBinding { param, ty })
                     .ok_or_else(|| {
                         format!(
-                            "static method `{}` could not infer owner generic parameter {param:?}",
+                            "static method `{}` could not infer an owner generic parameter",
                             resolved.value.name
                         )
                     })
@@ -844,7 +909,7 @@ impl Lowerer {
                     .map(|ty| HirTypeBinding { param, ty })
                     .ok_or_else(|| {
                         format!(
-                            "static method `{}` could not infer method generic parameter {param:?}",
+                            "static method `{}` could not infer a method generic parameter",
                             resolved.value.name
                         )
                     })
@@ -859,8 +924,10 @@ impl Lowerer {
             match target_substitution.get(&binding.param) {
                 Some(previous) if previous != &binding.ty => {
                     return Err(format!(
-                        "static method `{}` has conflicting substitutions for {:?}: {previous:?} vs {:?}",
-                        resolved.value.name, binding.param, binding.ty
+                        "static method `{}` has conflicting substitutions: {} vs {}",
+                        resolved.value.name,
+                        self.display_type(previous),
+                        self.display_type(&binding.ty)
                     ));
                 }
                 Some(_) => {}
@@ -903,7 +970,7 @@ impl Lowerer {
                 name: resolved.value.name,
                 target: HirVarTarget::Function(function_id),
             }),
-            span: self.diagnostics.current_span().clone(),
+            span,
         };
 
         Ok((
@@ -915,7 +982,11 @@ impl Lowerer {
         ))
     }
 
-    fn freshen_type_vars(&mut self, ty: Type) -> (Type, HashMap<crate::ids::TypeVarId, Type>) {
+    fn freshen_type_vars(
+        &mut self,
+        ty: Type,
+        span: Span,
+    ) -> (Type, HashMap<crate::ids::TypeVarId, Type>) {
         let mut ids = HashSet::new();
         crate::type_services::visit::visit_type(&ty, &mut |nested: &Type| {
             if let Type::TypeVar(id) = nested {
@@ -926,7 +997,7 @@ impl Lowerer {
             .into_iter()
             .map(|id| {
                 let kind = self.engine.kind_of_type_var(id);
-                (id, self.engine.fresh_type_var_of_kind(kind))
+                (id, self.engine.fresh_type_var_at_kind(span.clone(), kind))
             })
             .collect::<HashMap<_, _>>();
         (ty.substitute(&substitution), substitution)
@@ -964,7 +1035,9 @@ impl Lowerer {
                 if let Some(previous) = relation.insert(owner_param, method_ty.clone()) {
                     if previous != method_ty {
                         return Err(format!(
-                            "static method `{method_name}` has conflicting owner inference for {owner_param:?}: {previous:?} vs {method_ty:?}"
+                            "static method `{method_name}` has conflicting owner inference: {} vs {}",
+                            display_type_without_ids(&previous),
+                            display_type_without_ids(&method_ty)
                         ));
                     }
                 }
@@ -1664,18 +1737,7 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_identifier_path(&mut self, path: &ast::IdentifierPath) -> HirExpr {
-        // Set span from first segment in path (Ident or Type)
-        let span = match path.path.first() {
-            Some(ast::IdentOrType::Ident(ident)) => {
-                self.diagnostics.set_current_span(ident.span.clone());
-                ident.span.clone()
-            }
-            Some(ast::IdentOrType::Type(ast::ParseType::Type(inner))) => {
-                self.diagnostics.set_current_span(inner.span.clone());
-                inner.span.clone()
-            }
-            _ => self.diagnostics.current_span().clone(),
-        };
+        let span = Self::full_path_span(&path.path);
         // Simple case: single identifier
         if path.path.len() == 1 {
             if let Some(name) = seg_name(&path.path[0]) {
@@ -1685,7 +1747,10 @@ impl Lowerer {
                     .resolve_identifier_value(name)
                 {
                     let target = resolved.target.clone();
-                    let ty = self.instantiate_resolved_value_type(&resolved);
+                    let ty = self.instantiate_resolved_value_type(&resolved, span.clone());
+                    if let Some(target) = target.as_ref() {
+                        self.record_var_reference(span.clone(), target);
+                    }
                     let kind = if let Some(target) = target {
                         HirExprKind::ResolvedVar(HirVarRef {
                             name: resolved.name,
@@ -1714,13 +1779,23 @@ impl Lowerer {
                     for variant in &enum_info.variants {
                         if variant.name == *name {
                             if matches!(variant.fields, HirVariantFields::Unit) {
+                                self.record_source_reference(
+                                    span.clone(),
+                                    crate::source_map::SourceSymbol::Variant {
+                                        owner: enum_info.id,
+                                        variant: variant.id,
+                                    },
+                                );
                                 // For generic enums, create fresh type vars
                                 let type_args = if !enum_info.generic_params.is_empty() {
                                     enum_info
                                         .generic_params
                                         .iter()
                                         .map(|param| {
-                                            self.engine.fresh_type_var_of_kind(param.kind.clone())
+                                            self.engine.fresh_type_var_at_kind(
+                                                span.clone(),
+                                                param.kind.clone(),
+                                            )
                                         })
                                         .collect()
                                 } else {
@@ -1761,7 +1836,7 @@ impl Lowerer {
                     return HirExpr {
                         ty: Type::Error,
                         kind: HirExprKind::Var(name.clone()),
-                        span,
+                        span: span.clone(),
                     };
                 }
 
@@ -1780,7 +1855,12 @@ impl Lowerer {
         let names = path_names(&path.path);
 
         if names.len() == 3 {
-            match self.resolve_static_qualified_bound_method_path(&names[0], &names[1], &names[2]) {
+            match self.resolve_static_qualified_bound_method_path(
+                &names[0],
+                &names[1],
+                &names[2],
+                span.clone(),
+            ) {
                 Ok(Some((ty, target))) => {
                     let Some(method_id) = target.method.method_id() else {
                         self.diagnostics.push_with_span(
@@ -1788,7 +1868,7 @@ impl Lowerer {
                                 .to_string(),
                             span.clone(),
                         );
-                        return self.error_expression();
+                        return self.error_expression_at(span.clone());
                     };
                     let callee = HirExpr {
                         ty,
@@ -1796,14 +1876,18 @@ impl Lowerer {
                             name: names.join("::"),
                             target: HirVarTarget::Function(method_id),
                         }),
-                        span,
+                        span: span.clone(),
                     };
+                    self.record_source_reference(
+                        span.clone(),
+                        crate::source_map::SourceSymbol::Definition(method_id),
+                    );
                     return self.static_method_value_lambda(callee, target);
                 }
                 Ok(None) => {}
                 Err(message) if self.current_generic_param_id_for_name(&names[0]).is_some() => {
                     self.diagnostics.push_with_span(message, span.clone());
-                    return self.error_expression();
+                    return self.error_expression_at(span.clone());
                 }
                 Err(_) => {}
             }
@@ -1815,26 +1899,28 @@ impl Lowerer {
                         &target_ty,
                         Some(trait_id),
                         &names[2],
+                        span.clone(),
                     ) {
                         Ok(Some(selected)) => {
                             match self.instantiate_selected_constructor_member(
                                 target_ty,
                                 selected,
                                 names.join("::"),
+                                span.clone(),
                             ) {
                                 Ok((callee, target)) => {
                                     return self.static_method_value_lambda(callee, target)
                                 }
                                 Err(message) => {
                                     self.diagnostics.push_with_span(message, span.clone());
-                                    return self.error_expression();
+                                    return self.error_expression_at(span.clone());
                                 }
                             }
                         }
                         Ok(None) => {}
                         Err(message) => {
                             self.diagnostics.push_with_span(message, span.clone());
-                            return self.error_expression();
+                            return self.error_expression_at(span.clone());
                         }
                     }
                 }
@@ -1848,12 +1934,22 @@ impl Lowerer {
             {
                 let enum_info = resolved.owner;
                 let variant = resolved.variant;
+                self.record_source_reference(
+                    span.clone(),
+                    crate::source_map::SourceSymbol::Variant {
+                        owner: enum_info.id,
+                        variant: variant.id,
+                    },
+                );
                 // For generic enums, create fresh type vars for type params
                 let type_args = if !enum_info.generic_params.is_empty() {
                     enum_info
                         .generic_params
                         .iter()
-                        .map(|param| self.engine.fresh_type_var_of_kind(param.kind.clone()))
+                        .map(|param| {
+                            self.engine
+                                .fresh_type_var_at_kind(span.clone(), param.kind.clone())
+                        })
                         .collect()
                 } else {
                     vec![]
@@ -1878,14 +1974,14 @@ impl Lowerer {
                 };
             }
 
-            match self.resolve_static_bound_method_path(&names[0], &names[1]) {
+            match self.resolve_static_bound_method_path(&names[0], &names[1], span.clone()) {
                 Ok(Some((ty, target))) => {
                     let Some(method_id) = target.method.method_id() else {
                         self.diagnostics.push_with_span(
                             "selected static bound method has no member identity".to_string(),
                             span.clone(),
                         );
-                        return self.error_expression();
+                        return self.error_expression_at(span.clone());
                     };
                     let callee = HirExpr {
                         ty,
@@ -1893,14 +1989,19 @@ impl Lowerer {
                             name: names.join("::"),
                             target: HirVarTarget::Function(method_id),
                         }),
-                        span,
+                        span: span.clone(),
                     };
+                    self.record_source_reference(
+                        span.clone(),
+                        crate::source_map::SourceSymbol::Definition(method_id),
+                    );
                     return self.static_method_value_lambda(callee, target);
                 }
                 Ok(None) => {}
                 Err(message) => {
-                    self.diagnostics.push_with_span(message, span.clone());
-                    return self.error_expression();
+                    self.diagnostics
+                        .push_selection_with_span(message, span.clone());
+                    return self.error_expression_at(span.clone());
                 }
             }
 
@@ -1909,11 +2010,14 @@ impl Lowerer {
             match crate::lower::resolution::LowerResolutionContext::new(self)
                 .resolve_static_method_path(&names)
             {
-                Ok(Some(resolved)) => match self.instantiate_static_method_value(resolved) {
+                Ok(Some(resolved)) => match self
+                    .instantiate_static_method_value(resolved, span.clone())
+                {
                     Ok((callee, target)) => return self.static_method_value_lambda(callee, target),
                     Err(message) => {
-                        self.diagnostics.push_with_span(message, span.clone());
-                        return self.error_expression();
+                        self.diagnostics
+                            .push_selection_with_span(message, span.clone());
+                        return self.error_expression_at(span.clone());
                     }
                 },
                 Ok(None) => {}
@@ -1923,40 +2027,51 @@ impl Lowerer {
             }
 
             if let Some(target_ty) = self.constructor_target_for_path_segment(&path.path[0]) {
-                match self.select_constructor_static_member(&target_ty, None, &names[1]) {
+                match self.select_constructor_static_member(
+                    &target_ty,
+                    None,
+                    &names[1],
+                    span.clone(),
+                ) {
                     Ok(Some(selected)) => {
                         match self.instantiate_selected_constructor_member(
                             target_ty,
                             selected,
                             names.join("::"),
+                            span.clone(),
                         ) {
                             Ok((callee, target)) => {
                                 return self.static_method_value_lambda(callee, target)
                             }
                             Err(message) => {
-                                self.diagnostics.push_with_span(message, span.clone());
-                                return self.error_expression();
+                                self.diagnostics
+                                    .push_selection_with_span(message, span.clone());
+                                return self.error_expression_at(span.clone());
                             }
                         }
                     }
                     Ok(None) => {}
                     Err(message) => {
-                        self.diagnostics.push_with_span(message, span.clone());
-                        return self.error_expression();
+                        self.diagnostics
+                            .push_selection_with_span(message, span.clone());
+                        return self.error_expression_at(span.clone());
                     }
                 }
             }
 
             if let Some(message) = static_method_error {
                 self.diagnostics.push_with_span(message, span.clone());
-                return self.error_expression();
+                return self.error_expression_at(span.clone());
             }
 
             // Check for Crate::Function or Module::Function
             if let Some(resolved) = crate::lower::resolution::LowerResolutionContext::new(self)
                 .resolve_qualified_value_path(&names)
             {
-                let ty = self.instantiate_resolved_value_type(&resolved);
+                let ty = self.instantiate_resolved_value_type(&resolved, span.clone());
+                if let Some(target) = resolved.target.as_ref() {
+                    self.record_var_reference(span.clone(), target);
+                }
                 let kind = if let Some(target) = resolved.target {
                     HirExprKind::ResolvedVar(HirVarRef {
                         name: resolved.name,
@@ -1974,7 +2089,10 @@ impl Lowerer {
             if let Some(resolved) = crate::lower::resolution::LowerResolutionContext::new(self)
                 .resolve_qualified_value_path(&names)
             {
-                let ty = self.instantiate_resolved_value_type(&resolved);
+                let ty = self.instantiate_resolved_value_type(&resolved, span.clone());
+                if let Some(target) = resolved.target.as_ref() {
+                    self.record_var_reference(span.clone(), target);
+                }
                 let kind = if let Some(target) = resolved.target {
                     HirExprKind::ResolvedVar(HirVarRef {
                         name: resolved.name,
@@ -2008,7 +2126,7 @@ impl Lowerer {
 
         // Fallback: use the full path as a name
         let full_name = names.join("::");
-        let ty = self.engine.fresh_type_var();
+        let ty = self.engine.fresh_type_var_at(span.clone());
         HirExpr {
             ty,
             kind: HirExprKind::Var(full_name),
@@ -2017,7 +2135,7 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_instance(&mut self, inst: &ast::Instance) -> HirExpr {
-        let span = self.diagnostics.current_span().clone();
+        let span = Self::full_path_span(&inst.name.path);
         let segments = path_names(&inst.name.path);
 
         let struct_resolution = crate::lower::resolution::LowerResolutionContext::new(self)
@@ -2030,6 +2148,13 @@ impl Lowerer {
         {
             let enum_info = resolved.owner;
             let variant = resolved.variant;
+            self.record_source_reference(
+                span.clone(),
+                crate::source_map::SourceSymbol::Variant {
+                    owner: enum_info.id,
+                    variant: variant.id,
+                },
+            );
             let args: Vec<HirExpr> = match &variant.fields {
                 HirVariantFields::Named(fields) => fields
                     .iter()
@@ -2052,7 +2177,7 @@ impl Lowerer {
                 // Create fresh type vars for each generic param
                 let mut type_var_mapping: HashMap<GenericParamId, Type> = HashMap::new();
                 for param in &enum_info.generic_params {
-                    let tv = self.engine.fresh_type_var();
+                    let tv = self.engine.fresh_type_var_at(span.clone());
                     type_var_mapping.insert(param.id, tv);
                 }
                 // Unify type vars with arg types based on variant field types
@@ -2133,7 +2258,7 @@ impl Lowerer {
             // Create a mapping from generic param names to fresh type variables
             let mut type_var_mapping: HashMap<GenericParamId, Type> = HashMap::new();
             for param in &generic_params {
-                let tv = self.engine.fresh_type_var();
+                let tv = self.engine.fresh_type_var_at(span.clone());
                 type_var_mapping.insert(param.id, tv);
             }
 
@@ -2158,6 +2283,15 @@ impl Lowerer {
                         field_id: f.id,
                         name: ident.name.clone(),
                     });
+                if let Some(field) = field.as_ref() {
+                    self.record_source_reference(
+                        ident.span.clone(),
+                        crate::source_map::SourceSymbol::Field {
+                            owner: field.owner,
+                            field: field.field_id,
+                        },
+                    );
+                }
                 fields.push(HirStructLiteralField {
                     name: ident.name.clone(),
                     value: hir_expr,
@@ -2197,7 +2331,7 @@ impl Lowerer {
             }
 
             // Might be an enum variant with named fields
-            let ty = self.engine.fresh_type_var();
+            let ty = self.engine.fresh_type_var_at(span.clone());
             HirExpr {
                 ty,
                 kind: HirExprKind::StructLiteral(type_name, None, fields),
@@ -2215,20 +2349,19 @@ impl Lowerer {
         lambda: &ast::LambdaDecl,
         expected_params: Option<&[Type]>,
     ) -> HirExpr {
-        let span = self.diagnostics.current_span().clone();
-
         if matches!(lambda.arrow_kind, ast::LambdaArrowKind::Curried) && lambda.parameters.len() > 1
         {
-            return self.lower_curried_lambda(lambda, &span);
+            return self.lower_curried_lambda(lambda, &lambda.span);
         }
 
         let mut params = Vec::new();
         let mut param_types = Vec::new();
 
-        self.scope.push();
+        self.push_scope();
 
         for (index, param_pat) in lambda.parameters.iter().enumerate() {
-            let (name, inner_ty, mutable, is_ref) = self.lower_param_pattern(param_pat);
+            let (name, inner_ty, mutable, is_ref) =
+                self.lower_param_pattern_at(param_pat, lambda.span.clone());
             let inferred_ty = if is_ref {
                 Type::Reference {
                     mutable,
@@ -2244,6 +2377,16 @@ impl Lowerer {
             let local_id = self.fresh_local_id();
             self.scope
                 .define_local(name.clone(), ty.clone(), mutable, local_id);
+            if let Some(owner) = self.current_body_def_id() {
+                let span =
+                    Self::pattern_binding_span(param_pat).unwrap_or_else(|| lambda.span.clone());
+                self.source_map.insert_local_in_scope(
+                    owner,
+                    local_id,
+                    span,
+                    self.source_scope_stack.last().copied(),
+                );
+            }
             param_types.push(ty.clone());
             params.push(HirParam {
                 name,
@@ -2254,15 +2397,16 @@ impl Lowerer {
             });
         }
 
-        let lambda_return_ty = self.engine.fresh_type_var();
+        let lambda_return_ty = self.engine.fresh_type_var_at(lambda.span.clone());
         let body = self.with_body_return_type(lambda_return_ty.clone(), |lowerer| {
             lowerer.lower_lambda_body(lambda)
         });
+        let span = lambda.span.clone();
         let _ = self.engine.unify(&body.ty, &lambda_return_ty);
         let ret_type = self.engine.resolve(&lambda_return_ty);
         let captures = self.collect_lambda_captures(&body, &params);
 
-        self.scope.pop();
+        self.pop_scope();
 
         let func_type =
             Self::lambda_function_type(param_types, ret_type, FunctionSafety::Safe, &captures);
@@ -2302,9 +2446,10 @@ impl Lowerer {
         span: &crate::lexer::Span,
         expected_params: Option<&[Type]>,
     ) -> HirExpr {
-        self.scope.push();
+        self.push_scope();
 
-        let (name, inferred_ty, mutable, is_ref) = self.lower_param_pattern(&params[0]);
+        let (name, inferred_ty, mutable, is_ref) =
+            self.lower_param_pattern_at(&params[0], span.clone());
         let ty = expected_params
             .and_then(|params| params.first())
             .cloned()
@@ -2312,6 +2457,15 @@ impl Lowerer {
         let local_id = self.fresh_local_id();
         self.scope
             .define_local(name.clone(), ty.clone(), mutable, local_id);
+        if let Some(owner) = self.current_body_def_id() {
+            let param_span = Self::pattern_binding_span(&params[0]).unwrap_or_else(|| span.clone());
+            self.source_map.insert_local_in_scope(
+                owner,
+                local_id,
+                param_span,
+                self.source_scope_stack.last().copied(),
+            );
+        }
         let param = HirParam {
             name,
             local_id,
@@ -2320,7 +2474,7 @@ impl Lowerer {
             is_ref,
         };
 
-        let lambda_return_ty = self.engine.fresh_type_var();
+        let lambda_return_ty = self.engine.fresh_type_var_at(span.clone());
         let body = if params.len() == 1 {
             self.with_body_return_type(lambda_return_ty.clone(), |lowerer| {
                 lowerer.lower_block(body)
@@ -2344,7 +2498,7 @@ impl Lowerer {
             capture.kind = HirClosureCaptureKind::Move;
         }
 
-        self.scope.pop();
+        self.pop_scope();
 
         HirExpr {
             ty: Self::lambda_function_type(vec![ty], body_ty, FunctionSafety::Safe, &captures),
@@ -2358,12 +2512,15 @@ impl Lowerer {
     }
 
     pub(crate) fn lower_tuple(&mut self, tuple: &ast::Tuple) -> HirExpr {
-        let span = self.diagnostics.current_span().clone();
         let elements: Vec<HirExpr> = tuple
             .elements
             .iter()
             .map(|e| self.lower_expression(e))
             .collect();
+        let span = elements
+            .first()
+            .map(|element| element.span.clone())
+            .expect("tuple requires a source element span");
         let types: Vec<Type> = elements.iter().map(|e| e.ty.clone()).collect();
         HirExpr {
             ty: Type::Tuple(types),
@@ -2708,7 +2865,9 @@ main = ->
         );
 
         let (_, target) = lowerer
-            .with_test_body_context(|lowerer| lowerer.instantiate_static_method_value(resolved))
+            .with_test_body_context(|lowerer| {
+                lowerer.instantiate_static_method_value(resolved, crate::lexer::Span::test())
+            })
             .expect("structural owner inference");
 
         assert_eq!(target.method.owner_substitution[0].param, owner_param);
@@ -2763,7 +2922,9 @@ main = ->
         );
 
         let (_, target) = lowerer
-            .with_test_body_context(|lowerer| lowerer.instantiate_static_method_value(resolved))
+            .with_test_body_context(|lowerer| {
+                lowerer.instantiate_static_method_value(resolved, crate::lexer::Span::test())
+            })
             .expect("nested structural owner inference");
 
         assert_eq!(target.method.owner_substitution[0].param, owner_param);
@@ -2812,7 +2973,9 @@ main = ->
         );
 
         let (_, target) = lowerer
-            .with_test_body_context(|lowerer| lowerer.instantiate_static_method_value(resolved))
+            .with_test_body_context(|lowerer| {
+                lowerer.instantiate_static_method_value(resolved, crate::lexer::Span::test())
+            })
             .expect("projection structural owner inference");
 
         assert_eq!(
@@ -2907,11 +3070,8 @@ main = ->
             .iter()
             .find(|error| error.message.contains("conflicting owner inference"))
             .expect("conflicting owner inference diagnostic");
-        let left = format!("{left_method_param:?}");
-        let right = format!("{right_method_param:?}");
-        assert!(diagnostic.message.contains(&left));
-        assert!(diagnostic.message.contains(&right));
-        assert!(diagnostic.message.find(&left) < diagnostic.message.find(&right));
+        assert!(diagnostic.message.contains("_ vs _"));
+        assert!(!diagnostic.message.contains("GenericParamId"));
     }
 
     fn register_item_path(lowerer: &mut Lowerer, path: &str, id: DefId) {
@@ -3695,7 +3855,7 @@ main = ->
             .diagnostics
             .errors()
             .iter()
-            .any(|error| { error.message.contains("Widget::missing") && error.span.is_some() }));
+            .any(|error| { error.message.contains("Widget::missing") && error.span().is_some() }));
     }
 
     #[test]
@@ -3766,7 +3926,7 @@ main = ->
             .expect("ambiguity diagnostic");
         assert!(diagnostic.message.contains("matching trait bounds"));
         assert!(!diagnostic.message.contains("DefId"));
-        assert!(diagnostic.span.is_some());
+        assert!(diagnostic.span().is_some());
     }
 
     #[test]
@@ -4228,7 +4388,7 @@ main = ->
             .diagnostics
             .errors()
             .iter()
-            .any(|error| { error.message.contains("unknown trait") && error.span.is_some() }));
+            .any(|error| { error.message.contains("unknown trait") && error.span().is_some() }));
     }
 
     #[test]
@@ -4644,6 +4804,7 @@ main = ->
                 statements: vec![Statement::Expression(var_expr("base"))],
             },
             arrow_kind: LambdaArrowKind::Normal,
+            span: crate::lexer::Span::test(),
         };
 
         let hir = lowerer.with_test_body_context(|lowerer| {
@@ -4688,6 +4849,7 @@ main = ->
                 statements: vec![Statement::Expression(var_expr("value"))],
             },
             arrow_kind: LambdaArrowKind::Normal,
+            span: crate::lexer::Span::test(),
         };
 
         let hir = lowerer.with_test_body_context(|lowerer| lowerer.lower_lambda(&lambda));
@@ -4772,6 +4934,7 @@ main = ->
                 statements: vec![Statement::Expression(var_expr("base"))],
             },
             arrow_kind: LambdaArrowKind::Normal,
+            span: crate::lexer::Span::test(),
         };
 
         let hir = lowerer.with_test_body_context(|lowerer| {
@@ -4799,6 +4962,7 @@ main = ->
                 statements: vec![Statement::Expression(var_expr("base"))],
             },
             arrow_kind: LambdaArrowKind::Normal,
+            span: crate::lexer::Span::test(),
         };
 
         let (captured_id, hir) = lowerer.with_test_body_context(|lowerer| {
@@ -4827,6 +4991,7 @@ main = ->
                 statements: vec![Statement::Expression(var_expr("callback"))],
             },
             arrow_kind: LambdaArrowKind::Normal,
+            span: crate::lexer::Span::test(),
         };
         let callback_id = HirLocalId(91);
         lowerer.scope.define_local(
@@ -4855,6 +5020,7 @@ main = ->
                 statements: vec![Statement::Expression(var_expr("callback"))],
             },
             arrow_kind: LambdaArrowKind::Normal,
+            span: crate::lexer::Span::test(),
         };
         lowerer.scope.define_top_level(
             "callback".to_string(),

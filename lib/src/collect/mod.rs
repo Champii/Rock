@@ -65,6 +65,7 @@ pub struct Declarations {
     pub module_file_cache: HashMap<std::path::PathBuf, crate::ast::Module>,
     pub source_modules: crate::source_loader::SourceModuleSet,
     pub dependency_root_export_ids: HashMap<String, HashMap<String, ArtifactExport>>,
+    pub source_map: crate::source_map::SemanticSourceMap,
 }
 
 #[derive(Clone)]
@@ -495,7 +496,7 @@ fn discover_source_module_for_indexing(
 fn validate_supported_current_crate_ids(decls: &Declarations) -> Result<(), Vec<ResolveError>> {
     fn push_missing(errors: &mut Vec<ResolveError>, kind: &str, name: &str, id: crate::ids::DefId) {
         if id.crate_id == crate::ids::CrateId(u32::MAX) {
-            errors.push(ResolveError::new(format!(
+            errors.push(ResolveError::non_source(format!(
                 "missing canonical {kind} identity for {name}"
             )));
         }
@@ -570,6 +571,64 @@ fn validate_supported_current_crate_ids(decls: &Declarations) -> Result<(), Vec<
     } else {
         Err(errors)
     }
+}
+
+fn supertrait_operation_span(
+    module: &ast::Module,
+    message: &str,
+    source_modules: &crate::collect::item_index::SourceModuleMap,
+    prefix: &[String],
+) -> Option<crate::lexer::Span> {
+    let owner = message.split('\'').nth(1).or_else(|| {
+        message
+            .strip_prefix("supertrait cycle detected: ")
+            .and_then(|path| path.split(" -> ").next())
+    });
+    for top_level in &module.top_levels {
+        if let ast::TopLevel::TraitDecl(trait_decl) = top_level {
+            if owner.is_some_and(|owner| {
+                owner == trait_decl.name.name
+                    || owner.rsplit("::").next() == Some(trait_decl.name.name.as_str())
+            }) {
+                if let Some(span) = trait_decl
+                    .where_clauses
+                    .iter()
+                    .find_map(|clause| clause.trait_bound.as_ref().map(ast::ParseType::span))
+                {
+                    return Some(span);
+                }
+                return Some(trait_decl.name.span.clone());
+            }
+        }
+    }
+
+    for top_level in &module.top_levels {
+        let ast::TopLevel::Module(ast::ModuleDecl(inline)) = top_level else {
+            continue;
+        };
+        let Some(name) = inline.name.as_ref() else {
+            continue;
+        };
+        let mut path = prefix.to_vec();
+        path.push(name.name.clone());
+        if let Some(span) = supertrait_operation_span(inline, message, source_modules, &path) {
+            return Some(span);
+        }
+    }
+    for top_level in &module.top_levels {
+        let ast::TopLevel::Mod(ident, _) = top_level else {
+            continue;
+        };
+        let mut path = prefix.to_vec();
+        path.push(ident.name.clone());
+        let Some(child) = source_modules.get(&path) else {
+            continue;
+        };
+        if let Some(span) = supertrait_operation_span(child, message, source_modules, &path) {
+            return Some(span);
+        }
+    }
+    None
 }
 
 /// Run the first-pass declaration collection.
@@ -707,7 +766,13 @@ fn collect_impl(
             )
         }))
         .into_iter()
-        .map(ResolveError::new),
+        .map(|message| {
+            ResolveError::from_optional_span_code(
+                message.clone(),
+                supertrait_operation_span(&program.module, &message, &source_modules, &[]),
+                crate::diagnostic::DiagnosticCode::Type,
+            )
+        }),
     );
 
     if !errors.is_empty() {
@@ -728,6 +793,13 @@ fn collect_impl(
         &resolver.item_names_by_id,
     )?;
 
+    let source_map = crate::source_map::SemanticSourceMap::from_declarations(
+        &item_index,
+        &program.module,
+        &items,
+        &source_modules,
+        &resolver,
+    );
     let decls = Declarations {
         indexing_ids,
         item_index,
@@ -748,6 +820,7 @@ fn collect_impl(
         loaded_prelude_export_ids,
         module_file_cache,
         dependency_root_export_ids,
+        source_map,
     };
     validate_supported_current_crate_ids(&decls)?;
 
@@ -896,7 +969,13 @@ pub fn collect_artifact_declarations(
             )
         }))
         .into_iter()
-        .map(ResolveError::new),
+        .map(|message| {
+            ResolveError::from_optional_span_code(
+                message.clone(),
+                supertrait_operation_span(module, &message, &source_modules, &[]),
+                crate::diagnostic::DiagnosticCode::Type,
+            )
+        }),
     );
 
     if !errors.is_empty() {
@@ -917,6 +996,13 @@ pub fn collect_artifact_declarations(
         &resolver.item_names_by_id,
     )?;
 
+    let source_map = crate::source_map::SemanticSourceMap::from_declarations(
+        &item_index,
+        module,
+        &items,
+        &source_modules,
+        &resolver,
+    );
     Ok(ArtifactDeclarations {
         declarations: Declarations {
             indexing_ids,
@@ -937,6 +1023,7 @@ pub fn collect_artifact_declarations(
             loaded_prelude_export_ids,
             module_file_cache,
             dependency_root_export_ids,
+            source_map,
         },
         bootstrap: artifact_bootstrap,
     })
@@ -1316,6 +1403,7 @@ mod tests {
                     statements: vec![crate::ast::Statement::Expression(expr)],
                 },
                 arrow_kind: crate::ast::LambdaArrowKind::Normal,
+                span: crate::lexer::Span::test(),
             },
             self_receiver: None,
             is_unsafe: false,
@@ -1330,6 +1418,7 @@ mod tests {
                 parameters: vec![],
                 body: crate::ast::Block { statements: vec![] },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: crate::lexer::Span::test(),
             },
             self_receiver: None,
             is_unsafe: false,
@@ -1373,6 +1462,7 @@ mod tests {
                 parameters: vec![ident_pattern(param)],
                 body: crate::ast::Block { statements: vec![] },
                 arrow_kind: LambdaArrowKind::Normal,
+                span: crate::lexer::Span::test(),
             },
             self_receiver: None,
             is_unsafe: false,
@@ -3267,6 +3357,7 @@ mod tests {
                         parameters: vec![],
                         body: crate::ast::Block { statements: vec![] },
                         arrow_kind: LambdaArrowKind::Normal,
+                        span: crate::lexer::Span::test(),
                     },
                     self_receiver: None,
                     is_unsafe: false,
@@ -4726,6 +4817,7 @@ mod tests {
                             parameters: vec![],
                             body: crate::ast::Block { statements: vec![] },
                             arrow_kind: crate::ast::LambdaArrowKind::Normal,
+                            span: crate::lexer::Span::test(),
                         },
                         self_receiver: None,
                         is_unsafe: false,
@@ -4787,6 +4879,7 @@ mod tests {
                             }],
                             body: crate::ast::Block { statements: vec![] },
                             arrow_kind: LambdaArrowKind::Normal,
+                            span: crate::lexer::Span::test(),
                         },
                         self_receiver: None,
                         is_unsafe: false,
@@ -5245,6 +5338,7 @@ mod tests {
                                 parameters: vec![],
                                 body: crate::ast::Block { statements: vec![] },
                                 arrow_kind: crate::ast::LambdaArrowKind::Normal,
+                                span: crate::lexer::Span::test(),
                             },
                             self_receiver: None,
                             is_unsafe: false,
@@ -5400,7 +5494,10 @@ mod tests {
     fn error_details(errors: Vec<ResolveError>) -> Vec<(String, Option<(usize, usize)>)> {
         errors
             .into_iter()
-            .map(|error| (error.message, error.span.map(|span| (span.start, span.end))))
+            .map(|error| {
+                let span = error.span().map(|span| (span.start, span.end));
+                (error.message, span)
+            })
             .collect()
     }
 

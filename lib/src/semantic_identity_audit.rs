@@ -1444,7 +1444,8 @@ fn production_codegen_setup_consumes_mir_backend_contract() {
             "self.drop_glue_callables_by_type =",
             "register_mir_nominal_layouts(&mir.backend_contract)",
             "self.validate_mir_backend_contract(mir)?",
-            "self.register_mir_backend_contract_callables(mir)?",
+            "self.register_mir_backend_contract_callables(mir)",
+            ".map_err(CodegenError::internalize)?",
         ],
     );
     assert_absent(
@@ -1616,7 +1617,7 @@ fn production_runtime_codegen_is_mir_only() {
         &[
             "pub(crate) mod mir_llvm;",
             "mod intrinsics;",
-            "pub fn compile_program_from_mir(",
+            "pub(crate) fn compile_program_from_mir(",
             "mir_llvm::compile_mir_program(self, mir)",
         ],
     );
@@ -1640,7 +1641,8 @@ fn production_runtime_codegen_is_mir_only() {
             "fn compile_mir_statement(",
             "StatementKind::Assign(place, rvalue)",
             "StatementKind::Assert(assertion)",
-            "self.compile_mir_terminator(mir_function, terminator, context)?",
+            "self.compile_mir_terminator(mir_function, terminator, context)",
+            "error.with_operation_span(",
         ],
     );
 

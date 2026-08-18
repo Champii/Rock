@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::Span;
+use crate::parser::items::tests::common::assert_formatted_eq;
 use crate::parser::items::*;
 use crate::parser::*;
 use crate::Config;
@@ -15,9 +16,9 @@ fn test_parse_match() {
 
     let (rest, expression) = r#match.process(ParseCtx::from(&tokens, &config)).unwrap();
 
-    assert_eq!(
-        expression,
-        Match {
+    assert_formatted_eq(
+        &expression,
+        &Match {
             expr: Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
                 operand: Operand::Ident(crate::ast::IdentifierPath {
                     path: vec![IdentOrType::Ident(Ident {
@@ -25,9 +26,9 @@ fn test_parse_match() {
                         span: Span {
                             start: 6,
                             end: 7,
-                            file_path: PathBuf::default(),
+                            file_path: PathBuf::from("/test.rk"),
                         },
-                    })]
+                    })],
                 }),
                 secondaries: None,
                 type_annotation: None,
@@ -42,8 +43,8 @@ fn test_parse_match() {
                                 span: Span {
                                     start: 12,
                                     end: 13,
-                                    file_path: PathBuf::default(),
-                                }
+                                    file_path: PathBuf::from("/test.rk"),
+                                },
                             },
                             mut_: false,
                         }),
@@ -57,14 +58,14 @@ fn test_parse_match() {
                                     span: Span {
                                         start: 17,
                                         end: 18,
-                                        file_path: PathBuf::default(),
-                                    }
+                                        file_path: PathBuf::from("/test.rk"),
+                                    },
                                 }),
                                 secondaries: None,
                                 type_annotation: None,
-                            })
-                        ))]
-                    }
+                            }),
+                        ))],
+                    },
                 },
                 MatchArm {
                     pattern: Pattern {
@@ -78,7 +79,7 @@ fn test_parse_match() {
                                         span: Span {
                                             start: 24,
                                             end: 25,
-                                            file_path: PathBuf::default(),
+                                            file_path: PathBuf::from("/test.rk"),
                                         },
                                     },
                                     mut_: false,
@@ -92,13 +93,13 @@ fn test_parse_match() {
                                         span: Span {
                                             start: 27,
                                             end: 28,
-                                            file_path: PathBuf::default(),
-                                        }
+                                            file_path: PathBuf::from("/test.rk"),
+                                        },
                                     },
                                     mut_: false,
                                 }),
-                            }
-                        ])
+                            },
+                        ]),
                     },
                     condition: None,
                     body: Block {
@@ -108,7 +109,7 @@ fn test_parse_match() {
                                     path: vec![IdentOrType::Ident(Ident {
                                         name: "a".to_string(),
                                         span: Span::test(),
-                                    })]
+                                    })],
                                 }),
                                 secondaries: None,
                                 type_annotation: None,
@@ -122,16 +123,16 @@ fn test_parse_match() {
                                     path: vec![IdentOrType::Ident(Ident {
                                         name: "b".to_string(),
                                         span: Span::test(),
-                                    })]
+                                    })],
                                 }),
                                 secondaries: None,
                                 type_annotation: None,
-                            })))
-                        ))]
-                    }
-                }
-            ]
-        }
+                            }))),
+                        ))],
+                    },
+                },
+            ],
+        },
     );
 
     assert_eq!(rest.len(), 0);

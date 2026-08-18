@@ -469,7 +469,7 @@ impl ModuleLoweringContext {
     ) where
         F: FnOnce(&mut Lowerer),
     {
-        lowerer.scope.push();
+        lowerer.push_scope();
         lowerer.inject_module_local_aliases(
             module,
             module_prefix,
@@ -478,7 +478,7 @@ impl ModuleLoweringContext {
         );
 
         visit(lowerer);
-        lowerer.scope.pop();
+        lowerer.pop_scope();
     }
 }
 

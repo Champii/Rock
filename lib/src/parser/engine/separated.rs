@@ -56,7 +56,11 @@ where
         }
 
         if self.at_least_one_result && items.is_empty() {
-            return Err(super::ParseError::ExpectedOneOrMore);
+            let span = remaining_tokens
+                .seek()
+                .map(|token| token.span)
+                .unwrap_or_else(|_| remaining_tokens.eof_span());
+            return Err(super::ParseError::ExpectedOneOrMore(span));
         }
 
         Ok((remaining_tokens, items))

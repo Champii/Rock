@@ -393,7 +393,7 @@ pub fn walk_operand<'a, V: Visitor<'a>>(visitor: &mut V, operand: &'a Operand) {
         Operand::Loop(l) => visitor.visit_loop(l),
         Operand::Expression(e) => visitor.visit_expression(e),
         Operand::Match(m) => visitor.visit_match(m),
-        Operand::Unsafe(block) => visitor.visit_block(block),
+        Operand::Unsafe(block, _) => visitor.visit_block(block),
     }
 }
 
@@ -563,16 +563,16 @@ pub fn walk_where_clause<'a, V: Visitor<'a>>(visitor: &mut V, clause: &'a WhereC
 
 pub fn walk_loop<'a, V: Visitor<'a>>(visitor: &mut V, loop_: &'a Loop) {
     match loop_ {
-        Loop::For(pattern, condition, block) => {
+        Loop::For(pattern, condition, block, _) => {
             visitor.visit_pattern(pattern);
             visitor.visit_expression(condition);
             visitor.visit_block(block);
         }
-        Loop::While(condition, block) => {
+        Loop::While(condition, block, _) => {
             visitor.visit_condition(condition);
             visitor.visit_block(block);
         }
-        Loop::Loop(block) => visitor.visit_block(block),
+        Loop::Loop(block, _) => visitor.visit_block(block),
     }
 }
 

@@ -6,7 +6,6 @@ use crate::collect::resolver::ResolverTables;
 use crate::hir::*;
 use crate::ids::{AssocTypeId, CrateId, DefId, IdGen, LocalDefId};
 use crate::infer::InferenceEngine;
-use crate::lexer::Span;
 use crate::lower::items::LowerItems;
 use crate::type_services::visit::remap_generic_params_in_place;
 use crate::types::{GenericParamId, TraitBound, Type};
@@ -22,6 +21,7 @@ pub(crate) struct TraitDefaultMethodInjector<'a> {
     root_crate_id: CrateId,
     local_def_ids: &'a mut IdGen<LocalDefId>,
     current_def_ids: &'a mut BTreeSet<DefId>,
+    source_map: &'a crate::source_map::SemanticSourceMap,
     diagnostics: &'a mut Vec<ResolveError>,
 }
 
@@ -31,6 +31,7 @@ impl<'a> TraitDefaultMethodInjector<'a> {
         root_crate_id: CrateId,
         local_def_ids: &'a mut IdGen<LocalDefId>,
         current_def_ids: &'a mut BTreeSet<DefId>,
+        source_map: &'a crate::source_map::SemanticSourceMap,
         diagnostics: &'a mut Vec<ResolveError>,
     ) -> Self {
         Self {
@@ -38,6 +39,7 @@ impl<'a> TraitDefaultMethodInjector<'a> {
             root_crate_id,
             local_def_ids,
             current_def_ids,
+            source_map,
             diagnostics,
         }
     }
@@ -62,13 +64,25 @@ impl<'a> TraitDefaultMethodInjector<'a> {
         retarget_generated_default_trait_method_calls(&mut func, imp);
 
         if let Err(err) = self.engine.unify(&func.body.ty, &func.ret_type) {
-            self.diagnostics.push(ResolveError {
-                message: format!(
-                    "default method '{}.{}' return type mismatch: {}",
-                    context.trait_name, method_name, err
-                ),
-                span: None,
-            });
+            let message = format!(
+                "default method '{}.{}' return type mismatch: {}",
+                context.trait_name,
+                method_name,
+                err.render(&self.engine)
+            );
+            if let Some(span) = self
+                .source_map
+                .definition_declaration_span(default_method_id)
+                .cloned()
+            {
+                self.diagnostics.push(ResolveError::with_span_code(
+                    message,
+                    span,
+                    crate::diagnostic::DiagnosticCode::Type,
+                ));
+            } else {
+                self.diagnostics.push(ResolveError::non_source(message));
+            }
         }
         resolve_generated_default_types(self.engine, &mut func);
         apply_generated_default_self_type(&mut func, self_type);
@@ -762,7 +776,6 @@ pub(crate) struct TraitConformanceOutput {
 pub(crate) struct IndexProtocolIds {
     index_trait: DefId,
     index_output: AssocTypeId,
-    index_mut_method: DefId,
     index_mut_trait: DefId,
     index_mut_output: AssocTypeId,
 }
@@ -775,6 +788,7 @@ pub(crate) struct TraitConformanceContext<'a> {
     root_crate_id: CrateId,
     local_def_ids: &'a mut IdGen<LocalDefId>,
     current_def_ids: &'a mut BTreeSet<DefId>,
+    source_map: &'a crate::source_map::SemanticSourceMap,
     index_protocol_ids: Option<IndexProtocolIds>,
 }
 
@@ -786,6 +800,7 @@ pub(crate) struct TraitConformanceService<'a> {
     root_crate_id: CrateId,
     local_def_ids: &'a mut IdGen<LocalDefId>,
     current_def_ids: &'a mut BTreeSet<DefId>,
+    source_map: &'a crate::source_map::SemanticSourceMap,
     index_protocol_ids: Option<IndexProtocolIds>,
     output: TraitConformanceOutput,
 }
@@ -802,6 +817,7 @@ impl<'a> TraitConformanceService<'a> {
             root_crate_id: context.root_crate_id,
             local_def_ids: context.local_def_ids,
             current_def_ids: context.current_def_ids,
+            source_map: context.source_map,
             index_protocol_ids: context.index_protocol_ids,
             output: TraitConformanceOutput::default(),
         }
@@ -992,7 +1008,6 @@ impl TraitConformancePhase {
             .map(|(index, index_mut)| IndexProtocolIds {
                 index_trait: index.trait_id,
                 index_output: index.output_id,
-                index_mut_method: index_mut.method_id,
                 index_mut_trait: index_mut.trait_id,
                 index_mut_output: index_mut.output_id,
             });
@@ -1005,6 +1020,7 @@ impl TraitConformancePhase {
                 root_crate_id: lowerer.root_crate_id,
                 local_def_ids: &mut lowerer.local_def_ids,
                 current_def_ids: &mut lowerer.current_def_ids,
+                source_map: &lowerer.source_map,
                 index_protocol_ids,
             });
             service.check_trait_conformance();
@@ -1029,6 +1045,67 @@ impl Lowerer {
 }
 
 impl TraitConformanceService<'_> {
+    fn display_type(&self, ty: &Type) -> String {
+        let mut context =
+            crate::type_services::display::TypeDisplayContext::from_resolver(self.resolver);
+        for resolver in self.dependency_resolvers.values() {
+            context.extend_resolver(resolver);
+        }
+        for (_, function) in self.items.functions() {
+            context.insert_generic_names(&function.generic_params);
+        }
+        for (_, signature) in self.items.function_sigs() {
+            context.insert_generic_names(&signature.generic_params);
+        }
+        for (_, structure) in self.items.structures() {
+            context.insert_generic_names(&structure.generic_params);
+        }
+        for (_, enumeration) in self.items.enumerations() {
+            context.insert_generic_names(&enumeration.generic_params);
+        }
+        for (_, alias) in self.items.type_aliases() {
+            context.insert_generic_names(&alias.generic_params);
+        }
+        for (_, trait_def) in self.items.trait_defs() {
+            context.insert_generic_names(&trait_def.generic_params);
+            if let Some(target) = &trait_def.target {
+                context.insert_generic_name(target.id, target.name.clone());
+            }
+            for associated in &trait_def.associated_types {
+                context.insert_associated_name(
+                    crate::types::AssociatedTypeKey {
+                        owner: trait_def.id,
+                        assoc_type_id: associated.id,
+                    },
+                    associated.name.clone(),
+                );
+            }
+            for function in trait_def.methods.values() {
+                context.insert_generic_names(&function.generic_params);
+            }
+            for signature in trait_def.signatures.values() {
+                context.insert_generic_names(&signature.generic_params);
+            }
+        }
+        for (_, impl_def) in self.items.impl_defs() {
+            context.insert_generic_names(&impl_def.type_generics);
+            context.insert_generic_names(&impl_def.trait_generics);
+            for associated in &impl_def.associated_types {
+                context.insert_associated_name(
+                    crate::types::AssociatedTypeKey {
+                        owner: impl_def.id,
+                        assoc_type_id: associated.id,
+                    },
+                    associated.name.clone(),
+                );
+            }
+            for function in impl_def.methods.values() {
+                context.insert_generic_names(&function.generic_params);
+            }
+        }
+        crate::type_services::display::display_type_with_context(ty, &context).to_string()
+    }
+
     fn resolve_item_id(&self, name: &str) -> Option<DefId> {
         self.resolver.resolve_item_or_alias(name).or_else(|| {
             name.contains("::").then(|| {
@@ -1794,6 +1871,10 @@ impl TraitConformanceService<'_> {
                 })
                 .and_then(|trait_id| self.items.trait_def(trait_id))
                 .cloned();
+            let impl_span = self
+                .source_map
+                .definition_declaration_span(impl_id)
+                .cloned();
             let imp = self.items.impl_def_mut(impl_id).unwrap();
             if imp.id.crate_id != self.root_crate_id {
                 continue;
@@ -1842,13 +1923,15 @@ impl TraitConformanceService<'_> {
 
                     for assoc in &trait_def.associated_types {
                         if !imp.associated_types.iter().any(|item| item.id == assoc.id) {
-                            self.output.diagnostics.push(crate::lower::ResolveError {
-                                message: format!(
-                                    "Type '{}' does not define required associated type '{}' from trait '{}'",
-                                    imp.type_name, assoc.name, trait_name
+                            self.output.diagnostics.push(
+                                crate::lower::ResolveError::from_optional_span(
+                                    format!(
+                                        "Type '{}' does not define required associated type '{}' from trait '{}'",
+                                        imp.type_name, assoc.name, trait_name
+                                    ),
+                                    impl_span.clone(),
                                 ),
-                                span: None,
-                            });
+                            );
                         }
                     }
 
@@ -1858,13 +1941,23 @@ impl TraitConformanceService<'_> {
                             .iter()
                             .any(|decl| decl.id == assoc.id)
                         {
-                            self.output.diagnostics.push(crate::lower::ResolveError {
-                                message: format!(
+                            let span = self
+                                .source_map
+                                .symbol(&crate::source_map::SourceSymbol::AssociatedType {
+                                    owner: imp.id,
+                                    associated: assoc.id,
+                                })
+                                .map(|source| source.name_span.clone())
+                                .or_else(|| impl_span.clone());
+                            self.output.diagnostics.push(
+                                crate::lower::ResolveError::from_optional_span(
+                                    format!(
                                     "Type '{}' defines unknown associated type '{}' for trait '{}'",
                                     imp.type_name, assoc.name, trait_name
                                 ),
-                                span: None,
-                            });
+                                    span,
+                                ),
+                            );
                         }
                     }
 
@@ -1874,15 +1967,21 @@ impl TraitConformanceService<'_> {
                             && !trait_def.methods.contains_key(sig_name)
                         {
                             // Required method not implemented and no default
-                            self.output.diagnostics.push(crate::lower::ResolveError {
-                                message: format!(
-                                    "Type '{}' does not implement required method '{}' from trait '{}'",
-                                    imp.type_name, sig_name, trait_name
+                            self.output.diagnostics.push(
+                                crate::lower::ResolveError::from_optional_span(
+                                    format!(
+                                        "Type '{}' does not implement required method '{}' from trait '{}'",
+                                        imp.type_name, sig_name, trait_name
+                                    ),
+                                    impl_span.clone(),
                                 ),
-                                span: None,
-                            });
+                            );
                         } else if let Some(method) = imp.methods.get_mut(sig_name) {
-                            let method_span = hir_function_diagnostic_span(method);
+                            let method_span = self
+                                .source_map
+                                .definition_declaration_span(method.id)
+                                .cloned();
+                            let signature_span = method_span.clone();
                             let signature_method_generics = sig
                                 .generic_params
                                 .iter()
@@ -1903,17 +2002,14 @@ impl TraitConformanceService<'_> {
                             // We need to unify each parameter with the substituted type
 
                             if method.params.len() != sig.params.len() {
-                                self.output.diagnostics.push(crate::lower::ResolveError {
-                                    message: format!(
+                                self.output.diagnostics.push(crate::lower::ResolveError::from_optional_span_code(format!(
                                         "Type '{}' method '{}' parameter count mismatch for trait '{}': expected {}, found {}",
                                         imp.type_name,
                                         sig_name,
                                         trait_name,
                                         sig.params.len(),
                                         method.params.len()
-                                    ),
-                                    span: method_span.clone(),
-                                });
+                                    ), signature_span.clone(), crate::diagnostic::DiagnosticCode::Type));
                                 continue;
                             }
 
@@ -1941,13 +2037,14 @@ impl TraitConformanceService<'_> {
                                         .unwrap_or(param)
                                 });
                                 if let Err(err) = self.engine.unify(&param.ty, &expected_ty) {
-                                    self.output.diagnostics.push(crate::lower::ResolveError {
-                                        message: format!(
+                                    self.output.diagnostics.push(crate::lower::ResolveError::from_optional_span_code(format!(
                                             "Type '{}' method '{}' parameter {} type mismatch for trait '{}': {}",
-                                            imp.type_name, sig_name, i, trait_name, err
-                                        ),
-                                        span: method_span.clone(),
-                                    });
+                                            imp.type_name,
+                                            sig_name,
+                                            i,
+                                            trait_name,
+                                            err.render(&self.engine)
+                                        ), signature_span.clone(), crate::diagnostic::DiagnosticCode::Type));
                                 } else {
                                     let resolved = self.engine.resolve(&param.ty);
                                     // Update to resolved type
@@ -1979,13 +2076,10 @@ impl TraitConformanceService<'_> {
                                     .unwrap_or(param)
                             });
                             if let Err(err) = self.engine.unify(&method.ret_type, &expected_ret) {
-                                self.output.diagnostics.push(crate::lower::ResolveError {
-                                    message: format!(
+                                self.output.diagnostics.push(crate::lower::ResolveError::from_optional_span_code(format!(
                                         "Type '{}' method '{}' return type mismatch for trait '{}': {}",
-                                        imp.type_name, sig_name, trait_name, err
-                                    ),
-                                    span: method_span,
-                                });
+                                        imp.type_name, sig_name, trait_name, err.render(&self.engine)
+                                    ), method_span, crate::diagnostic::DiagnosticCode::Type));
                             } else {
                                 // Update to resolved type
                                 method.ret_type = self.engine.resolve(&method.ret_type);
@@ -2003,6 +2097,7 @@ impl TraitConformanceService<'_> {
                                 self.root_crate_id,
                                 self.local_def_ids,
                                 self.current_def_ids,
+                                self.source_map,
                                 &mut self.output.diagnostics,
                             )
                             .prepare_missing_default_method(
@@ -2028,10 +2123,12 @@ impl TraitConformanceService<'_> {
                         }
                     }
                 } else {
-                    self.output.diagnostics.push(crate::lower::ResolveError {
-                        message: format!("unknown trait '{}' in impl", trait_name),
-                        span: None,
-                    });
+                    self.output
+                        .diagnostics
+                        .push(crate::lower::ResolveError::from_optional_span(
+                            format!("unknown trait '{}' in impl", trait_name),
+                            impl_span.clone(),
+                        ));
                 }
             }
         }
@@ -2071,13 +2168,10 @@ impl TraitConformanceService<'_> {
                 let key = (imp.id, member_id);
                 if let Some(previous) = self.output.effective_trait_methods.insert(key, method_id) {
                     if previous != method_id {
-                        self.output.diagnostics.push(ResolveError {
-                            message: format!(
+                        self.output.diagnostics.push(ResolveError::non_source(format!(
                                 "trait implementation {:?} has conflicting effective bodies {:?} and {:?} for member {:?}",
                                 imp.id, previous, method_id, member_id
-                            ),
-                            span: None,
-                        });
+                            )));
                     }
                 }
             }
@@ -2155,13 +2249,27 @@ impl TraitConformanceService<'_> {
                         .get(&required_trait)
                         .map(|required| required.name.as_str())
                         .unwrap_or("<unknown>");
-                    self.output.diagnostics.push(ResolveError {
-                        message: format!(
-                            "implementation of trait '{}' for '{}' does not satisfy supertrait obligation '{}: {} ({})'",
-                            trait_def.name, imp.type_name, subject, required_name, bound
-                        ),
-                        span: None,
-                    });
+                    let message = format!(
+                        "implementation of trait '{}' for '{}' does not satisfy supertrait obligation '{}: {} ({})'",
+                        trait_def.name,
+                        imp.type_name,
+                        self.display_type(&subject),
+                        required_name,
+                        bound
+                            .type_args
+                            .iter()
+                            .map(|arg| self.display_type(arg))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    );
+                    let span = self.source_map.definition_declaration_span(imp.id).cloned();
+                    self.output
+                        .diagnostics
+                        .push(ResolveError::from_optional_span_code(
+                            message,
+                            span,
+                            crate::diagnostic::DiagnosticCode::Type,
+                        ));
                 }
             }
         }
@@ -2194,11 +2302,10 @@ impl TraitConformanceService<'_> {
         index_impls.sort_by_key(|imp| imp.id);
 
         for index_mut in index_mut_impls {
-            let index_mut_span = index_mut
-                .methods
-                .values()
-                .find(|method| method.id == protocols.index_mut_method)
-                .and_then(hir_function_diagnostic_span);
+            let index_mut_span = self
+                .source_map
+                .definition_declaration_span(index_mut.id)
+                .cloned();
             let mut matches = index_impls
                 .iter()
                 .filter(|index| index_impls_are_alpha_equivalent(&index_mut, index))
@@ -2208,7 +2315,7 @@ impl TraitConformanceService<'_> {
             let key = index_mut
                 .trait_arg_types
                 .first()
-                .map(ToString::to_string)
+                .map(|ty| self.display_type(ty))
                 .unwrap_or_else(|| "<missing>".to_string());
             let context = format!(
                 "IndexMut implementation for {} with key {}",
@@ -2217,25 +2324,22 @@ impl TraitConformanceService<'_> {
 
             let Some(index) = (match matches.as_slice() {
                 [] => {
-                    self.output.diagnostics.push(ResolveError {
-                        message: format!("{context} requires a matching Index implementation"),
-                        span: index_mut_span.clone(),
-                    });
+                    self.output
+                        .diagnostics
+                        .push(ResolveError::from_optional_span(
+                            format!("{context} requires a matching Index implementation"),
+                            index_mut_span.clone(),
+                        ));
                     None
                 }
                 [index] => Some(*index),
-                matches => {
-                    let ids = matches
-                        .iter()
-                        .map(|imp| format!("{:?}", imp.id))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    self.output.diagnostics.push(ResolveError {
-                        message: format!(
-                            "{context} has multiple matching Index implementations: {ids}"
-                        ),
-                        span: index_mut_span.clone(),
-                    });
+                _matches => {
+                    self.output
+                        .diagnostics
+                        .push(ResolveError::from_optional_span(
+                            format!("{context} has multiple matching Index implementations"),
+                            index_mut_span.clone(),
+                        ));
                     None
                 }
             }) else {
@@ -2257,13 +2361,16 @@ impl TraitConformanceService<'_> {
                 &index_mut_output.ty,
                 index_mut.id,
             ) {
-                self.output.diagnostics.push(ResolveError {
-                    message: format!(
-                        "IndexMut implementation output {} does not match Index output {}",
-                        index_mut_output.ty, index_output.ty
-                    ),
-                    span: index_mut_span,
-                });
+                self.output
+                    .diagnostics
+                    .push(ResolveError::from_optional_span(
+                        format!(
+                            "IndexMut implementation output {} does not match Index output {}",
+                            self.display_type(&index_mut_output.ty),
+                            self.display_type(&index_output.ty)
+                        ),
+                        index_mut_span,
+                    ));
             }
         }
     }
@@ -2533,18 +2640,6 @@ fn remap_generic_bounds_owner(bounds: &mut HirGenericBounds, old_owner: DefId, n
     }
 }
 
-fn hir_function_diagnostic_span(function: &HirFunction) -> Option<Span> {
-    function.body.stmts.first().and_then(hir_stmt_span)
-}
-
-fn hir_stmt_span(stmt: &HirStmt) -> Option<Span> {
-    match stmt {
-        HirStmt::Let { value, .. } | HirStmt::Expr(value) => Some(value.span.clone()),
-        HirStmt::Return(Some(value)) | HirStmt::Break(Some(value)) => Some(value.span.clone()),
-        HirStmt::Return(None) | HirStmt::Break(None) | HirStmt::Continue => None,
-    }
-}
-
 fn remap_function_generic_owner(func: &mut HirFunction, old_owner: DefId, new_owner: DefId) {
     if old_owner == new_owner {
         return;
@@ -2795,6 +2890,66 @@ mod tests {
     }
 
     #[test]
+    fn trait_conformance_display_context_renders_generic_projection_names() {
+        let mut lowerer = Lowerer::new_for_test();
+        let trait_id = def_id(80);
+        let generic = GenericParamDecl::type_param(
+            GenericParamId {
+                owner: trait_id,
+                index: 0,
+            },
+            "T",
+        );
+        lowerer
+            .resolver
+            .item_names_by_id
+            .insert(trait_id, "Render".to_string());
+        lowerer.items.insert_trait_def(HirTrait {
+            target: None,
+            predicates: Vec::new(),
+            id: trait_id,
+            name: "Render".to_string(),
+            generic_params: vec![generic],
+            associated_types: vec![HirAssociatedTypeDecl {
+                id: AssocTypeId(0),
+                name: "Item".to_string(),
+                kind: crate::type_services::kind::Kind::Type,
+            }],
+            methods: HashMap::new(),
+            signatures: HashMap::new(),
+        });
+
+        let service = super::TraitConformanceService::new(super::TraitConformanceContext {
+            items: &mut lowerer.items,
+            engine: &mut lowerer.engine,
+            resolver: &lowerer.resolver,
+            dependency_resolvers: &lowerer.dependency_resolvers,
+            root_crate_id: lowerer.root_crate_id,
+            local_def_ids: &mut lowerer.local_def_ids,
+            current_def_ids: &mut lowerer.current_def_ids,
+            source_map: &lowerer.source_map,
+            index_protocol_ids: None,
+        });
+        let ty = Type::Projection {
+            ty: Box::new(Type::Generic(GenericParamId {
+                owner: trait_id,
+                index: 0,
+            })),
+            trait_id,
+            assoc_type: AssociatedTypeKey {
+                owner: trait_id,
+                assoc_type_id: AssocTypeId(0),
+            },
+            trait_args: vec![Type::Generic(GenericParamId {
+                owner: trait_id,
+                index: 0,
+            })],
+        };
+
+        assert_eq!(service.display_type(&ty), "<T as Render T>::Item");
+    }
+
+    #[test]
     fn index_mut_pair_diagnostic_uses_index_mut_method_span() {
         let mut lowerer = Lowerer::new_for_test();
         let index_trait_id = def_id(40);
@@ -2863,6 +3018,12 @@ mod tests {
                 )]),
             })
             .unwrap();
+        lowerer.source_map.insert_symbol(
+            crate::source_map::SourceSymbol::Definition(impl_id),
+            span.clone(),
+            Some(span.clone()),
+            None,
+        );
 
         let output = {
             let mut service = super::TraitConformanceService::new(super::TraitConformanceContext {
@@ -2873,10 +3034,10 @@ mod tests {
                 root_crate_id: lowerer.root_crate_id,
                 local_def_ids: &mut lowerer.local_def_ids,
                 current_def_ids: &mut lowerer.current_def_ids,
+                source_map: &lowerer.source_map,
                 index_protocol_ids: Some(super::IndexProtocolIds {
                     index_trait: index_trait_id,
                     index_output: AssocTypeId(1),
-                    index_mut_method: index_mut_method_id,
                     index_mut_trait: index_mut_trait_id,
                     index_mut_output: AssocTypeId(2),
                 }),
@@ -2893,10 +3054,10 @@ mod tests {
                     == "IndexMut implementation for Point with key I64 requires a matching Index implementation"
             })
             .expect("missing IndexMut pairing diagnostic");
-        let diagnostic_span = diagnostic
-            .span
-            .as_ref()
-            .expect("diagnostic should have a span");
+        assert!(!diagnostic.message.contains("DefId"));
+        assert!(!diagnostic.message.contains("TypeVarId"));
+        assert_eq!(diagnostic.code, crate::diagnostic::DiagnosticCode::Resolve);
+        let diagnostic_span = diagnostic.span().expect("diagnostic should have a span");
         assert_eq!(diagnostic_span.start, span.start);
         assert_eq!(diagnostic_span.end, span.end);
     }
@@ -5954,6 +6115,7 @@ mod tests {
                 root_crate_id: lowerer.root_crate_id,
                 local_def_ids: &mut lowerer.local_def_ids,
                 current_def_ids: &mut lowerer.current_def_ids,
+                source_map: &lowerer.source_map,
                 index_protocol_ids: None,
             });
             service.check_trait_conformance();

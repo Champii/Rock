@@ -4,9 +4,10 @@ use std::path::PathBuf;
 use crate::ast::Module;
 use crate::ast::Program;
 use crate::collect::collect_with_source_graph;
+use crate::diagnostic::{Diagnostic, Diagnostics};
 use crate::hir::AcceptedHirImpl as HirImpl;
 use crate::macro_expansion::proc_macro::ProcMacroArtifact;
-use crate::source_loader::{SourceDatabase, SourceLoadError};
+use crate::source_loader::SourceDatabase;
 use crate::{Config, SourceProvider};
 
 use super::{CrateContext, CrateManifest, CurrentCrateSource, ExternCrateRecord, ExternCrateRef};
@@ -17,41 +18,25 @@ impl Default for CrateContext {
     }
 }
 
-fn source_load_errors_to_string(errors: Vec<SourceLoadError>) -> String {
-    errors
-        .into_iter()
-        .map(|error| match error {
-            SourceLoadError::Io { path, message } => {
-                format!("Failed to read source file {}: {}", path.display(), message)
-            }
-            SourceLoadError::MissingModule {
-                module, searched, ..
-            } => {
-                let searched = searched
-                    .iter()
-                    .map(|path| path.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("Module '{}' not found; searched: {}", module, searched)
-            }
-            SourceLoadError::Parse { path, error, .. } => {
-                format!("Failed to parse {}: {:?}", path.display(), error)
-            }
-            SourceLoadError::CircularModule { path, stack } => {
-                let stack = stack
-                    .iter()
-                    .map(|path| path.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join(" -> ");
-                format!(
-                    "Circular module load detected at {} via {}",
-                    path.display(),
-                    stack
-                )
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+fn toolchain_diagnostics(message: impl Into<String>) -> Diagnostics {
+    let mut diagnostics = Diagnostics::default();
+    diagnostics.push(Diagnostic::for_toolchain(message.into()));
+    diagnostics
+}
+
+fn annotate_dependency_diagnostics(
+    mut diagnostics: Diagnostics,
+    dependency: &str,
+    crate_name: &str,
+) -> Diagnostics {
+    let note = format!(
+        "while loading dependency '{}' of crate '{}'",
+        dependency, crate_name
+    );
+    for diagnostic in &mut diagnostics.0 {
+        diagnostic.notes.push(note.clone());
+    }
+    diagnostics
 }
 
 fn register_source_providers(source_db: &mut SourceDatabase, source_providers: &[SourceProvider]) {
@@ -91,7 +76,7 @@ impl CrateContext {
             .insert(name, CurrentCrateSource::new(manifest, source_dir, ast));
     }
 
-    pub fn load_crate_from_dir(&mut self, crate_dir: PathBuf) -> Result<(), String> {
+    pub fn load_crate_from_dir(&mut self, crate_dir: PathBuf) -> Result<(), Diagnostics> {
         self.load_crate_from_dir_with_source_providers(crate_dir, Vec::new())
     }
 
@@ -99,9 +84,9 @@ impl CrateContext {
         &mut self,
         crate_dir: PathBuf,
         source_providers: Vec<SourceProvider>,
-    ) -> Result<(), String> {
+    ) -> Result<(), Diagnostics> {
         let manifest_path = crate_dir.join("rock.toml");
-        let manifest = Self::load_manifest(&manifest_path)?;
+        let manifest = Self::load_manifest(&manifest_path).map_err(toolchain_diagnostics)?;
 
         let lib_path = crate_dir.join(&manifest.lib.path);
         let source_config = Config {
@@ -113,16 +98,26 @@ impl CrateContext {
         };
         let mut source_db = SourceDatabase::new();
         register_source_providers(&mut source_db, &source_providers);
-        let graph = source_db
-            .load_source_crate(lib_path.clone(), &manifest.crate_.name, &source_config)
-            .map_err(source_load_errors_to_string)?;
+        let graph = match source_db.load_source_crate(
+            lib_path.clone(),
+            &manifest.crate_.name,
+            &source_config,
+        ) {
+            Ok(graph) => graph,
+            Err(errors) => {
+                let sources =
+                    crate::diagnostic::DiagnosticSourceMap::from_source_database(&source_db);
+                return Err(crate::source_load_errors_to_diagnostics(errors).with_sources(&sources));
+            }
+        };
         let ast = graph.root_module().clone();
         let file_cache = crate::crate_system::module_tree::module_file_cache_from_graph(&graph);
         let loaded_module_paths = graph.loaded_module_paths();
         let module_tree = crate::crate_system::module_tree::build_module_tree_from_graph(
             &graph,
             &manifest.crate_.name,
-        )?;
+        )
+        .map_err(toolchain_diagnostics)?;
 
         collect_with_source_graph(
             &Program {
@@ -134,11 +129,8 @@ impl CrateContext {
             Some(&manifest.crate_.name),
         )
         .map_err(|errors| {
-            errors
-                .into_iter()
-                .map(|error| error.message)
-                .collect::<Vec<_>>()
-                .join("\n")
+            let sources = crate::diagnostic::DiagnosticSourceMap::from_source_database(&source_db);
+            crate::diagnostic::Diagnostics::from_resolve_errors(errors).with_sources(&sources)
         })?;
 
         let name = manifest.crate_.name.clone();
@@ -252,7 +244,7 @@ impl CrateContext {
         &mut self,
         crate_dir: PathBuf,
         loading_stack: &mut Vec<String>,
-    ) -> Result<String, String> {
+    ) -> Result<String, Diagnostics> {
         self.load_crate_with_dependencies_inner(crate_dir, loading_stack, &[])
     }
 
@@ -261,7 +253,7 @@ impl CrateContext {
         crate_dir: PathBuf,
         loading_stack: &mut Vec<String>,
         source_providers: Vec<SourceProvider>,
-    ) -> Result<String, String> {
+    ) -> Result<String, Diagnostics> {
         self.load_crate_with_dependencies_inner(crate_dir, loading_stack, &source_providers)
     }
 
@@ -270,18 +262,18 @@ impl CrateContext {
         crate_dir: PathBuf,
         loading_stack: &mut Vec<String>,
         source_providers: &[SourceProvider],
-    ) -> Result<String, String> {
+    ) -> Result<String, Diagnostics> {
         let manifest_path = crate_dir.join("rock.toml");
-        let manifest = Self::load_manifest(&manifest_path)?;
+        let manifest = Self::load_manifest(&manifest_path).map_err(toolchain_diagnostics)?;
 
         let crate_name = manifest.crate_.name.clone();
 
         if let Some(pos) = loading_stack.iter().position(|n| n == &crate_name) {
             let cycle = loading_stack[pos..].join(" -> ");
-            return Err(format!(
+            return Err(toolchain_diagnostics(format!(
                 "Circular dependency detected: {} -> {}",
                 cycle, crate_name
-            ));
+            )));
         }
 
         if self.has_crate(&crate_name) {
@@ -294,31 +286,30 @@ impl CrateContext {
             for (dep_name, dep) in deps {
                 let dep_path = if let Some(ref path) = dep.path {
                     if path.starts_with("..") || path.starts_with(".") {
-                        crate_dir
-                            .join(path)
-                            .canonicalize()
-                            .map_err(|e| format!("Failed to resolve path '{}': {}", path, e))?
+                        crate_dir.join(path).canonicalize().map_err(|e| {
+                            toolchain_diagnostics(format!(
+                                "Failed to resolve path '{}': {}",
+                                path, e
+                            ))
+                        })?
                     } else {
                         PathBuf::from(path)
                     }
                 } else if let Some(ref version) = dep.version {
-                    return Err(format!(
+                    return Err(toolchain_diagnostics(format!(
                         "Registry-based dependencies not yet supported ({} version {})",
                         dep_name, version
-                    ));
+                    )));
                 } else {
-                    return Err(format!(
+                    return Err(toolchain_diagnostics(format!(
                         "Dependency '{}' must have either 'path' or 'version'",
                         dep_name
-                    ));
+                    )));
                 };
 
                 self.load_crate_with_dependencies_inner(dep_path, loading_stack, source_providers)
-                    .map_err(|e| {
-                        format!(
-                            "Failed to load dependency '{}' of crate '{}': {}",
-                            dep_name, crate_name, e
-                        )
+                    .map_err(|diagnostics| {
+                        annotate_dependency_diagnostics(diagnostics, dep_name, &crate_name)
                     })?;
             }
         }

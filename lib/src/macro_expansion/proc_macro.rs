@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use bincode::Options;
 use serde::{Deserialize, Serialize};
 
-use crate::diagnostic::{Diagnostic, Diagnostics};
+use crate::diagnostic::{Diagnostic, DiagnosticCode, Diagnostics};
 use crate::lexer::{Span, Token};
 
 pub const PROC_MACRO_PROTOCOL_VERSION: u32 = 2;
@@ -73,10 +73,13 @@ impl ProcMacroResponse {
             ProcMacroResponse::Expand { .. } => {}
             ProcMacroResponse::Diagnostics { messages } => {
                 for message in messages {
-                    diagnostics.push(Diagnostic::new(
-                        format!("Proc macro '{}' failed: {}", macro_name, message),
-                        span.clone(),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::new(
+                            format!("Proc macro '{}' failed: {}", macro_name, message),
+                            span.clone(),
+                        )
+                        .with_code(DiagnosticCode::Macro),
+                    );
                 }
             }
         }
