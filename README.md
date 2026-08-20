@@ -251,6 +251,28 @@ $ rock artifact
 - `expand` prints macro-expanded source.
 - `artifact` materializes a reusable crate artifact.
 
+The `rock-lsp` binary provides live diagnostics, inferred variable types on hover, function signatures on hover, and call signature help:
+
+```console
+$ cargo build -p rock-lsp --release
+$ target/release/rock-lsp
+```
+
+Configure an editor LSP client to start that command for `*.rk` files. The server finds the nearest `rock.toml`, reuses `rock build` dependency and toolchain resolution, and overlays unsaved editor buffers on the project entry graph. `--extern-artifact` and `--no-prelude` remain available as explicit overrides for standalone or experimental workflows.
+
+### Neovim 0.12
+
+This repository is also a dependency-free Neovim plugin built on `vim.lsp.config` and `vim.lsp.enable`. `rock-lsp` is installed and selected by `rockup` with the rest of the Rock toolchain.
+
+Neovim 0.12's built-in package manager can install and configure the plugin:
+
+```lua
+vim.pack.add({ "https://github.com/Champii/Rock" })
+require("rock").setup()
+```
+
+For a local checkout, add the repository to `runtimepath` instead. Use `:checkhealth rock`, `:RockLspInfo`, and `:RockLspRestart` to inspect the integration. Tree-sitter highlighting remains provided by [`tree-sitter-rock`](tree-sitter-rock/).
+
 There is currently no `rock test` command. Application tests are ordinary Rock programs or external harnesses; compiler contributors use the Rust integration suite.
 
 ---

@@ -3,7 +3,7 @@ use std::fs;
 use crate::{
     constants::{
         BIN_DIR, DEFAULT_TOOLCHAIN_FILE, LIB_DIR, ROCKUP_TOOLCHAIN_ENV, ROCK_BIN_NAME,
-        STDLIB_ARTIFACT_NAME, TOOLCHAINS_DIR,
+        ROCK_LSP_BIN_NAME, STDLIB_ARTIFACT_NAME, TOOLCHAINS_DIR,
     },
     layout::host_target_triple,
     selection::active_toolchain_name,
@@ -55,6 +55,7 @@ fn test_install_toolchain_normalizes_cargo_build_dir_layout() {
         .join(BIN_DIR)
         .join(crate::constants::ROCKC_BIN_NAME)
         .exists());
+    assert!(installed.join(BIN_DIR).join(ROCK_LSP_BIN_NAME).exists());
     assert!(installed
         .join(LIB_DIR)
         .join("rocklib")
@@ -67,6 +68,7 @@ fn test_install_toolchain_normalizes_cargo_build_dir_layout() {
         .join(BIN_DIR)
         .join(crate::constants::ROCKC_BIN_NAME)
         .exists());
+    assert!(home.root.join(BIN_DIR).join(ROCK_LSP_BIN_NAME).exists());
 
     let _ = fs::remove_dir_all(temp_dir);
 }
@@ -246,6 +248,21 @@ fn test_proxy_toolchain_command_uses_default_selection() {
 
     let status = proxy_toolchain_command(&home, ROCK_BIN_NAME, &[]).unwrap();
     assert_eq!(status.code(), Some(17));
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_proxy_toolchain_command_supports_rock_lsp() {
+    let temp_dir = temp_test_dir("proxy_lsp_command");
+    let home = fake_home(temp_dir.join("home"));
+    let source = temp_dir.join("source");
+    write_fake_toolchain_root(&source);
+    install_toolchain(&home, "stable", &source).unwrap();
+    set_default_toolchain(&home, "stable").unwrap();
+
+    let status = proxy_toolchain_command(&home, ROCK_LSP_BIN_NAME, &[]).unwrap();
+    assert_eq!(status.code(), Some(31));
 
     let _ = fs::remove_dir_all(temp_dir);
 }

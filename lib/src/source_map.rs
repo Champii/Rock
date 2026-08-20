@@ -61,6 +61,22 @@ pub struct SemanticSourceMap {
 }
 
 impl SemanticSourceMap {
+    /// Return the narrowest declaration or reference containing a byte offset.
+    pub fn symbol_at(&self, path: &std::path::Path, offset: usize) -> Option<(SourceSymbol, Span)> {
+        let references = self.references.iter().filter_map(|reference| {
+            span_contains(&reference.span, path, offset)
+                .then(|| (reference.target.clone(), reference.span.clone()))
+        });
+        let declarations = self.symbols.iter().filter_map(|(symbol, info)| {
+            span_contains(&info.name_span, path, offset)
+                .then(|| (symbol.clone(), info.name_span.clone()))
+        });
+
+        references
+            .chain(declarations)
+            .min_by_key(|(_, span)| span.end.saturating_sub(span.start))
+    }
+
     pub fn from_item_index(index: &ItemIndex) -> Self {
         let mut map = Self::default();
         for item in index.items() {
@@ -907,6 +923,10 @@ impl SemanticSourceMap {
             }
         }
     }
+}
+
+fn span_contains(span: &Span, path: &std::path::Path, offset: usize) -> bool {
+    span.file_path == path && span.start <= offset && offset < span.end
 }
 
 fn remap_source_symbol(symbol: &SourceSymbol, from: DefId, to: DefId) -> Option<SourceSymbol> {

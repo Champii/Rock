@@ -8,7 +8,7 @@ use crate::{
     commands::{expand_project, format_project},
 };
 
-pub(crate) fn run() -> Result<CliOutcome, String> {
+pub fn run() -> Result<CliOutcome, String> {
     let config = Config::parse();
 
     match config.command {
@@ -29,7 +29,7 @@ pub(crate) fn run() -> Result<CliOutcome, String> {
     }
 }
 
-pub(crate) enum CliOutcome {
+pub enum CliOutcome {
     Success,
     Exit(i32),
 }

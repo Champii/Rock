@@ -16,6 +16,7 @@ use crate::products::{
     ProductSourceFingerprint,
 };
 
+pub mod analysis;
 pub mod ast;
 pub mod codegen;
 pub mod collect;
@@ -127,17 +128,31 @@ pub fn compile_with_products(config: &Config) -> Result<CompileOutput, Diagnosti
     compile_impl(config, true)
 }
 
-fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, Diagnostics> {
+/// Run the source frontend through finalized HIR without MIR or code generation.
+pub fn analyze(config: &Config) -> Result<analysis::Analysis, Diagnostics> {
+    compile_frontend(config).map(|frontend| frontend.analysis)
+}
+
+struct FrontendOutput {
+    analysis: analysis::Analysis,
+    crate_ctx: CrateContext,
+    diagnostic_sources: diagnostic::DiagnosticSourceMap,
+    loaded_prelude_export_ids:
+        std::collections::HashMap<String, crate::crate_artifact::ArtifactExport>,
+    infix_precedence: std::collections::HashMap<String, u8>,
+    fingerprint_source_files: Vec<PathBuf>,
+    source_db: source_loader::SourceDatabase,
+    effective_current_crate_name: String,
+}
+
+fn compile_frontend(config: &Config) -> Result<FrontendOutput, Diagnostics> {
     let effective_current_crate_name = config
         .current_crate_name
         .clone()
         .unwrap_or_else(|| module_name_from_entry(&config.entry_file));
 
-    // Phase 0: Load explicitly provided dependency crates.
     let mut ctx = CrateContext::new();
-
     validate_extern_artifact_names(config, &effective_current_crate_name)?;
-
     if let Err(diagnostic) = load_extern_artifacts(
         &mut ctx,
         &config.extern_artifacts,
@@ -152,9 +167,6 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
         return Err(diagnostics);
     }
 
-    let crate_ctx = &ctx;
-
-    // Phase 1: Load and parse current-crate source graph.
     let mut source_db = source_loader::SourceDatabase::new();
     register_configured_sources(&mut source_db, config);
     let mut source_graph = match source_db.load_entry(config.entry_file.clone(), config) {
@@ -169,22 +181,16 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     if config.has_debug_print(DebugPrint::AstFull) {
         println!("{:#?}", ast);
     }
-
     if config.has_debug_print(DebugPrint::Ast) {
         debug_ast(&ast);
     }
 
-    // Phase 2: Macro expansion
     let mut macro_context = macro_expansion::MacroExpansionContext::new(config);
-    for artifact in crate_ctx.proc_macro_artifacts() {
+    for artifact in ctx.proc_macro_artifacts() {
         macro_context = macro_context.with_proc_macro_artifact(artifact.clone());
     }
-    let ast = match macro_expansion::expand_macros_with_context(ast, &macro_context) {
-        Ok(ast) => ast,
-        Err(e) => {
-            return Err(e.with_sources(&diagnostic_sources));
-        }
-    };
+    let ast = macro_expansion::expand_macros_with_context(ast, &macro_context)
+        .map_err(|diagnostics| diagnostics.with_sources(&diagnostic_sources))?;
 
     if config.has_debug_print(DebugPrint::Expanded) {
         println!("{:#?}", ast);
@@ -200,46 +206,56 @@ fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, D
     }
     diagnostic_sources = diagnostic::DiagnosticSourceMap::from_source_database(&source_db);
 
-    // Phase 3a: Collect top-level declarations
-    let decls = match collect::collect_with_source_graph(
+    let declarations = collect::collect_with_source_graph(
         &ast,
         &source_graph,
-        crate_ctx,
+        &ctx,
         !config.no_prelude,
         config.current_crate_name.as_deref(),
-    ) {
-        Ok(d) => d,
-        Err(errors) => {
-            return Err(Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources));
-        }
-    };
-    let loaded_prelude_export_ids = decls.loaded_prelude_export_ids.clone();
-    let infix_precedence = decls.infix_precedence.clone();
+    )
+    .map_err(|errors| Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources))?;
+    let loaded_prelude_export_ids = declarations.loaded_prelude_export_ids.clone();
+    let infix_precedence = declarations.infix_precedence.clone();
     let fingerprint_source_files = source_graph.loaded_files().to_vec();
-
-    // Phase 3b: Lower AST → HIR with type inference
-    let partial_hir = match lower::program::lower_from_declarations(
+    let partial_hir = lower::program::lower_from_declarations(
         &ast,
-        decls,
-        crate_ctx,
+        declarations,
+        &ctx,
         config.current_crate_name.as_deref(),
-    ) {
-        Ok(h) => h,
-        Err(errors) => {
-            return Err(Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources));
-        }
-    };
+    )
+    .map_err(|errors| Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources))?;
+    let hir = infer::finalize(partial_hir).map_err(|errors| {
+        Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources)
+    })?;
 
-    // Phase 3c: Finalize types (solve type variables, generalize)
-    let hir = match infer::finalize(partial_hir) {
-        Ok(h) => h,
-        Err(errors) => {
-            return Err(Diagnostics::from_resolve_errors(errors).with_sources(&diagnostic_sources));
-        }
-    };
     if config.has_debug_print(DebugPrint::Hir) {
         println!("{:#?}", hir.program);
     }
+
+    Ok(FrontendOutput {
+        analysis: analysis::Analysis { ast, hir },
+        crate_ctx: ctx,
+        diagnostic_sources,
+        loaded_prelude_export_ids,
+        infix_precedence,
+        fingerprint_source_files,
+        source_db,
+        effective_current_crate_name,
+    })
+}
+
+fn compile_impl(config: &Config, emit_products: bool) -> Result<CompileOutput, Diagnostics> {
+    let FrontendOutput {
+        analysis: analysis::Analysis { ast, hir },
+        crate_ctx: ctx,
+        diagnostic_sources,
+        loaded_prelude_export_ids,
+        infix_precedence,
+        fingerprint_source_files,
+        source_db,
+        effective_current_crate_name,
+    } = compile_frontend(config)?;
+    let crate_ctx = &ctx;
 
     let source_fingerprint =
         product_source_fingerprint(config, &source_db, &fingerprint_source_files);

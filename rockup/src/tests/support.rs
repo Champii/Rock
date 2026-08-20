@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::{
     constants::{
         BIN_DIR, COMPONENTS_MANIFEST_NAME, DEFAULT_TOOLCHAIN_FILE, LIB_DIR, ROCKC_BIN_NAME,
-        ROCK_BIN_NAME, ROCK_TOOLCHAIN_FILE, STDLIB_ARTIFACT_NAME, STDLIB_OBJECT_NAME,
-        TOOLCHAIN_MANIFEST_NAME,
+        ROCK_BIN_NAME, ROCK_LSP_BIN_NAME, ROCK_TOOLCHAIN_FILE, STDLIB_ARTIFACT_NAME,
+        STDLIB_OBJECT_NAME, TOOLCHAIN_MANIFEST_NAME,
     },
     home::RockupHome,
     layout::host_target_triple,
@@ -41,6 +41,7 @@ pub(super) fn write_fake_toolchain_root(root: &Path) {
 
     write_script(&bin_dir.join(ROCK_BIN_NAME), "exit 17\n");
     write_script(&bin_dir.join(ROCKC_BIN_NAME), "exit 0\n");
+    write_script(&bin_dir.join(ROCK_LSP_BIN_NAME), "exit 31\n");
     fs::write(target_libdir.join(STDLIB_ARTIFACT_NAME), "artifact").unwrap();
     fs::write(target_libdir.join(STDLIB_OBJECT_NAME), "object").unwrap();
     fs::write(target_libdir.join(TOOLCHAIN_MANIFEST_NAME), "{}\n").unwrap();
@@ -56,6 +57,7 @@ pub(super) fn write_fake_cargo_build_dir(root: &Path) {
     fs::create_dir_all(&target_libdir).unwrap();
     write_script(&root.join(ROCK_BIN_NAME), "exit 13\n");
     write_script(&root.join(ROCKC_BIN_NAME), "exit 0\n");
+    write_script(&root.join(ROCK_LSP_BIN_NAME), "exit 31\n");
     fs::write(target_libdir.join(STDLIB_ARTIFACT_NAME), "artifact").unwrap();
     fs::write(target_libdir.join(STDLIB_OBJECT_NAME), "object").unwrap();
     fs::write(target_libdir.join(TOOLCHAIN_MANIFEST_NAME), "{}\n").unwrap();

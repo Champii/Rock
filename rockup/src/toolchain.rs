@@ -7,7 +7,8 @@ use std::{
 use crate::{
     constants::{
         BIN_DIR, COMPONENTS_MANIFEST_NAME, LIB_DIR, ROCKC_BIN_NAME, ROCKUP_TOOLCHAIN_ENV,
-        ROCK_BIN_NAME, STDLIB_ARTIFACT_NAME, STDLIB_OBJECT_NAME, TOOLCHAIN_MANIFEST_NAME,
+        ROCK_BIN_NAME, ROCK_LSP_BIN_NAME, STDLIB_ARTIFACT_NAME, STDLIB_OBJECT_NAME,
+        TOOLCHAIN_MANIFEST_NAME,
     },
     fsutil::copy_directory_recursive,
     home::{installed_toolchain_names, RockupHome},
@@ -207,6 +208,7 @@ pub(crate) fn proxy_toolchain_command_from_dir(
     let binary_path = match binary {
         ROCK_BIN_NAME => layout.rock_bin,
         ROCKC_BIN_NAME => layout.rockc_bin,
+        ROCK_LSP_BIN_NAME => layout.rock_lsp_bin,
         _ => return Err(format!("Unsupported rockup shim target '{}'", binary)),
     };
 
@@ -257,6 +259,7 @@ pub(crate) fn validate_toolchain_layout(layout: &ToolchainLayout) -> Result<(), 
     let required_paths = [
         (&layout.rock_bin, "rock binary"),
         (&layout.rockc_bin, "rockc binary"),
+        (&layout.rock_lsp_bin, "rock-lsp binary"),
     ];
 
     for (path, label) in required_paths {
@@ -295,6 +298,10 @@ fn install_from_cargo_build_dir(source: &Path, destination: &Path) -> Result<(),
         source.join(ROCKC_BIN_NAME),
         destination.join(BIN_DIR).join(ROCKC_BIN_NAME),
     )?;
+    crate::fsutil::copy_file_with_permissions(
+        source.join(ROCK_LSP_BIN_NAME),
+        destination.join(BIN_DIR).join(ROCK_LSP_BIN_NAME),
+    )?;
 
     for optional_dir in [LIB_DIR, "share", "src"] {
         let source_dir = source.join(optional_dir);
@@ -310,6 +317,7 @@ fn validate_cargo_build_dir(layout: &CargoBuildDirLayout) -> Result<(), String> 
     let required_paths = [
         (&layout.rock_bin, "rock binary"),
         (&layout.rockc_bin, "rockc binary"),
+        (&layout.rock_lsp_bin, "rock-lsp binary"),
         (
             &layout.target_libdir.join(STDLIB_ARTIFACT_NAME),
             "stdlib artifact",

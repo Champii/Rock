@@ -11,7 +11,7 @@ use crate::{
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-pub(super) fn sysroot_env_lock() -> &'static Mutex<()> {
+pub(crate) fn sysroot_env_lock() -> &'static Mutex<()> {
     static LOCK: std::sync::OnceLock<Mutex<()>> = std::sync::OnceLock::new();
     LOCK.get_or_init(|| Mutex::new(()))
 }

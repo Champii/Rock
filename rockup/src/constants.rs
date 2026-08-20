@@ -10,6 +10,7 @@ pub(crate) const BIN_DIR: &str = "bin";
 pub(crate) const LIB_DIR: &str = "lib";
 pub(crate) const ROCK_BIN_NAME: &str = "rock";
 pub(crate) const ROCKC_BIN_NAME: &str = "rockc";
+pub(crate) const ROCK_LSP_BIN_NAME: &str = "rock-lsp";
 pub(crate) const STDLIB_ARTIFACT_NAME: &str = rock_shared::sysroot::STDLIB_ARTIFACT_FILE_NAME;
 pub(crate) const STDLIB_OBJECT_NAME: &str = rock_shared::sysroot::STDLIB_OBJECT_FILE_NAME;
 pub(crate) const TOOLCHAIN_MANIFEST_NAME: &str = rock_shared::sysroot::TOOLCHAIN_MANIFEST_FILE_NAME;

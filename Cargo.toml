@@ -17,6 +17,7 @@ members = [
   "lib",
   "rockup",
   "rock-shared",
+  "rock-lsp",
 ]
 
 [workspace.dependencies]

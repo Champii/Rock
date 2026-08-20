@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::constants::{
-    BIN_DIR, COMPONENTS_MANIFEST_NAME, LIB_DIR, ROCKC_BIN_NAME, ROCK_BIN_NAME,
+    BIN_DIR, COMPONENTS_MANIFEST_NAME, LIB_DIR, ROCKC_BIN_NAME, ROCK_BIN_NAME, ROCK_LSP_BIN_NAME,
     STDLIB_ARTIFACT_NAME, STDLIB_OBJECT_NAME, TOOLCHAIN_MANIFEST_NAME,
 };
 
@@ -15,6 +15,7 @@ pub(crate) struct ToolchainLayout {
     pub(crate) target_component_dir: PathBuf,
     pub(crate) rock_bin: PathBuf,
     pub(crate) rockc_bin: PathBuf,
+    pub(crate) rock_lsp_bin: PathBuf,
     pub(crate) stdlib_artifact: PathBuf,
     pub(crate) stdlib_object: PathBuf,
     pub(crate) manifest_path: PathBuf,
@@ -36,6 +37,7 @@ impl ToolchainLayout {
             target_component_dir: target_libdir.clone(),
             rock_bin: bin_dir.join(ROCK_BIN_NAME),
             rockc_bin: bin_dir.join(ROCKC_BIN_NAME),
+            rock_lsp_bin: bin_dir.join(ROCK_LSP_BIN_NAME),
             stdlib_artifact: target_libdir.join(STDLIB_ARTIFACT_NAME),
             stdlib_object: target_libdir.join(STDLIB_OBJECT_NAME),
             manifest_path: target_libdir.join(TOOLCHAIN_MANIFEST_NAME),
@@ -48,6 +50,7 @@ impl ToolchainLayout {
 pub(crate) struct CargoBuildDirLayout {
     pub(crate) rock_bin: PathBuf,
     pub(crate) rockc_bin: PathBuf,
+    pub(crate) rock_lsp_bin: PathBuf,
     pub(crate) target_libdir: PathBuf,
 }
 
@@ -60,6 +63,7 @@ pub(crate) fn cargo_build_dir_layout(root: PathBuf) -> CargoBuildDirLayout {
     CargoBuildDirLayout {
         rock_bin: root.join(ROCK_BIN_NAME),
         rockc_bin: root.join(ROCKC_BIN_NAME),
+        rock_lsp_bin: root.join(ROCK_LSP_BIN_NAME),
         target_libdir,
     }
 }

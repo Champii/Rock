@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     constants::{
-        ENV_FILE_NAME, ROCKC_BIN_NAME, ROCK_BIN_NAME, SHELL_INIT_END_MARKER,
+        ENV_FILE_NAME, ROCKC_BIN_NAME, ROCK_BIN_NAME, ROCK_LSP_BIN_NAME, SHELL_INIT_END_MARKER,
         SHELL_INIT_START_MARKER,
     },
     fsutil::make_executable,
@@ -25,6 +25,7 @@ pub(crate) fn ensure_shims(home: &RockupHome) -> Result<(), String> {
 
     write_shim(home, ROCK_BIN_NAME)?;
     write_shim(home, ROCKC_BIN_NAME)?;
+    write_shim(home, ROCK_LSP_BIN_NAME)?;
     Ok(())
 }
 

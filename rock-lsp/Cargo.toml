@@ -1,0 +1,11 @@
+[package]
+name = "rock-lsp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { workspace = true }
+rock-lib = { path = "../lib" }
+rock = { path = "../rock" }
+tokio = { version = "1.40", features = ["io-std", "macros", "rt-multi-thread", "sync", "time"] }
+tower-lsp = "0.20"

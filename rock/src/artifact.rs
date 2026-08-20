@@ -52,6 +52,42 @@ pub(crate) fn collect_dependency_artifacts(
     Ok(artifacts.into_iter().collect())
 }
 
+pub(crate) fn collect_root_artifacts(
+    package: &Package,
+    state: &mut ArtifactBuildState,
+) -> Result<Vec<ExternArtifact>, String> {
+    let dependency_artifacts = collect_dependency_artifacts(package, state)?;
+    let mut artifacts = dependency_artifacts
+        .iter()
+        .map(|(name, path)| ExternArtifact {
+            name: name.clone(),
+            path: path.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    if package_requires_sysroot_stdlib(package) {
+        let layout = ensure_sysroot_stdlib_available()?;
+        artifacts.push(ExternArtifact {
+            name: STDLIB_CRATE_NAME.to_string(),
+            path: layout.stdlib_artifact,
+        });
+    }
+    if state.dependency_artifacts_use_stdlib(&dependency_artifacts) {
+        let stdlib_artifact = ensure_sysroot_stdlib_available()?.stdlib_artifact;
+        if !artifacts
+            .iter()
+            .any(|artifact| artifact.path == stdlib_artifact)
+        {
+            artifacts.push(ExternArtifact {
+                name: STDLIB_CRATE_NAME.to_string(),
+                path: stdlib_artifact,
+            });
+        }
+    }
+
+    Ok(artifacts)
+}
+
 fn collect_dependency_artifacts_into(
     package: &Package,
     state: &mut ArtifactBuildState,
