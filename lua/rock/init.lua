@@ -12,17 +12,17 @@ local function executable(path)
 end
 
 local function default_server()
-  local from_path = vim.fn.exepath("rock-lsp")
-  if executable(from_path) then
-    return from_path
-  end
-
   local root = plugin_root()
   for _, profile in ipairs({ "release", "debug" }) do
     local candidate = vim.fs.joinpath(root, "target", profile, "rock-lsp")
     if executable(candidate) then
       return candidate
     end
+  end
+
+  local from_path = vim.fn.exepath("rock-lsp")
+  if executable(from_path) then
+    return from_path
   end
 
   return "rock-lsp"

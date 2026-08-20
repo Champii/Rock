@@ -39,7 +39,7 @@ OPTIONS                                                       *rock-options*
 
 cmd ~
     String or list used to start the server. By default the plugin checks
-    $PATH, target/release/rock-lsp, and target/debug/rock-lsp.
+    target/release/rock-lsp, target/debug/rock-lsp, and then $PATH.
 
 extern_artifacts ~
     Table mapping crate names to .rkca artifact paths. Each entry becomes an

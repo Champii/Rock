@@ -169,7 +169,8 @@ impl Backend {
                     .await;
             }
             Err(diagnostics) => {
-                self.state.write().await.analyses.remove(&uri);
+                // Keep the last successful snapshot so a temporary edit error does not
+                // disable hover and signature help across the whole document.
                 let documents = self.state.read().await.documents.clone();
                 for (diagnostic_uri, diagnostic_document) in documents {
                     let converted = diagnostics

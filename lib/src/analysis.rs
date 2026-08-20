@@ -3,13 +3,13 @@ use std::path::Path;
 use crate::ast::Program;
 use crate::hir::{
     AcceptedHirBlock, AcceptedHirExpr, AcceptedHirFunction, HirCallTarget, HirExprKindFor,
-    HirMethodLocation, HirSelectedMethodTarget, HirStmtFor, HirVarTarget,
+    HirMethodLocation, HirSelectedMethodTarget, HirStmtFor, HirVarTarget, HirVariantFields,
 };
-use crate::ids::{DefId, HirLocalId};
+use crate::ids::{AssocTypeId, DefId, FieldId, HirLocalId, VariantId};
 use crate::infer::ResolvedHirProgram;
 use crate::lexer::Span;
 use crate::source_map::SourceSymbol;
-use crate::types::Type;
+use crate::types::{GenericParamDecl, GenericParamId, Type};
 
 #[derive(Debug)]
 pub struct Analysis {
@@ -21,6 +21,10 @@ pub struct Analysis {
 pub enum HoverKind {
     Function,
     Variable,
+    Type,
+    Field,
+    Variant,
+    Generic,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,26 +49,57 @@ struct FunctionSignature {
 
 impl Analysis {
     pub fn hover(&self, path: &Path, offset: usize) -> Option<HoverInfo> {
-        let (symbol, span) = self.hir.source_map.symbol_at(path, offset)?;
-        match symbol {
-            SourceSymbol::Definition(id) => {
-                let signature = self.function_signature(id)?;
-                Some(HoverInfo {
+        if let Some((symbol, span)) = self.hir.source_map.symbol_at(path, offset) {
+            let hover = match symbol {
+                SourceSymbol::Definition(id) => {
+                    self.definition_hover(id).map(|(contents, kind)| HoverInfo {
+                        span,
+                        contents,
+                        kind,
+                    })
+                }
+                SourceSymbol::Local { owner, local } => {
+                    self.local_binding(owner, local)
+                        .map(|(name, ty)| HoverInfo {
+                            span,
+                            contents: format!("{}: {}", name, self.hir.display_type(&ty)),
+                            kind: HoverKind::Variable,
+                        })
+                }
+                SourceSymbol::Field { owner, field } => {
+                    self.field_hover(owner, field).map(|contents| HoverInfo {
+                        span,
+                        contents,
+                        kind: HoverKind::Field,
+                    })
+                }
+                SourceSymbol::Variant { owner, variant } => {
+                    self.variant_hover(owner, variant)
+                        .map(|contents| HoverInfo {
+                            span,
+                            contents,
+                            kind: HoverKind::Variant,
+                        })
+                }
+                SourceSymbol::AssociatedType { owner, associated } => self
+                    .associated_type_hover(owner, associated)
+                    .map(|contents| HoverInfo {
+                        span,
+                        contents,
+                        kind: HoverKind::Type,
+                    }),
+                SourceSymbol::Generic(id) => self.generic_name(id).map(|name| HoverInfo {
                     span,
-                    contents: signature.label,
-                    kind: HoverKind::Function,
-                })
+                    contents: format!("{}: type parameter", name),
+                    kind: HoverKind::Generic,
+                }),
+            };
+            if hover.is_some() {
+                return hover;
             }
-            SourceSymbol::Local { owner, local } => {
-                let (name, ty) = self.local_binding(owner, local)?;
-                Some(HoverInfo {
-                    span,
-                    contents: format!("{}: {}", name, self.hir.display_type(&ty)),
-                    kind: HoverKind::Variable,
-                })
-            }
-            _ => None,
         }
+
+        self.expression_hover(path, offset)
     }
 
     pub fn signature(&self, path: &Path, offset: usize) -> Option<SignatureInfo> {
@@ -73,6 +108,180 @@ impl Analysis {
             find_signature_in_block(self, &function.body, path, offset, &mut best)
         });
         best.map(|(_, signature)| signature)
+    }
+
+    fn expression_hover(&self, path: &Path, offset: usize) -> Option<HoverInfo> {
+        let mut best = None;
+        self.for_each_function(|function| {
+            find_expression_hover_in_block(self, &function.body, path, offset, &mut best)
+        });
+        best.map(|(_, hover)| hover)
+    }
+
+    fn definition_hover(&self, id: DefId) -> Option<(String, HoverKind)> {
+        if let Some(signature) = self.function_signature(id) {
+            return Some((signature.label, HoverKind::Function));
+        }
+        if let Some((name, structure)) = self.hir.program.struct_by_id(id) {
+            let mut lines = vec![format!(
+                "struct {}{}",
+                name,
+                format_generic_params(&structure.generic_params)
+            )];
+            lines.extend(
+                structure.fields.iter().map(|field| {
+                    format!("    {}: {}", field.name, self.hir.display_type(&field.ty))
+                }),
+            );
+            return Some((lines.join("\n"), HoverKind::Type));
+        }
+        if let Some((name, enumeration)) = self.hir.program.enum_by_id(id) {
+            return Some((
+                format!(
+                    "enum {}{}",
+                    name,
+                    format_generic_params(&enumeration.generic_params)
+                ),
+                HoverKind::Type,
+            ));
+        }
+        if let Some(trait_def) = self.hir.program.traits.get(&id) {
+            return Some((
+                format!(
+                    "trait {}{}",
+                    trait_def.name,
+                    format_generic_params(&trait_def.generic_params)
+                ),
+                HoverKind::Type,
+            ));
+        }
+        if let Some(alias) = self.hir.program.type_aliases.get(&id) {
+            return Some((
+                format!(
+                    "type {}{} = {}",
+                    alias.name,
+                    format_generic_params(&alias.generic_params),
+                    self.hir.display_type(&alias.ty)
+                ),
+                HoverKind::Type,
+            ));
+        }
+        self.hir.program.impls.get(&id).map(|imp| {
+            let label = imp
+                .trait_name
+                .as_ref()
+                .map(|trait_name| format!("impl {} for {}", trait_name, imp.type_name))
+                .unwrap_or_else(|| format!("impl {}", imp.type_name));
+            (label, HoverKind::Type)
+        })
+    }
+
+    fn field_hover(&self, owner: DefId, field_id: FieldId) -> Option<String> {
+        if let Some(structure) = self.hir.program.structs.get(&owner) {
+            let field = structure.fields.iter().find(|field| field.id == field_id)?;
+            return Some(format!(
+                "{}.{}: {}",
+                structure.name,
+                field.name,
+                self.hir.display_type(&field.ty)
+            ));
+        }
+
+        let enumeration = self.hir.program.enums.get(&owner)?;
+        enumeration.variants.iter().find_map(|variant| {
+            let HirVariantFields::Named(fields) = &variant.fields else {
+                return None;
+            };
+            fields
+                .iter()
+                .find(|field| field.id == field_id)
+                .map(|field| {
+                    format!(
+                        "{}::{}.{}: {}",
+                        enumeration.name,
+                        variant.name,
+                        field.name,
+                        self.hir.display_type(&field.ty)
+                    )
+                })
+        })
+    }
+
+    fn variant_hover(&self, owner: DefId, variant_id: VariantId) -> Option<String> {
+        let enumeration = self.hir.program.enums.get(&owner)?;
+        let variant = enumeration
+            .variants
+            .iter()
+            .find(|variant| variant.id == variant_id)?;
+        let fields = match &variant.fields {
+            HirVariantFields::Named(fields) => fields
+                .iter()
+                .map(|field| format!("{}: {}", field.name, self.hir.display_type(&field.ty)))
+                .collect::<Vec<_>>(),
+            HirVariantFields::Positional(fields) => fields
+                .iter()
+                .map(|field| self.hir.display_type(field))
+                .collect(),
+            HirVariantFields::Unit => Vec::new(),
+        };
+        let payload = (!fields.is_empty())
+            .then(|| format!(" ({})", fields.join(", ")))
+            .unwrap_or_default();
+        Some(format!("{}::{}{}", enumeration.name, variant.name, payload))
+    }
+
+    fn associated_type_hover(&self, owner: DefId, associated: AssocTypeId) -> Option<String> {
+        if let Some(trait_def) = self.hir.program.traits.get(&owner) {
+            let associated = trait_def
+                .associated_types
+                .iter()
+                .find(|item| item.id == associated)?;
+            return Some(format!(
+                "associated type {}::{}",
+                trait_def.name, associated.name
+            ));
+        }
+        let imp = self.hir.program.impls.get(&owner)?;
+        let associated = imp
+            .associated_types
+            .iter()
+            .find(|item| item.id == associated)?;
+        Some(format!(
+            "associated type {}::{} = {}",
+            imp.type_name,
+            associated.name,
+            self.hir.display_type(&associated.ty)
+        ))
+    }
+
+    fn generic_name(&self, id: GenericParamId) -> Option<&str> {
+        if let Some(function) = self.function(id.owner) {
+            return generic_param_name(&function.generic_params, id);
+        }
+        if let Some(structure) = self.hir.program.structs.get(&id.owner) {
+            return generic_param_name(&structure.generic_params, id);
+        }
+        if let Some(enumeration) = self.hir.program.enums.get(&id.owner) {
+            return generic_param_name(&enumeration.generic_params, id);
+        }
+        if let Some(trait_def) = self.hir.program.traits.get(&id.owner) {
+            return generic_param_name(&trait_def.generic_params, id).or_else(|| {
+                trait_def
+                    .target
+                    .as_ref()
+                    .filter(|param| param.id == id)
+                    .map(|param| param.name.as_str())
+            });
+        }
+        if let Some(imp) = self.hir.program.impls.get(&id.owner) {
+            return generic_param_name(&imp.type_generics, id)
+                .or_else(|| generic_param_name(&imp.trait_generics, id));
+        }
+        self.hir
+            .program
+            .type_aliases
+            .get(&id.owner)
+            .and_then(|alias| generic_param_name(&alias.generic_params, id))
     }
 
     fn function_signature(&self, id: DefId) -> Option<FunctionSignature> {
@@ -213,6 +422,28 @@ impl Analysis {
     }
 }
 
+fn format_generic_params(params: &[GenericParamDecl]) -> String {
+    if params.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " {}",
+            params
+                .iter()
+                .map(|param| param.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+fn generic_param_name(params: &[GenericParamDecl], id: GenericParamId) -> Option<&str> {
+    params
+        .iter()
+        .find(|param| param.id == id)
+        .map(|param| param.name.as_str())
+}
+
 fn format_signature(name: &str, parameters: &[String], ret: &str) -> String {
     if parameters.is_empty() {
         format!("{} = -> {}", name, ret)
@@ -278,6 +509,78 @@ fn find_local_in_expr(expr: &AcceptedHirExpr, local: HirLocalId) -> Option<(Stri
         }
     }
     found
+}
+
+fn find_expression_hover_in_block(
+    analysis: &Analysis,
+    block: &AcceptedHirBlock,
+    path: &Path,
+    offset: usize,
+    best: &mut Option<(usize, HoverInfo)>,
+) {
+    for statement in &block.stmts {
+        match statement {
+            HirStmtFor::Let { value, .. }
+            | HirStmtFor::Expr(value)
+            | HirStmtFor::Return(Some(value))
+            | HirStmtFor::Break(Some(value)) => {
+                find_expression_hover_in_expr(analysis, value, path, offset, best)
+            }
+            HirStmtFor::Return(None) | HirStmtFor::Break(None) | HirStmtFor::Continue => {}
+        }
+    }
+}
+
+fn find_expression_hover_in_expr(
+    analysis: &Analysis,
+    expr: &AcceptedHirExpr,
+    path: &Path,
+    offset: usize,
+    best: &mut Option<(usize, HoverInfo)>,
+) {
+    if expr.span.file_path == path && expr.span.start <= offset && offset < expr.span.end {
+        let width = expr.span.end.saturating_sub(expr.span.start);
+        if best
+            .as_ref()
+            .is_none_or(|(best_width, _)| width < *best_width)
+        {
+            let (contents, kind) = match &expr.kind {
+                HirExprKindFor::ResolvedVar(reference) => (
+                    format!(
+                        "{}: {}",
+                        reference.name,
+                        analysis.hir.display_type(&expr.ty)
+                    ),
+                    HoverKind::Variable,
+                ),
+                HirExprKindFor::FieldAccess(_, name, location) => {
+                    let contents = location
+                        .as_ref()
+                        .and_then(|field| analysis.field_hover(field.owner, field.field_id))
+                        .unwrap_or_else(|| {
+                            format!("{}: {}", name, analysis.hir.display_type(&expr.ty))
+                        });
+                    (contents, HoverKind::Field)
+                }
+                _ => (analysis.hir.display_type(&expr.ty), HoverKind::Variable),
+            };
+            *best = Some((
+                width,
+                HoverInfo {
+                    span: expr.span.clone(),
+                    contents,
+                    kind,
+                },
+            ));
+        }
+    }
+
+    visit_expr_children(expr, &mut |child| match child {
+        HirChild::Expr(child) => find_expression_hover_in_expr(analysis, child, path, offset, best),
+        HirChild::Block(block) => {
+            find_expression_hover_in_block(analysis, block, path, offset, best)
+        }
+    });
 }
 
 fn find_signature_in_block(
@@ -505,6 +808,28 @@ mod tests {
         assert!(signature.label.starts_with("id = value: "));
         assert_eq!(signature.parameters.len(), 1);
         assert_eq!(signature.active_parameter, 0);
+    }
+
+    #[test]
+    fn analysis_reports_named_types_and_fields() {
+        let source = "struct Holder\n    < value: I64\n\nread: Holder -> I64\nread = holder -> holder.value\n\nmain = -> 0\n";
+        let analysis = analyze(source);
+        let path = PathBuf::from("/virtual/main.rk");
+
+        let structure = analysis
+            .hover(&path, source.find("Holder").unwrap())
+            .unwrap();
+        assert_eq!(structure.contents, "struct Holder\n    value: I64");
+
+        let declaration = analysis
+            .hover(&path, source.find("value").unwrap())
+            .unwrap();
+        assert_eq!(declaration.contents, "Holder.value: I64");
+
+        let reference = analysis
+            .hover(&path, source.rfind("value").unwrap())
+            .unwrap();
+        assert_eq!(reference.contents, "Holder.value: I64");
     }
 
     #[test]
