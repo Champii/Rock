@@ -94,7 +94,7 @@ impl Counter
     @read: I64
     @read = -> @value
 
-    ^@set: I64 -> Unit
+    ^@set: I64 -> ()
     ^@set = value ->
         self.value = value
         return

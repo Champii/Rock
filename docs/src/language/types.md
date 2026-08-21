@@ -14,7 +14,7 @@ The primitive families used in ordinary programs are:
 | Boolean | `Bool` | `true`, `false` |
 | Character | `Char` | `'R'` |
 | Borrowed string | `&Str` | `"rock"` |
-| No meaningful value | `Unit` | `()` |
+| No meaningful value | `()` | `()` |
 
 This complete program gives each of the commonly encountered literal forms an explicit type:
 
@@ -40,12 +40,12 @@ Numeric literals receive an expected type from an annotation or a function signa
 Without an expected type, whole-number literals default to `I64` and decimal literals default to `F64`:
 
 ```rock
-show_default_integer: I64 -> Unit
+show_default_integer: I64 -> ()
 show_default_integer = value ->
     value.println!
     return
 
-show_default_float: F64 -> Unit
+show_default_float: F64 -> ()
 show_default_float = value ->
     value.println!
     return

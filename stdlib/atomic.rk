@@ -28,7 +28,7 @@ impl AtomicU64
     @fetch_sub: U64 -> U64
     @fetch_sub = value -> unsafe ~AtomicU64FetchSub self.ptr, value
 
-    @store: U64 -> Unit
+    @store: U64 -> ()
     @store = value ->
         unsafe ~AtomicU64Store self.ptr, value
         return

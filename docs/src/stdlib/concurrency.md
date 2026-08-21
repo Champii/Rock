@@ -1,6 +1,6 @@
 # Threads and Synchronization
 
-The standard library provides owned POSIX threads, atomic reference counting, a spin-yield mutex, and one 64-bit atomic type. These APIs make ownership requirements visible: a spawned closure must own `Send` data, a join handle owns the responsibility to join, and a mutex guard unlocks when it is dropped.
+The standard library provides owned POSIX threads, atomic reference counting, a spin-yield mutex, and one 64-bit atomic type. These APIs make ownership requirements visible: a spawned closure must own `Send` data, a join handle provides the option to join, and a mutex guard unlocks when it is dropped.
 
 ## Spawning and joining
 
@@ -19,7 +19,7 @@ main = ->
     0
 ```
 
-The output is `42`. A successful `spawn` transfers the closure to the new thread; `join!` transfers its result back. Dropping an unjoined handle also joins, so a handle is never a detached task in the current API. A failed create or join is data in `ThreadError`, not an exception.
+The output is `42`. A successful `spawn` transfers the closure to the new thread; `join!` transfers its result back. Dropping an unjoined handle detaches the thread without blocking, and the worker cleans up its result when it finishes. A failed create or join is data in `ThreadError`, not an exception.
 
 ## Owned captures
 
@@ -62,7 +62,7 @@ struct Counter
     < value: I64
 
 impl Counter
-    ^@increment: () -> Unit
+    ^@increment: () -> ()
     ^@increment = ->
         self.value = self.value + 1
         return
@@ -118,7 +118,7 @@ Both workers own a cloned `Arc`, but only one guard can update the `Counter` at 
 ```rock
 > stdlib::sync::Mutex
 
-lock_once: &Mutex I64 -> Unit
+lock_once: &Mutex I64 -> ()
 lock_once = mutex ->
     guard = mutex.lock!
     match mutex.try_lock!
@@ -181,7 +181,7 @@ The first line is a host-specific pthread identifier; the program then yields an
 
 - The implementation is pthread-oriented and assumes a Linux-style ABI.
 - `Mutex` uses an atomic word plus `sched_yield`, not a platform blocking primitive.
-- There are no channels, condition variables, thread pools, detached tasks, async functions, or executors.
-- Dropping a `JoinHandle` blocks until completion, so long-running services cannot use nonblocking reaping or detached spawning.
+- There are no channels, condition variables, thread pools, async functions, or executors.
+- Dropping a `JoinHandle` detaches the thread; detached results and failures cannot be observed.
 - Closure-environment cleanup still has incomplete cases; treat concurrency as a prototype runtime feature.
 - Do not capture a reference, a `MutexGuard`, or an owned struct that contains a reference in a spawned closure.

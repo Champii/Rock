@@ -418,6 +418,15 @@ pub enum Expression {
     BinopExpr(UnaryExpr, Operator, Box<Expression>),
     UnaryExpr(UnaryExpr),
     CastExpr(Box<Expression>, ParseType),
+    Range(RangeExpr),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RangeExpr {
+    pub start: Option<Box<Expression>>,
+    pub end: Option<Box<Expression>>,
+    pub inclusive: bool,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -613,7 +622,6 @@ pub enum SecondaryExpr {
     Arguments(Vec<Argument>),
     Indice(Box<Expression>), // Boxing here to keep the enum size low
     Dot(IdentOrNumber),
-    DoubleDot(IdentOrNumber),
     Interogation,
 }
 

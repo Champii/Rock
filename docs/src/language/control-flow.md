@@ -60,14 +60,16 @@ Rock has no built-in `++` or `--`; write the state transition explicitly.
 
 ## `for`
 
-`for pattern in expression` iterates over a range, fixed array, or slice:
+`for pattern in expression` iterates over a range, fixed array, or slice. `start..end` excludes the upper bound, while `start..=end` includes it:
 
 ```rock
 main = ->
-    for number in 0..10
+for number in 0..10
         number.println!
     0
 ```
+
+Only ranges with both endpoints are finite loop inputs. Open-ended forms such as `start..` remain useful for slicing but are rejected as `for` iterators.
 
 The upper bound is exclusive, so this prints `0` through `9`. The pattern is bound for each iteration:
 
@@ -145,6 +147,6 @@ Arms are tested from top to bottom. The first `Waiting` arm handles values over 
 
 - Returning incompatible branch types from an `if` expression.
 - Forgetting the update in a `while`, producing a condition that never changes.
-- Expecting the upper endpoint of a range to be included.
+- Expecting `start..end` to include the upper endpoint; use `start..=end` when it should be included.
 - Putting a broad `match` pattern before a more specific guarded pattern.
 - Using `break` or `continue` outside the nearest loop.

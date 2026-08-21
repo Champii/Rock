@@ -214,6 +214,7 @@ pub enum MirIntrinsicId {
     PtrOffset,
     MakeArr,
     BorrowSlice,
+    BorrowSliceMut,
     BorrowStr,
     ArrPtr,
     SizeOf,
@@ -405,6 +406,7 @@ impl MirIntrinsicId {
             "PtrOffset" => Self::PtrOffset,
             "MakeArr" => Self::MakeArr,
             "BorrowSlice" => Self::BorrowSlice,
+            "BorrowSliceMut" => Self::BorrowSliceMut,
             "BorrowStr" => Self::BorrowStr,
             "ArrPtr" => Self::ArrPtr,
             "SizeOf" => Self::SizeOf,
@@ -595,6 +597,7 @@ impl MirIntrinsicId {
             Self::PtrOffset => "PtrOffset",
             Self::MakeArr => "MakeArr",
             Self::BorrowSlice => "BorrowSlice",
+            Self::BorrowSliceMut => "BorrowSliceMut",
             Self::BorrowStr => "BorrowStr",
             Self::ArrPtr => "ArrPtr",
             Self::SizeOf => "SizeOf",
@@ -784,6 +787,7 @@ impl MirIntrinsicId {
                 | Self::BoolNot
                 | Self::MakeArr
                 | Self::BorrowSlice
+                | Self::BorrowSliceMut
                 | Self::BorrowStr
                 | Self::AtomicU64Exchange
                 | Self::AtomicU64FetchAdd

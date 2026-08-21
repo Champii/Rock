@@ -1303,10 +1303,6 @@ impl Monomorphizer {
                 self.update_self_types_expr(lhs.as_mut(), self_type);
                 self.update_self_types_expr(rhs.as_mut(), self_type);
             }
-            HirExprKind::Range(start, end) => {
-                self.update_self_types_expr(start.as_mut(), self_type);
-                self.update_self_types_expr(end.as_mut(), self_type);
-            }
             HirExprKind::Intrinsic { args, .. } => {
                 for arg in args {
                     self.update_self_types_expr(arg, self_type);

@@ -60,6 +60,7 @@ fn ast_expr_operand_span(operand: &AstExprOperand<'_>) -> Option<Span> {
             ast::Expression::BinopExpr(_, operator, _) => Some(operator.span.clone()),
             ast::Expression::UnaryExpr(unary) => ast_unary_span(unary),
             ast::Expression::CastExpr(_, ty) => Some(ty.span()),
+            ast::Expression::Range(range) => Some(range.span.clone()),
         }
     }
 
@@ -560,6 +561,7 @@ impl Lowerer {
                 }
             }
             ast::Expression::UnaryExpr(_) => {}
+            ast::Expression::Range(_) => {}
         }
 
         let ast::Expression::UnaryExpr(ast::UnaryExpr::PrimaryExpr(primary)) = expr else {
@@ -634,6 +636,91 @@ impl Lowerer {
     }
 
     fn lower_expression_with_use(&mut self, expr: &ast::Expression, use_kind: ExprUse) -> HirExpr {
+        if let ast::Expression::Range(range) = expr {
+            if use_kind == ExprUse::AssignmentPlace {
+                self.diagnostics.push_type_with_span(
+                    "Range expressions cannot be used as assignment places".to_string(),
+                    range.span.clone(),
+                );
+                return self.error_expression_at(range.span.clone());
+            }
+
+            let Some(range_items) = self.language_items.range.clone() else {
+                self.diagnostics.push_with_span(
+                    "Cannot use range syntax because the Range language-item protocol is unavailable"
+                        .to_string(),
+                    range.span.clone(),
+                );
+                return self.error_expression_at(range.span.clone());
+            };
+
+            let start = range
+                .start
+                .as_ref()
+                .map(|start| self.lower_expression(start));
+            let end = range.end.as_ref().map(|end| self.lower_expression(end));
+            if let Some(start) = &start {
+                let _ = self.engine.unify(&start.ty, &Type::I64);
+            }
+            if let Some(end) = &end {
+                let _ = self.engine.unify(&end.ty, &Type::I64);
+            }
+
+            let variant_id = match (start.is_some(), end.is_some(), range.inclusive) {
+                (false, false, false) => range_items.full_variant_id,
+                (true, false, false) => range_items.from_variant_id,
+                (false, true, false) => range_items.to_variant_id,
+                (false, true, true) => range_items.to_inclusive_variant_id,
+                (true, true, false) => range_items.exclusive_variant_id,
+                (true, true, true) => range_items.inclusive_variant_id,
+                (_, false, true) => unreachable!("parser rejects inclusive ranges without an end"),
+            };
+            let Some(enumeration) = self.items.enumeration(range_items.enum_id) else {
+                self.diagnostics.push_with_span(
+                    "Range language item refers to an unavailable enum".to_string(),
+                    range.span.clone(),
+                );
+                return self.error_expression_at(range.span.clone());
+            };
+            let Some(variant) = enumeration
+                .variants
+                .iter()
+                .find(|variant| variant.id == variant_id)
+            else {
+                self.diagnostics.push_with_span(
+                    "Range language item refers to an unavailable variant".to_string(),
+                    range.span.clone(),
+                );
+                return self.error_expression_at(range.span.clone());
+            };
+            let enum_name = enumeration.name.clone();
+            let variant_name = variant.name.clone();
+            let mut args = Vec::new();
+            if let Some(start) = start {
+                args.push(start);
+            }
+            if let Some(end) = end {
+                args.push(end);
+            }
+            return HirExpr {
+                ty: Type::Enum {
+                    id: range_items.enum_id,
+                    args: Vec::new(),
+                },
+                kind: HirExprKind::EnumVariant(
+                    enum_name,
+                    variant_name.clone(),
+                    args,
+                    Some(HirVariantLocation {
+                        owner: range_items.enum_id,
+                        variant_id,
+                        name: variant_name,
+                    }),
+                ),
+                span: range.span.clone(),
+            };
+        }
+
         if let Some(expression) = self.apply_application_precedence(expr) {
             return self.lower_expression_with_use(&expression, use_kind);
         }
@@ -707,6 +794,9 @@ impl Lowerer {
             }
             ast::Expression::CastExpr(_, _) => {
                 operands.push(AstExprOperand::Cast(expr));
+            }
+            ast::Expression::Range(_) => {
+                unreachable!("ranges are lowered before binary flattening")
             }
         }
     }

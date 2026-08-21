@@ -458,7 +458,10 @@ impl<'a> ReferenceEscapeAnalysis<'a> {
 
         match callable {
             MirCallable::Resolved(MirCallableKey::Intrinsic(intrinsic))
-                if *intrinsic == MirIntrinsicId::BorrowSlice =>
+                if matches!(
+                    intrinsic,
+                    MirIntrinsicId::BorrowSlice | MirIntrinsicId::BorrowSliceMut
+                ) =>
             {
                 return args
                     .first()

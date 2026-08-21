@@ -714,7 +714,7 @@ impl<'ctx> CodeGen<'ctx> {
             Operand::Constant(Constant::Unit) => self
                 .type_context()
                 .id_for_type(&Type::Unit)
-                .ok_or_else(|| CodegenError::from("MIR TypeContext is missing Unit")),
+                .ok_or_else(|| CodegenError::from("MIR TypeContext is missing ()")),
             Operand::Constant(Constant::TypeId(id)) => Ok(*id),
             Operand::Constant(constant) => Err(CodegenError::backend_contract(format!(
                 "MIR constant type is not available for codegen: {:?}",

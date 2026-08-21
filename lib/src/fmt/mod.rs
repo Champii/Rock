@@ -598,6 +598,14 @@ mod tests {
     }
 
     #[test]
+    fn format_native_range_forms() {
+        assert_source_fixture_formats(
+            "ranges = ->\n    a=1..4\n    b=1..=4\n    c=..4\n    d=..=4\n    e=1..\n    f=..\n",
+            "ranges = ->\n    a = 1..4\n    b = 1..=4\n    c = ..4\n    d = ..=4\n    e = 1..\n    f = ..\n",
+        );
+    }
+
+    #[test]
     fn format_hkt_surface_syntax_roundtrips() {
         let source = "trait Functor for F _\n\nstruct Compose (F _), (G _), A\n\ntype ResultWith E = \\T -> Result T, E\n\nimpl Functor for Result _, E\n\napply_f: F A -> A where F _: Functor\nconstructor_identity: F A -> F A where F _\nidentity: T -> T\n";
         let program = parser::parse_string(source, &crate::Config::default())

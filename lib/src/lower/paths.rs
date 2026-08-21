@@ -1670,16 +1670,6 @@ impl Lowerer {
                 );
                 self.collect_lambda_captures_expr(rhs, defined, used, capture_kinds, current_kind);
             }
-            HirExprKind::Range(start, end) => {
-                self.collect_lambda_captures_expr(
-                    start,
-                    defined,
-                    used,
-                    capture_kinds,
-                    current_kind,
-                );
-                self.collect_lambda_captures_expr(end, defined, used, capture_kinds, current_kind);
-            }
             HirExprKind::Unit
             | HirExprKind::IntLiteral(_)
             | HirExprKind::FloatLiteral(_)

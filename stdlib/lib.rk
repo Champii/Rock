@@ -104,6 +104,9 @@ infix 10 %
 // Deref trait - dereferencing with an associated target type
 < mod deref
 
+// First-class native range values
+< mod range
+
 // Index trait - indexing with associated output type
 < mod index
 

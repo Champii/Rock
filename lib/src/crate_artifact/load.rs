@@ -2693,9 +2693,7 @@ fn remap_expr_child_locations_with_scope<P: crate::hir::HirPhase>(
             local_scope,
             depth + 1,
         ),
-        HirExprKindFor::BinOp(_, base, index)
-        | HirExprKindFor::Assign(base, index)
-        | HirExprKindFor::Range(base, index) => {
+        HirExprKindFor::BinOp(_, base, index) | HirExprKindFor::Assign(base, index) => {
             remap_expr_child_locations_with_scope(
                 base,
                 remap,

@@ -22,7 +22,7 @@ struct MutexInner T
 < struct MutexGuard T
     inner: *MutexInner T
 
-mutex_release_inner: *MutexInner T -> Unit
+mutex_release_inner: *MutexInner T -> ()
 mutex_release_inner = inner ->
     refs = unsafe &(*inner).refs
     previous = refs.fetch_sub (1 as U64)

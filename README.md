@@ -155,7 +155,7 @@ impl ClientWriter
         self.stream.send_all_prefix bytes, len
 
 impl ServerState
-    ^@remove: I64 -> Unit
+    ^@remove: I64 -> ()
     ^@remove = id -> self.clients.retain (.id != id)
 
     @snapshot: Vec ClientWriter

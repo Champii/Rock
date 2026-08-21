@@ -6,7 +6,7 @@
 lang drop
 < trait Drop
     lang method
-    ~@drop: Unit
+    ~@drop: ()
 
-unsafe drop_in_place: *T -> Unit
+unsafe drop_in_place: *T -> ()
 < unsafe drop_in_place = ptr -> unsafe ~DropInPlace ptr

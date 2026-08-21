@@ -16,8 +16,8 @@ use crate::ids::{CrateId, DefId, Idx, LocalDefId};
 use crate::infer::ResolvedHirProgram;
 use crate::language_items::{
     DropLanguageItems, FnLanguageItems, FnMutLanguageItems, FnOnceLanguageItems,
-    IndexLanguageItems, IndexMutLanguageItems, LanguageItems, SendLanguageItems,
-    SizedLanguageItems, SyncLanguageItems, TryLanguageItems,
+    IndexLanguageItems, IndexMutLanguageItems, LanguageItems, RangeLanguageItems,
+    SendLanguageItems, SizedLanguageItems, SyncLanguageItems, TryLanguageItems,
 };
 use crate::types::{GenericParamDecl, Type};
 
@@ -58,7 +58,7 @@ impl From<DefId> for ProductDefId {
     }
 }
 
-pub const PRODUCT_ARTIFACT_FORMAT_VERSION: u32 = 44;
+pub const PRODUCT_ARTIFACT_FORMAT_VERSION: u32 = 45;
 pub const PRODUCT_ARTIFACT_MAGIC: [u8; 8] = *b"ROCKRKCA";
 pub const MAX_PRODUCT_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 pub const MAX_PRODUCT_ARTIFACT_HEADER_BYTES: u64 = 4 * 1024 * 1024;
@@ -1572,6 +1572,25 @@ fn product_language_items_from_program<P: HirPhase>(
         })
         .transpose()?
         .flatten();
+    let range = language_items
+        .range
+        .as_ref()
+        .map(|items| {
+            map_product_language_item_bundle("range", &[items.enum_id], current_def_ids, id_remap)
+                .map(|ids| {
+                    ids.map(|ids| RangeLanguageItems {
+                        enum_id: ids[0],
+                        full_variant_id: items.full_variant_id,
+                        from_variant_id: items.from_variant_id,
+                        to_variant_id: items.to_variant_id,
+                        to_inclusive_variant_id: items.to_inclusive_variant_id,
+                        exclusive_variant_id: items.exclusive_variant_id,
+                        inclusive_variant_id: items.inclusive_variant_id,
+                    })
+                })
+        })
+        .transpose()?
+        .flatten();
 
     Ok(ProductLanguageItems {
         sized,
@@ -1584,6 +1603,7 @@ fn product_language_items_from_program<P: HirPhase>(
         send,
         sync,
         try_protocol,
+        range,
     })
 }
 
@@ -1796,8 +1816,7 @@ fn assert_valid_product_expr_ids<P: HirPhase>(expr: &crate::hir::HirExprFor<P>) 
         | crate::hir::HirExprKindFor::Ref(_, inner)
         | crate::hir::HirExprKindFor::Deref(inner) => assert_valid_product_expr_ids(inner),
         crate::hir::HirExprKindFor::BinOp(_, lhs, rhs)
-        | crate::hir::HirExprKindFor::Assign(lhs, rhs)
-        | crate::hir::HirExprKindFor::Range(lhs, rhs) => {
+        | crate::hir::HirExprKindFor::Assign(lhs, rhs) => {
             assert_valid_product_expr_ids(lhs);
             assert_valid_product_expr_ids(rhs);
         }
@@ -2414,8 +2433,7 @@ where
         | crate::hir::HirExprKindFor::Ref(_, inner)
         | crate::hir::HirExprKindFor::Deref(inner) => remap_expr_types(inner, remap_type),
         crate::hir::HirExprKindFor::BinOp(_, lhs, rhs)
-        | crate::hir::HirExprKindFor::Assign(lhs, rhs)
-        | crate::hir::HirExprKindFor::Range(lhs, rhs) => {
+        | crate::hir::HirExprKindFor::Assign(lhs, rhs) => {
             remap_expr_types(lhs, remap_type);
             remap_expr_types(rhs, remap_type);
         }
@@ -2651,8 +2669,7 @@ fn remap_expr_location_product_ids<P: HirPhase>(
             remap_expr_location_product_ids(inner, id_remap)
         }
         crate::hir::HirExprKindFor::BinOp(_, lhs, rhs)
-        | crate::hir::HirExprKindFor::Assign(lhs, rhs)
-        | crate::hir::HirExprKindFor::Range(lhs, rhs) => {
+        | crate::hir::HirExprKindFor::Assign(lhs, rhs) => {
             remap_expr_location_product_ids(lhs, id_remap);
             remap_expr_location_product_ids(rhs, id_remap);
         }
@@ -3316,8 +3333,7 @@ fn remap_expr_owned_type_ids<P: HirPhase>(
             remap_expr_owned_type_ids(inner, old_id, new_id)
         }
         crate::hir::HirExprKindFor::BinOp(_, lhs, rhs)
-        | crate::hir::HirExprKindFor::Assign(lhs, rhs)
-        | crate::hir::HirExprKindFor::Range(lhs, rhs) => {
+        | crate::hir::HirExprKindFor::Assign(lhs, rhs) => {
             remap_expr_owned_type_ids(lhs, old_id, new_id);
             remap_expr_owned_type_ids(rhs, old_id, new_id);
         }
@@ -3526,7 +3542,7 @@ mod tests {
     use crate::infer::ResolvedHirProgram;
     use crate::language_items::{
         DropLanguageItems, IndexLanguageItems, IndexMutLanguageItems, LanguageItems,
-        SizedLanguageItems, TryLanguageItems,
+        RangeLanguageItems, SizedLanguageItems, TryLanguageItems,
     };
     use crate::lexer::Span;
     use crate::products::type_table;
@@ -3728,6 +3744,15 @@ mod tests {
                 control_flow_enum_id: product_def_id(71),
                 break_variant_id: VariantId(73),
                 continue_variant_id: VariantId(79),
+            }),
+            range: Some(RangeLanguageItems {
+                enum_id: product_def_id(83),
+                full_variant_id: VariantId(0),
+                from_variant_id: VariantId(1),
+                to_variant_id: VariantId(2),
+                to_inclusive_variant_id: VariantId(3),
+                exclusive_variant_id: VariantId(4),
+                inclusive_variant_id: VariantId(5),
             }),
         };
         let mut products = CompilerProducts {
@@ -7037,7 +7062,7 @@ mod tests {
 
     #[test]
     fn product_artifact_format_version_matches_shared_contract() {
-        assert_eq!(PRODUCT_ARTIFACT_FORMAT_VERSION, 44);
+        assert_eq!(PRODUCT_ARTIFACT_FORMAT_VERSION, 45);
         assert_eq!(
             PRODUCT_ARTIFACT_FORMAT_VERSION,
             rock_shared::sysroot::PRODUCT_ARTIFACT_FORMAT_VERSION

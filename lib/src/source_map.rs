@@ -1327,6 +1327,7 @@ fn ast_expression_span(expression: &ast::Expression) -> Option<Span> {
         ast::Expression::CastExpr(expression, ty) => {
             ast_expression_span(expression).or_else(|| Some(ty.span()))
         }
+        ast::Expression::Range(range) => Some(range.span.clone()),
     }
 }
 

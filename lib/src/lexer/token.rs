@@ -53,6 +53,7 @@ pub enum TokenType {
     Eol,
     Eof,
     UnitArrow,
+    DoubleDotEqual,
 }
 
 impl ToString for TokenType {
@@ -88,6 +89,7 @@ impl ToString for TokenType {
             TokenType::DoubleColon => "::".to_string(),
             TokenType::Dot => ".".to_string(),
             TokenType::DoubleDot => "..".to_string(),
+            TokenType::DoubleDotEqual => "..=".to_string(),
             TokenType::SpacedDot => " .".to_string(),
             TokenType::Caret => "^".to_string(),
             TokenType::Tilde => "~".to_string(),
@@ -159,6 +161,7 @@ impl TokenType {
             TokenType::DoubleColon => "DoubleColon",
             TokenType::Dot => "Dot",
             TokenType::DoubleDot => "DoubleDot",
+            TokenType::DoubleDotEqual => "DoubleDotEqual",
             TokenType::SpacedDot => "SpacedDot",
             TokenType::Caret => "Caret",
             TokenType::Tilde => "Tilde",

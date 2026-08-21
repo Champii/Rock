@@ -439,7 +439,6 @@ pub(super) enum SerializedHirExprKind {
     Deref(Box<SerializedHirExpr>),
     Cast(Box<SerializedHirExpr>, ProductTypeId),
     Assign(Box<SerializedHirExpr>, Box<SerializedHirExpr>),
-    Range(Box<SerializedHirExpr>, Box<SerializedHirExpr>),
     Intrinsic {
         name: String,
         args: Vec<SerializedHirExpr>,
@@ -2414,10 +2413,6 @@ impl SerializedHirExprKind {
                 Box::new(SerializedHirExpr::encode(lhs, encoder)?),
                 Box::new(SerializedHirExpr::encode(rhs, encoder)?),
             ),
-            crate::hir::HirExprKindFor::Range(lhs, rhs) => Self::Range(
-                Box::new(SerializedHirExpr::encode(lhs, encoder)?),
-                Box::new(SerializedHirExpr::encode(rhs, encoder)?),
-            ),
             crate::hir::HirExprKindFor::Intrinsic { name, args } => Self::Intrinsic {
                 name: name.clone(),
                 args: encode_exprs(args, encoder)?,
@@ -2593,10 +2588,6 @@ impl SerializedHirExprKind {
                 decoder.decode_type(ty)?,
             ),
             Self::Assign(lhs, rhs) => crate::hir::HirExprKindFor::Assign(
-                Box::new(lhs.decode(decoder)?),
-                Box::new(rhs.decode(decoder)?),
-            ),
-            Self::Range(lhs, rhs) => crate::hir::HirExprKindFor::Range(
                 Box::new(lhs.decode(decoder)?),
                 Box::new(rhs.decode(decoder)?),
             ),

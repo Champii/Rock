@@ -2584,6 +2584,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "range_expression"
+        },
+        {
+          "type": "SYMBOL",
           "name": "binary_expression"
         },
         {
@@ -2706,6 +2710,82 @@
             }
           ]
         }
+      }
+    },
+    "range_expression": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "start",
+                "content": {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "binary_expression"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "_call_expression"
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "FIELD",
+            "name": "operator",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ".."
+                },
+                {
+                  "type": "STRING",
+                  "value": "..="
+                }
+              ]
+            }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "end",
+                "content": {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "binary_expression"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "_call_expression"
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        ]
       }
     },
     "indented_binary_operand": {
@@ -3055,10 +3135,6 @@
                   },
                   {
                     "type": "SYMBOL",
-                    "name": "double_dot_suffix"
-                  },
-                  {
-                    "type": "SYMBOL",
                     "name": "propagate_suffix"
                   },
                   {
@@ -3099,32 +3175,6 @@
         {
           "type": "STRING",
           "value": "."
-        },
-        {
-          "type": "FIELD",
-          "name": "field",
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "identifier"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "number"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "double_dot_suffix": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "STRING",
-          "value": ".."
         },
         {
           "type": "FIELD",
@@ -3289,10 +3339,6 @@
                 {
                   "type": "SYMBOL",
                   "name": "field_suffix"
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "double_dot_suffix"
                 },
                 {
                   "type": "SYMBOL",
@@ -3627,10 +3673,6 @@
               {
                 "type": "SYMBOL",
                 "name": "field_suffix"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "double_dot_suffix"
               },
               {
                 "type": "SYMBOL",
@@ -5483,6 +5525,10 @@
       "while_expression"
     ],
     [
+      "expression",
+      "range_expression"
+    ],
+    [
       "type",
       "type_application_or_atom"
     ],
@@ -5504,6 +5550,10 @@
     [
       "_atom",
       "literal_pattern"
+    ],
+    [
+      "_atom",
+      "rest_pattern"
     ],
     [
       "identifier_pattern",

@@ -43,7 +43,7 @@ The aliases are shared references to the same `number`. Once both aliases are la
 Create an exclusive borrow with `&mut`. The owner binding must be mutable, and no shared or second mutable borrow may overlap it.
 
 ```rock
-increment: &mut I64 -> Unit
+increment: &mut I64 -> ()
 increment = value ->
     *value = *value + 1
     return
@@ -104,7 +104,7 @@ main = ->
 A mutable reference can be temporarily reborrowed. The shorter reborrow must finish before the original mutable reference is used again.
 
 ```rock
-show_and_set: &mut I64 -> Unit
+show_and_set: &mut I64 -> ()
 show_and_set = value ->
     *value = 2
     *value .println!
@@ -172,7 +172,7 @@ impl Counter
     @get: I64
     @get = -> @value
 
-    ^@increment: Unit
+    ^@increment: ()
     ^@increment = ->
         self.value = self.value + 1
         return

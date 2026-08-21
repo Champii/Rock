@@ -6,7 +6,7 @@
 
 // Memory allocation
 < extern malloc: I64 -> *U8
-< extern free: *U8 -> Unit
+< extern free: *U8 -> ()
 < extern realloc: *U8 -> I64 -> *U8
 
 // Memory operations
@@ -15,7 +15,7 @@
 // I/O
 < extern puts: *U8 -> I32
 < extern putchar: I32 -> I32
-< extern exit: I32 -> Unit
+< extern exit: I32 -> ()
 
 // POSIX sockets and file descriptors
 < extern socket: I32 -> I32 -> I32 -> I32
@@ -34,11 +34,12 @@
 < extern ntohs: U16 -> U16
 < extern htonl: U32 -> U32
 < extern ntohl: U32 -> U32
-< extern __errno_location: Unit -> *I32
+< extern __errno_location: () -> *I32
 
 // POSIX threads
 < extern pthread_create: *U64 -> *U8 -> *U8 -> *U8 -> I32
 < extern pthread_join: U64 -> *U64 -> I32
+< extern pthread_detach: U64 -> I32
 < extern pthread_self: () -> U64
 < extern sched_yield: () -> I32
 < extern usleep: U32 -> I32

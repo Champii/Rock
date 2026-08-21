@@ -77,7 +77,7 @@ generic applications, and `&mut` expressions unexpectedly. This complete
 program is a small formatter regression reproducer:
 
 ```rock
-increment: &mut I64 -> Unit
+increment: &mut I64 -> ()
 increment = value ->
     *value = *value + 1
     return
@@ -202,35 +202,6 @@ choose = flag ->
 main = ->
     chosen: I64 = choose true
     chosen.println!
-    0
-```
-
-For a `!->` function, the current compiler skips a trailing value expression
-instead of evaluating and discarding it. Put every required effect before an
-explicit `return`:
-
-```rock
-discard: I64 -> Unit
-discard = value !->
-    value.println!
-    99.println!
-
-main = ->
-    discard 7
-    0
-```
-
-The workaround is:
-
-```rock
-discard: I64 -> Unit
-discard = value !->
-    value.println!
-    99.println!
-    return
-
-main = ->
-    discard 7
     0
 ```
 
@@ -375,10 +346,9 @@ main = ->
 ```
 
 Use a thread around a blocking operation when limited concurrency is enough,
-and design shutdown explicitly. There are no channels, detached tasks,
-condition variables, thread pools, or async executors. Dropping a `JoinHandle`
-blocks until completion, so the workaround is to join handles deliberately at
-known lifecycle points and keep closure captures small.
+and design shutdown explicitly. There are no channels, condition variables,
+thread pools, or async executors. Dropping a `JoinHandle` detaches the thread;
+call `join!` before dropping it when the result or completion matters.
 
 Thread and atomic implementations rely on platform ABI assumptions. Treat
 long-running, memory-intensive, and concurrent applications as experiments

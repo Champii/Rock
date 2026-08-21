@@ -1,7 +1,7 @@
 use crate::lexer::{Token, TokenType};
 use crate::parser::{
     engine::*, Argument, Expression, Ident, IdentOrNumber, IdentOrType, Operand, Operator,
-    PrimaryExpr, SecondaryExpr, Tuple, UnaryExpr,
+    PrimaryExpr, RangeExpr, SecondaryExpr, Tuple, UnaryExpr,
 };
 
 use super::{
@@ -13,7 +13,7 @@ use super::{indent_token, parse_if, parse_type};
 use super::{literal, stuck_operator_token};
 
 pub fn expression(stream: Input) -> IResult<Expression> {
-    let (mut stream, mut expression) = expression_without_spaced_dot(stream)?;
+    let (mut stream, mut expression) = range_expression(stream)?;
 
     if stream.inside_argument_list {
         return Ok((stream, expression));
@@ -34,6 +34,56 @@ pub fn expression(stream: Input) -> IResult<Expression> {
     }
 
     Ok((stream, expression))
+}
+
+fn range_expression(stream: Input) -> IResult<Expression> {
+    if let Ok((stream, (span, inclusive))) = range_operator(stream) {
+        let (stream, end) = expression_without_spaced_dot.opt().process(stream)?;
+        if inclusive && end.is_none() {
+            return Err(ParseError::HardError(
+                "inclusive range must have an end expression".to_string(),
+                span,
+            ));
+        }
+        return Ok((
+            stream,
+            Expression::Range(RangeExpr {
+                start: None,
+                end: end.map(Box::new),
+                inclusive,
+                span,
+            }),
+        ));
+    }
+
+    let (stream, start) = expression_without_spaced_dot(stream)?;
+    let Ok((stream, (span, inclusive))) = range_operator(stream) else {
+        return Ok((stream, start));
+    };
+    let (stream, end) = expression_without_spaced_dot.opt().process(stream)?;
+    if inclusive && end.is_none() {
+        return Err(ParseError::HardError(
+            "inclusive range must have an end expression".to_string(),
+            span,
+        ));
+    }
+
+    Ok((
+        stream,
+        Expression::Range(RangeExpr {
+            start: Some(Box::new(start)),
+            end: end.map(Box::new),
+            inclusive,
+            span,
+        }),
+    ))
+}
+
+fn range_operator(stream: Input) -> IResult<(crate::lexer::Span, bool)> {
+    (get_span, TokenType::DoubleDotEqual)
+        .map(|(span, _)| (span, true))
+        .or((get_span, TokenType::DoubleDot).map(|(span, _)| (span, false)))
+        .process(stream)
 }
 
 fn expression_without_spaced_dot(stream: Input) -> IResult<Expression> {
@@ -364,40 +414,11 @@ pub fn secondary(stream: Input) -> IResult<SecondaryExpr> {
                     .and_then(|_| Err(ParseError::ShortCircuit));
             }
         }
-
-        // Check for multiline double dot
-        if let Ok((_, (_, indent_level, _))) =
-            (TokenType::Eol, indent_token, TokenType::DoubleDot).process(stream)
-        {
-            // If we're in an inline argument list, multiline double dots should close it
-            // UNLESS the double dot is more indented (meaning it's part of the argument expression)
-            if stream.inside_inline_argument_list {
-                // Only short-circuit if the double dot is at or below the current indent level
-                if (indent_level as usize) <= stream.indent_level {
-                    return arguments_list_short_circuit(stream)
-                        .and_then(|_| Err(ParseError::ShortCircuit));
-                }
-            }
-
-            // For multiline argument lists, calculate the method chain indent level
-            let method_chain_level = if stream.indent_level >= stream.indent_step {
-                stream.indent_level - stream.indent_step
-            } else {
-                0
-            };
-
-            // Only close if the double dot is at or below the method chain level
-            if (indent_level as usize) <= method_chain_level + stream.indent_step {
-                return arguments_list_short_circuit(stream)
-                    .and_then(|_| Err(ParseError::ShortCircuit));
-            }
-        }
     }
 
     let result = indice
         .map(SecondaryExpr::Indice)
         .or(dot.map(SecondaryExpr::Dot))
-        .or(double_dot.map(SecondaryExpr::DoubleDot))
         .or(arguments.map(SecondaryExpr::Arguments))
         .or(TokenType::Interogation.map(|_| SecondaryExpr::Interogation))
         .process(stream)?;
@@ -406,10 +427,7 @@ pub fn secondary(stream: Input) -> IResult<SecondaryExpr> {
 
     // Clear one-shot parser context flags after consuming a non-dot secondary.
     stream.after_closing_paren = false;
-    if !matches!(
-        secondary,
-        SecondaryExpr::Dot(_) | SecondaryExpr::DoubleDot(_)
-    ) {
+    if !matches!(secondary, SecondaryExpr::Dot(_)) {
         stream.after_multiline_dot = false;
     }
 
@@ -446,6 +464,12 @@ fn not_inline_call_operator(stream: Input) -> IResult<()> {
     let second_token = stream.tokens.get(1);
     let first = first_token.map(|token| &token.token_type);
     let second = second_token.map(|token| &token.token_type);
+    if matches!(
+        first,
+        Some(TokenType::DoubleDot | TokenType::DoubleDotEqual)
+    ) {
+        return Err(ParseError::Fail);
+    }
     let starts_shared_reference = matches!(first, Some(TokenType::Ampersand))
         && first_token
             .zip(second_token)
@@ -742,41 +766,6 @@ pub fn dot(stream: Input) -> IResult<IdentOrNumber> {
 
     // Try inline dots
     let (mut stream, ident) = preceded(TokenType::Dot, ident_or_number).process(stream)?;
-    stream.after_multiline_dot = false;
-    Ok((stream, ident))
-}
-
-pub fn double_dot(stream: Input) -> IResult<IdentOrNumber> {
-    // For multiline double dots, update the indent level to match the double dot's indent
-    // But don't do this inside argument lists, as it would break multiline argument parsing
-    let result = (TokenType::Eol, indent_token, TokenType::DoubleDot).process(stream);
-
-    if let Ok((stream, (_, double_dot_indent_level, _))) = result {
-        // If the double dot's indent level is less than the current indent level,
-        // it belongs to an outer scope and should not be consumed here
-        if (double_dot_indent_level as usize) < stream.indent_level {
-            return Err(ParseError::Fail);
-        }
-
-        // Parse the identifier after the double dot
-        let (stream, ident) = ident_or_number.process(stream)?;
-
-        // Update the indent level to match the double dot's indent, but only if we're not inside an argument list
-        let mut stream = stream;
-        if !stream.inside_argument_list {
-            stream.indent_level = double_dot_indent_level as usize;
-        }
-        stream.after_multiline_dot = true;
-
-        return Ok((stream, ident));
-    }
-
-    // Try inline double dots
-    let (mut stream, ident) = preceded(
-        TokenType::DoubleDot,
-        preceded(arguments_list_short_circuit, ident_or_number),
-    )
-    .process(stream)?;
     stream.after_multiline_dot = false;
     Ok((stream, ident))
 }

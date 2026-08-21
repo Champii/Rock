@@ -113,12 +113,16 @@ fn collect_terminator_borrows_with_context(
     let Operand::Constant(Constant::Callable(callable)) = func else {
         return Vec::new();
     };
-    let borrow_slice = matches!(
-        callable,
-        MirCallable::Resolved(MirCallableKey::Intrinsic(intrinsic))
-            if *intrinsic == MirIntrinsicId::BorrowSlice
-    );
-    if !borrow_slice {
+    let borrow_slice = match callable {
+        MirCallable::Resolved(MirCallableKey::Intrinsic(MirIntrinsicId::BorrowSlice)) => {
+            Some(AccessKind::BorrowShared)
+        }
+        MirCallable::Resolved(MirCallableKey::Intrinsic(MirIntrinsicId::BorrowSliceMut)) => {
+            Some(AccessKind::BorrowMut)
+        }
+        _ => None,
+    };
+    if borrow_slice.is_none() {
         if let Some((mir_func, type_context, backend_contract, return_summaries)) = context {
             let Some(destination_decl) = mir_func.local_decls.get(destination.local.0) else {
                 return Vec::new();
@@ -192,7 +196,7 @@ fn collect_terminator_borrows_with_context(
     vec![BorrowData {
         owner: destination.local,
         place: root,
-        kind: AccessKind::BorrowShared,
+        kind: borrow_slice.unwrap(),
         created_at,
         origin_span: term_span,
     }]

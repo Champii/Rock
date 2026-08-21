@@ -287,9 +287,7 @@ fn retarget_generated_default_trait_method_calls_in_expr(
                 impl_methods,
             );
         }
-        HirExprKind::Assign(lhs, rhs)
-        | HirExprKind::BinOp(_, lhs, rhs)
-        | HirExprKind::Range(lhs, rhs) => {
+        HirExprKind::Assign(lhs, rhs) | HirExprKind::BinOp(_, lhs, rhs) => {
             retarget_generated_default_trait_method_calls_in_expr(
                 lhs,
                 trait_id,
@@ -492,9 +490,7 @@ fn apply_generated_default_self_type_in_expr(
             apply_generated_default_self_type_in_expr(iter, param_ty, self_type);
             apply_generated_default_self_type_in_block(body, param_ty, self_type);
         }
-        HirExprKind::Assign(lhs, rhs)
-        | HirExprKind::BinOp(_, lhs, rhs)
-        | HirExprKind::Range(lhs, rhs) => {
+        HirExprKind::Assign(lhs, rhs) | HirExprKind::BinOp(_, lhs, rhs) => {
             apply_generated_default_self_type_in_expr(lhs, param_ty, self_type);
             apply_generated_default_self_type_in_expr(rhs, param_ty, self_type);
         }
@@ -712,9 +708,7 @@ fn resolve_generated_default_expr_types(engine: &mut InferenceEngine, expr: &mut
             resolve_generated_default_expr_types(engine, iter);
             resolve_generated_default_block_types(engine, body);
         }
-        HirExprKind::Assign(lhs, rhs)
-        | HirExprKind::BinOp(_, lhs, rhs)
-        | HirExprKind::Range(lhs, rhs) => {
+        HirExprKind::Assign(lhs, rhs) | HirExprKind::BinOp(_, lhs, rhs) => {
             resolve_generated_default_expr_types(engine, lhs);
             resolve_generated_default_expr_types(engine, rhs);
         }
@@ -1491,9 +1485,7 @@ impl TraitConformanceService<'_> {
                         generic_subst,
                     );
                 }
-                HirExprKind::BinOp(_, lhs, rhs)
-                | HirExprKind::Assign(lhs, rhs)
-                | HirExprKind::Range(lhs, rhs) => {
+                HirExprKind::BinOp(_, lhs, rhs) | HirExprKind::Assign(lhs, rhs) => {
                     substitute_trait_impl_types_in_expr(
                         lhs,
                         impl_type,
@@ -2722,9 +2714,7 @@ fn remap_expr_generic_owner(expr: &mut HirExpr, old_owner: DefId, new_owner: Def
             remap_expr_generic_owner(inner, old_owner, new_owner);
             remap_type_generic_owner(ty, old_owner, new_owner);
         }
-        HirExprKind::BinOp(_, lhs, rhs)
-        | HirExprKind::Assign(lhs, rhs)
-        | HirExprKind::Range(lhs, rhs) => {
+        HirExprKind::BinOp(_, lhs, rhs) | HirExprKind::Assign(lhs, rhs) => {
             remap_expr_generic_owner(lhs, old_owner, new_owner);
             remap_expr_generic_owner(rhs, old_owner, new_owner);
         }

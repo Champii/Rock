@@ -20,7 +20,7 @@ This complete program obtains a pointer from a live mutable borrow and writes
 through it while the owner remains alive:
 
 ```rock
-unsafe set_i64: &mut I64 -> Unit
+unsafe set_i64: &mut I64 -> ()
 set_i64 = reference ->
     pointer: *I64 = reference as *I64
     unsafe *pointer = 7
@@ -68,7 +68,7 @@ alignment, or extend a lifetime. This complete example casts a mutable borrow
 only to immediately write the same `I64` representation:
 
 ```rock
-unsafe increment_i64: &mut I64 -> Unit
+unsafe increment_i64: &mut I64 -> ()
 increment_i64 = reference ->
     pointer: *I64 = reference as *I64
     current: I64 = unsafe *pointer

@@ -1598,7 +1598,7 @@ pub(crate) fn build_impl_with_id(
                 );
             }
         }
-        let ty = context.lower_parse_type(&assoc.ty);
+        let ty = crate::type_lowering::TypeLowerer::lower_unsized_type(context, &assoc.ty);
         if !matches!(ty, Type::Error) {
             match crate::type_lowering::TypeLowerer::kind_of(context, &ty) {
                 Ok(actual) if actual != kind => context.push_error_with_span(

@@ -18,11 +18,8 @@
 
 < struct Stdout
 
-unit = ->
-    return
-
 < last_os_error = ->
-    ptr = __errno_location unit!
+    ptr = __errno_location!
     IoError::Os (unsafe *ptr)
 
 < trait Read

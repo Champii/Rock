@@ -222,10 +222,6 @@ impl Lowerer {
                     self.resolve_all_types_in_block(&mut arm.body);
                 }
             }
-            HirExprKind::Range(start, end) => {
-                self.resolve_all_types_in_expr(start);
-                self.resolve_all_types_in_expr(end);
-            }
             HirExprKind::Ref(_, inner) | HirExprKind::Deref(inner) => {
                 self.resolve_all_types_in_expr(inner);
             }

@@ -14,7 +14,7 @@ impl Matrix
             c: @c * other.a + @d * other.c
             d: @c * other.b + @d * other.d
 
-show_matrix: &Matrix -> Unit
+show_matrix: &Matrix -> ()
 show_matrix = m ->
     "| " + (int_to_string ((*m).a)) + " " + (int_to_string ((*m).b)) + " |" .println!
     "| " + (int_to_string ((*m).c)) + " " + (int_to_string ((*m).d)) + " |" .println!

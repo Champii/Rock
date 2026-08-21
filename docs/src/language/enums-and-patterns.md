@@ -156,7 +156,7 @@ enum Message
     Quit
     Write &Str
 
-show_message: &Message -> Unit
+show_message: &Message -> ()
 show_message = message ->
     match *message
         Message::Write text => text.println!

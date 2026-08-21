@@ -1150,9 +1150,7 @@ impl Monomorphizer {
                     self.validate_materialized_expr(owner, arg, method_ids);
                 }
             }
-            HirExprKind::BinOp(_, left, right)
-            | HirExprKind::Assign(left, right)
-            | HirExprKind::Range(left, right) => {
+            HirExprKind::BinOp(_, left, right) | HirExprKind::Assign(left, right) => {
                 self.validate_materialized_expr(owner, left, method_ids);
                 self.validate_materialized_expr(owner, right, method_ids);
             }

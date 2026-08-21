@@ -32,7 +32,7 @@ hash_map_bucket_index = hash, cap ->
 impl HashMap K, V where K: Hash, K: Eq
     @len = -> self.raw_len
 
-    ^@grow: I64 -> I64 -> Unit
+    ^@grow: I64 -> I64 -> ()
     ^@grow = key_size, value_size ->
         require_non_zero_size key_size
         require_non_zero_size value_size
@@ -95,7 +95,7 @@ impl HashMap K, V where K: Hash, K: Eq
         self.raw_len = new_len
         self.raw_cap = new_cap
 
-    ^@insert: K -> V -> Unit
+    ^@insert: K -> V -> ()
     ^@insert = key, value ->
         next_len = checked_add_i64 self.raw_len, 1
         if self.raw_cap == 0 || (checked_mul_i64 next_len, 4) > (checked_mul_i64 self.raw_cap, 3)

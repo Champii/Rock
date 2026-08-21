@@ -7,5 +7,5 @@
 
 // Deliberately suppress destruction of a value. This is safe but may leak
 // resources, matching Rust's mem::forget contract.
-forget: T -> Unit
+forget: T -> ()
 < forget = value -> ~Forget value

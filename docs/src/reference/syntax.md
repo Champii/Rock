@@ -103,7 +103,10 @@ CHAR_LITERAL ::= "'" CHARACTER "'"
 STRING_LITERAL ::= "\"" CHARACTER* "\""
 ARRAY_LITERAL ::= "[" EXPRESSION_LIST? "]" | "[" EXPRESSION ";" INTEGER_LITERAL "]"
 TUPLE_LITERAL ::= "(" EXPRESSION "," EXPRESSION_LIST? ")"
+RANGE_EXPRESSION ::= EXPRESSION? (".." | "..=") EXPRESSION?
 ```
+
+An inclusive range written with `..=` requires an end expression. Native ranges are first-class values and can be used for slicing, for example `&values[1..3]`, `&values[..count]`, and `&values[..]`.
 
 This program constructs each literal family and gives the compound values
 explicit types where that makes their shape clearer:
@@ -181,10 +184,9 @@ This program shows value-returning, unit-arrow, and zero-argument calls:
 add: I64 -> I64 -> I64
 add = left, right -> left + right
 
-announce: &Str -> Unit
+announce: &Str -> ()
 announce = message !->
     message.println!
-    return
 
 main = ->
     total: I64 = add 2, 3
@@ -283,7 +285,7 @@ impl Counter
     @read: I64
     @read = -> @value
 
-    ^@add: I64 -> Unit
+    ^@add: I64 -> ()
     ^@add = amount ->
         self.value = self.value + amount
         return

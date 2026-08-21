@@ -2,7 +2,8 @@ use crate::hir::{HirFunctionFor, HirFunctionSig, HirPhase, HirProgramFor, HirTra
 use crate::ids::{AssocTypeId, DefId, VariantId};
 use crate::language_items::{
     DropLanguageItems, FnLanguageItems, FnMutLanguageItems, FnOnceLanguageItems,
-    IndexLanguageItems, IndexMutLanguageItems, SizedLanguageItems, TryLanguageItems,
+    IndexLanguageItems, IndexMutLanguageItems, RangeLanguageItems, SizedLanguageItems,
+    TryLanguageItems,
 };
 use crate::types::ReceiverMode;
 use crate::types::{GenericParamId, Type};
@@ -41,8 +42,54 @@ pub(crate) fn validate_language_items<P: HirPhase>(program: &HirProgramFor<P>) -
     if let Some(items) = &program.language_items.try_protocol {
         validate_try(program, items, &mut errors);
     }
+    if let Some(items) = &program.language_items.range {
+        validate_range(program, items, &mut errors);
+    }
 
     errors
+}
+
+fn validate_range<P: HirPhase>(
+    program: &HirProgramFor<P>,
+    items: &RangeLanguageItems<DefId>,
+    errors: &mut Vec<String>,
+) {
+    let Some(range_enum) = required_enum(program, items.enum_id, "range.enum", errors) else {
+        return;
+    };
+    if !range_enum.generic_params.is_empty() {
+        errors.push("range.enum must not declare generic parameters".to_string());
+    }
+    for (role, variant_id, arity) in [
+        ("range.range_full", items.full_variant_id, 0usize),
+        ("range.range_from", items.from_variant_id, 1),
+        ("range.range_to", items.to_variant_id, 1),
+        ("range.range_to_inclusive", items.to_inclusive_variant_id, 1),
+        ("range.range_exclusive", items.exclusive_variant_id, 2),
+        ("range.range_inclusive", items.inclusive_variant_id, 2),
+    ] {
+        let Some(variant) = range_enum
+            .variants
+            .iter()
+            .find(|variant| variant.id == variant_id)
+        else {
+            errors.push(format!(
+                "{role} {variant_id:?} is not declared by enum {:?}",
+                items.enum_id
+            ));
+            continue;
+        };
+        let fields = match &variant.fields {
+            crate::hir::HirVariantFields::Unit => Vec::new(),
+            crate::hir::HirVariantFields::Positional(fields) => fields.clone(),
+            crate::hir::HirVariantFields::Named(fields) => {
+                fields.iter().map(|field| field.ty.clone()).collect()
+            }
+        };
+        if fields.len() != arity || fields.iter().any(|field| field != &Type::I64) {
+            errors.push(format!("{role} must have {arity} I64 fields"));
+        }
+    }
 }
 
 fn validate_sized<P: HirPhase>(
@@ -94,7 +141,7 @@ fn validate_drop<P: HirPhase>(
     require_receiver(&method, "drop.method", Some(ReceiverMode::Move), errors);
     require_receiver_type(&method, "drop.method", self_ty(items.trait_id, 0), errors);
     require_explicit_params(&method, "drop.method", 0, errors);
-    require_return(&method, "drop.method", &Type::Unit, "Unit", errors);
+    require_return(&method, "drop.method", &Type::Unit, "()", errors);
 }
 
 fn validate_index<P: HirPhase>(
@@ -1040,7 +1087,7 @@ mod tests {
     const VALID_DROP_SOURCE: &str = r#"lang drop
 < trait Release
     lang method
-    ~@release: Unit
+    ~@release: ()
 "#;
 
     const VALID_SIZED_SOURCE: &str = r#"lang sized
@@ -1178,7 +1225,7 @@ lang sync
             r#"lang drop
 < trait Release
     lang method
-    ~@release: Unit
+    ~@release: ()
     ~@release = -> return
 "#,
         );
@@ -1364,12 +1411,12 @@ lang sync
     fn language_item_validation_rejects_member_owned_by_another_trait() {
         let mut hir = resolved_language_item_program(
             r#"< trait Other
-    @other: Unit
+    @other: ()
 
 lang drop
 < trait Release
     lang method
-    ~@release: Unit
+    ~@release: ()
 "#,
         );
         let program = hir.program.program_mut_for_test();
@@ -1573,7 +1620,7 @@ lang from_residual
         }));
         assert!(errors
             .iter()
-            .any(|error| error == "drop.method must return Unit"));
+            .any(|error| error == "drop.method must return ()"));
     }
 
     #[test]
@@ -1822,8 +1869,8 @@ lang from_residual
             r#"lang drop
 < trait Release
     lang method
-    ~@release: Unit
-    @extra: Unit
+    ~@release: ()
+    @extra: ()
 "#,
         );
 
@@ -2278,7 +2325,7 @@ lang from_residual
 
         let errors = crate::hir::AcceptedHirProgram::revalidate_for_test(program.clone())
             .expect_err("accepted conversion must reject malformed Drop");
-        assert_eq!(errors, vec!["drop.method must return Unit".to_string()]);
+        assert_eq!(errors, vec!["drop.method must return ()".to_string()]);
     }
 
     #[test]
@@ -2311,7 +2358,7 @@ lang from_residual
             r#"lang drop
 < trait Release
     lang method
-    ~@release: Unit
+    ~@release: ()
     ~@release = -> return
 "#,
         );

@@ -6,8 +6,8 @@ use crate::hir::{
 use crate::ids::{AssocTypeId, CrateId, DefId, LocalDefId};
 use crate::language_items::{
     DropLanguageItems, FnLanguageItems, FnMutLanguageItems, FnOnceLanguageItems,
-    IndexLanguageItems, IndexMutLanguageItems, SendLanguageItems, SizedLanguageItems,
-    SyncLanguageItems, TryLanguageItems,
+    IndexLanguageItems, IndexMutLanguageItems, RangeLanguageItems, SendLanguageItems,
+    SizedLanguageItems, SyncLanguageItems, TryLanguageItems,
 };
 use crate::products::{
     CompilerProducts, ProductCrateId, ProductDefId, ProductImplInterface, ProductLanguageItems,
@@ -133,6 +133,21 @@ pub(super) fn language_items_from_products(
                 })
             })
             .transpose()?,
+        range: language_items
+            .range
+            .as_ref()
+            .map(|items| {
+                Ok::<_, String>(RangeLanguageItems {
+                    enum_id: remap.def_id(items.enum_id)?,
+                    full_variant_id: items.full_variant_id,
+                    from_variant_id: items.from_variant_id,
+                    to_variant_id: items.to_variant_id,
+                    to_inclusive_variant_id: items.to_inclusive_variant_id,
+                    exclusive_variant_id: items.exclusive_variant_id,
+                    inclusive_variant_id: items.inclusive_variant_id,
+                })
+            })
+            .transpose()?,
     })
 }
 
@@ -148,6 +163,7 @@ pub(super) fn validate_product_language_items(products: &CompilerProducts) -> Re
         && language_items.send.is_none()
         && language_items.sync.is_none()
         && language_items.try_protocol.is_none()
+        && language_items.range.is_none()
     {
         return Ok(());
     }
@@ -339,6 +355,42 @@ pub(super) fn validate_product_language_items(products: &CompilerProducts) -> Re
             )
         }),
     )?;
+    if let Some(items) = &language_items.range {
+        let enum_id = product_def_id(items.enum_id);
+        let range_enum = program.enums.get(&enum_id).ok_or_else(|| {
+            format!("Product artifact language item range.enum references missing enum {enum_id:?}")
+        })?;
+        for (role, variant_id, arity) in [
+            ("range.range_full", items.full_variant_id, 0usize),
+            ("range.range_from", items.from_variant_id, 1),
+            ("range.range_to", items.to_variant_id, 1),
+            ("range.range_to_inclusive", items.to_inclusive_variant_id, 1),
+            ("range.range_exclusive", items.exclusive_variant_id, 2),
+            ("range.range_inclusive", items.inclusive_variant_id, 2),
+        ] {
+            let variant = range_enum
+                .variants
+                .iter()
+                .find(|variant| variant.id == variant_id)
+                .ok_or_else(|| {
+                    format!(
+                        "Product artifact language item {role} references missing variant {variant_id:?}"
+                    )
+                })?;
+            let fields = match &variant.fields {
+                crate::hir::HirVariantFields::Unit => Vec::new(),
+                crate::hir::HirVariantFields::Positional(fields) => fields.clone(),
+                crate::hir::HirVariantFields::Named(fields) => {
+                    fields.iter().map(|field| field.ty.clone()).collect()
+                }
+            };
+            if fields.len() != arity || fields.iter().any(|field| field != &Type::I64) {
+                return Err(format!(
+                    "Product artifact language item {role} must have {arity} I64 fields"
+                ));
+            }
+        }
+    }
 
     Ok(())
 }
@@ -759,6 +811,9 @@ fn validate_product_local_ids(
             ("control_flow.enum", items.control_flow_enum_id),
         ]);
     }
+    if let Some(items) = &language_items.range {
+        ids.push(("range.enum", items.enum_id));
+    }
 
     for (role, id) in ids {
         if id.crate_id != local_crate {
@@ -927,6 +982,17 @@ fn product_language_item_ids(products: &CompilerProducts) -> BTreeSet<ProductDef
         assoc_ids.insert(items.residual_id);
         variant_ids.insert(items.break_variant_id);
         variant_ids.insert(items.continue_variant_id);
+    }
+    if let Some(items) = &language_items.range {
+        ids.insert(items.enum_id);
+        variant_ids.extend([
+            items.full_variant_id,
+            items.from_variant_id,
+            items.to_variant_id,
+            items.to_inclusive_variant_id,
+            items.exclusive_variant_id,
+            items.inclusive_variant_id,
+        ]);
     }
 
     for (trait_id, trait_def) in &products.interface.traits {
@@ -1300,6 +1366,7 @@ mod tests {
                 break_variant_id: VariantId(0),
                 continue_variant_id: VariantId(1),
             }),
+            range: None,
         };
 
         CompilerProducts {
@@ -2384,7 +2451,7 @@ mod tests {
             .ret = Type::I64;
         assert_eq!(
             validate_product_language_items(&products).unwrap_err(),
-            "Product artifact language item drop.trait ProductDefId { crate_id: ProductCrateId(0), local_id: ProductLocalDefId(2) }: drop.method must return Unit"
+            "Product artifact language item drop.trait ProductDefId { crate_id: ProductCrateId(0), local_id: ProductLocalDefId(2) }: drop.method must return ()"
         );
 
         let mut products = valid_products();

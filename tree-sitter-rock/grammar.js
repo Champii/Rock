@@ -41,12 +41,14 @@ module.exports = grammar({
     [$.associated_type, $.type_path, $.path_expression],
     [$.expression, $.if_expression],
     [$.expression, $.while_expression],
+    [$.expression, $.range_expression],
     [$.type, $.type_application_or_atom],
     [$.associated_type, $.type_path],
     [$.type_arguments],
     [$._atom, $.binding_pattern],
     [$._atom, $.identifier_pattern],
     [$._atom, $.literal_pattern],
+    [$._atom, $.rest_pattern],
     [$.identifier_pattern, $.mutable_pattern],
     [$.type_hole, $.wildcard_pattern],
     [$.array_expression, $.array_pattern],
@@ -499,6 +501,7 @@ module.exports = grammar({
       $.loop_expression,
       $.unsafe_expression,
       $.macro_invocation,
+      $.range_expression,
       $.binary_expression,
       $._call_expression,
     ),
@@ -518,6 +521,12 @@ module.exports = grammar({
         field('right', choice($._call_expression, $.indented_binary_operand)),
       )),
     ))),
+
+    range_expression: $ => prec.right(0, seq(
+      optional(field('start', choice($.binary_expression, $._call_expression))),
+      field('operator', choice('..', '..=')),
+      optional(field('end', choice($.binary_expression, $._call_expression))),
+    )),
 
     indented_binary_operand: $ => seq(
       $._call_indent,
@@ -584,7 +593,6 @@ module.exports = grammar({
       repeat1(field('operation', choice(
         $.index_suffix,
         $.field_suffix,
-        $.double_dot_suffix,
         $.propagate_suffix,
         $.bang_call_suffix,
       ))),
@@ -592,7 +600,6 @@ module.exports = grammar({
 
     index_suffix: $ => seq('[', field('index', $.expression), ']'),
     field_suffix: $ => seq('.', field('field', choice($.identifier, $.number))),
-    double_dot_suffix: $ => seq('..', field('field', choice($.identifier, $.number))),
     propagate_suffix: _ => '?',
     bang_call_suffix: _ => '!',
 
@@ -616,7 +623,6 @@ module.exports = grammar({
       repeat1(choice(
         $.index_suffix,
         $.field_suffix,
-        $.double_dot_suffix,
         $.propagate_suffix,
         $.bang_call_suffix,
       )),
@@ -677,7 +683,6 @@ module.exports = grammar({
       field('field', choice($.identifier, $.number)),
       repeat(choice(
         $.field_suffix,
-        $.double_dot_suffix,
         $.propagate_suffix,
         $.bang_call_suffix,
         $.operator,

@@ -704,9 +704,7 @@ fn visit_expr_children(expr: &AcceptedHirExpr, visit: &mut impl FnMut(HirChild<'
         | HirExprKindFor::Ref(_, value)
         | HirExprKindFor::Deref(value)
         | HirExprKindFor::Cast(value, _) => visit(HirChild::Expr(value)),
-        HirExprKindFor::BinOp(_, left, right)
-        | HirExprKindFor::Assign(left, right)
-        | HirExprKindFor::Range(left, right) => {
+        HirExprKindFor::BinOp(_, left, right) | HirExprKindFor::Assign(left, right) => {
             visit(HirChild::Expr(left));
             visit(HirChild::Expr(right));
         }

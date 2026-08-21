@@ -248,10 +248,6 @@ fn replace_type_vars_in_expr_composite(
             replace_type_vars_in_expr_composite(engine, lhs, mapping, composite_types);
             replace_type_vars_in_expr_composite(engine, rhs, mapping, composite_types);
         }
-        HirExprKind::Range(start, end) => {
-            replace_type_vars_in_expr_composite(engine, start, mapping, composite_types);
-            replace_type_vars_in_expr_composite(engine, end, mapping, composite_types);
-        }
         HirExprKind::Intrinsic { args, .. } => {
             for arg in args {
                 replace_type_vars_in_expr_composite(engine, arg, mapping, composite_types);

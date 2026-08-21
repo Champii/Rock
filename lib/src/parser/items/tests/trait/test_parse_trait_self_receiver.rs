@@ -21,7 +21,7 @@ fn test_parse_trait_allows_mut_self_receiver() {
 
 #[test]
 fn test_parse_trait_allows_move_self_receiver_signature() {
-    let input = "trait Drop\n    ~@drop: Unit\n";
+    let input = "trait Drop\n    ~@drop: ()\n";
     let tokens = lex_test(input);
     let config = Config::default();
 

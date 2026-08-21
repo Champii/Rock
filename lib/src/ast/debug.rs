@@ -147,9 +147,6 @@ macro_rules! ast_printer {
                     SecondaryExpr::Dot(name) => {
                         println!("{}{} = .{}", self.indent(), "Dot", format_node(name));
                     }
-                    SecondaryExpr::DoubleDot(name) => {
-                        println!("{}{} = ..{}", self.indent(), "DoubleDot", format_node(name));
-                    }
                     SecondaryExpr::Arguments(args) => {
                         self.name_with_indent("Arguments", |printer| {
                             walk_list!(printer, visit_argument, args);

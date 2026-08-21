@@ -1389,7 +1389,7 @@ fn test_generic_function_alias_preserves_trait_bounds() {
     compile_should_fail(
         r#"trait Marker
 
-requires_marker: T -> Unit where T: Marker
+requires_marker: T -> () where T: Marker
 requires_marker = _ -> return
 
 main = ->
@@ -1429,7 +1429,7 @@ fn test_qualified_generic_function_value_preserves_trait_bounds() {
         dir.join("utils.rk"),
         r#"trait Marker
 
-requires_marker: T -> Unit where T: Marker
+requires_marker: T -> () where T: Marker
 requires_marker = _ -> return
 
 < Marker
@@ -1471,7 +1471,7 @@ fn test_generic_method_call_preserves_method_bounds() {
 struct Box
 
 impl Box
-    @requires_marker: T -> Unit where T: Marker
+    @requires_marker: T -> () where T: Marker
     @requires_marker = _ -> return
 
 main = ->
@@ -1491,7 +1491,7 @@ fn test_generic_method_value_preserves_method_bounds() {
 struct Box
 
 impl Box
-    @requires_marker: T -> Unit where T: Marker
+    @requires_marker: T -> () where T: Marker
     @requires_marker = _ -> return
 
 main = ->
@@ -1510,14 +1510,14 @@ fn test_trait_bound_method_signature_preserves_method_bounds() {
         r#"trait Marker
 
 trait Provider
-    @requires_marker: T -> Unit where T: Marker
+    @requires_marker: T -> () where T: Marker
 
 struct Service
 
 impl Provider for Service
     @requires_marker = _ -> return
 
-call_requires: P -> Unit where P: Provider
+call_requires: P -> () where P: Provider
 call_requires = provider -> provider.requires_marker 1
 
 main = ->
@@ -1541,7 +1541,7 @@ struct Box T
 
 impl Provider for Box T where T: Marker
 
-requires_provider: T -> Unit where T: Provider
+requires_provider: T -> () where T: Provider
 requires_provider = _ -> return
 
 main = ->
@@ -2514,6 +2514,22 @@ main = ->
 }
 
 #[test]
+fn shared_range_borrow_blocks_overlapping_mutable_range() {
+    compile_should_fail(
+        r#"
+main = ->
+    mut values = [10, 20, 30, 40]
+    shared: &[I64] = &values[..2]
+    mut overlapping: &mut [I64] = &mut values[1..]
+    overlapping[0] = 99
+    shared[0].println!
+    0
+"#,
+        "borrow conflict on",
+    );
+}
+
+#[test]
 fn mutable_index_reference_preserves_alias_rules() {
     compile_should_fail(
         r#"
@@ -2628,7 +2644,7 @@ main = -> 0
 fn test_slice_write_without_index_mut_provider_fails_before_mono() {
     compile_should_fail_with_exact_diagnostic(
         r#"
-write: &mut [I64] -> Unit
+write: &mut [I64] -> ()
 write = slice -> slice[0] = 4
 
 main = -> 0
@@ -2654,7 +2670,7 @@ main = -> 0
 fn test_pointer_write_without_index_mut_provider_fails_before_mono() {
     compile_should_fail_with_exact_diagnostic(
         r#"
-write: *I64 -> Unit
+write: *I64 -> ()
 write = ptr -> unsafe ptr[0] = 4
 
 main = -> 0
@@ -2831,10 +2847,8 @@ fn test_socket_posix_ffi_surface_compiles_and_returns_errno() {
 > stdlib::libc::close
 > stdlib::libc::__errno_location
 
-unit = ->
-    return
 last_errno = ->
-    ptr = __errno_location unit!
+    ptr = __errno_location!
     unsafe *ptr
 main = ->
     fd = socket (-1), 1, 0
@@ -3556,7 +3570,7 @@ struct Counter
     < value: I64
 
 impl Counter
-    ^@inc: Unit
+    ^@inc: ()
     ^@inc = ->
         self.value = self.value + 1
         return
@@ -3579,12 +3593,12 @@ struct Counter
     < value: I64
 
 impl Counter
-    ^@inc: Unit
+    ^@inc: ()
     ^@inc = ->
         self.value = self.value + 1
         return
 
-use_shared: &Counter -> Unit
+use_shared: &Counter -> ()
 use_shared = c ->
     c.inc!
     return
@@ -3603,7 +3617,7 @@ struct Counter
     < value: I64
 
 impl Counter
-    ^@inc: Unit
+    ^@inc: ()
     ^@inc = ->
         self.value = self.value + 1
         return
@@ -3738,7 +3752,7 @@ trait Marker
 struct Box
 
 impl Box
-    @requires_marker: T -> Unit where T: Marker
+    @requires_marker: T -> () where T: Marker
     @requires_marker = _ -> return
 
 make: () -> Result Box, I64
@@ -3780,7 +3794,7 @@ struct Counter
     < value: I64
 
 impl Counter
-    ^@inc: Unit
+    ^@inc: ()
     ^@inc = ->
         self.value = self.value + 1
         return
@@ -3920,12 +3934,16 @@ main = ->
 }
 
 #[test]
-fn unit_arrow_discards_named_function_and_lambda_results() {
+fn unit_arrow_evaluates_body_and_discards_named_function_and_lambda_results() {
     let output = compile_and_run(
         r#"
 discard = value !->
     7.println!
     value
+
+emit_value = ->
+    9.println!
+    42
 
 main = ->
     discard 99
@@ -3933,11 +3951,13 @@ main = ->
         8.println!
         value
     f 9
+    run_effect = !-> emit_value!
+    run_effect!
     0
 "#,
     );
 
-    assert_eq!(output.trim().lines().collect::<Vec<_>>(), ["7", "8"]);
+    assert_eq!(output.trim().lines().collect::<Vec<_>>(), ["7", "8", "9"]);
 }
 
 #[test]
@@ -4569,6 +4589,56 @@ main = ->
 }
 
 #[test]
+fn test_native_ranges_borrow_slice_views() {
+    let output = compile_and_run(
+        r#"
+inspect: &[I64] -> ()
+inspect = slice !->
+    (~ArrayLen slice).println!
+    slice[0].println!
+
+inspect_ranges: &[I64] -> ()
+inspect_ranges = slice !->
+    inspect (&slice[..2])
+    inspect (&slice[1..])
+    inspect (&slice[1..3])
+    inspect (&slice[..=1])
+    inspect (&slice[1..=2])
+    inspect (&slice[..])
+    selected = 1..3
+    inspect (&slice[selected])
+
+main = ->
+    values = [10, 20, 30, 40]
+    inspect_ranges (&values)
+    inspect (&values[..2])
+    0
+"#,
+    );
+
+    assert_eq!(
+        output.lines().collect::<Vec<_>>(),
+        ["2", "10", "3", "20", "2", "20", "2", "10", "2", "20", "4", "10", "2", "20", "2", "10"]
+    );
+}
+
+#[test]
+fn test_inclusive_native_range_for_loop_includes_end() {
+    let output = compile_and_run(
+        r#"
+main = ->
+    mut total = 0
+    for value in 1..=3
+        total = total + value
+    total.println!
+    0
+"#,
+    );
+
+    assert_eq!(output.trim(), "6");
+}
+
+#[test]
 fn test_slice_index_assignment() {
     let output = compile_and_run(
         r#"
@@ -4587,6 +4657,75 @@ main = ->
     );
 
     assert_eq!(output.trim(), "42");
+}
+
+#[test]
+fn test_native_mutable_range_updates_original_slice() {
+    let output = compile_and_run(
+        r#"
+update_middle: &mut [I64] -> ()
+update_middle = slice !->
+    mut middle = &mut slice[1..3]
+    middle[0] = 77
+
+main = ->
+    mut values = [10, 20, 30, 40]
+    update_middle (&mut values)
+    values[1].println!
+    values[2].println!
+    0
+"#,
+    );
+
+    assert_eq!(output.lines().collect::<Vec<_>>(), ["77", "30"]);
+}
+
+#[test]
+fn test_native_ranges_index_vec_views() {
+    let output = compile_and_run(
+        r#"
+inspect: &[I64] -> ()
+inspect = slice !->
+    (~ArrayLen slice).println!
+    slice[0].println!
+
+update_prefix: &mut (Vec I64) -> ()
+update_prefix = values !->
+    mut prefix: &mut [I64] = &mut (*values)[..2]
+    prefix[0] = 55
+
+main = ->
+    mut values: Vec I64 = Vec::new!
+    values.push 10
+    values.push 20
+    values.push 30
+    inspect (&values[1..])
+    update_prefix (&mut values)
+    values[0].println!
+    0
+"#,
+    );
+
+    assert_eq!(output.lines().collect::<Vec<_>>(), ["2", "20", "55"]);
+}
+
+#[test]
+fn test_native_range_out_of_bounds_traps() {
+    let (stdout, success) = compile_and_run_with_status(
+        r#"
+main = ->
+    values = [10, 20, 30]
+    slice = &values[1..4]
+    (~ArrayLen *slice).println!
+    0
+"#,
+    );
+
+    assert!(!success);
+    assert!(
+        stdout.contains("range out of bounds"),
+        "stdout was {stdout:?}"
+    );
 }
 
 #[test]
@@ -4870,6 +5009,73 @@ main = ->
 }
 
 #[test]
+fn test_stdlib_thread_handle_drop_detaches_without_waiting() {
+    let output = compile_and_run(
+        r#"
+> stdlib::thread::sleep_ms
+> stdlib::thread::spawn
+
+launch = ->
+    match spawn (->
+        sleep_ms 500
+        "worker finished".println!
+        return)
+        Result::Ok _ => 0
+        Result::Err _ => 1
+
+main = ->
+    code = launch!
+    "handle dropped".println!
+    code
+"#,
+    );
+
+    assert_eq!(output.trim(), "handle dropped");
+}
+
+#[test]
+fn test_stdlib_detached_thread_drops_unobserved_result() {
+    let output = compile_and_run(
+        r#"
+> stdlib::thread::sleep_ms
+> stdlib::thread::spawn
+
+struct DetachedResult
+
+impl Drop for DetachedResult
+    ~@drop = ->
+        "detached result dropped".println!
+        return
+
+launch = ->
+    match spawn (-> DetachedResult)
+        Result::Ok _ => 0
+        Result::Err _ => 1
+
+main = ->
+    code = launch!
+    sleep_ms 100
+    code
+"#,
+    );
+
+    assert_eq!(output.trim(), "detached result dropped");
+}
+
+#[test]
+fn test_unit_name_is_not_a_primitive_type_spelling() {
+    compile_should_fail(
+        r#"
+identity: Unit -> Unit
+identity = value -> value
+
+main = -> 0
+"#,
+        "unknown type 'Unit'",
+    );
+}
+
+#[test]
 fn test_stdlib_thread_spawn_accepts_owned_send_capture() {
     let output = compile_and_run(
         r#"
@@ -5061,7 +5267,7 @@ fn test_stdlib_mutex_guard_drop_unlocks_mutex() {
         r#"
 > stdlib::sync::Mutex
 
-set_value: &Mutex I64 -> Unit
+set_value: &Mutex I64 -> ()
 set_value = mutex ->
     mut guard = mutex.lock!
     *guard = 41
@@ -5125,7 +5331,7 @@ fn test_stdlib_mutex_try_lock_observes_guard_lifetime() {
         r#"
 > stdlib::sync::Mutex
 
-lock_once: &Mutex I64 -> Unit
+lock_once: &Mutex I64 -> ()
 lock_once = mutex ->
     guard = mutex.lock!
     match mutex.try_lock!
@@ -5332,7 +5538,7 @@ struct Counter
     < value: I64
 
 impl Counter
-    ^@set: I64 -> Unit
+    ^@set: I64 -> ()
     ^@set = value ->
         self.value = value
         return
@@ -11132,7 +11338,7 @@ fn test_stdlib_vec_eager_map_move_only_preserves_order() {
 string_len: String -> I64
 string_len = value -> value.len!
 
-print_value: I64 -> Unit
+print_value: I64 -> ()
 print_value = value ->
     value.println!
     return
@@ -11157,7 +11363,7 @@ fn test_stdlib_vec_map_ref_preserves_source() {
 string_len: &String -> I64
 string_len = value -> value.len!
 
-print_value: I64 -> Unit
+print_value: I64 -> ()
 print_value = value ->
     value.println!
     return
@@ -11180,7 +11386,7 @@ main = ->
 fn test_stdlib_vec_map_ref_contextually_types_closure_parameter() {
     let output = compile_and_run(
         r#"
-print_value: I64 -> Unit
+print_value: I64 -> ()
 print_value = value ->
     value.println!
     return
@@ -11203,17 +11409,17 @@ main = ->
 fn test_stdlib_vec_try_for_each_short_circuits() {
     let output = compile_and_run(
         r#"
-visit: &I64 -> Result Unit, I64
+visit: &I64 -> Result (), I64
 visit = value ->
     item = *value
     item.println!
     if item == 2
         Result::Err 9
     else
-        unit: Unit = make_unit!
+        unit: () = make_unit!
         Result::Ok unit
 
-make_unit: () -> Unit
+make_unit: () -> ()
 make_unit = -> return
 
 main = ->
@@ -11221,7 +11427,7 @@ main = ->
     values.push 1
     values.push 2
     values.push 3
-    result: Result Unit, I64 = values.try_for_each visit
+    result: Result (), I64 = values.try_for_each visit
     match result
         Result::Ok unit => 0.println!
         Result::Err error => error.println!
@@ -11240,12 +11446,12 @@ fn test_stdlib_vec_eager_operations_preserve_order_and_are_stack_safe() {
 double: I64 -> I64
 double = value -> value * 2
 
-print_ref: &I64 -> Unit
+print_ref: &I64 -> ()
 print_ref = value ->
     *value .println!
     return
 
-print_owned: I64 -> Unit
+print_owned: I64 -> ()
 print_owned = value ->
     value.println!
     return
@@ -12730,7 +12936,7 @@ main = ->
 fn test_ptr_add_sub_work_inside_unsafe_block() {
     let output = compile_and_run(
         r#"extern malloc: I64 -> *U8
-extern free: *U8 -> Unit
+extern free: *U8 -> ()
 
 main = ->
     buf: *I64 = (malloc 24) as *I64
@@ -12752,7 +12958,7 @@ main = ->
 fn test_local_sized_shadow_keeps_pointer_operator_bound_canonical() {
     let output = compile_and_run(
         r#"extern malloc: I64 -> *U8
-extern free: *U8 -> Unit
+extern free: *U8 -> ()
 
 trait Sized
 
@@ -12788,7 +12994,7 @@ struct Only
 
 impl Sized for Only
 
-requires_local_sized: T -> Unit where T: Sized
+requires_local_sized: T -> () where T: Sized
 requires_local_sized = _ -> return
 
 main = ->
@@ -12826,7 +13032,7 @@ fn test_raw_pointer_write_read_round_trip() {
     let output = compile_and_run(
         r#"
 extern malloc: I64 -> *U8
-extern free: *U8 -> Unit
+extern free: *U8 -> ()
 
 main = ->
     ptr: *I64 = (malloc 8) as *I64
@@ -12846,7 +13052,7 @@ fn test_drop_in_place_drops_raw_pointer_value() {
     let output = compile_and_run(
         r#"
 extern malloc: I64 -> *U8
-extern free: *U8 -> Unit
+extern free: *U8 -> ()
 
 struct Tracked
     < value: I64
@@ -13154,7 +13360,7 @@ make_holder = ->
     Holder
         value: 1
 
-use_holder: &Holder -> Unit
+use_holder: &Holder -> ()
 use_holder = holder ->
     holder.value.println!
     return
@@ -13244,7 +13450,7 @@ fn test_unrelated_trait_named_drop_is_not_automatic_cleanup() {
     let output = compile_and_run(
         r#"
 trait Drop
-    ~@drop: Unit
+    ~@drop: ()
 
 struct Tracked
     < value: I64
@@ -13269,7 +13475,7 @@ fn test_unrelated_trait_named_drop_allows_field_moves() {
     let output = compile_and_run(
         r#"
 trait Drop
-    ~@drop: Unit
+    ~@drop: ()
 
 struct Child
     < value: I64
@@ -13371,7 +13577,7 @@ impl Drop for Tracked
 struct Sink
 
 impl Sink
-    @take: Box Tracked -> Unit
+    @take: Box Tracked -> ()
     @take = value ->
         return
 
@@ -13568,7 +13774,7 @@ impl Drop for Tracked
         self.value.println!
         return
 
-consume_unused: Box Tracked -> Unit
+consume_unused: Box Tracked -> ()
 consume_unused = x ->
     return
 
@@ -13596,7 +13802,7 @@ impl Drop for Tracked
         self.value.println!
         return
 
-consume_unused: Tracked -> Unit
+consume_unused: Tracked -> ()
 consume_unused = x ->
     return
 
@@ -14847,7 +15053,7 @@ fn test_concrete_trait_bound_solver_checks_trait_arguments() {
 
 impl Pick Bool for I64
 
-requires_i64_pick: T -> Unit where T: Pick I64
+requires_i64_pick: T -> () where T: Pick I64
 requires_i64_pick = _ -> return
 
 main = ->
@@ -14868,7 +15074,7 @@ struct Box T
 
 impl Pick T for Box T
 
-requires_i64_pick: T -> Unit where T: Pick I64
+requires_i64_pick: T -> () where T: Pick I64
 requires_i64_pick = _ -> return
 
 main = ->

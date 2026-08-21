@@ -129,6 +129,12 @@ fn language_item_top_level(stream: Input) -> IResult<TopLevel> {
             | LanguageItemRole::Branch
             | LanguageItemRole::Break
             | LanguageItemRole::Continue
+            | LanguageItemRole::RangeFull
+            | LanguageItemRole::RangeFrom
+            | LanguageItemRole::RangeTo
+            | LanguageItemRole::RangeToInclusive
+            | LanguageItemRole::RangeExclusive
+            | LanguageItemRole::RangeInclusive
     ) {
         return Err(ParseError::HardError(
             format!(
@@ -177,7 +183,10 @@ fn language_item_top_level(stream: Input) -> IResult<TopLevel> {
             Ok((stream, TopLevel::TraitDecl(decl)))
         }
         TokenType::Keyword(ref keyword) if keyword == "enum" => {
-            if marker.role != LanguageItemRole::ControlFlow {
+            if !matches!(
+                marker.role,
+                LanguageItemRole::ControlFlow | LanguageItemRole::Range
+            ) {
                 return Err(ParseError::HardError(
                     format!("language item role '{}' may only mark a trait", marker.role),
                     marker.span,

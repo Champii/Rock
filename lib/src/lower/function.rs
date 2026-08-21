@@ -922,7 +922,10 @@ mod tests {
         let mut lowerer = Lowerer::new_for_test();
         let mut_sig = FunctionSig {
             name: ident("set"),
-            sig: ParseType::Function(vec![named_type("I64"), named_type("Unit")]),
+            sig: ParseType::Function(vec![
+                named_type("I64"),
+                ParseType::Unit(crate::lexer::Span::test()),
+            ]),
             where_clauses: vec![],
             self_receiver: Some(SelfReceiverMode::Mut),
             is_unsafe: false,

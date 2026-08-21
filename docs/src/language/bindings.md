@@ -147,25 +147,23 @@ The first assignment constructs `point`; `point.x = 5` updates its existing fiel
 
 ## Unit-valued functions
 
-Some functions exist for effects and return `Unit`, written `()` as a value. A unit-arrow body uses `!->`:
+Some functions exist for effects and return `()`. A unit-arrow body uses `!->`:
 
 ```rock
-log_value: I64 -> Unit
+log_value: I64 -> ()
 log_value = value !->
     value.println!
-    return
 
 main = ->
     log_value 9
     0
 ```
 
-With current compiler behavior, a `!->` body does not evaluate a trailing value expression. End such a body with `return` after the final effect. An ordinary `->` body instead evaluates its final expression and can naturally return the `Unit` produced by `println!`.
+A `!->` body evaluates every statement, including its trailing expression, then discards the trailing value and returns `()` automatically. Use an ordinary `->` body when the trailing value should become the function result.
 
 ## Common mistakes
 
 - Saying that every assignment requires `mut`; plain reassignment currently does not.
 - Forgetting `mut` before a value passed to `&mut` or a `^@` receiver.
 - Destructuring a tuple with the wrong number of elements.
-- Writing a unit-arrow body with an unevaluated final effect and assuming it will run.
 - Using a field or enum name without declaring its containing type in the module.

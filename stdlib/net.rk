@@ -154,7 +154,7 @@ tcp_stream_write_all_prefix_fd = fd, buf, len ->
         else
             Result::Ok total
 
-tcp_stream_shutdown_fd: I32 -> Result Unit, IoError
+tcp_stream_shutdown_fd: I32 -> Result (), IoError
 tcp_stream_shutdown_fd = fd ->
     result = stdlib::libc::shutdown fd, 2
     if result < (0 as I32)
@@ -305,11 +305,11 @@ impl TcpStream
     @send_all_prefix = buf, len ->
         tcp_stream_write_all_prefix_fd self.fd, buf, len
 
-    @shutdown: Result Unit, IoError
+    @shutdown: Result (), IoError
     @shutdown = ->
         tcp_stream_shutdown_fd self.fd
 
-    @shutdown_write: Result Unit, IoError
+    @shutdown_write: Result (), IoError
     @shutdown_write = ->
         result = stdlib::libc::shutdown self.fd, 1
         if result < (0 as I32)

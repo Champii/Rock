@@ -153,17 +153,16 @@ For `(3, 9)`, the first branch returns `3` and skips `right`. For `(0, 9)`, exec
 A function whose purpose is an effect can use `!->`:
 
 ```rock
-greet: &Str -> Unit
+greet: &Str -> ()
 greet = name !->
     "Hello, " + name .println!
-    return
 
 main = ->
     greet "Ada"
     0
 ```
 
-The explicit `return` is important with current compiler behavior: a unit-arrow body does not evaluate a trailing value expression. An ordinary `->` body can instead return the `Unit` produced by its final `println!` call.
+The trailing expression still runs, but its value is discarded and the function returns `()` automatically. An ordinary `->` body returns its trailing value instead.
 
 ## Recursion
 
@@ -209,4 +208,3 @@ The continuation lines remain one expression. Binding intermediate values is oft
 - Adding parentheses as if Rock used Rust-style `function(arguments)` calls.
 - Calling a `^@` method through a binding that is not marked `mut`.
 - Using a consuming `~@` receiver and then trying to use the consumed value again.
-- Leaving a unit-arrow function without an explicit `return` after its last effect.

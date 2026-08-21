@@ -226,7 +226,7 @@ impl<'ctx> CodeGen<'ctx> {
                 .into_int_value(),
             Some(_) => {
                 return Err(CodegenError::from(
-                    "Rock entry function 'main' must return an integer or Unit",
+                    "Rock entry function 'main' must return an integer or ()",
                 ));
             }
         };

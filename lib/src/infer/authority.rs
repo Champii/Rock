@@ -442,9 +442,7 @@ fn collect_authority_sites(
             | HirExprKind::Loop(body)
             | HirExprKind::UnsafeBlock(body)
             | HirExprKind::Lambda { body, .. } => block(body, engine, output),
-            HirExprKind::Assign(left, right)
-            | HirExprKind::BinOp(_, left, right)
-            | HirExprKind::Range(left, right) => {
+            HirExprKind::Assign(left, right) | HirExprKind::BinOp(_, left, right) => {
                 expr(left, engine, output, false);
                 expr(right, engine, output, false);
             }
@@ -604,9 +602,9 @@ fn first_pending_field(
             | HirExprKind::Loop(body)
             | HirExprKind::UnsafeBlock(body)
             | HirExprKind::Lambda { body, .. } => block(body, engine),
-            HirExprKind::Assign(left, right)
-            | HirExprKind::BinOp(_, left, right)
-            | HirExprKind::Range(left, right) => expr(left, engine).or_else(|| expr(right, engine)),
+            HirExprKind::Assign(left, right) | HirExprKind::BinOp(_, left, right) => {
+                expr(left, engine).or_else(|| expr(right, engine))
+            }
             HirExprKind::Intrinsic { args, .. }
             | HirExprKind::TupleLiteral(args)
             | HirExprKind::ArrayLiteral(args)
@@ -866,10 +864,6 @@ fn authority_counts(
                     expr(&field.value, counts);
                 }
             }
-            HirExprKind::Range(start, end) => {
-                expr(start, counts);
-                expr(end, counts);
-            }
             HirExprKind::Var(_)
             | HirExprKind::ResolvedVar(_)
             | HirExprKind::IntLiteral(_)
@@ -986,9 +980,7 @@ fn collect_block_type_vars(
                 }
                 collect_block_type_vars(body, engine, output);
             }
-            HirExprKind::Assign(left, right)
-            | HirExprKind::BinOp(_, left, right)
-            | HirExprKind::Range(left, right) => {
+            HirExprKind::Assign(left, right) | HirExprKind::BinOp(_, left, right) => {
                 expr(left, engine, output);
                 expr(right, engine, output);
             }
@@ -1244,10 +1236,6 @@ fn propagate_expr(
             for arg in args {
                 propagate_expr(hir, arg, constrained_vars, errors);
             }
-        }
-        HirExprKind::Range(start, end) => {
-            propagate_expr(hir, start, constrained_vars, errors);
-            propagate_expr(hir, end, constrained_vars, errors);
         }
         HirExprKind::Var(_)
         | HirExprKind::ResolvedVar(_)
@@ -1912,9 +1900,7 @@ fn collect_unresolved_authority_vars(
             | HirExprKind::Lambda { body, .. } => {
                 collect_unresolved_authority_vars(body, engine, output)
             }
-            HirExprKind::Assign(left, right)
-            | HirExprKind::BinOp(_, left, right)
-            | HirExprKind::Range(left, right) => {
+            HirExprKind::Assign(left, right) | HirExprKind::BinOp(_, left, right) => {
                 expr(left, engine, output);
                 expr(right, engine, output);
             }
@@ -2360,10 +2346,6 @@ impl MethodAuthorityContext<'_> {
                 for field in fields {
                     self.collect_local_bindings_expr(&field.value);
                 }
-            }
-            HirExprKind::Range(start, end) => {
-                self.collect_local_bindings_expr(start);
-                self.collect_local_bindings_expr(end);
             }
             HirExprKind::Var(_)
             | HirExprKind::ResolvedVar(_)
@@ -3387,10 +3369,6 @@ impl MethodAuthorityContext<'_> {
                     }
                     self.materialize_block(&mut arm.body, errors);
                 }
-            }
-            HirExprKind::Range(start, end) => {
-                self.materialize_expr(start, errors);
-                self.materialize_expr(end, errors);
             }
             HirExprKind::Try { .. } => {
                 let materialize_branch =

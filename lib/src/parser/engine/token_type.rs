@@ -34,6 +34,7 @@ fn token_type_description(tt: &TokenType) -> String {
         TokenType::DoubleColon => "'::'".to_string(),
         TokenType::Dot => "'.'".to_string(),
         TokenType::DoubleDot => "'..'".to_string(),
+        TokenType::DoubleDotEqual => "'..='".to_string(),
         TokenType::SpacedDot => "spaced dot".to_string(),
         TokenType::Caret => "'^'".to_string(),
         TokenType::Tilde => "'~'".to_string(),

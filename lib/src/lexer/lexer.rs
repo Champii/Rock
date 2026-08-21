@@ -241,6 +241,9 @@ impl Lexer {
             ':' if self.peek(1) == ':' => self.token(TokenType::DoubleColon, 2),
             ':' => self.token(TokenType::Colon, 1),
             '.' if self.peek(1) == ' ' => self.operator(),
+            '.' if self.peek(1) == '.' && self.peek(2) == '=' => {
+                self.token(TokenType::DoubleDotEqual, 3)
+            }
             '.' if self.peek(1) == '.' => self.token(TokenType::DoubleDot, 2),
             '.' => self.token(TokenType::Dot, 1),
             '?' => self.token(TokenType::Interogation, 1),

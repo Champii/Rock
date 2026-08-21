@@ -74,7 +74,7 @@ main = ->
 Nested arrays use the same rule at each position.
 
 ```rock
-set_second: &mut [I64] -> Unit
+set_second: &mut [I64] -> ()
 set_second = row ->
     row[1] = 7
     return
@@ -120,7 +120,7 @@ A fixed array value is not coerced to a slice value by itself. Borrow it explici
 Mutable slices let a function update the owner's storage without taking ownership of the array.
 
 ```rock
-write_middle: &mut [I64] -> Unit
+write_middle: &mut [I64] -> ()
 write_middle = values ->
     values[1] = 42
     return
@@ -135,6 +135,39 @@ main = ->
 Before the call, `values` is mutable and owned by `main`. During the call, `&mut values` gives `write_middle` the only active mutable access. After the call, the mutable borrow ends at its last use and `values[1]` prints `42`.
 
 Slices support the same indexing traits as arrays. A slice does not resize, allocate, or own the backing storage; use `Vec T` for those operations.
+
+### Range Slicing
+
+Range expressions create borrowed views through the same `Index` and `IndexMut` traits:
+
+```rock
+inspect: &[I64] -> ()
+inspect = values !->
+    (~ArrayLen values).println!
+    values[0].println!
+
+main = ->
+    values = [10, 20, 30, 40]
+    inspect (&values[..2])
+    inspect (&values[1..])
+    inspect (&values[1..=2])
+    0
+```
+
+The range forms are `start..end`, `start..=end`, `..end`, `..=end`, `start..`, and `..`. Exclusive ranges omit `end`; inclusive ranges include it. The example prints lengths and first values for `[10, 20]`, `[20, 30, 40]`, and `[20, 30]`.
+
+Ranges are first-class values, so a program can store one before indexing:
+
+```rock
+main = ->
+    values = [10, 20, 30, 40]
+    middle = 1..3
+    view = &values[middle]
+    (*view)[0].println!
+    0
+```
+
+Mutable range indexing returns `&mut [T]` and updates the original storage. Invalid, reversed, or overflowing ranges terminate with `range out of bounds`. Shared and mutable range views participate in ordinary borrow checking; overlapping access is rejected while an earlier borrow remains live.
 
 ## Growable Vectors
 
@@ -152,6 +185,8 @@ main = ->
 ```
 
 The output is `3` and `20`. `values` owns all three elements before and after `push`; indexing borrows the selected element for the expression. `Vec::get` is the checked, non-panicking alternative when an index may be absent.
+
+`Vec T` also supports the native range forms. A shared range produces `&[T]`, while a mutable range produces `&mut [T]`; neither operation copies the selected elements.
 
 ```rock
 main = ->

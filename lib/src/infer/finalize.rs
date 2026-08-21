@@ -434,7 +434,7 @@ fn finalize_expr(ctx: &mut FinalizeCtx<'_>, expr: &mut HirExpr) {
             finalize_expr(ctx, inner);
             *target = ctx.finalize(target);
         }
-        HirExprKind::Assign(left, right) | HirExprKind::Range(left, right) => {
+        HirExprKind::Assign(left, right) => {
             finalize_expr(ctx, left);
             finalize_expr(ctx, right);
         }

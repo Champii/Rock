@@ -312,8 +312,26 @@ impl<'a> MirBuilder<'a> {
                 let inc_block = self.new_block();
                 let merge_block = self.new_block();
 
-                let (loop_local, end_operand, iter_place, iter_base_ty) =
-                    if let HirExprKind::Range(start, end) = &iter.kind {
+                let nominal_range = match &iter.kind {
+                    HirExprKind::EnumVariant(_, _, args, Some(location)) if args.len() == 2 => self
+                        .program
+                        .language_items
+                        .range
+                        .as_ref()
+                        .filter(|items| items.enum_id == location.owner)
+                        .and_then(|items| {
+                            if location.variant_id == items.exclusive_variant_id {
+                                Some((&args[0], &args[1], false))
+                            } else if location.variant_id == items.inclusive_variant_id {
+                                Some((&args[0], &args[1], true))
+                            } else {
+                                None
+                            }
+                        }),
+                    _ => None,
+                };
+                let (loop_local, end_operand, iter_place, iter_base_ty, inclusive_range) =
+                    if let Some((start, end, inclusive)) = nominal_range {
                         let loop_local = self.new_local_with_source(
                             self.type_id_for(&Type::I64),
                             Mutability::Mut,
@@ -350,6 +368,7 @@ impl<'a> MirBuilder<'a> {
                             }),
                             None,
                             Type::I64,
+                            inclusive,
                         )
                     } else {
                         let iter_temp = self.new_local_from_expr(iter.ty.clone(), iter);
@@ -397,6 +416,7 @@ impl<'a> MirBuilder<'a> {
                             Operand::Constant(Constant::Int(len)),
                             Some((iter_place, loop_local)),
                             iter.ty.clone(),
+                            false,
                         )
                     };
 
@@ -429,7 +449,11 @@ impl<'a> MirBuilder<'a> {
                         projection: vec![],
                     },
                     Rvalue::BinaryOp(
-                        MirBinOp::Lt,
+                        if inclusive_range {
+                            MirBinOp::Le
+                        } else {
+                            MirBinOp::Lt
+                        },
                         Operand::Copy(Place {
                             local: loop_local,
                             projection: vec![],
@@ -769,7 +793,11 @@ impl<'a> MirBuilder<'a> {
                         continue;
                     }
 
-                    if intrinsic == MirIntrinsicId::BorrowSlice && index == 0 {
+                    if matches!(
+                        intrinsic,
+                        MirIntrinsicId::BorrowSlice | MirIntrinsicId::BorrowSliceMut
+                    ) && index == 0
+                    {
                         if let Some(place) = self.lower_place(arg) {
                             arg_operands.push(Operand::Copy(place));
                             continue;

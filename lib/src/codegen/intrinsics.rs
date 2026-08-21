@@ -386,7 +386,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .into_struct_value();
                 Ok(Some(val.into()))
             }
-            MirIntrinsicId::BorrowSlice => {
+            MirIntrinsicId::BorrowSlice | MirIntrinsicId::BorrowSliceMut => {
                 let ptr = compiled_args[0].into_pointer_value();
                 let len = compiled_args[1].into_int_value();
                 let slice_ref_ty = self.slice_layout_type();

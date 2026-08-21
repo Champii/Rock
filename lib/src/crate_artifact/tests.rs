@@ -359,9 +359,7 @@ fn collect_index_authorities(
         | HirExprKind::Ref(_, inner)
         | HirExprKind::Cast(inner, _)
         | HirExprKind::UnaryOp(_, inner) => collect_index_authorities(inner, targets),
-        HirExprKind::Assign(lhs, rhs)
-        | HirExprKind::BinOp(_, lhs, rhs)
-        | HirExprKind::Range(lhs, rhs) => {
+        HirExprKind::Assign(lhs, rhs) | HirExprKind::BinOp(_, lhs, rhs) => {
             collect_index_authorities(lhs, targets);
             collect_index_authorities(rhs, targets);
         }
@@ -2229,7 +2227,7 @@ fn renamed_language_item_provider_artifact_drives_all_protocols() {
 lang drop
 < trait Farewell
     lang method
-    ~@dismiss: Unit
+    ~@dismiss: ()
 < Farewell
 
 lang index
@@ -2266,7 +2264,7 @@ lang from_residual
 
 extern puts: *U8 -> I32
 
-report_drop: &[U8] -> Unit
+report_drop: &[U8] -> ()
 report_drop = bytes ->
     puts (~ArrPtr *bytes)
     return
@@ -2333,7 +2331,7 @@ candidate = ok ->
     let (explicit_stdout, explicit_exit_code) = compile_and_run_artifact_app(
         r#"> protocols::*
 
-extern exit: I32 -> Unit
+extern exit: I32 -> ()
 
 requires_stature: T -> I64 where T: Stature
 requires_stature = _ -> 1

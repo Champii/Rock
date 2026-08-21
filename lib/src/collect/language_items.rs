@@ -6,7 +6,8 @@ use crate::ids::{AssocTypeId, DefId, ModuleId, VariantId};
 use crate::language_items::{
     merge_language_item_providers_all, DropLanguageItems, FnLanguageItems, FnMutLanguageItems,
     FnOnceLanguageItems, IndexLanguageItems, IndexMutLanguageItems, LanguageItemRole,
-    LanguageItems, SendLanguageItems, SizedLanguageItems, SyncLanguageItems, TryLanguageItems,
+    LanguageItems, RangeLanguageItems, SendLanguageItems, SizedLanguageItems, SyncLanguageItems,
+    TryLanguageItems,
 };
 use crate::lexer::Span;
 use crate::lower::ResolveError;
@@ -80,6 +81,17 @@ struct ControlFlowPartial {
     continue_variant: Option<VariantRecord>,
 }
 
+#[derive(Default)]
+struct RangePartial {
+    root: Option<RootRecord>,
+    full_variant: Option<VariantRecord>,
+    from_variant: Option<VariantRecord>,
+    to_variant: Option<VariantRecord>,
+    to_inclusive_variant: Option<VariantRecord>,
+    exclusive_variant: Option<VariantRecord>,
+    inclusive_variant: Option<VariantRecord>,
+}
+
 struct ProtocolError {
     protocol: LanguageItemRole,
     role: Option<LanguageItemRole>,
@@ -100,6 +112,7 @@ struct BindingState {
     try_protocol: TryPartial,
     from_residual: FromResidualPartial,
     control_flow: ControlFlowPartial,
+    range: RangePartial,
     errors: Vec<ProtocolError>,
 }
 
@@ -523,6 +536,7 @@ impl BindingState {
             LanguageItemRole::Try => &mut self.try_protocol.root,
             LanguageItemRole::FromResidual => &mut self.from_residual.root,
             LanguageItemRole::ControlFlow => &mut self.control_flow.root,
+            LanguageItemRole::Range => &mut self.range.root,
             _ => unreachable!("only protocol root roles reach insertion"),
         };
         insert_once(
@@ -609,6 +623,18 @@ impl BindingState {
             (LanguageItemRole::ControlFlow, LanguageItemRole::Continue) => {
                 &mut self.control_flow.continue_variant
             }
+            (LanguageItemRole::Range, LanguageItemRole::RangeFull) => &mut self.range.full_variant,
+            (LanguageItemRole::Range, LanguageItemRole::RangeFrom) => &mut self.range.from_variant,
+            (LanguageItemRole::Range, LanguageItemRole::RangeTo) => &mut self.range.to_variant,
+            (LanguageItemRole::Range, LanguageItemRole::RangeToInclusive) => {
+                &mut self.range.to_inclusive_variant
+            }
+            (LanguageItemRole::Range, LanguageItemRole::RangeExclusive) => {
+                &mut self.range.exclusive_variant
+            }
+            (LanguageItemRole::Range, LanguageItemRole::RangeInclusive) => {
+                &mut self.range.inclusive_variant
+            }
             _ => return,
         };
         insert_once(
@@ -646,6 +672,7 @@ impl BindingState {
         self.complete_fn(LanguageItemRole::Fn);
         self.require_index_for_index_mut();
         self.complete_try_bundle();
+        self.complete_range();
         self.errors.sort_by_key(|error| {
             (
                 role_order(error.protocol),
@@ -690,6 +717,46 @@ impl BindingState {
                     trait_id: root.id,
                     output_id: output.id,
                     method_id: method.id,
+                })
+            }
+            _ => None,
+        };
+        let range = match (
+            self.range.root,
+            self.range.full_variant,
+            self.range.from_variant,
+            self.range.to_variant,
+            self.range.to_inclusive_variant,
+            self.range.exclusive_variant,
+            self.range.inclusive_variant,
+        ) {
+            (
+                Some(root),
+                Some(full),
+                Some(from),
+                Some(to),
+                Some(to_inclusive),
+                Some(exclusive),
+                Some(inclusive),
+            ) if [
+                full.owner_id,
+                from.owner_id,
+                to.owner_id,
+                to_inclusive.owner_id,
+                exclusive.owner_id,
+                inclusive.owner_id,
+            ]
+            .iter()
+            .all(|owner| *owner == root.id) =>
+            {
+                Some(RangeLanguageItems {
+                    enum_id: root.id,
+                    full_variant_id: full.id,
+                    from_variant_id: from.id,
+                    to_variant_id: to.id,
+                    to_inclusive_variant_id: to_inclusive.id,
+                    exclusive_variant_id: exclusive.id,
+                    inclusive_variant_id: inclusive.id,
                 })
             }
             _ => None,
@@ -793,6 +860,7 @@ impl BindingState {
             send,
             sync,
             try_protocol,
+            range,
         })
     }
 
@@ -958,6 +1026,45 @@ impl BindingState {
         }
     }
 
+    fn complete_range(&mut self) {
+        let Some(root) = self.range.root.as_ref() else {
+            return;
+        };
+        let span = root.span.clone();
+        for (role, missing) in [
+            (
+                LanguageItemRole::RangeFull,
+                self.range.full_variant.is_none(),
+            ),
+            (
+                LanguageItemRole::RangeFrom,
+                self.range.from_variant.is_none(),
+            ),
+            (LanguageItemRole::RangeTo, self.range.to_variant.is_none()),
+            (
+                LanguageItemRole::RangeToInclusive,
+                self.range.to_inclusive_variant.is_none(),
+            ),
+            (
+                LanguageItemRole::RangeExclusive,
+                self.range.exclusive_variant.is_none(),
+            ),
+            (
+                LanguageItemRole::RangeInclusive,
+                self.range.inclusive_variant.is_none(),
+            ),
+        ] {
+            if missing {
+                self.error(
+                    LanguageItemRole::Range,
+                    Some(role),
+                    format!("language item range.{role} is missing"),
+                    span.clone(),
+                );
+            }
+        }
+    }
+
     fn try_bundle_span(&self) -> Option<Span> {
         self.try_protocol
             .root
@@ -1015,7 +1122,7 @@ fn root_expected_kind(role: LanguageItemRole) -> Option<ItemKind> {
         | LanguageItemRole::Sync
         | LanguageItemRole::Try
         | LanguageItemRole::FromResidual => Some(ItemKind::Trait),
-        LanguageItemRole::ControlFlow => Some(ItemKind::Enum),
+        LanguageItemRole::ControlFlow | LanguageItemRole::Range => Some(ItemKind::Enum),
         _ => None,
     }
 }
@@ -1048,6 +1155,14 @@ fn expected_child_kind(
         | (LanguageItemRole::ControlFlow, LanguageItemRole::Continue) => {
             Some(LanguageItemMemberKind::Variant)
         }
+        (LanguageItemRole::Range, LanguageItemRole::RangeFull)
+        | (LanguageItemRole::Range, LanguageItemRole::RangeFrom)
+        | (LanguageItemRole::Range, LanguageItemRole::RangeTo)
+        | (LanguageItemRole::Range, LanguageItemRole::RangeToInclusive)
+        | (LanguageItemRole::Range, LanguageItemRole::RangeExclusive)
+        | (LanguageItemRole::Range, LanguageItemRole::RangeInclusive) => {
+            Some(LanguageItemMemberKind::Variant)
+        }
         _ => None,
     }
 }
@@ -1074,11 +1189,18 @@ fn role_order(role: LanguageItemRole) -> u8 {
         LanguageItemRole::Try => 9,
         LanguageItemRole::FromResidual => 10,
         LanguageItemRole::ControlFlow => 11,
-        LanguageItemRole::Method => 12,
-        LanguageItemRole::Output => 13,
-        LanguageItemRole::Residual => 14,
-        LanguageItemRole::Branch => 15,
-        LanguageItemRole::Break => 16,
-        LanguageItemRole::Continue => 17,
+        LanguageItemRole::Range => 12,
+        LanguageItemRole::Method => 13,
+        LanguageItemRole::Output => 14,
+        LanguageItemRole::Residual => 15,
+        LanguageItemRole::Branch => 16,
+        LanguageItemRole::Break => 17,
+        LanguageItemRole::Continue => 18,
+        LanguageItemRole::RangeFull => 19,
+        LanguageItemRole::RangeFrom => 20,
+        LanguageItemRole::RangeTo => 21,
+        LanguageItemRole::RangeToInclusive => 22,
+        LanguageItemRole::RangeExclusive => 23,
+        LanguageItemRole::RangeInclusive => 24,
     }
 }

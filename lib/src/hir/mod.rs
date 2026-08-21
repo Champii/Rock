@@ -1727,9 +1727,7 @@ fn validate_method_authorities_in_expr(
         | HirExprKindFor::Cast(inner, _) => {
             validate_method_authorities_in_expr(program, inner, errors)
         }
-        HirExprKindFor::BinOp(_, left, right)
-        | HirExprKindFor::Assign(left, right)
-        | HirExprKindFor::Range(left, right) => {
+        HirExprKindFor::BinOp(_, left, right) | HirExprKindFor::Assign(left, right) => {
             validate_method_authorities_in_expr(program, left, errors);
             validate_method_authorities_in_expr(program, right, errors);
         }
@@ -2079,9 +2077,7 @@ fn hir_expr_is_codegen_concrete<P: HirPhase>(expr: &HirExprFor<P>) -> bool {
         | HirExprKindFor::Ref(_, base)
         | HirExprKindFor::UnaryOp(_, base)
         | HirExprKindFor::Cast(base, _) => hir_expr_is_codegen_concrete(base),
-        HirExprKindFor::BinOp(_, base, index)
-        | HirExprKindFor::Range(base, index)
-        | HirExprKindFor::Assign(base, index) => {
+        HirExprKindFor::BinOp(_, base, index) | HirExprKindFor::Assign(base, index) => {
             hir_expr_is_codegen_concrete(base) && hir_expr_is_codegen_concrete(index)
         }
         HirExprKindFor::Call(func, args, target) => {
@@ -3178,8 +3174,6 @@ pub enum HirExprKindFor<P: HirPhase> {
     Cast(Box<HirExprFor<P>>, Type),
     /// Assignment (for mutable variables, field assignment)
     Assign(Box<HirExprFor<P>>, Box<HirExprFor<P>>),
-    /// Range expression (start..end)
-    Range(Box<HirExprFor<P>>, Box<HirExprFor<P>>),
     /// Compiler intrinsic (maps directly to LLVM operation)
     /// e.g., ~I64Add, ~F64Mul
     Intrinsic {
@@ -3559,9 +3553,7 @@ fn substitute_typevars_in_expr_with_targets(
                 concrete_ty,
             );
         }
-        HirExprKindFor::BinOp(_, base, idx)
-        | HirExprKindFor::Range(base, idx)
-        | HirExprKindFor::Assign(base, idx) => {
+        HirExprKindFor::BinOp(_, base, idx) | HirExprKindFor::Assign(base, idx) => {
             substitute_typevars_in_expr_with_targets(
                 base,
                 target_ids,

@@ -29,7 +29,27 @@ impl Lowerer {
                 let span = iter.span.clone();
                 let (var_name, _) = self.extract_pattern_binding(pattern);
 
-                let elem_ty = if matches!(&iter.kind, HirExprKind::Range(_, _)) {
+                let range_variant = match &iter.kind {
+                    HirExprKind::EnumVariant(_, _, _, Some(location)) => self
+                        .language_items
+                        .range
+                        .as_ref()
+                        .filter(|items| items.enum_id == location.owner)
+                        .map(|items| {
+                            (
+                                location.variant_id == items.exclusive_variant_id,
+                                location.variant_id == items.inclusive_variant_id,
+                            )
+                        }),
+                    _ => None,
+                };
+                let elem_ty = if let Some((exclusive, inclusive)) = range_variant {
+                    if !exclusive && !inclusive {
+                        self.diagnostics.push_with_span(
+                            "for loops currently require a bounded range".to_string(),
+                            span.clone(),
+                        );
+                    }
                     Type::I64
                 } else {
                     match self.engine.resolve(&iter.ty) {
@@ -89,8 +109,8 @@ impl Lowerer {
 #[cfg(test)]
 mod tests {
     use crate::ast::{
-        Block, Expression, Ident, IdentOrNumber, IdentOrType, IdentifierPath, Literal, LiteralKind,
-        Operand, Pattern, PatternKind, PrimaryExpr, SecondaryExpr, Statement, UnaryExpr,
+        Block, Expression, Ident, IdentOrType, IdentifierPath, Literal, LiteralKind, Operand,
+        Pattern, PatternKind, PrimaryExpr, RangeExpr, Statement, UnaryExpr,
     };
     use crate::hir::{HirExprKind, HirStmt, HirVarRef, HirVarTarget};
     use crate::lexer::Span;
@@ -114,14 +134,22 @@ mod tests {
     }
 
     fn range_expr(start: u64, end: u64) -> Expression {
-        Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
-            operand: Operand::Literal(Literal {
-                kind: LiteralKind::Number(start),
-                span: Span::test(),
-            }),
-            secondaries: Some(vec![SecondaryExpr::DoubleDot(IdentOrNumber::Number(end))]),
-            type_annotation: None,
-        }))
+        let endpoint = |value| {
+            Expression::UnaryExpr(UnaryExpr::PrimaryExpr(PrimaryExpr {
+                operand: Operand::Literal(Literal {
+                    kind: LiteralKind::Number(value),
+                    span: Span::test(),
+                }),
+                secondaries: None,
+                type_annotation: None,
+            }))
+        };
+        Expression::Range(RangeExpr {
+            start: Some(Box::new(endpoint(start))),
+            end: Some(Box::new(endpoint(end))),
+            inclusive: false,
+            span: Span::test(),
+        })
     }
 
     fn var_expr(name: &str) -> Expression {

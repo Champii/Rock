@@ -102,7 +102,7 @@ Comments are ignored by the compiler. Use them for intent, constraints, or a non
 
 ## Common mistakes
 
-- Leaving out the final `0` from `main` when the body otherwise returns `Unit`.
+- Leaving out the final `0` from `main` when the body otherwise returns `()`.
 - Writing `println("text")`; the current call form is `"text".println!`.
 - Indenting a statement at the same level as `main = ->`; that makes it a separate top-level item instead of part of `main`.
 - Running `rock` outside the directory containing `rock.toml`.

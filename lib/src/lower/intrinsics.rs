@@ -62,7 +62,7 @@ pub fn is_intrinsic_name(name: &str) -> bool {
         | "BoolAnd" | "BoolOr" | "BoolXor" | "BoolNot"
         // Array / memory
         | "ArrayLen"
-        | "PtrOffset" | "MakeArr" | "BorrowSlice" | "BorrowStr" | "ArrPtr" | "SizeOf"
+        | "PtrOffset" | "MakeArr" | "BorrowSlice" | "BorrowSliceMut" | "BorrowStr" | "ArrPtr" | "SizeOf"
         | "DropInPlace" | "Forget"
         | "AtomicU64Exchange" | "AtomicU64FetchAdd" | "AtomicU64FetchSub" | "AtomicU64Store"
     )
@@ -119,7 +119,7 @@ pub fn infer_intrinsic_return_type(name: &str, args: &[HirExpr]) -> Type {
             return Type::Slice(Box::new(Type::U8));
         }
         // BorrowSlice: returns a borrowed slice matching the pointed-to element type.
-        "BorrowSlice" => {
+        "BorrowSlice" | "BorrowSliceMut" => {
             let elem_ty = if let Some(HirExpr {
                 ty: Type::Pointer(inner),
                 ..
@@ -131,7 +131,7 @@ pub fn infer_intrinsic_return_type(name: &str, args: &[HirExpr]) -> Type {
             };
 
             return Type::Reference {
-                mutable: false,
+                mutable: name == "BorrowSliceMut",
                 inner: Box::new(Type::Slice(elem_ty)),
             };
         }

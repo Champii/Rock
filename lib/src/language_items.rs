@@ -18,16 +18,23 @@ pub enum LanguageItemRole {
     Try,
     FromResidual,
     ControlFlow,
+    Range,
     Method,
     Output,
     Residual,
     Branch,
     Break,
     Continue,
+    RangeFull,
+    RangeFrom,
+    RangeTo,
+    RangeToInclusive,
+    RangeExclusive,
+    RangeInclusive,
 }
 
 impl LanguageItemRole {
-    pub const ALL_NAMES: [&str; 18] = [
+    pub const ALL_NAMES: [&str; 25] = [
         "sized",
         "drop",
         "index",
@@ -40,12 +47,19 @@ impl LanguageItemRole {
         "try",
         "from_residual",
         "control_flow",
+        "range",
         "method",
         "output",
         "residual",
         "branch",
         "break",
         "continue",
+        "range_full",
+        "range_from",
+        "range_to",
+        "range_to_inclusive",
+        "range_exclusive",
+        "range_inclusive",
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -62,12 +76,19 @@ impl LanguageItemRole {
             Self::Try => "try",
             Self::FromResidual => "from_residual",
             Self::ControlFlow => "control_flow",
+            Self::Range => "range",
             Self::Method => "method",
             Self::Output => "output",
             Self::Residual => "residual",
             Self::Branch => "branch",
             Self::Break => "break",
             Self::Continue => "continue",
+            Self::RangeFull => "range_full",
+            Self::RangeFrom => "range_from",
+            Self::RangeTo => "range_to",
+            Self::RangeToInclusive => "range_to_inclusive",
+            Self::RangeExclusive => "range_exclusive",
+            Self::RangeInclusive => "range_inclusive",
         }
     }
 }
@@ -89,12 +110,19 @@ impl FromStr for LanguageItemRole {
             "try" => Ok(Self::Try),
             "from_residual" => Ok(Self::FromResidual),
             "control_flow" => Ok(Self::ControlFlow),
+            "range" => Ok(Self::Range),
             "method" => Ok(Self::Method),
             "output" => Ok(Self::Output),
             "residual" => Ok(Self::Residual),
             "branch" => Ok(Self::Branch),
             "break" => Ok(Self::Break),
             "continue" => Ok(Self::Continue),
+            "range_full" => Ok(Self::RangeFull),
+            "range_from" => Ok(Self::RangeFrom),
+            "range_to" => Ok(Self::RangeTo),
+            "range_to_inclusive" => Ok(Self::RangeToInclusive),
+            "range_exclusive" => Ok(Self::RangeExclusive),
+            "range_inclusive" => Ok(Self::RangeInclusive),
             _ => Err(format!(
                 "unknown language item role '{role}'; expected one of: {}",
                 Self::ALL_NAMES.join(", ")
@@ -179,6 +207,17 @@ pub struct TryLanguageItems<D> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RangeLanguageItems<D> {
+    pub enum_id: D,
+    pub full_variant_id: VariantId,
+    pub from_variant_id: VariantId,
+    pub to_variant_id: VariantId,
+    pub to_inclusive_variant_id: VariantId,
+    pub exclusive_variant_id: VariantId,
+    pub inclusive_variant_id: VariantId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LanguageItems<D> {
     pub sized: Option<SizedLanguageItems<D>>,
     pub drop: Option<DropLanguageItems<D>>,
@@ -190,6 +229,7 @@ pub struct LanguageItems<D> {
     pub send: Option<SendLanguageItems<D>>,
     pub sync: Option<SyncLanguageItems<D>>,
     pub try_protocol: Option<TryLanguageItems<D>>,
+    pub range: Option<RangeLanguageItems<D>>,
 }
 
 impl<D> Default for LanguageItems<D> {
@@ -205,6 +245,7 @@ impl<D> Default for LanguageItems<D> {
             send: None,
             sync: None,
             try_protocol: None,
+            range: None,
         }
     }
 }
@@ -354,6 +395,12 @@ pub fn merge_language_item_providers_all<'a, D: Clone + 'a>(
         |items| items.try_protocol.as_ref(),
         &mut conflicts,
     );
+    let range = merge_protocol(
+        &providers,
+        "range",
+        |items| items.range.as_ref(),
+        &mut conflicts,
+    );
 
     if conflicts.is_empty() {
         Ok(LanguageItems {
@@ -367,6 +414,7 @@ pub fn merge_language_item_providers_all<'a, D: Clone + 'a>(
             send,
             sync,
             try_protocol,
+            range,
         })
     } else {
         Err(conflicts)

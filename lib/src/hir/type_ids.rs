@@ -988,7 +988,7 @@ fn collect_expr<P: HirPhase>(
             }
             collect_block(owner, body, child_path(&path, 1), context, ids);
         }
-        HirExprKind::Assign(lhs, rhs) | HirExprKind::Range(lhs, rhs) => {
+        HirExprKind::Assign(lhs, rhs) => {
             collect_expr(owner, lhs, child_path(&path, 0), context, ids);
             collect_expr(owner, rhs, child_path(&path, 1), context, ids);
         }

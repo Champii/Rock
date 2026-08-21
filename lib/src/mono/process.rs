@@ -656,10 +656,6 @@ impl Monomorphizer {
                 self.process_expr(lhs);
                 self.process_expr(rhs);
             }
-            HirExprKind::Range(start, end) => {
-                self.process_expr(start);
-                self.process_expr(end);
-            }
             HirExprKind::Intrinsic { args, .. } => {
                 for arg in args {
                     self.process_expr(arg);

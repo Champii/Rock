@@ -324,6 +324,14 @@ pub fn walk_expression<'a, V: Visitor<'a>>(visitor: &mut V, expr: &'a Expression
         }
         Expression::UnaryExpr(unary) => visitor.visit_unary_expr(unary),
         Expression::CastExpr(inner, _ty) => visitor.visit_expression(inner),
+        Expression::Range(range) => {
+            if let Some(start) = &range.start {
+                visitor.visit_expression(start);
+            }
+            if let Some(end) = &range.end {
+                visitor.visit_expression(end);
+            }
+        }
     }
 }
 
@@ -369,9 +377,6 @@ pub fn walk_secondary_expr<'a, V: Visitor<'a>>(visitor: &mut V, secondary: &'a S
         }
         SecondaryExpr::Dot(expr) => {
             visitor.visit_ident_or_number(expr);
-        }
-        SecondaryExpr::DoubleDot(ident) => {
-            visitor.visit_ident_or_number(ident);
         }
         SecondaryExpr::Interogation => {}
     }

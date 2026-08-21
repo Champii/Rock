@@ -351,10 +351,6 @@ impl Monomorphizer {
                 Box::new(self.substitute_expr(lhs, substitution)),
                 Box::new(self.substitute_expr(rhs, substitution)),
             ),
-            HirExprKind::Range(start, end) => HirExprKind::Range(
-                Box::new(self.substitute_expr(start, substitution)),
-                Box::new(self.substitute_expr(end, substitution)),
-            ),
             HirExprKind::Intrinsic { name, args } => HirExprKind::Intrinsic {
                 name: name.clone(),
                 args: args

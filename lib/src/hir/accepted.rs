@@ -315,10 +315,6 @@ fn convert_expr(expr: HirExpr) -> Result<AcceptedHirExpr, Vec<String>> {
             Box::new(convert_expr(*left)?),
             Box::new(convert_expr(*right)?),
         ),
-        HirExprKind::Range(start, end) => HirExprKindFor::Range(
-            Box::new(convert_expr(*start)?),
-            Box::new(convert_expr(*end)?),
-        ),
         HirExprKind::Intrinsic { name, args } => HirExprKindFor::Intrinsic {
             name,
             args: convert_exprs(args)?,
@@ -614,10 +610,6 @@ fn unresolve_expr(expr: AcceptedHirExpr) -> HirExpr {
         HirExprKindFor::Assign(left, right) => HirExprKindFor::Assign(
             Box::new(unresolve_expr(*left)),
             Box::new(unresolve_expr(*right)),
-        ),
-        HirExprKindFor::Range(start, end) => HirExprKindFor::Range(
-            Box::new(unresolve_expr(*start)),
-            Box::new(unresolve_expr(*end)),
         ),
         HirExprKindFor::Intrinsic { name, args } => HirExprKindFor::Intrinsic {
             name,

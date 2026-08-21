@@ -743,7 +743,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ))
             {
                 messages.push(format!(
-                    "Drop glue for type {:?} callable {:?} returns {:?}/{:?}; expected Unit",
+                    "Drop glue for type {:?} callable {:?} returns {:?}/{:?}; expected ()",
                     place_ty,
                     key,
                     callable.signature.ret.semantic_ty,
@@ -2736,7 +2736,7 @@ mod tests {
         assert!(
             err.message.contains("Invalid MIR backend contract")
                 && err.message.contains("expected 1 receiver parameter")
-                && err.message.contains("expected Unit"),
+                && err.message.contains("expected ()"),
             "unexpected error: {err}"
         );
     }

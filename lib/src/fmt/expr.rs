@@ -83,6 +83,16 @@ impl FormatNode for Expression {
                 write!(f, " as ")?;
                 ty.fmt_with(context, f)
             }
+            Expression::Range(range) => {
+                if let Some(start) = &range.start {
+                    start.fmt_with(context, f)?;
+                }
+                write!(f, "{}", if range.inclusive { "..=" } else { ".." })?;
+                if let Some(end) = &range.end {
+                    end.fmt_with(context, f)?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -242,10 +252,6 @@ impl FormatNode for SecondaryExpr {
             }
             SecondaryExpr::Dot(field) => {
                 write!(f, ".")?;
-                field.fmt_with(context, f)
-            }
-            SecondaryExpr::DoubleDot(field) => {
-                write!(f, "..")?;
                 field.fmt_with(context, f)
             }
             SecondaryExpr::Interogation => write!(f, "?"),

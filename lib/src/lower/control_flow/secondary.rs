@@ -1663,55 +1663,6 @@ impl Lowerer {
                     }
                 }
             },
-            ast::SecondaryExpr::DoubleDot(end_val) => {
-                let end_expr = match end_val {
-                    ast::IdentOrNumber::Number(n) => HirExpr {
-                        ty: Type::I64,
-                        kind: HirExprKind::IntLiteral(*n as i64),
-                        span: span.clone(),
-                    },
-                    ast::IdentOrNumber::Ident(ident) => {
-                        if let Some(resolved) =
-                            crate::lower::resolution::LowerResolutionContext::new(self)
-                                .resolve_identifier_value(&ident.name)
-                        {
-                            let kind = resolved
-                                .target
-                                .map(|target| {
-                                    HirExprKind::ResolvedVar(HirVarRef {
-                                        name: resolved.name.clone(),
-                                        target,
-                                    })
-                                })
-                                .unwrap_or_else(|| HirExprKind::Var(resolved.name));
-                            HirExpr {
-                                ty: resolved.ty,
-                                kind,
-                                span: ident.span.clone(),
-                            }
-                        } else {
-                            self.diagnostics.push_with_span(
-                                format!("Unknown variable in range: {}", ident.name),
-                                ident.span.clone(),
-                            );
-                            HirExpr {
-                                ty: Type::I64,
-                                kind: HirExprKind::IntLiteral(0),
-                                span: ident.span.clone(),
-                            }
-                        }
-                    }
-                };
-                let _ = self.engine.unify(&expr.ty, &end_expr.ty);
-                // Range syntax is an intrinsic iterator form today, not a nominal stdlib type.
-                let range_ty = Type::Unit;
-
-                HirExpr {
-                    ty: range_ty,
-                    kind: HirExprKind::Range(Box::new(expr), Box::new(end_expr)),
-                    span,
-                }
-            }
             ast::SecondaryExpr::Indice(index_expr) => {
                 let index = self.lower_expression(index_expr);
                 let resolved_expr_ty = self.resolve_projection_type(&self.engine.resolve(&expr.ty));
@@ -2538,29 +2489,6 @@ mod tests {
         );
 
         (lowerer, Type::TypeVar(var_id), trait_id, method_id)
-    }
-
-    #[test]
-    fn range_secondary_without_range_definition_lowers_without_semantic_def_id() {
-        let mut lowerer = Lowerer::new_for_test();
-        let start = HirExpr {
-            kind: HirExprKind::IntLiteral(1),
-            ty: Type::I64,
-            span: Span::test(),
-        };
-
-        let lowered = lowerer.apply_secondary(
-            start,
-            &SecondaryExpr::DoubleDot(IdentOrNumber::Number(3)),
-            ExprUse::Value,
-            false,
-        );
-
-        assert_eq!(lowered.ty, Type::Unit);
-        assert!(
-            lowerer.errors().is_empty(),
-            "intrinsic range syntax must not require a nominal Range identity"
-        );
     }
 
     #[test]

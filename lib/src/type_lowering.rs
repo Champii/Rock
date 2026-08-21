@@ -171,6 +171,13 @@ impl TypeLowerer {
         Self::lower(context, parse_type, false)
     }
 
+    pub(crate) fn lower_unsized_type<C: TypeLoweringContext + ?Sized>(
+        context: &mut C,
+        parse_type: &ast::ParseType,
+    ) -> Type {
+        Self::lower(context, parse_type, true)
+    }
+
     pub(crate) fn lower_parse_type_term<C: TypeLoweringContext + ?Sized>(
         context: &mut C,
         parse_type: &ast::ParseType,
@@ -430,7 +437,6 @@ impl TypeLowerer {
             "F64" | "f64" | "Float" => Type::F64,
             "Bool" | "bool" => Type::Bool,
             "Char" | "char" => Type::Char,
-            "Unit" => Type::Unit,
             "Str" => {
                 if !allow_bare_slice {
                     context.push_type_error(
