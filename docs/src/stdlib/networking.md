@@ -77,10 +77,11 @@ The output is `true` and `127`. A listener created with port zero must be querie
 
 ## Reading, writing, and shutdown
 
-`TcpStream` implements the generic `Read` and `Write` traits and also has direct `recv`, `send_all_prefix`, `shutdown`, and `shutdown_write` methods. This complete round-trip uses the direct prefix and receive methods, then half-closes the client write side.
+`TcpStream` implements the generic `Read` and `Write` traits and also has direct `recv`, `send`, `shutdown`, and `shutdown_write` methods. This complete round-trip writes a native subslice, receives its bytes, then half-closes the client write side.
 
 ```rock
 > stdlib::io::IoError
+> stdlib::io::Write
 > stdlib::net::SocketAddrV4
 > stdlib::net::TcpListener
 > stdlib::net::TcpStream
@@ -92,7 +93,7 @@ roundtrip = ->
     mut client = TcpStream::connect address?
     mut server = listener.accept!?
     bytes: [U8; 5] = [112, 105, 110, 103, 120]
-    written = client.send_all_prefix (&bytes), 4?
+    written = client.write_all (&bytes[..4])?
     mut received: [U8; 4] = [0, 0, 0, 0]
     read = server.recv (&mut received)?
     client.shutdown_write!
@@ -109,7 +110,7 @@ main = ->
         Result::Err _ => 1
 ```
 
-The output is `4`, `4`, `112`, and `103`, corresponding to `ping`. `send_all_prefix` ensures the requested four-byte prefix is sent or returns an error; `recv` reports how many bytes arrived. `shutdown_write!` prevents further client writes while leaving the connection owner responsible for eventual descriptor cleanup. The full `shutdown!` method closes both directions at the operating-system level.
+The output is `4`, `4`, `112`, and `103`, corresponding to `ping`. `write_all` ensures the native four-byte slice is sent or returns an error; `recv` reports how many bytes arrived. `shutdown_write!` prevents further client writes while leaving the connection owner responsible for eventual descriptor cleanup. The full `shutdown!` method closes both directions at the operating-system level.
 
 ## Ownership and errors
 

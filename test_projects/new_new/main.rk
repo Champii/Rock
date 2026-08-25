@@ -5,6 +5,7 @@
 > stdlib::net::SocketAddrV4
 > stdlib::net::TcpStream
 > stdlib::io::IoError
+> stdlib::io::Write
 > stdlib::io::stdin
 > stdlib::io::stdout
 > stdlib::io::Stdout
@@ -52,9 +53,9 @@ impl Clone for SharedServerState
         inner: self.inner.clone!
 
 impl ClientWriter
-    @send_all = bytes, len ->
+    @send_all = bytes ->
         guard = self.lock.lock!
-        self.stream.send_all_prefix bytes, len
+        self.stream.write_all bytes
 
 impl ServerState
     ^@add = writer ->
@@ -87,10 +88,9 @@ impl SharedServerState
         guard.remove id
 
 broadcast = state, bytes, len ->
-    count = len
     guard = state.inner.lock!
     guard.snapshot!.try_for_each (target ->
-        target.send_all bytes, count <&> (_ !-> 0))
+        target.send_all bytes <&> (_ !-> 0))
         <&> _ -> len
 
 receive_with = stream, mut target, write ->
@@ -102,12 +102,11 @@ receive_with = stream, mut target, write ->
                 if count <= 0
                     return total
                 else
-                    written_result = write &mut target, &buff, count
+                    written_result = write &mut target, &buff[..count], count
                     match written_result
                         Result::Ok written => total = total + written
                         Result::Err _ => return total
             Result::Err _ => return total
-        buff.printn!
     total
 
 impl ServerClient
@@ -117,8 +116,10 @@ impl ServerClient
         self.state.remove id
         total
 
+write_stdout = output, bytes, _ -> output.write_all bytes
+
 impl ClientReader
-    ~@run = -> receive_with self.stream.clone!, stdout!, Stdout::write_all_prefix
+    ~@run = -> receive_with self.stream.clone!, stdout!, write_stdout
 
 server_addr = -> SocketAddrV4::new Ipv4Addr::localhost!, 9999
 

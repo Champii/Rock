@@ -110,6 +110,9 @@ infix 10 %
 // Index trait - indexing with associated output type
 < mod index
 
+// Safe borrowed-slice operations
+< mod slice
+
 // Functional helpers and generic operators
 < mod fp
 

@@ -5,6 +5,8 @@
 > stdlib::io::Read
 > stdlib::io::Write
 > stdlib::io::last_os_error
+> stdlib::io::write_all
+> stdlib::io::write_str
 > stdlib::libc::close
 > stdlib::libc::open
 > stdlib::libc::read
@@ -82,37 +84,8 @@ impl Write for File
         else
             Result::Ok count
 
-    @write_str: &Str -> Result I64, IoError
-    @write_str = s ->
-        count = write self.fd, (~ArrPtr s), (~ArrayLen s)
-        if count < 0
-            Result::Err (last_os_error!)
-        else
-            Result::Ok count
-
-    @write_all_prefix = buf, len ->
-        if len < 0 || len > (~ArrayLen buf)
-            Result::Err (IoError::InvalidInput)
-        else
-            mut total: I64 = 0
-            mut failed = false
-            mut failure = IoError::Os (0 as I32)
-            while total < len && !failed
-                ptr: *U8 = unsafe ~PtrOffset (~ArrPtr buf), total
-                remaining: I64 = len - total
-                count: I64 = write self.fd, ptr, remaining
-                if count < 0
-                    failure = last_os_error!
-                    failed = true
-                else if count == (0 as I64)
-                    failure = IoError::Os (5 as I32)
-                    failed = true
-                else
-                    total = total + count
-            if failed
-                Result::Err failure
-            else
-                Result::Ok total
+    @write_str = value -> write_str self, value
+    @write_all = buf -> write_all self, buf
 
 impl Drop for File
     ~@drop = ->

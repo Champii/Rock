@@ -46,6 +46,7 @@
 < stdlib::sync::MutexGuard
 < stdlib::vec::*
 < stdlib::hash_map::*
+< stdlib::slice::slice_len
 
 // Traits
 < stdlib::show::*

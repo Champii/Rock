@@ -160,6 +160,13 @@ spawn: F -> Result (JoinHandle T), ThreadError where F: Send, T: Send, F: FnOnce
         forget runner
         Result::Err (ThreadError::CreateFailed status)
 
+spawn_detached: F -> Result (), ThreadError where F: Send, F: FnOnce (), ()
+< spawn_detached = task ->
+    started: Result (JoinHandle ()), ThreadError = spawn task
+    match started
+        Result::Ok handle => Result::Ok (thread_unit!)
+        Result::Err error => Result::Err error
+
 impl JoinHandle T
     ~@join: Result T, ThreadError
     ~@join = ->

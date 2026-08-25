@@ -7,6 +7,10 @@
 > stdlib::string_type::String
 > stdlib::vec::Vec
 
+// View a string slice as its underlying bytes.
+str_as_bytes: &Str -> &[U8]
+< str_as_bytes = value -> unsafe ~BorrowSlice (~ArrPtr value), (~ArrayLen value)
+
 // Extract raw pointer from &Str fat pointer
 str_raw_ptr: &Str -> *U8
 < str_raw_ptr = s -> ~ArrPtr s

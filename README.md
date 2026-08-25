@@ -149,10 +149,10 @@ impl Clone for ClientWriter
         lock: self.lock.clone!
 
 impl ClientWriter
-    @send_all: &[U8] -> I64 -> Result I64, IoError
-    @send_all = bytes, len ->
+    @send_all: &[U8] -> Result I64, IoError
+    @send_all = bytes ->
         guard = self.lock.lock!
-        self.stream.send_all_prefix bytes, len
+        self.stream.write_all bytes
 
 impl ServerState
     ^@remove: I64 -> ()
@@ -163,8 +163,9 @@ impl ServerState
 
 broadcast: &mut SharedServerState -> &[U8; 1024] -> I64 -> Result I64, IoError
 broadcast = state, bytes, len ->
+    chunk = &bytes[..len]
     guard = state.inner.lock!
-    guard.snapshot!.for_each_owned target !-> target.send_all bytes, len
+    guard.snapshot!.for_each_owned target !-> target.send_all chunk
     Result::Ok len
 ```
 
@@ -176,7 +177,7 @@ The client maps thread errors, binds the spawned reader into a curried continuat
 struct ClientReader
     < stream: Arc TcpStream
 
-receive_with: Arc TcpStream -> T -> (&mut T -> &[U8; 1024] -> I64 -> Result I64, IoError) -> I64
+receive_with: Arc TcpStream -> T -> (&mut T -> &[U8] -> Result I64, IoError) -> I64
 receive_with = stream, mut target, write ->
     mut buffer: [U8; 1024] = [0; 1024]
     mut total: I64 = 0
@@ -187,7 +188,7 @@ receive_with = stream, mut target, write ->
                 if count <= 0
                     return total
                 else
-                    match write &mut target, &buffer, count
+                    match write &mut target, &buffer[..count]
                         Result::Ok written => total = total + written
                         Result::Err _ => return total
             Result::Err _ => return total
@@ -195,7 +196,7 @@ receive_with = stream, mut target, write ->
 
 impl ClientReader
     ~@run: I64
-    ~@run = -> receive_with self.stream.clone!, stdout!, Stdout::write_all_prefix
+    ~@run = -> receive_with self.stream.clone!, stdout!, (output, bytes -> output.write_all bytes)
 
 connect: () -> Result I64, IoError
 connect = ->

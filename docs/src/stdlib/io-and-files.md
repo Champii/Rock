@@ -114,13 +114,13 @@ The output is `5`, `119`, and `100`, corresponding to the five bytes and the let
 main = ->
     mut output = stdout!
     bytes: [U8; 5] = [104, 101, 108, 108, 111]
-    match output.write_all_prefix (&bytes), 3
+    match output.write_all (&bytes[..3])
         Result::Ok count => count
         Result::Err _ => 1
     0
 ```
 
-The process writes `hel` to standard output and returns `0`. `write_all_prefix` validates that the requested length is between zero and the slice length; an invalid prefix returns `IoError::InvalidInput`.
+The process writes `hel` to standard output and returns `0`. The native range creates a borrowed three-byte view, and `write_all` handles partial operating-system writes until the whole slice is sent or an error occurs.
 
 Reading standard input uses the same ownership contract. This program is compile-tested but requires input at runtime; with `abc` on standard input it prints `3`.
 

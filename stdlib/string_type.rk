@@ -10,6 +10,7 @@
 > stdlib::drop::Drop
 > stdlib::num::Add
 > stdlib::raw_buffer::RawBuffer
+> stdlib::string::str_as_bytes
 
 // Heap-allocated string type
 < struct String
@@ -139,6 +140,9 @@ impl String
 
     @as_str: &Str
     @as_str = -> unsafe ~BorrowStr self.raw.ptr!, self.raw_len
+
+    @as_bytes: &[U8]
+    @as_bytes = -> str_as_bytes self.as_str!
 
 // Concatenate two strings, returns new String
 impl String

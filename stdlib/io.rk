@@ -4,15 +4,19 @@
 > stdlib::libc::read
 > stdlib::libc::write
 > stdlib::arc::Arc
+> stdlib::index::Index
+> stdlib::range::Range
 > stdlib::result::Result
 > stdlib::show::Show
 > stdlib::string_type::String
+> stdlib::string::str_as_bytes
 
 < enum IoError
     Os I32
     InvalidPath
     InvalidAddress
     InvalidInput
+    WriteZero
 
 < struct Stdin
 
@@ -28,12 +32,31 @@
 < trait Write
     @write: &[U8] -> Result I64, IoError
     @write_str: &Str -> Result I64, IoError
-    @write_all_prefix: &[U8] -> I64 -> Result I64, IoError
+    @write_all: &[U8] -> Result I64, IoError
+
+write_all: &W -> &[U8] -> Result I64, IoError where W: Write
+< write_all = target, buf ->
+    mut total: I64 = 0
+    len = ~ArrayLen buf
+    while total < len
+        match target.write (&buf[total..])
+            Result::Ok count =>
+                if count <= 0
+                    failure: Result I64, IoError = Result::Err IoError::WriteZero
+                    return failure
+                total = total + count
+            Result::Err error =>
+                failure: Result I64, IoError = Result::Err error
+                return failure
+    Result::Ok total
+
+write_str: &W -> &Str -> Result I64, IoError where W: Write
+< write_str = target, value -> write_all target, (str_as_bytes value)
 
 impl Write for Arc W where W: Write
     @write = buf -> (*(*self)).write buf
     @write_str = value -> (*(*self)).write_str value
-    @write_all_prefix = buf, len -> (*(*self)).write_all_prefix buf, len
+    @write_all = buf -> (*(*self)).write_all buf
 
 < stdin = -> Stdin
 
@@ -62,7 +85,7 @@ copy: &mut R -> &W -> Result I64, IoError where R: Read, W: Write
         if count <= 0
             done = true
         else
-            write_result: Result I64, IoError = target.write_all_prefix (&buffer), count
+            write_result: Result I64, IoError = write_all target, (&buffer[..count])
             written: I64 = write_result?
             if written <= 0
                 done = true
@@ -73,44 +96,16 @@ copy: &mut R -> &W -> Result I64, IoError where R: Read, W: Write
 |>>: R -> &W -> Result I64, IoError where R: Read, W: Write
 |>> = mut source, target -> copy (&mut source), target
 
-impl Stdout
-    ^@write_prefix: &[U8] -> I64 -> Result I64, IoError
-    ^@write_prefix = buf, len ->
-        if len < 0 || len > (~ArrayLen buf)
-            err = IoError::InvalidInput
-            Result::Err err
+impl Write for Stdout
+    @write = buf ->
+        count = write 1, (~ArrPtr buf), (~ArrayLen buf)
+        if count < 0
+            Result::Err (last_os_error!)
         else
-            count = write 1, (~ArrPtr buf), len
-            if count < 0
-                Result::Err (last_os_error!)
-            else
-                Result::Ok count
+            Result::Ok count
 
-    ^@write_all_prefix: &[U8] -> I64 -> Result I64, IoError
-    ^@write_all_prefix = buf, len ->
-        if len < 0 || len > (~ArrayLen buf)
-            err = IoError::InvalidInput
-            Result::Err err
-        else
-            mut total: I64 = 0
-            mut failed = false
-            mut failure = IoError::Os (0 as I32)
-            while total < len && !failed
-                ptr: *U8 = unsafe ~PtrOffset (~ArrPtr buf), total
-                remaining: I64 = len - total
-                count: I64 = write 1, ptr, remaining
-                if count < 0
-                    failure = last_os_error!
-                    failed = true
-                else if count == (0 as I64)
-                    failure = IoError::Os (5 as I32)
-                    failed = true
-                else
-                    total = total + count
-            if failed
-                Result::Err failure
-            else
-                Result::Ok total
+    @write_str = value -> write_str self, value
+    @write_all = buf -> write_all self, buf
 
 impl Show for IoError
     @show = -> String::from_str "IoError"
