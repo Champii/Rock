@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
-const vm = require("vm");
+const { rockFences, htmlSource } = require("./rock-highlight.cjs");
+const { resourceSource, verifyResourceHighlight } = require("./highlight-regression.cjs");
 
 const docsRoot = path.resolve(__dirname, "..");
 const sourceRoot = path.join(docsRoot, "src");
@@ -46,6 +47,7 @@ if (orphanedChapters.length > 0) {
 }
 
 let rockFenceCount = 0;
+let resourceVerified = false;
 for (const file of markdownFiles) {
     const source = fs.readFileSync(file, "utf8");
     if (/\blang\b/.test(source)) {
@@ -55,13 +57,32 @@ for (const file of markdownFiles) {
         fail(`Compiler-internal debug views are not allowed in the user book: ${file}`);
     }
 
-    const rockFences = [...source.matchAll(/```rock\b[^\n]*\n([\s\S]*?)```/g)];
-    for (const fence of rockFences) {
-        if (/\.\.\.|\bTODO\b|\/\/\s*(?:body|implementation|omitted)\b/i.test(fence[1])) {
-            fail(`Rock fence contains an omission or placeholder in ${file}:\n${fence[1]}`);
+    const fences = rockFences(source);
+    for (const fence of fences) {
+        if (/\.\.\.|\bTODO\b|\/\/\s*(?:body|implementation|omitted)\b/i.test(fence.source)) {
+            fail(`Rock fence contains an omission or placeholder in ${file}:\n${fence.source}`);
         }
     }
-    rockFenceCount += rockFences.length;
+    rockFenceCount += fences.length;
+    if (fences.length) {
+        const renderedPath = path.join(outputRoot, path.relative(sourceRoot, file).replace(/\.md$/, ".html"));
+        const rendered = fs.readFileSync(renderedPath, "utf8");
+        const blocks = [...rendered.matchAll(/<pre><code\b([^>]*)>([\s\S]*?)<\/code><\/pre>/g)]
+            .filter((match) => /class="[^"]*\blanguage-rock\b/.test(match[1]));
+        if (blocks.length !== fences.length) fail(`Rock block count mismatch in ${renderedPath}`);
+        for (let index = 0; index < fences.length; index++) {
+            const [, attributes, html] = blocks[index];
+            if (!/\bnohighlight\b/.test(attributes) || !/data-rock-highlight="tree-sitter"/.test(attributes)) {
+                fail(`Missing build-time highlighting marker or nohighlight in ${renderedPath}`);
+            }
+            if (htmlSource(html) !== fences[index].source) fail(`Rock source changed in ${renderedPath}, block ${index + 1}`);
+            if (!/<span class=['"]/.test(html)) fail(`Missing AST spans in ${renderedPath}, block ${index + 1}`);
+            if (fences[index].source === resourceSource) {
+                verifyResourceHighlight(html);
+                resourceVerified = true;
+            }
+        }
+    }
 }
 if (rockFenceCount === 0) {
     fail("The book contains no Rock code fences.");
@@ -76,7 +97,7 @@ let renderedRockBlocks = 0;
 
 for (const file of htmlFiles) {
     const html = fs.readFileSync(file, "utf8");
-    renderedRockBlocks += (html.match(/class="language-rock"/g) || []).length;
+    renderedRockBlocks += (html.match(/data-rock-highlight="tree-sitter"/g) || []).length;
 
     for (const match of html.matchAll(/href="([^"]+)"/g)) {
         const href = match[1];
@@ -111,9 +132,8 @@ if (renderedRockBlocks < rockFenceCount) {
 
 const indexHtml = fs.readFileSync(path.join(outputRoot, "index.html"), "utf8");
 // mdBook can fingerprint asset names; validate and load the rendered paths.
-const assets = [
+[
     /href="(theme\/rock(?:-[a-f0-9]+)?\.css)"/,
-    /src="(theme\/rock-highlight(?:-[a-f0-9]+)?\.js)"/,
     /src="(highlight(?:-[a-f0-9]+)?\.js)"/,
 ].map((pattern) => {
     const match = indexHtml.match(pattern);
@@ -123,29 +143,7 @@ const assets = [
     return path.join(outputRoot, match[1]);
 });
 
-const context = {
-    console,
-    document: {
-        readyState: "complete",
-        querySelectorAll() {
-            return [];
-        },
-        addEventListener() {},
-    },
-};
-context.window = context;
-context.self = context;
-vm.createContext(context);
-vm.runInContext(fs.readFileSync(assets[2], "utf8"), context);
-vm.runInContext(fs.readFileSync(assets[1], "utf8"), context);
-
-if (!context.hljs || !context.hljs.getLanguage("rock")) {
-    fail("The custom Rock Highlight.js grammar was not registered.");
-}
-const highlighted = context.hljs.highlight("rock", 'main = ->\n    "Hello".println!\n    0', true);
-if (!highlighted.value.includes("hljs-")) {
-    fail("The Rock grammar did not highlight any tokens.");
-}
+if (!resourceVerified) fail("The rendered Resource/Drop AST highlighting regression was not exercised.");
 
 console.log(
     `Verified ${chapterLinks.length} chapters, ${rockFenceCount} Rock fences, ` +

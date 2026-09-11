@@ -280,7 +280,7 @@ There is currently no `rock test` command. Application tests are ordinary Rock p
 
 ## Documentation
 
-The full book is published as [The Rock Programming Language](https://champii.github.io/Rock/). Its source is under [`docs/`](docs/) and can be built locally with:
+The full book is published as [The Rock Programming Language](https://champii.github.io/Rock/). Its source is under [`docs/`](docs/). First follow the [book build setup](docs/checks/README.md) to install the syntax-highlighting tools and generate the Rock parser, then build locally with:
 
 ```console
 $ mdbook build docs
