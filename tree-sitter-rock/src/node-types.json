@@ -4153,6 +4153,50 @@
     }
   },
   {
+    "type": "type_qualified_constructor_expression",
+    "named": true,
+    "fields": {
+      "member": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "type_hole",
+          "named": true
+        },
+        {
+          "type": "type_identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "unary_assignment_target",
     "named": true,
     "fields": {
@@ -4708,10 +4752,6 @@
   },
   {
     "type": "type_identifier",
-    "named": true
-  },
-  {
-    "type": "type_qualified_constructor_expression",
     "named": true
   },
   {

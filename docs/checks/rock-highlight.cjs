@@ -89,6 +89,13 @@ function highlightSources(sources) {
             if (tables.length !== batch.length) throw new Error("Unexpected tree-sitter HTML: expected one table per Rock snippet.");
             for (let index = 0; index < batch.length; index++) {
                 let html = [...tables[index][1].matchAll(/<td class=line>([\s\S]*?)<\/td>/g)].map((match) => match[1]).join("");
+                // Resolve only AST-captured value names, never type annotations.
+                // Each fence has its own declarations, independent of source order.
+                const variants = new Set([...html.matchAll(/<span class='constant variant definition'>([^<]*)<\/span>/g)]
+                    .map((match) => match[1]));
+                html = html.replace(/<span class='(constant variant definition|type variant_reference)'>([^<]*)<\/span>/g,
+                    (_, role, name) => `<span class='${role === "constant variant definition" || variants.has(name)
+                        ? "constant variant" : "type"}'>${name}</span>`);
                 // Tree-sitter renders CRLF as LF; retain the author's line endings.
                 const endings = batch[index].match(/\r?\n/g) || [];
                 let line = 0;

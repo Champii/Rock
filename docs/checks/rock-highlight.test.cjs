@@ -136,6 +136,73 @@ test("CLI failures are helpful, leave stdout empty, and clean temporary files", 
     }
 });
 
+test("enum variants have one role in declarations, construction, and patterns", () => {
+    const source = `make_short = -> Data 7
+
+enum Signal
+    Idle
+    Data I64
+    Detailed
+        value: I64
+
+struct Record
+    < value: I64
+
+make = -> Signal::Data 7
+
+main = ->
+    first = Signal::Idle
+    second = Signal::Data 1
+    short = Data 2
+    bare = Idle
+    detailed = Signal::Detailed value: 3
+    record = Record value: 4
+    match second
+        Signal::Data value => value
+        Signal::Idle => 0
+    match short
+        Data value => value
+        Idle => 0
+    match detailed
+        Signal::Detailed value: value => value
+    0
+`;
+    const [html] = highlightSources([source]);
+    assert.equal(htmlSource(html), source);
+    const spans = [...html.matchAll(/<span class='([^']+)'>([^<]*)<\/span>/g)];
+    for (const name of ["Idle", "Data", "Detailed"]) {
+        const variants = spans.filter((span) => span[2] === name);
+        assert.ok(variants.length >= 3, `Exercise declaration, construction, and matching for ${name}`);
+        assert.ok(variants.every((span) => span[1] === "constant variant"), `${name} must always be a variant`);
+    }
+    for (const name of ["Signal", "Record", "I64"]) {
+        assert.ok(spans.filter((span) => span[2] === name).every((span) => span[1] === "type"));
+    }
+});
+
+test("imported and type-qualified variants preserve their owner and trait colors", () => {
+    const source = `> library::Signal::Data
+
+annotation: Container::Data -> I64
+
+main = ->
+    short = Data 1
+    qualified = library::Signal::Data 2
+    generic = (Option I64)::Some 3
+    section = (Option _)::Some 4
+    trait_call = (Result _)::Applicative::pure 5
+    0
+`;
+    const [html, isolated] = highlightSources([source, "main = ->\n    Data\n"]);
+    assert.equal(htmlSource(html), source);
+    const data = [...html.matchAll(/<span class='([^']+)'>Data<\/span>/g)].map((span) => span[1]);
+    assert.deepEqual(data, ["constant variant", "type", "constant variant", "constant variant"]);
+    assert.equal((html.match(/class='constant variant'>Some<\/span>/g) || []).length, 2);
+    assert.match(html, /class='type'>Applicative<\/span>/);
+    assert.match(html, /class='function'>pure<\/span>/);
+    assert.match(isolated, /class='type'>Data<\/span>/);
+});
+
 test("colorful palettes exceed AA text contrast in dark and light themes", () => {
     const css = fs.readFileSync(path.join(__dirname, "../theme/rock.css"), "utf8");
     function luminance(hex) {

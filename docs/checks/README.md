@@ -31,6 +31,12 @@ The locals query propagates parameter colors through their lexical scopes,
 including captured references and reassignment. Member names and unrelated
 body bindings retain their own roles rather than inheriting colors by spelling.
 
+Enum variants use `constant variant`, separately from their owning types. The
+query marks declarations, qualified constructors, and patterns directly. A
+per-fence pass resolves AST-captured short value names against that fence's
+variant declarations and explicit imports, including forward references. Type
+annotations are not candidates, and declarations never leak between examples.
+
 The preprocessor resolves grammar and query paths relative to its script, not
 the caller's working directory. mdBook runs the configured command from `docs`.
 The verifier checks every chapter's rendered Rock blocks against its Markdown

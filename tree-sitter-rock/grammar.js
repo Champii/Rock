@@ -803,9 +803,13 @@ module.exports = grammar({
       repeat1(seq('::', choice($.identifier, $.type_identifier))),
     ))),
 
-    type_qualified_constructor_expression: _ => token(prec(
-      100,
-      /\([A-Z][a-zA-Z0-9_]*[ \t]+_(,[ \t]*[A-Z][a-zA-Z0-9_]*)?\)(::[A-Za-z][a-zA-Z0-9_]*)+/,
+    type_qualified_constructor_expression: $ => prec(100, seq(
+      '(',
+      field('type', $.type_identifier),
+      $.type_hole,
+      optional(seq(',', $.type_identifier)),
+      ')',
+      repeat1(seq('::', field('member', choice($.identifier, $.type_identifier)))),
     )),
 
     if_expression: $ => prec.right(seq(

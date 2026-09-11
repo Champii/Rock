@@ -52,6 +52,7 @@ blockquote {
     --rock-code-border: #e5d2bb;
     --rock-code-keyword: #ac292d;
     --rock-code-type: #805000;
+    --rock-code-variant: #4059a8;
     --rock-code-function: #9b431c;
     --rock-code-property: #14704d;
     --rock-code-receiver: #ad246e;
@@ -75,6 +76,7 @@ html.ayu {
     --rock-code-border: #48404e;
     --rock-code-keyword: #ff887a;
     --rock-code-type: #ffd070;
+    --rock-code-variant: #9daeff;
     --rock-code-function: #ffb78f;
     --rock-code-property: #79dda5;
     --rock-code-receiver: #ff8ac5;
@@ -122,6 +124,7 @@ code.language-rock .punctuation.special { color: var(--rock-code-receiver); }
 code.language-rock .string { color: var(--rock-code-string); }
 code.language-rock .number,
 code.language-rock .constant { color: var(--rock-code-number); }
+code.language-rock .constant.variant { color: var(--rock-code-variant); }
 code.language-rock .comment { color: var(--rock-code-comment); font-style: italic; }
 code.language-rock .function.builtin,
 code.language-rock .function.macro,

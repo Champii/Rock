@@ -291,7 +291,11 @@ main = -> (Result _)::Applicative::pure 42
     (function_arrow)
     (block
       (call_expression
-        (type_qualified_constructor_expression)
+        (type_qualified_constructor_expression
+          (type_identifier)
+          (type_hole)
+          (type_identifier)
+          (identifier))
         (number)))))
 
 ==================

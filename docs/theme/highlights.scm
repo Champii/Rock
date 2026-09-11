@@ -36,6 +36,31 @@
 (type_path (identifier) @module)
 (path_expression (identifier) @module)
 
+; The preprocessor resolves short value names against this snippet's
+; declarations/imports, including uses before an enum's declaration.
+(expression/type_identifier) @type.variant_reference
+(constructor_pattern constructor: (type_identifier) @type.variant_reference)
+(named_constructor_pattern constructor: (type_identifier) @type.variant_reference)
+(constructor_expression constructor: (type_identifier) @type.variant_reference)
+(call_expression function: (type_identifier) @type.variant_reference)
+(call_expression argument: (type_identifier) @type.variant_reference)
+(qualified_call_expression argument: (type_identifier) @type.variant_reference)
+(negated_native_condition argument: (type_identifier) @type.variant_reference)
+(postfix_expression value: (type_identifier) @type.variant_reference)
+(unary_expression operand: (type_identifier) @type.variant_reference)
+(binary_expression left: (type_identifier) @type.variant_reference)
+(binary_expression right: (type_identifier) @type.variant_reference)
+(simple_binary_expression left: (type_identifier) @type.variant_reference)
+(simple_binary_expression right: (type_identifier) @type.variant_reference)
+(cast_expression value: (type_identifier) @type.variant_reference)
+
+(enum_variant name: (type_identifier) @constant.variant.definition)
+(path_expression (type_identifier) . (type_identifier) @constant.variant .)
+(import_path (type_identifier) . (type_identifier) @constant.variant.definition .)
+(qualified_expression "::" (type_identifier) @constant.variant .)
+(type_qualified_constructor_expression member: (type_identifier) @constant.variant .)
+(type_qualified_constructor_expression member: (identifier) @function .)
+
 (struct_field name: (identifier) @property)
 (named_field name: (identifier) @property)
 (pattern_field (identifier) @property)
