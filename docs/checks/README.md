@@ -1,8 +1,12 @@
 # Book Highlighting
 
-The book requires Node.js 22, mdBook (CI pins 0.4.52), tree-sitter-cli (CI pins
+The book requires Node.js 22, mdBook 0.5.4, tree-sitter-cli (CI pins
 0.26.9), and a C compiler for the Rock parser. The extension's pinned CLI 0.27.0
 is also supported. No npm dependencies are needed for the book.
+
+CI pins mdBook 0.5.4 so preprocessors run from the book directory, consistently
+with local builds. mdBook 0.4 runs them from the caller's working directory and
+cannot use the configured relative command when invoked as `mdbook build docs`.
 
 From the repository root:
 

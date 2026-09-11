@@ -133,7 +133,7 @@ function preprocess(context, book) {
             visit(chapter.sub_items || []);
         }
     }
-    // mdBook 0.5 renamed sections to items; CI still uses 0.4.
+    // mdBook 0.5 renamed sections to items.
     visit(book.items ?? book.sections);
     const highlighted = highlightSources(chapters.flatMap(({ blocks }) => blocks.map(({ source }) => source)));
     let index = 0;
