@@ -143,14 +143,14 @@ fn test_no_std_root_with_no_std_dependency_does_not_load_explicit_empty_sysroot(
     );
 
     std::env::set_var("ROCK_SYSROOT", &explicit_sysroot);
-    let executable = build_project(&app).unwrap();
+    let executable = build_project(&app);
 
     match previous {
         Some(value) => std::env::set_var("ROCK_SYSROOT", value),
         None => std::env::remove_var("ROCK_SYSROOT"),
     }
 
-    assert_executable_exit_code(&executable, 11);
+    assert_executable_exit_code(&executable.unwrap(), 11);
 
     let _ = fs::remove_dir_all(temp_dir);
 }
@@ -171,13 +171,14 @@ fn test_build_project_reports_missing_rockc_override() {
     let previous = std::env::var_os("ROCKC");
 
     std::env::set_var("ROCKC", temp_dir.join("does-not-exist-rockc"));
-    let error = build_project(&temp_dir).unwrap_err();
+    let result = build_project(&temp_dir);
 
     match previous {
         Some(value) => std::env::set_var("ROCKC", value),
         None => std::env::remove_var("ROCKC"),
     }
 
+    let error = result.unwrap_err();
     assert!(error.contains("Failed to spawn rockc"));
     assert!(error.contains("root executable for crate 'missing_rockc'"));
 

@@ -514,17 +514,28 @@ fn position_at(text: &str, offset: usize) -> Position {
     Position::new(line, character)
 }
 
-#[tokio::main]
-async fn main() {
+fn runtime() -> std::io::Result<tokio::runtime::Runtime> {
+    tokio::runtime::Builder::new_multi_thread()
+        // Recursive compiler passes exceed Tokio's default stack on ordinary projects.
+        // This also covers spawn_blocking analysis and snapshot drops on async workers.
+        .thread_stack_size(32 * 1024 * 1024)
+        .enable_all()
+        .build()
+}
+
+fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let settings = Settings {
         no_prelude: args.no_prelude,
         extern_artifacts: args.extern_artifacts,
     };
-    let stdin = tokio::io::stdin();
-    let stdout = tokio::io::stdout();
-    let (service, socket) = LspService::new(|client| Backend::new(client, settings));
-    Server::new(stdin, stdout, socket).serve(service).await;
+    runtime()?.block_on(async move {
+        let stdin = tokio::io::stdin();
+        let stdout = tokio::io::stdout();
+        let (service, socket) = LspService::new(|client| Backend::new(client, settings));
+        Server::new(stdin, stdout, socket).serve(service).await;
+    });
+    Ok(())
 }
 
 #[cfg(test)]
@@ -536,6 +547,32 @@ mod tests {
     use tower_lsp::lsp_types::{DiagnosticSeverity, Position, Url};
 
     use super::{analysis_config, byte_offset, diagnostic_to_lsp, position_at, Settings};
+
+    #[test]
+    fn runtime_analyzes_nested_source_on_blocking_worker() {
+        super::runtime().unwrap().block_on(async {
+            tokio::task::spawn_blocking(|| {
+                let path = PathBuf::from("/virtual/nested.rk");
+                let source = format!(
+                    "main = ->\n    value = {}0{}\n    0\n",
+                    "[".repeat(32),
+                    "]".repeat(32),
+                );
+                let config = analysis_config(
+                    path.clone(),
+                    vec![rock_lib::SourceProvider::Virtual { path, text: source }],
+                    &Settings {
+                        extern_artifacts: Vec::new(),
+                        no_prelude: true,
+                    },
+                    None,
+                );
+                assert!(rock_lib::analyze(&config).is_ok());
+            })
+            .await
+            .unwrap();
+        });
+    }
 
     #[test]
     fn positions_use_utf16_code_units() {

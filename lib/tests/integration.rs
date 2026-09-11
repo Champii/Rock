@@ -16,6 +16,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use bincode::Options;
 use serde::Serialize;
 
+#[path = "support/stdlib_cache_key.rs"]
+mod stdlib_cache_key;
+use stdlib_cache_key::{stdlib_cache_compiler_stamp, stdlib_cache_key};
+
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 const STDLIB_CACHE_LOCK_STALE_AFTER: Duration = Duration::from_secs(10 * 60);
 const TEST_PROCESS_TIMEOUT: Duration = Duration::from_secs(15);
@@ -34,76 +38,6 @@ fn workspace_root() -> PathBuf {
 
 fn stdlib_path() -> PathBuf {
     workspace_root().join("stdlib")
-}
-
-fn stdlib_cache_key(stdlib_dir: &Path, compiler_stamp: &str) -> String {
-    let mut hash = 0xcbf29ce484222325;
-    update_cache_hash(
-        &mut hash,
-        &rock_lib::products::PRODUCT_ARTIFACT_FORMAT_VERSION.to_le_bytes(),
-    );
-    update_cache_hash(&mut hash, compiler_stamp.as_bytes());
-    let canonical_stdlib_dir = stdlib_dir
-        .canonicalize()
-        .unwrap_or_else(|_| stdlib_dir.to_path_buf());
-    update_cache_hash(&mut hash, canonical_stdlib_dir.to_string_lossy().as_bytes());
-
-    let mut files = Vec::new();
-    collect_rock_source_files(stdlib_dir, &mut files);
-    files.sort();
-    for path in files {
-        let relative = path.strip_prefix(stdlib_dir).unwrap_or(&path);
-        update_cache_hash(&mut hash, relative.to_string_lossy().as_bytes());
-        update_cache_hash(&mut hash, &std::fs::read(&path).unwrap());
-    }
-
-    format!("{hash:016x}")
-}
-
-fn update_cache_hash(hash: &mut u64, bytes: &[u8]) {
-    for byte in bytes {
-        *hash ^= u64::from(*byte);
-        *hash = hash.wrapping_mul(0x100000001b3);
-    }
-}
-
-fn collect_rock_source_files(dir: &Path, files: &mut Vec<PathBuf>) {
-    let mut entries = std::fs::read_dir(dir)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .collect::<Vec<_>>();
-    entries.sort();
-
-    for path in entries {
-        if path.is_dir() {
-            collect_rock_source_files(&path, files);
-        } else if path.extension().and_then(|ext| ext.to_str()) == Some("rk") {
-            files.push(path);
-        }
-    }
-}
-
-fn stdlib_cache_compiler_stamp() -> String {
-    let Ok(exe) = std::env::current_exe() else {
-        return env!("CARGO_PKG_VERSION").to_string();
-    };
-    let Ok(metadata) = std::fs::metadata(&exe) else {
-        return env!("CARGO_PKG_VERSION").to_string();
-    };
-    let modified = metadata
-        .modified()
-        .ok()
-        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-        .map(|duration| duration.as_nanos())
-        .unwrap_or_default();
-
-    format!(
-        "{}:{}:{}:{}",
-        env!("CARGO_PKG_VERSION"),
-        exe.display(),
-        metadata.len(),
-        modified
-    )
 }
 
 struct CacheLock {
@@ -419,6 +353,14 @@ fn stdlib_cache_key_changes_when_stdlib_source_changes() {
     let changed = stdlib_cache_key(&stdlib_dir, "compiler-stamp");
 
     assert_ne!(first, changed);
+    assert_ne!(changed, stdlib_cache_key(&stdlib_dir, "rebuilt-compiler"));
+
+    std::fs::write(stdlib_dir.join("rock.toml"), "[crate]\nname = \"stdlib\"\n").unwrap();
+    let with_manifest = stdlib_cache_key(&stdlib_dir, "compiler-stamp");
+    assert_ne!(changed, with_manifest);
+    std::fs::write(stdlib_dir.join("rock.toml"), "[crate]\nname = \"renamed\"\n").unwrap();
+    assert_ne!(with_manifest, stdlib_cache_key(&stdlib_dir, "compiler-stamp"));
+    let _ = std::fs::remove_dir_all(dir);
 }
 
 #[test]

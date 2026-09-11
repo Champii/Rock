@@ -4,7 +4,7 @@ use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use crate::crate_system::CrateContext;
@@ -17,13 +17,12 @@ use crate::products::{CompilerProducts, ProductDefId, ProductLanguageItems};
 use crate::types::Type;
 use crate::Config;
 
+#[path = "../../tests/support/stdlib_cache_key.rs"]
+mod stdlib_cache_key;
+use stdlib_cache_key::{stdlib_cache_compiler_stamp, stdlib_cache_key};
+
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 const TEST_PROCESS_TIMEOUT: Duration = Duration::from_secs(15);
-
-fn artifact_test_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -400,18 +399,89 @@ fn shared_stdlib_product_artifact() -> PathBuf {
 
     STDLIB_ARTIFACT
         .get_or_init(|| {
-            let artifact_dir = std::env::temp_dir().join(format!(
-                "rock_artifact_shared_stdlib_{}",
-                std::process::id()
-            ));
-            let _ = fs::remove_dir_all(&artifact_dir);
-            fs::create_dir_all(&artifact_dir).unwrap();
-
-            let artifact_path = artifact_dir.join("stdlib.rkca");
-            build_stdlib_product_artifact(&workspace_root().join("stdlib"), &artifact_path);
-            artifact_path
+            let stdlib_dir = workspace_root().join("stdlib");
+            let key = stdlib_cache_key(&stdlib_dir, &stdlib_cache_compiler_stamp());
+            let artifact_dir = std::env::temp_dir().join(format!("rock_artifact_stdlib_{key}"));
+            cached_stdlib_product_artifact(&stdlib_dir, &artifact_dir)
         })
         .clone()
+}
+
+fn cached_stdlib_product_artifact(stdlib_dir: &PathBuf, artifact_dir: &PathBuf) -> PathBuf {
+    // Keep the lock outside the payload directory; the OS releases it on exit,
+    // including a crashed test process, without stale-lock polling.
+    let lock = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(artifact_dir.with_extension("lock"))
+        .unwrap();
+    lock.lock().unwrap();
+    let artifact_path = artifact_dir.join("stdlib.rkca");
+    let object_path = artifact_dir.join("stdlib.o");
+    if object_path.is_file() && CompilerProducts::read_artifact_from_path(&artifact_path).is_ok() {
+        return artifact_path;
+    }
+
+    fs::create_dir_all(artifact_dir).unwrap();
+    match fs::remove_file(&artifact_path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => panic!("failed to invalidate cached stdlib artifact: {error}"),
+    }
+    // Build in the private cache, never in the checked-out stdlib/build directory.
+    let output = crate::compile_with_products(&Config {
+        entry_file: stdlib_dir.join("lib.rk"),
+        output_dir: artifact_dir.clone(),
+        current_crate_name: Some("stdlib".to_string()),
+        no_std: true,
+        no_link: true,
+        emit_object: Some(object_path),
+        ..Config::default()
+    })
+    .unwrap();
+    let mut products = output.products.unwrap();
+    products.link.object_path = Some(PathBuf::from("stdlib.o"));
+    let pending = artifact_dir.join("stdlib.rkca.pending");
+    products.write_artifact_to_path(&pending).unwrap();
+    CompilerProducts::read_artifact_from_path(&pending).unwrap();
+    fs::rename(pending, &artifact_path).unwrap();
+    artifact_path
+}
+
+#[test]
+fn stdlib_product_cache_reuses_and_repairs_artifacts() {
+    let temp_dir = temp_test_dir("stdlib_cache_repair");
+    let _cleanup = TestDirCleanup(temp_dir.clone());
+    let stdlib_dir = temp_dir.join("stdlib");
+    write_answer_stdlib(&stdlib_dir, 7);
+    let cache_dir = temp_dir.join("cache");
+
+    let artifact = std::thread::scope(|scope| {
+        let first = scope.spawn(|| cached_stdlib_product_artifact(&stdlib_dir, &cache_dir));
+        let second = scope.spawn(|| cached_stdlib_product_artifact(&stdlib_dir, &cache_dir));
+        let artifact = first.join().unwrap();
+        assert_eq!(artifact, second.join().unwrap());
+        artifact
+    });
+    let modified = fs::metadata(&artifact).unwrap().modified().unwrap();
+    cached_stdlib_product_artifact(&stdlib_dir, &cache_dir);
+    assert_eq!(modified, fs::metadata(&artifact).unwrap().modified().unwrap());
+
+    fs::remove_file(cache_dir.join("stdlib.o")).unwrap();
+    cached_stdlib_product_artifact(&stdlib_dir, &cache_dir);
+    assert!(cache_dir.join("stdlib.o").is_file());
+
+    fs::write(&artifact, b"interrupted artifact write").unwrap();
+    cached_stdlib_product_artifact(&stdlib_dir, &cache_dir);
+    CompilerProducts::read_artifact_from_path(&artifact).unwrap();
+    assert_eq!(
+        write_and_run_artifact_app(
+            "> stdlib::math::answer\n\nmain = -> answer!\n",
+            vec![("stdlib".to_string(), artifact)],
+        ),
+        7
+    );
 }
 
 fn write_sysroot_stdlib_product_bundle(stdlib_dir: &PathBuf, sysroot: &PathBuf) -> PathBuf {
@@ -555,9 +625,6 @@ fn compile_artifact_app_without_stdlib_failure(
 
 #[test]
 fn test_compile_with_stdlib_artifact() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let hello_path = workspace_root().join("examples").join("hello.rk");
     let temp_dir = temp_test_dir("stdlib_artifact_compile");
     let artifact_path = shared_stdlib_product_artifact();
@@ -586,9 +653,6 @@ fn test_compile_with_stdlib_artifact() {
 
 #[test]
 fn stdlib_index_selection_persists_exact_impl_and_trait_authority() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("stdlib_index_authority");
     let entry_file = temp_dir.join("main.rk");
     fs::write(
@@ -726,9 +790,6 @@ main = ->
 
 #[test]
 fn stdlib_product_artifact_provides_index_mut_language_items() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let artifact_path = shared_stdlib_product_artifact();
     let products = CompilerProducts::read_artifact_from_path(&artifact_path)
         .expect("shared stdlib product artifact should load");
@@ -746,9 +807,6 @@ fn stdlib_product_artifact_provides_index_mut_language_items() {
 
 #[test]
 fn stdlib_product_artifact_provides_complete_language_item_registry() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let artifact_path = shared_stdlib_product_artifact();
     let products = CompilerProducts::read_artifact_from_path(&artifact_path)
         .expect("shared stdlib product artifact should load");
@@ -893,9 +951,6 @@ fn stdlib_product_artifact_provides_complete_language_item_registry() {
 
 #[test]
 fn test_run_with_stdlib_product_artifact_links() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("stdlib_artifact_methods");
     let artifact_path = shared_stdlib_product_artifact();
     CompilerProducts::read_artifact_from_path(&artifact_path).unwrap();
@@ -911,9 +966,6 @@ fn test_run_with_stdlib_product_artifact_links() {
 
 #[test]
 fn test_product_stdlib_artifact_preserves_string_method_abi_and_prelude_exports() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let artifact_path = shared_stdlib_product_artifact();
     let products = CompilerProducts::read_artifact_from_path(&artifact_path).unwrap();
 
@@ -974,9 +1026,6 @@ fn test_product_stdlib_artifact_preserves_string_method_abi_and_prelude_exports(
 
 #[test]
 fn test_product_stdlib_artifact_records_static_impl_method_link_symbol_by_product_id() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let artifact_path = shared_stdlib_product_artifact();
     let products = CompilerProducts::read_artifact_from_path(&artifact_path).unwrap();
 
@@ -1001,9 +1050,6 @@ fn test_product_stdlib_artifact_records_static_impl_method_link_symbol_by_produc
 
 #[test]
 fn test_product_artifacts_mangle_duplicate_exported_backend_symbols_by_crate() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("duplicate_exported_backend_symbols");
     let first_dir = temp_dir.join("first");
     let second_dir = temp_dir.join("second");
@@ -1057,9 +1103,6 @@ fn test_product_artifacts_mangle_duplicate_exported_backend_symbols_by_crate() {
 
 #[test]
 fn test_product_artifacts_distinguish_separator_underscore_exported_backend_symbols() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("separator_underscore_exported_backend_symbols");
     let first_dir = temp_dir.join("foo");
     let second_dir = temp_dir.join("foo__bar");
@@ -1112,9 +1155,6 @@ fn test_product_artifacts_distinguish_separator_underscore_exported_backend_symb
 
 #[test]
 fn test_stdlib_product_artifact_links_static_impl_method() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let artifact_path = shared_stdlib_product_artifact();
 
     let exit_code = write_and_run_artifact_app(
@@ -1130,9 +1170,6 @@ main = ->
 
 #[test]
 fn test_stdlib_product_artifact_links_arithmetic_operator_impl_methods() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let artifact_path = shared_stdlib_product_artifact();
     let arithmetic_path = workspace_root().join("examples").join("arithmetic.rk");
     let temp_dir = temp_test_dir("stdlib_artifact_arithmetic");
@@ -1160,9 +1197,6 @@ fn test_stdlib_product_artifact_links_arithmetic_operator_impl_methods() {
 
 #[test]
 fn test_product_artifact_links_concrete_trait_impl_method() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("concrete_trait_impl_method_artifact");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1213,9 +1247,6 @@ main = ->
 
 #[test]
 fn test_stdlib_product_artifact_specializes_generic_function_used_by_generic_impl() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let artifact_path = shared_stdlib_product_artifact();
 
     let exit_code = write_and_run_artifact_app(
@@ -1232,9 +1263,6 @@ main = ->
 
 #[test]
 fn test_product_artifact_links_concrete_function_with_mono_in_name() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("mono_named_concrete_function_artifact");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1262,9 +1290,6 @@ main = -> foo_mono_bar!
 
 #[test]
 fn test_product_artifact_preserves_concrete_function_bodies() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("source_backed_artifact_bodies");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1285,9 +1310,6 @@ fn test_product_artifact_preserves_concrete_function_bodies() {
 
 #[test]
 fn test_product_artifact_preserves_associated_types() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_artifact_associated_types");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1353,9 +1375,6 @@ impl Deref for Box T
 
 #[test]
 fn test_product_artifact_interface_externs_use_resolved_def_ids() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_artifact_extern_def_ids");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1401,9 +1420,6 @@ fn test_product_artifact_interface_externs_use_resolved_def_ids() {
 
 #[test]
 fn test_product_artifact_imported_extern_call_links_by_def_id() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_artifact_imported_extern");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1422,9 +1438,6 @@ fn test_product_artifact_imported_extern_call_links_by_def_id() {
 
 #[test]
 fn test_compile_requires_explicit_stdlib_artifact_even_with_sysroot() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("sysroot_stdlib_compile");
     let sysroot = temp_dir.join("toolchain");
     let stdlib_dir = temp_dir.join("stdlib");
@@ -1459,9 +1472,6 @@ fn test_compile_requires_explicit_stdlib_artifact_even_with_sysroot() {
 
 #[test]
 fn test_explicit_stdlib_artifact_works_when_sysroot_is_set() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("sysroot_stdlib_override");
     let sysroot = temp_dir.join("toolchain");
     let sysroot_stdlib = temp_dir.join("sysroot_stdlib");
@@ -1490,9 +1500,6 @@ fn test_explicit_stdlib_artifact_works_when_sysroot_is_set() {
 
 #[test]
 fn test_compile_without_explicit_stdlib_artifact_fails_with_no_std() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("sysroot_no_std");
     let sysroot = temp_dir.join("toolchain");
     let stdlib_dir = temp_dir.join("stdlib");
@@ -1526,9 +1533,6 @@ fn test_compile_without_explicit_stdlib_artifact_fails_with_no_std() {
 
 #[test]
 fn test_compile_with_source_free_product_artifact() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("interface_only_artifact");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1552,9 +1556,6 @@ fn test_compile_with_source_free_product_artifact() {
 
 #[test]
 fn test_compile_root_glob_import_from_source_free_product_artifact() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_artifact_root_glob_import");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1577,9 +1578,6 @@ fn test_compile_root_glob_import_from_source_free_product_artifact() {
 
 #[test]
 fn test_product_artifact_rejects_changed_dependency_fingerprint() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("changed_dependency_fingerprint");
     let dep_dir = temp_dir.join("dep");
     let app_dir = temp_dir.join("app");
@@ -1624,9 +1622,6 @@ fn test_product_artifact_rejects_changed_dependency_fingerprint() {
 
 #[test]
 fn test_compile_generic_function_from_artifact_hir_bundle() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("generic_function_artifact");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1647,9 +1642,6 @@ fn test_compile_generic_function_from_artifact_hir_bundle() {
 
 #[test]
 fn test_cross_crate_hkt_selection_and_generic_body_specialization() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("cross_crate_hkt_specialization");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1716,9 +1708,6 @@ main = ->
 
 #[test]
 fn test_compile_generic_function_from_file_module_artifact_hir_bundle() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("generic_function_file_module_artifact");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1744,9 +1733,6 @@ fn test_compile_generic_function_from_file_module_artifact_hir_bundle() {
 
 #[test]
 fn test_compile_generic_impl_from_artifact_hir_bundle() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("generic_impl_artifact");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1772,9 +1758,6 @@ fn test_compile_generic_impl_from_artifact_hir_bundle() {
 
 #[test]
 fn test_compile_trait_backed_structural_static_method_from_artifact() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("trait_backed_structural_static_artifact");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1816,9 +1799,6 @@ impl Factory T for Box T
 
 #[test]
 fn test_compile_generic_impl_from_file_module_artifact_hir_bundle() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("generic_impl_file_module_artifact");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1844,9 +1824,6 @@ fn test_compile_generic_impl_from_file_module_artifact_hir_bundle() {
 
 #[test]
 fn test_product_artifact_preserves_trait_default_methods() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_trait_defaults");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1882,9 +1859,6 @@ fn test_product_artifact_preserves_trait_default_methods() {
 
 #[test]
 fn test_product_artifact_preserves_file_module_trait_default_methods() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_file_module_trait_defaults");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1920,9 +1894,6 @@ fn test_product_artifact_preserves_file_module_trait_default_methods() {
 
 #[test]
 fn test_compile_trait_default_method_from_product_artifact() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_trait_default_downstream");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1947,9 +1918,6 @@ fn test_compile_trait_default_method_from_product_artifact() {
 
 #[test]
 fn test_compile_trait_generic_default_for_downstream_impl_from_product_artifact() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_trait_generic_default_downstream_impl");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -1973,9 +1941,6 @@ fn test_compile_trait_generic_default_for_downstream_impl_from_product_artifact(
 
 #[test]
 fn test_compile_generic_trait_default_method_from_product_artifact() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_generic_trait_default_downstream");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -2023,9 +1988,6 @@ main = ->
 
 #[test]
 fn test_product_artifact_preserves_generic_impl_inherited_trait_default_methods() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_generic_impl_inherited_trait_default");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -2072,9 +2034,6 @@ impl Value T for Box T
 
 #[test]
 fn test_product_artifact_remaps_trait_args_in_default_method_body() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_default_method_target_trait_args");
     let marker_dir = temp_dir.join("marker");
     let dep_dir = temp_dir.join("dep");
@@ -2182,9 +2141,6 @@ keep_token = value -> value
 
 #[test]
 fn test_compile_projection_trait_identity_from_product_artifact() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("product_projection_trait_identity");
     let dep_dir = temp_dir.join("dep");
     let artifact_path = temp_dir.join("dep.rkca");
@@ -2209,9 +2165,6 @@ fn test_compile_projection_trait_identity_from_product_artifact() {
 
 #[test]
 fn renamed_language_item_provider_artifact_drives_all_protocols() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("renamed_language_item_provider");
     let provider_dir = temp_dir.join("protocols");
     let provider_artifact = temp_dir.join("protocols.rkca");
@@ -2380,9 +2333,6 @@ main = ->
 
 #[test]
 fn renamed_artifact_index_and_index_mut_drive_downstream_syntax() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("renamed_artifact_index_pair");
     let provider_dir = temp_dir.join("provider");
     let provider_artifact = temp_dir.join("provider.rkca");
@@ -2543,9 +2493,6 @@ main = -> probe 0
 
 #[test]
 fn root_glob_import_keeps_local_direct_calls_direct_in_artifact_app() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("root_glob_local_callable_app");
     let dependency_dir = temp_dir.join("dep");
     let dependency_artifact = temp_dir.join("dep.rkca");
@@ -2628,9 +2575,6 @@ main = ->
 
 #[test]
 fn duplicate_language_item_provider_artifacts_report_sorted_provider_names() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("duplicate_language_item_provider");
     let alpha_dir = temp_dir.join("alpha");
     let zeta_dir = temp_dir.join("zeta");
@@ -2665,9 +2609,6 @@ fn duplicate_language_item_provider_artifacts_report_sorted_provider_names() {
 
 #[test]
 fn intermediate_artifact_does_not_reexport_provider_language_items() {
-    let _guard = artifact_test_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp_dir = temp_test_dir("intermediate_language_item_non_reexport");
     let provider_dir = temp_dir.join("provider");
     let bridge_dir = temp_dir.join("bridge");

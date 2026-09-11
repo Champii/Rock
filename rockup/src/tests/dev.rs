@@ -22,8 +22,19 @@ fn test_package_dev_stdlib_writes_sysroot_layout() {
     let target = host_target_triple();
     let rockc = ensure_rockc_binary();
 
+    // Layout/source-copy behavior needs a real artifact, not the full stdlib.
+    // The relocation test below still packages the complete shipped library.
+    let stdlib = temp_dir.join("stdlib");
+    fs::create_dir_all(&stdlib).unwrap();
+    fs::write(
+        stdlib.join("rock.toml"),
+        "[crate]\nname = \"stdlib\"\nversion = \"0.1.0\"\n\n[lib]\npath = \"lib.rk\"\n",
+    )
+    .unwrap();
+    fs::write(stdlib.join("lib.rk"), "< answer = -> 42\n").unwrap();
+
     let packaged = package_dev_stdlib(
-        &workspace_stdlib_root(),
+        &stdlib,
         &sysroot,
         Some(target.clone()),
         true,
@@ -49,6 +60,10 @@ fn test_package_dev_stdlib_writes_sysroot_layout() {
         .join("stdlib")
         .join("rock.toml")
         .exists());
+    assert_eq!(
+        fs::read(sysroot.join("src/stdlib/lib.rk")).unwrap(),
+        fs::read(stdlib.join("lib.rk")).unwrap()
+    );
 
     let _ = fs::remove_dir_all(temp_dir);
 }
