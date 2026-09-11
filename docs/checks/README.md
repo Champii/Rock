@@ -1,7 +1,8 @@
 # Book Highlighting
 
-The book requires Node.js 22, mdBook (CI pins 0.4.52), tree-sitter-cli 0.26.9,
-and a C compiler for the Rock parser. No npm dependencies are needed.
+The book requires Node.js 22, mdBook (CI pins 0.4.52), tree-sitter-cli (CI pins
+0.26.9), and a C compiler for the Rock parser. The extension's pinned CLI 0.27.0
+is also supported. No npm dependencies are needed for the book.
 
 From the repository root:
 
@@ -14,8 +15,8 @@ node docs/checks/verify-book.cjs
 ```
 
 `rock-highlight.cjs` implements the mdBook preprocessor protocol. It batches Rock
-fences through the tree-sitter CLI using `docs/theme/highlights.scm` and
-`docs/theme/locals.scm` against
+fences through the tree-sitter CLI using `tree-sitter-rock/queries/highlights.scm`
+and `tree-sitter-rock/queries/locals.scm`, shared with the VS Code extension, against
 the real Rock syntax tree. The generated parser C source is ignored, so generation is
 required on a fresh checkout. Grammar and query errors fail the build.
 

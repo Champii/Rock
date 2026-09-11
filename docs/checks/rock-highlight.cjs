@@ -5,8 +5,8 @@ const { execFileSync } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "../..");
 const grammarRoot = path.join(repoRoot, "tree-sitter-rock");
-const queryPath = path.join(repoRoot, "docs/theme/highlights.scm");
-const localsPath = path.join(repoRoot, "docs/theme/locals.scm");
+const queryPath = path.join(grammarRoot, "queries/highlights.scm");
+const localsPath = path.join(grammarRoot, "queries/locals.scm");
 
 // Only Markdown fence boundaries are scanned here; Rock tokens come from the AST query.
 function rockFences(markdown) {
@@ -85,10 +85,14 @@ function highlightSources(sources) {
             } catch (error) {
                 throw new Error(`Tree-sitter highlighting failed. Install tree-sitter-cli 0.26.9, run \`tree-sitter generate\` in ${grammarRoot}, and check ${queryPath}.\n${error.stderr || error.message}`);
             }
+            // The book pins CLI 0.26 (tables); the extension pins 0.27 (pre/code).
             const tables = [...output.matchAll(/<table>([\s\S]*?)<\/table>/g)];
-            if (tables.length !== batch.length) throw new Error("Unexpected tree-sitter HTML: expected one table per Rock snippet.");
+            const blocks = tables.length
+                ? tables.map((table) => [...table[1].matchAll(/<td class=line>([\s\S]*?)<\/td>/g)].map((match) => match[1]).join(""))
+                : [...output.matchAll(/<pre><code>([\s\S]*?)<\/code><\/pre>/g)].map((match) => match[1]);
+            if (blocks.length !== batch.length) throw new Error("Unexpected tree-sitter HTML: expected one block per Rock snippet.");
             for (let index = 0; index < batch.length; index++) {
-                let html = [...tables[index][1].matchAll(/<td class=line>([\s\S]*?)<\/td>/g)].map((match) => match[1]).join("");
+                let html = blocks[index];
                 // Resolve only AST-captured value names, never type annotations.
                 // Each fence has its own declarations, independent of source order.
                 const variants = new Set([...html.matchAll(/<span class='constant variant definition'>([^<]*)<\/span>/g)]
@@ -104,6 +108,10 @@ function highlightSources(sources) {
                 if (!batch[index].endsWith("\n") && htmlSource(html) === batch[index] + "\n") {
                     html = html.replace(/\n(?=(?:<\/span>)*$)/, "");
                 }
+                // CLI 0.27 omits the final line ending from its code block.
+                const text = htmlSource(html);
+                const tail = batch[index].slice(text.length);
+                if (batch[index].startsWith(text) && /^(?:\r?\n)+$/.test(tail)) html += tail;
                 if (htmlSource(html) !== batch[index]) throw new Error(`Tree-sitter changed source whitespace in Rock snippet ${offset + index + 1}.`);
                 highlighted.push(html);
             }

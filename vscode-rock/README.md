@@ -3,7 +3,7 @@
 This extension connects the existing Rock tools to VS Code:
 
 - `rock-lsp` provides compiler diagnostics, hover types, and signature help.
-- `tree-sitter-rock` provides highlighting through VS Code's semantic token API, using the repository's existing grammar and `queries/highlights.scm`.
+- `tree-sitter-rock` provides highlighting through VS Code's semantic token API, using the same grammar and `queries/highlights.scm` / `queries/locals.scm` as the book.
 - `.rk` files are recognized as Rock, with comment toggling and bracket pairing.
 
 Highlighting is syntax-based, not inferred type classification. Completion, go-to-definition, references, and rename are not yet provided by `rock-lsp`.
@@ -23,7 +23,7 @@ npm run package
 code --install-extension rock-language-0.1.0.vsix
 ```
 
-Use Node.js 22 or newer for the extension build. The pinned Tree-sitter CLI generates the existing grammar and builds a WASM parser, including its external scanner. On its first build it downloads the WASI SDK and Binaryen, so network access is required. The VSIX bundles both WASM modules and the shared highlight query; these build tools are not needed at runtime.
+Use Node.js 22 or newer for the extension build. The pinned Tree-sitter CLI generates the existing grammar and builds a WASM parser, including its external scanner. On its first build it downloads the WASI SDK and Binaryen, so network access is required. The VSIX bundles both WASM modules, both shared queries, and the optional Rock themes; these build tools are not needed at runtime.
 
 Set `rock.server.path` to your built `rock-lsp` executable in VS Code settings. This repository's workspace settings use `./target/debug/rock-lsp`; other workspaces default to `rock-lsp` on PATH. Relative executable paths resolve against the first workspace folder. Without an open folder, use an absolute executable path or a command on PATH.
 
@@ -49,6 +49,12 @@ These arguments are passed directly to the server without a shell. They apply to
 
 ## Highlighting
 
-Semantic highlighting is enabled by default for Rock and uses standard token types with TextMate scope mappings for theme support. An explicit user override disabling semantic highlighting will disable Rock colors as well. If another syntax-highlighting extension handles `.rk` files, disable its Rock support to avoid competing colors.
+Semantic highlighting is enabled by default for Rock. Parameters keep their token category throughout their scope, while body-local bindings remain variables. Enum variants have their own category in declarations, constructors, and patterns; short variant names resolve against declarations and explicit imports in the current document. This is syntax-based highlighting, not compiler name resolution across dependencies.
 
-After editing `tree-sitter-rock/grammar.js` or its highlight queries, rebuild and reinstall the VSIX to update its bundled assets. There is no separate VS Code grammar to maintain.
+The extended system distinguishes receiver markers, assignments, arrows, annotation colons, other punctuation, call suffixes, and intrinsics. Standard categories such as `parameter` and `enumMember`, plus Rock-specific categories with fallback scopes, let your existing VS Code theme choose their colors. No theme or user settings are changed during activation.
+
+For the book's exact palette, choose **Preferences: Color Theme**, then **Rock Book Dark** or **Rock Book Light**. Both optional themes are generated from `docs/theme/rock.css`: peach functions, green parameters and fields, gold types, periwinkle variants, and distinct receivers and operators. Choosing a color theme affects the whole editor, not just Rock files.
+
+An explicit user override disabling semantic highlighting will disable Rock colors as well. If another syntax-highlighting extension handles `.rk` files, disable its Rock support to avoid competing colors.
+
+After editing `tree-sitter-rock/grammar.js`, its shared queries, or the book palette, rebuild and reinstall the VSIX to update its bundled assets. There is no separate VS Code grammar, query copy, or hand-maintained palette to edit.
