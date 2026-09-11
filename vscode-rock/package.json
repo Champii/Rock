@@ -1,0 +1,47 @@
+{
+  "name": "rock-language",
+  "displayName": "Rock Language",
+  "description": "Rock analysis with rock-lsp and highlighting with tree-sitter-rock.",
+  "version": "0.1.0",
+  "publisher": "champii",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/Champii/Rock.git" },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages"],
+  "extensionKind": ["workspace"],
+  "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": false, "description": "Rock analysis can build project dependencies." },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "languages": [{ "id": "rock", "aliases": ["Rock", "rock"], "extensions": [".rk"], "configuration": "./language-configuration.json" }],
+    "configuration": {
+      "title": "Rock",
+      "properties": {
+        "rock.server.path": { "type": "string", "default": "rock-lsp", "scope": "machine-overridable", "description": "Path to rock-lsp, or its command name on PATH. Relative paths resolve against the workspace folder. Reload the window after changing." },
+        "rock.server.args": { "type": "array", "items": { "type": "string" }, "default": [], "scope": "window", "description": "Arguments for rock-lsp, such as --extern-artifact and name=/absolute/path. Reload the window after changing." }
+      }
+    },
+    "configurationDefaults": { "[rock]": { "editor.semanticHighlighting.enabled": true } },
+    "semanticTokenScopes": [{
+      "language": "rock",
+      "scopes": {
+        "comment": ["comment"], "keyword": ["keyword"], "number": ["constant.numeric"],
+        "string": ["string"], "operator": ["keyword.operator"], "function": ["entity.name.function"],
+        "macro": ["entity.name.function.preprocessor"], "variable": ["variable.other.readwrite"],
+        "type": ["entity.name.type"], "property": ["variable.other.property"], "decorator": ["entity.other.attribute-name"]
+      }
+    }]
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.cjs",
+    "vscode:prepublish": "npm run check && npm run build",
+    "package": "vsce package --no-dependencies"
+  },
+  "dependencies": { "vscode-languageclient": "^9.0.1", "web-tree-sitter": "0.27.0" },
+  "devDependencies": { "@types/node": "^22.0.0", "@types/vscode": "^1.85.0", "@vscode/vsce": "^3.0.0", "esbuild": "^0.25.0", "tree-sitter-cli": "0.27.0", "typescript": "^5.0.0" },
+  "allowScripts": { "tree-sitter-cli": true, "esbuild": true }
+}
