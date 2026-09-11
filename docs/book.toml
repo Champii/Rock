@@ -15,8 +15,8 @@ command = "node checks/rock-highlight.cjs"
 renderers = ["html"]
 
 [output.html]
-default-theme = "navy"
-preferred-dark-theme = "navy"
+default-theme = "ayu"
+preferred-dark-theme = "ayu"
 git-repository-url = "https://github.com/Champii/Rock"
 edit-url-template = "https://github.com/Champii/Rock/edit/develop/docs/{path}"
 site-url = "/Rock/"
