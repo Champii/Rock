@@ -108,7 +108,7 @@ main = ->
 
 For the first call, `value?` produces `4` and the function returns `Some 8`. For the second, it returns `None` before the multiplication. The output is `8` and `-1`.
 
-The enclosing return carrier must match the carrier being propagated.
+The enclosing return type must implement `FromResidual` for the propagated carrier's residual. With the standard implementations used here, propagation stays within `Option` or within a compatible `Result`.
 
 ```rock
 positive: I64 -> Result I64, I64
@@ -132,6 +132,27 @@ main = ->
 ```
 
 The successful path returns `Ok 8`; the failing path returns `Err 1`, and both are handled with `unwrap_or 0`, so the output is `8` and `0`. Ownership follows ordinary return control flow: a value moved into a failed operation is not restored by `?`.
+
+### Borrowed Call Arguments
+
+A trailing `?` propagates a call's result even when its last argument is borrowed:
+
+```rock
+read: &I64 -> Result I64, I64
+read = value -> Result::Ok *value
+
+compute: () -> Result I64, I64
+compute = ->
+    value: I64 = 21
+    number = read &value?
+    Result::Ok number * 2
+
+main = ->
+    compute! .unwrap_or 0 .println!
+    0
+```
+
+`read &value?` means `(read (&value))?`: it borrows `value`, calls `read`, then propagates the returned `Result`. It does not apply `?` to the integer. Keep `&` adjacent to the borrowed operand to distinguish it from a spaced infix `&`. This program prints `42`.
 
 ## Consuming Combinators
 
@@ -268,4 +289,4 @@ The successful call unwraps `Value 41`, adds one, and prints `42`. The failing c
 
 ## Current Limitations
 
-`Option` and `Result` remain the everyday carriers because their residual conversions are already provided by the standard library. Custom carriers work when their `Try` and `FromResidual` types match exactly, but conversions between unrelated custom residual families are not inferred automatically. Keep `Result` error parameters concrete and implement every desired conversion explicitly. Rock has no exception syntax; all failure propagation remains visible in a return type and ordinary control flow.
+`Option` and `Result` remain the everyday carriers because their residual conversions are already provided by the standard library. A custom source carrier and the enclosing return carrier may differ, provided the return carrier implements `FromResidual` for the source's exact residual type. The compiler selects that implementation; it does not invent a conversion between unrelated errors. Keep `Result` error parameters concrete and implement any missing conversion explicitly. Rock has no exception syntax; all failure propagation remains visible in a return type and ordinary control flow.

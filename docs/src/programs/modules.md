@@ -2,6 +2,19 @@
 
 Modules divide a crate into namespaces and source files. A module declaration tells the source loader which file belongs to a namespace; an import makes a public path available under a short name; an export controls what another module may use. This separation keeps implementation details local while making the public surface visible in the source.
 
+Each example below is a separate project. In each project root, add this `rock.toml` alongside the listed source files:
+
+```toml
+[crate]
+name = "module_demo"
+version = "0.1.0"
+
+[lib]
+path = "main.rk"
+```
+
+Run `rock run` from that directory. The source listings in each section belong together; an entry that declares `mod math` cannot compile without its accompanying `math.rk`.
+
 ## File-backed modules
 
 The smallest file-backed module has an entry file and a sibling file. The complete project is shown here so the import in `main.rk` has a visible definition.

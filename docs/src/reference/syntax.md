@@ -501,12 +501,26 @@ result. A spaced dot has lower precedence and applies to the complete
 expression on its left:
 
 ```rock
-double value + 1 .println!
-Option::Some value <&> transform .unwrap_or fallback .println!
+double: I64 -> I64
+double = value -> value * 2
+
+main = ->
+    value: I64 = 3
+    double value + 1 .println!
+    Option::Some value <&> double .unwrap_or 0 .println!
+    0
 ```
 
 Use parentheses when an operator above application precedence must instead
 operate on the call result: `(double value) + 1`.
+
+An adjacent `&` begins a shared-borrow argument: `read &value` parses as
+`read (&value)`, unlike a spaced infix `&`. Postfix `?` after the final
+argument propagates the whole call, including when that argument is borrowed:
+`read &value?` means `(read (&value))?`. The
+[error-handling chapter](../functional/error-handling.md#borrowed-call-arguments)
+contains a complete example. `?` is propagation syntax, not an infix operator
+whose precedence is declared by the program.
 
 This complete program defines a pipeline operator and uses a cast, a field
 selection, and a postfix call:

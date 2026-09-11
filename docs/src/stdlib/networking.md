@@ -90,16 +90,22 @@ roundtrip: () -> Result I64, IoError
 roundtrip = ->
     listener = TcpListener::bind SocketAddrV4::localhost 0?
     address = listener.local_addr!?
-    mut client = TcpStream::connect address?
-    mut server = listener.accept!?
+    client = TcpStream::connect address?
+    server = listener.accept!?
     bytes: [U8; 5] = [112, 105, 110, 103, 120]
     written = client.write_all (&bytes[..4])?
-    mut received: [U8; 4] = [0, 0, 0, 0]
-    read = server.recv (&mut received)?
-    client.shutdown_write!
-    server.shutdown!
+    client.shutdown_write!?
+    mut received: [U8; 4] = [0; 4]
+    mut total = 0
+    while total < 4
+        count = server.recv (&mut received[total..])?
+        if count == 0
+            failure: Result I64, IoError = Result::Err IoError::InvalidInput
+            return failure
+        total = total + count
+    server.shutdown!?
     written.println!
-    read.println!
+    total.println!
     received[0] as I64 .println!
     received[3] as I64 .println!
     Result::Ok 0
@@ -110,11 +116,15 @@ main = ->
         Result::Err _ => 1
 ```
 
-The output is `4`, `4`, `112`, and `103`, corresponding to `ping`. `write_all` ensures the native four-byte slice is sent or returns an error; `recv` reports how many bytes arrived. `shutdown_write!` prevents further client writes while leaving the connection owner responsible for eventual descriptor cleanup. The full `shutdown!` method closes both directions at the operating-system level.
+On success, the output is `4`, `4`, `112`, and `103`, corresponding to `ping`. `write_all` sends the four-byte prefix, while each `recv` fills only the still-empty suffix of the destination. The loop handles arbitrary short reads. This example uses `InvalidInput` to report an early end of stream because the current `IoError` has no dedicated unexpected-EOF variant.
+
+`shutdown_write!` prevents further client writes while permitting reads; it also lets the peer observe end of stream after draining the sent bytes. `shutdown!` disables both directions. Neither operation releases descriptor ownership: the stream's `Drop` still closes the descriptor. Both shutdown calls return `Result (), IoError`, so their errors are propagated here.
+
+Use `write_all (&buffer[..count])` to forward a received prefix and `write_all (&buffer[start..end])` to send a middle portion. The slice carries its own length; there is no separate prefix-count argument. `send`, like the trait method `write`, performs a single write and may return a short count. `write_str` writes all string bytes. `recv` takes a shared stream handle and a mutable buffer; the trait method `read` requires a mutable stream receiver as well. For a nonempty receive buffer, `Ok 0` means the peer has ended its sending direction.
 
 ## Ownership and errors
 
-Listeners and streams are ordinary owned values. Moving an accepted stream into a worker transfers descriptor responsibility; sharing one for concurrent access requires an explicitly synchronized wrapper such as `Arc`, and the protocol still needs a framing design. `IoError::InvalidAddress` covers an invalid port, while `IoError::Os code` carries an operating-system failure such as a refused connection or failed bind.
+Listeners and streams are ordinary owned values. Moving an accepted stream into a worker transfers descriptor responsibility. `Arc` can share ownership, but it does not serialize complete messages: concurrent writers can interleave their writes. Use a single writer or explicit synchronization when ordering matters. `IoError::InvalidAddress` covers an invalid port, while `IoError::Os code` carries an operating-system failure such as a refused connection or failed bind. Complete-write helpers can also return `IoError::WriteZero`.
 
 Do not read a TCP message by assuming one `recv` equals one application message. TCP is a byte stream: implement framing, handle partial reads and writes, and define a shutdown path before adding protocol logic.
 
@@ -130,3 +140,5 @@ Networking is intentionally small:
 - no socket-timeout abstraction.
 
 Threads can provide limited blocking concurrency, but there are no channels or nonblocking task APIs. A production service also needs protocol framing, resource limits, backpressure, and platform-aware error handling.
+
+For a complete request/response example, continue to [Building an HTTP Server](http.md). The separate `rock_http` package implements bounded HTTP parsing and response framing over these safe TCP APIs; it is a local dependency, not a module inside `stdlib`.

@@ -64,7 +64,7 @@ Rock has no built-in `++` or `--`; write the state transition explicitly.
 
 ```rock
 main = ->
-for number in 0..10
+    for number in 0..10
         number.println!
     0
 ```

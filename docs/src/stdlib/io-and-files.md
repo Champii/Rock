@@ -1,10 +1,17 @@
 # Input, Output, and Files
 
-Rock's I/O abstractions use `Result` and ownership rather than exceptions or manual close calls. `File`, `Stdin`, `Stdout`, and sockets implement the shared `Read` and `Write` traits, so generic code can work with more than one kind of byte stream.
+Rock's I/O abstractions use `Result` and ownership rather than exceptions or manual close calls. `File` and `TcpStream` implement `Read` and `Write`, `Stdin` implements `Read`, and `Stdout` implements `Write`. Generic code can therefore work with more than one kind of byte stream.
 
 ## The `Read` and `Write` traits
 
-`Read` takes a mutable byte slice and reports a byte count or `IoError`. `Write` reports a byte count for a slice or string and provides a helper for writing a prefix repeatedly. Import the trait when calling its methods through a generic bound or a concrete value.
+`Read` takes a mutable byte slice and reports a byte count or `IoError`. `Write` borrows the output handle and the source data. Import the trait when calling its methods through a generic bound or a concrete value.
+
+| Method | Contract |
+| --- | --- |
+| `reader.read buffer` | Reads up to the buffer length; a short read is successful. |
+| `writer.write bytes` | Attempts one write; success may report fewer bytes than supplied. |
+| `writer.write_all bytes` | Repeats writes until all bytes are written or an error occurs. |
+| `writer.write_str text` | Writes the entire string's bytes using the complete-write helper. |
 
 ```rock
 > stdlib::fs::File
@@ -12,7 +19,7 @@ Rock's I/O abstractions use `Result` and ownership rather than exceptions or man
 > stdlib::io::Read
 > stdlib::io::Write
 
-write_text: &mut W -> &Str -> Result I64, IoError where W: Write
+write_text: &W -> &Str -> Result I64, IoError where W: Write
 write_text = writer, text ->
     written = writer.write_str text?
     Result::Ok written
@@ -23,8 +30,8 @@ read_text_prefix = reader, buffer ->
 
 write_demo: &Str -> Result I64, IoError
 write_demo = path ->
-    mut file = File::create path?
-    write_text &mut file, "hello"
+    file = File::create path?
+    write_text &file, "hello"
 
 main = ->
     match write_demo "rock-io-traits.txt"
@@ -33,7 +40,9 @@ main = ->
     0
 ```
 
-This example writes five bytes and prints `5`; `read_text_prefix` has the same contract for a reader even though `main` only demonstrates the write path. `read` needs an exclusive buffer because it fills memory. `write` and `write_str` borrow their source bytes, and `write_all_prefix` keeps writing until the requested prefix is complete or an error occurs. The file closes automatically when its owner is dropped.
+This example writes five bytes and prints `5`; `read_text_prefix` demonstrates the reader signature even though `main` only uses the write path. `read` needs exclusive access to both the reader and buffer. Writing needs only a shared handle, so the file does not need a mutable binding. The file closes automatically when its owner is dropped.
+
+The free functions `stdlib::io::write_all` and `stdlib::io::write_str` supply the same complete-write behavior for any `W: Write`; custom implementations can delegate their helper methods to them. If a write makes no progress while bytes remain, the helper returns `IoError::WriteZero` rather than looping forever. Other errors propagate immediately, including interrupted operating-system calls. An error may occur after some bytes have already been written; it does not undo those bytes, and the error result does not carry the partial count.
 
 ## Files
 
@@ -69,13 +78,14 @@ The successful output is `22`, and `rock-greeting.txt` contains `Hello from Rock
 
 ## Reading bytes
 
-Only the prefix indicated by the returned count contains newly read bytes. A zero count means end of file. This complete program creates its input first, then opens it and prints the count plus two byte values.
+Only the prefix indicated by the returned count contains newly read bytes. A zero count from a read into a nonempty buffer means end of file. A read is not a request to fill the buffer: loop until the format's expected length or end of file. This complete program creates its input first, then copies it to standard output using a small buffer.
 
 ```rock
 > stdlib::fs::File
 > stdlib::io::IoError
 > stdlib::io::Read
 > stdlib::io::Write
+> stdlib::io::stdout
 
 prepare: &Str -> Result I64, IoError
 prepare = path ->
@@ -85,23 +95,52 @@ prepare = path ->
 read_file: &Str -> Result I64, IoError
 read_file = path ->
     mut file = File::open path?
-    mut bytes: [U8; 5] = [0, 0, 0, 0, 0]
-    count = file.read (&mut bytes)?
-    count.println!
-    bytes[0] as I64 .println!
-    bytes[4] as I64 .println!
-    Result::Ok count
+    output = stdout!
+    mut bytes: [U8; 3] = [0; 3]
+    mut total = 0
+    mut count = file.read (&mut bytes)?
+    while count > 0
+        written = output.write_all (&bytes[..count])?
+        total = total + written
+        count = file.read (&mut bytes)?
+    Result::Ok total
 
 main = ->
     match prepare "rock-io-input.txt"
         Result::Ok _ =>
             match read_file "rock-io-input.txt"
-                Result::Ok _ => 0
+                Result::Ok count => if count == 5 then 0 else 1
                 Result::Err _ => 1
         Result::Err _ => 1
 ```
 
-The output is `5`, `119`, and `100`, corresponding to the five bytes and the letters `w` and `d`. The buffer is borrowed mutably only during `read`; the file remains the owner of its descriptor and is closed after `read_file` returns.
+The output is `world`, without a newline. The caller checks that five bytes were copied before reporting success. Each `&bytes[..count]` borrows just the initialized prefix from this read, not any leftover bytes from the previous iteration. The shared borrow is finished before the next mutable read. The file owns its descriptor throughout and closes when `read_file` returns.
+
+### Prefixes, Subslices, and String Bytes
+
+Select the data first, then write the resulting slice. Prefix and subslice writes need neither a raw pointer nor a separate length parameter:
+
+```rock
+> stdlib::io::IoError
+> stdlib::io::Write
+> stdlib::io::stdout
+> stdlib::string::str_as_bytes
+
+write_parts: () -> Result I64, IoError
+write_parts = ->
+    output = stdout!
+    bytes = str_as_bytes "hello"
+    first = output.write_all (&bytes[..2])?
+    rest = output.write_all (&bytes[2..])?
+    Result::Ok (first + rest)
+
+main = ->
+    match write_parts!
+        Result::Ok _ => 0
+        Result::Err _ => 1
+```
+
+This writes `hello`. `str_as_bytes` borrows an `&Str` as `&[U8]`; an owned `String` offers the equivalent `as_bytes!` method. Neither operation copies the data. The offsets count bytes, not Unicode characters, and the resulting view is a byte slice, not a string. Range bounds are checked and invalid bounds terminate the process rather than returning `IoError`.
 
 ## Standard streams
 
@@ -112,17 +151,16 @@ The output is `5`, `119`, and `100`, corresponding to the five bytes and the let
 > stdlib::io::Write
 
 main = ->
-    mut output = stdout!
+    output = stdout!
     bytes: [U8; 5] = [104, 101, 108, 108, 111]
     match output.write_all (&bytes[..3])
-        Result::Ok count => count
+        Result::Ok _ => 0
         Result::Err _ => 1
-    0
 ```
 
 The process writes `hel` to standard output and returns `0`. The native range creates a borrowed three-byte view, and `write_all` handles partial operating-system writes until the whole slice is sent or an error occurs.
 
-Reading standard input uses the same ownership contract. This program is compile-tested but requires input at runtime; with `abc` on standard input it prints `3`.
+Reading standard input uses the same ownership contract. This program performs one read and requires input at runtime; it reports the number of bytes received, not necessarily all the bytes the producer will send.
 
 ```rock
 > stdlib::io::IoError
@@ -132,7 +170,7 @@ Reading standard input uses the same ownership contract. This program is compile
 read_stdin: () -> Result I64, IoError
 read_stdin = ->
     mut input = stdin!
-    mut buffer: [U8; 16] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    mut buffer: [U8; 16] = [0; 16]
     input.read &mut buffer
 
 main = ->

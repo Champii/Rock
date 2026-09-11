@@ -110,11 +110,18 @@ if (renderedRockBlocks < rockFenceCount) {
 }
 
 const indexHtml = fs.readFileSync(path.join(outputRoot, "index.html"), "utf8");
-for (const asset of ["theme/rock.css", "theme/rock-highlight.js"]) {
-    if (!indexHtml.includes(asset)) {
-        fail(`The rendered book does not load ${asset}.`);
+// mdBook can fingerprint asset names; validate and load the rendered paths.
+const assets = [
+    /href="(theme\/rock(?:-[a-f0-9]+)?\.css)"/,
+    /src="(theme\/rock-highlight(?:-[a-f0-9]+)?\.js)"/,
+    /src="(highlight(?:-[a-f0-9]+)?\.js)"/,
+].map((pattern) => {
+    const match = indexHtml.match(pattern);
+    if (!match || !fs.existsSync(path.join(outputRoot, match[1]))) {
+        fail(`The rendered book is missing a required asset: ${pattern}`);
     }
-}
+    return path.join(outputRoot, match[1]);
+});
 
 const context = {
     console,
@@ -129,8 +136,8 @@ const context = {
 context.window = context;
 context.self = context;
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(outputRoot, "highlight.js"), "utf8"), context);
-vm.runInContext(fs.readFileSync(path.join(outputRoot, "theme", "rock-highlight.js"), "utf8"), context);
+vm.runInContext(fs.readFileSync(assets[2], "utf8"), context);
+vm.runInContext(fs.readFileSync(assets[1], "utf8"), context);
 
 if (!context.hljs || !context.hljs.getLanguage("rock")) {
     fail("The custom Rock Highlight.js grammar was not registered.");

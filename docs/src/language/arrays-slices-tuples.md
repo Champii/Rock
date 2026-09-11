@@ -138,12 +138,14 @@ Slices support the same indexing traits as arrays. A slice does not resize, allo
 
 ### Range Slicing
 
-Range expressions create borrowed views through the same `Index` and `IndexMut` traits:
+Use a range to borrow a prefix, suffix, or middle portion of an array or slice. Range indexing selects a view through `Index` or `IndexMut`; the surrounding `&` or `&mut` makes the borrow explicit. No elements are copied or allocated.
 
 ```rock
+> stdlib::slice::slice_len
+
 inspect: &[I64] -> ()
 inspect = values !->
-    (~ArrayLen values).println!
+    (slice_len values).println!
     values[0].println!
 
 main = ->
@@ -154,7 +156,18 @@ main = ->
     0
 ```
 
-The range forms are `start..end`, `start..=end`, `..end`, `..=end`, `start..`, and `..`. Exclusive ranges omit `end`; inclusive ranges include it. The example prints lengths and first values for `[10, 20]`, `[20, 30, 40]`, and `[20, 30]`.
+The example prints lengths and first values for `[10, 20]`, `[20, 30, 40]`, and `[20, 30]`. `slice_len` returns an `I64` element count without requiring a compiler intrinsic.
+
+For a four-element sequence, the six range forms select these positions:
+
+| Range | Meaning | Positions |
+| --- | --- | --- |
+| `1..3` | Start included, end excluded | 1, 2 |
+| `1..=3` | Both endpoints included | 1, 2, 3 |
+| `..2` | Prefix ending before 2 | 0, 1 |
+| `..=2` | Prefix through 2 | 0, 1, 2 |
+| `2..` | Suffix starting at 2 | 2, 3 |
+| `..` | Whole sequence | 0, 1, 2, 3 |
 
 Ranges are first-class values, so a program can store one before indexing:
 
@@ -167,7 +180,56 @@ main = ->
     0
 ```
 
-Mutable range indexing returns `&mut [T]` and updates the original storage. Invalid, reversed, or overflowing ranges terminate with `range out of bounds`. Shared and mutable range views participate in ordinary borrow checking; overlapping access is rejected while an earlier borrow remains live.
+These values have the standard library type `Range`, whose endpoints are `I64`. Creating a range does not check it against any collection; indexing does.
+
+### Bounds and Empty Views
+
+An exclusive range must satisfy `0 <= start <= end <= length`. Equal endpoints produce an empty view, including `length..length` at the end of a sequence. An inclusive endpoint must identify an actual element, so it must be less than the length. `..=length` is not a spelling for the whole sequence; use `..` instead.
+
+```rock
+> stdlib::slice::slice_len
+
+main = ->
+    values = [10, 20, 30, 40]
+    empty = &values[4..4]
+    (slice_len empty).println!
+    0
+```
+
+The output is `0`. Do not index element zero of an empty slice. Negative, reversed, or out-of-bounds ranges terminate the process with `range out of bounds`; slicing does not clamp endpoints or return an `Option`. Validate a count from untrusted input before constructing its view. A byte count returned by a successful standard-library read already fits the supplied buffer, which makes `&buffer[..count]` useful for [safe I/O](../stdlib/io-and-files.md).
+
+### Mutable Subslices
+
+A mutable range view updates the original storage:
+
+```rock
+update_middle: &mut [I64] -> ()
+update_middle = values !->
+    mut middle = &mut values[1..3]
+    middle[0] = 77
+
+main = ->
+    mut values = [10, 20, 30, 40]
+    update_middle (&mut values)
+    values[1].println!
+    values[2].println!
+    0
+```
+
+The output is `77` and `30`. Index zero in `middle` is index one in `values`. Shared and mutable views obey ordinary borrowing rules: a view cannot outlive its owner, and conflicting access is rejected while an earlier borrow remains live. Do not assume the borrow checker can prove that two independently written ranges are disjoint.
+
+Range syntax also supports bounded integer loops:
+
+```rock
+main = ->
+    mut total = 0
+    for value in 1..=3
+        total = total + value
+    total.println!
+    0
+```
+
+This prints `6`; `1..3` would visit only `1` and `2`. The current range-loop form requires both endpoints directly in the loop expression; open-ended slicing syntax is not an unbounded iterator API.
 
 ## Growable Vectors
 
@@ -187,6 +249,22 @@ main = ->
 The output is `3` and `20`. `values` owns all three elements before and after `push`; indexing borrows the selected element for the expression. `Vec::get` is the checked, non-panicking alternative when an index may be absent.
 
 `Vec T` also supports the native range forms. A shared range produces `&[T]`, while a mutable range produces `&mut [T]`; neither operation copies the selected elements.
+
+```rock
+> stdlib::slice::slice_len
+
+main = ->
+    mut values: Vec I64 = Vec::new!
+    values.push 10
+    values.push 20
+    values.push 30
+    tail = &values[1..]
+    (slice_len tail).println!
+    tail[0].println!
+    0
+```
+
+This prints `2` and `20`. Do not resize or move the vector while a borrowed view is still in use. For a single optional element rather than a range, use `get`:
 
 ```rock
 main = ->

@@ -79,7 +79,63 @@ $ target/release/rockup toolchain list
 
 The first installed toolchain becomes the default automatically; `rockup default` switches it explicitly. Toolchain shims keep the user workflow on `rock` while selecting matching compiler and standard-library components behind the project command.
 
-## Grammar and editor support
+## Language server
+
+`rock-lsp` communicates over standard input and output. Configure an LSP client to launch it for `.rk` files with language identifier `rock`; it is not a replacement for the application command `rock`.
+
+| Capability | Current behavior |
+| --- | --- |
+| Diagnostics | Refresh on open, change, and save using source frontend analysis; messages include available codes, notes, help, and related locations. |
+| Hover | Inferred variable and expression types, function signatures, and supported type, field, variant, and generic symbols. |
+| Signature help | Call signature and active parameter information; a comma is the automatic trigger. Clients can also request it explicitly. |
+| Project discovery | Nearest ancestor `rock.toml`; uses its entry graph, path dependency artifacts, and toolchain standard library. |
+| Unsaved source | Open buffers overlay files in the entry graph; unopened files come from disk. |
+
+The server does not advertise completion, go-to-definition, references, rename, code actions, semantic tokens, or document formatting. Use `rock format` for the configured entry file and `rock build` for full validation, including borrow checking and linking.
+
+Diagnostics are currently published to open documents, not as a complete workspace problem index. Hover and signature help require a successful analysis snapshot; during an invalid edit they may use the last successful snapshot and can be stale. Project resolution is cached until a Rock document is saved or the server restarts; there is no manifest/dependency file-watcher refresh. Save dependency changes and restart if feedback remains out of date.
+
+The server accepts these explicit overrides:
+
+| Argument | Meaning |
+| --- | --- |
+| `--extern-artifact name=/absolute/path/to/crate.rkca` | Add an artifact or override a discovered artifact with the same crate name; repeat for multiple crates. |
+| `--no-prelude` | Disable dependency-provided prelude injection. This does not disable project dependency resolution. |
+
+These options are for standalone or compiler-development workflows, not normal application setup. Outside a project, the server uses the opened file as its entry and does not discover a standard library automatically. Within a project, `[crate].no_std = true` also disables automatic standard-library/prelude use.
+
+## Neovim plugin
+
+The repository itself is the plugin. It requires Neovim 0.11 or newer and uses `vim.lsp.config` and `vim.lsp.enable`, without an additional Lua dependency. Neovim 0.12 users can install it with:
+
+```lua
+vim.pack.add({ "https://github.com/Champii/Rock" })
+require("rock").setup()
+```
+
+The plugin registers `.rk` as filetype `rock`. Its client root markers are `rock.toml` and then `.git`, and standalone buffers are allowed; a Git root alone does not supply project dependencies.
+
+| Setup option | Meaning |
+| --- | --- |
+| `cmd` | Server command string or argument list; overrides automatic executable selection. |
+| `extern_artifacts` | Table mapping crate names to artifact paths; becomes repeated `--extern-artifact` arguments. |
+| `no_prelude` | Pass `--no-prelude`; defaults to `false`. |
+| `autostart` | Enable the LSP configuration during setup; defaults to `true`. |
+| `server` | Additional native `vim.lsp.Config` fields; `server.cmd` is used only when top-level `cmd` is absent. |
+
+Automatic executable selection checks `target/release/rock-lsp` inside the plugin checkout, then `target/debug/rock-lsp`, then `PATH`. Set `cmd = { "rock-lsp" }` explicitly to prefer the installed toolchain shim over a checkout binary.
+
+Use `:checkhealth rock` to check prerequisites, `:RockLspInfo` to inspect the resolved configuration and clients, and `:RockLspRestart` to restart Rock clients. See [Editors and Diagnostics](../getting-started/editor-and-diagnostics.md) for local-checkout setup and explicit hover/diagnostic commands.
+
+## Reading diagnostics
+
+Source diagnostics carry a primary location and may include secondary labels in other files. Available diagnostic families include `parser`, `resolve`, `type`, `borrow`, `artifact`, and `toolchain`; these classify the failure rather than identify a unique error number. Notes explain context, while help messages suggest a next step. Neither is present on every error.
+
+File, project, artifact, and toolchain failures need not have a source underline. When source text is unavailable, the terminal fallback can show a path and byte range instead of a source excerpt. In the editor, non-source project or toolchain messages can appear at the start of a buffer; that position is not evidence of an error on its first line. Use the message and named path to decide whether to fix source or setup.
+
+The [diagnostics walkthrough](../getting-started/editor-and-diagnostics.md#reading-a-source-diagnostic) includes deliberately incorrect programs and their corrections. There is no `rock` JSON-diagnostic flag documented by the current project CLI.
+
+## Tree-sitter grammar
 
 The separate grammar project is under `tree-sitter-rock/`:
 
@@ -90,4 +146,4 @@ $ tree-sitter build
 $ tree-sitter test
 ```
 
-It contains highlight and indentation queries for editor integrations. The formatter and compiler diagnostics remain the primary feedback loop; there is no mature language server or package-registry workflow yet.
+It contains highlight and indentation queries for editor integrations. Tree-sitter installation is separate from the native LSP plugin: `require("rock").setup()` does not install a parser or enable Tree-sitter highlighting. Syntax highlighting does not perform type or borrow checking. There is still no package-registry workflow.

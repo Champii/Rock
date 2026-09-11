@@ -2,12 +2,16 @@
 
 The language chapters cover expressions, ownership, functions, control flow,
 data declarations, traits, modules, and the standard-library boundaries. The
-next useful step is a small program whose output can be checked without a
-network service, a thread scheduler, or a package registry.
+next step depends on which boundary you want to practice:
 
-## Capstone: a complete FizzBuzz executable
+1. Use the FizzBuzz checkpoint below if you want a short review of core syntax with deterministic output.
+2. Combine owned buffers and `Result` in [Input, Output, and Files](../stdlib/io-and-files.md), then compare direct error propagation with the combinators in [Option, Result, and `?`](../functional/error-handling.md).
+3. Move on to the [HTTP server guide](../stdlib/http.md) for a library-backed application that brings together requests, responses, configuration, and concurrent connection handling. Read [Threads and Synchronization](../stdlib/concurrency.md) before changing task lifetimes or shutdown behavior.
+4. Use [Editors and Diagnostics](../getting-started/editor-and-diagnostics.md) to keep editor feedback and project builds aligned, then reduce unexpected behavior to a focused regression.
 
-This capstone separates calculation from output. It exercises an enum,
+## Checkpoint: a complete FizzBuzz executable
+
+This optional checkpoint separates calculation from output. It exercises an enum,
 function signatures, conditions, a `while` loop, `match`, and the prelude's
 numeric operators.
 
@@ -56,7 +60,7 @@ print_value = value ->
         FizzBuzzValue::Number number => number.println!
 
 main = ->
-    number: I64 = 1
+    mut number: I64 = 1
     while number <= 30
         value: FizzBuzzValue = fizzbuzz_value number
         print_value value
@@ -100,7 +104,7 @@ order matters.
 ## Run focused tests
 
 The integration suite has concrete tests for the same features as the
-capstone. Run one exact test while investigating a behavior, then run the
+checkpoint. Run one exact test while investigating compiler behavior, then run the
 library suite:
 
 ```console
@@ -127,8 +131,8 @@ compiler changes.
 A useful contribution has a parser test for new syntax, an integration test for
 user-visible behavior, a small complete example, and a book update when the
 public surface changes. Keep the example's declarations and imports in the
-    same source fence, place it in a project, and record the exact target and
-    `rock` command used.
+same source fence, place it in a project, and record the exact target and
+`rock` command used.
 
 Prefer the simplest abstraction that communicates intent. A `match` can be
 clearer than a combinator chain, a concrete function can be clearer than a

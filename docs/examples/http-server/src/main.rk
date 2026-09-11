@@ -1,0 +1,47 @@
+> stdlib::net::SocketAddrV4
+> rock_http::config::ServerConfig
+> rock_http::error::HttpError
+> rock_http::request::Method
+> rock_http::request::Request
+> rock_http::response::Response
+> rock_http::server::Server
+
+handle: Request -> Response
+handle = request ->
+    if request.target.as_str! == "/health"
+        allowed = match *(&request.method)
+            Method::Get => true
+            Method::Head => true
+            _ => false
+        if allowed
+            (Response::text 200, "ok\n").with_header "Content-Type", "text/plain"
+        else
+            (Response::text 405, "method not allowed\n").with_header "Allow", "GET, HEAD"
+    else if request.target.as_str! == "/echo"
+        allowed = match *(&request.method)
+            Method::Post => true
+            _ => false
+        if allowed
+            (Response::bytes 200, request.body).with_header "Content-Type", "application/octet-stream"
+        else
+            (Response::text 405, "method not allowed\n").with_header "Allow", "POST"
+    else
+        (Response::text 404, "not found\n").with_header "Content-Type", "text/plain"
+
+run_server: () -> Result (), HttpError
+run_server = ->
+    config = ServerConfig
+        max_request_line_bytes: 8192
+        max_header_bytes: 32768
+        max_headers: 100
+        max_body_bytes: 65536
+    server = Server::bind_with_config (SocketAddrV4::localhost 8080), config?
+    "Listening on http://127.0.0.1:8080".println!
+    server.serve handle
+
+main = ->
+    match run_server!
+        Result::Ok _ => 0
+        Result::Err _ =>
+            "HTTP server stopped with an error".println!
+            1

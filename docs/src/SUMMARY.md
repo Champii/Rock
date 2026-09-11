@@ -9,6 +9,7 @@
 - [Hello, Rock!](getting-started/hello-rock.md)
 - [A First Project: FizzBuzz](getting-started/first-project.md)
 - [Projects and the Toolchain](getting-started/projects.md)
+- [Editors and Diagnostics](getting-started/editor-and-diagnostics.md)
 
 # Learning Rock
 
@@ -47,6 +48,10 @@
 - [Input, Output, and Files](stdlib/io-and-files.md)
 - [Networking](stdlib/networking.md)
 - [Threads and Synchronization](stdlib/concurrency.md)
+
+# A Practical Project
+
+- [Building an HTTP Server](stdlib/http.md)
 
 # Systems Programming
 

@@ -82,7 +82,7 @@ main = ->
     0
 ```
 
-The output is `-7` and `false`. Custom unary-operator authoring is less complete than ordinary infix function definitions; use the shipped unary implementations for portable code today.
+The output is `-7` and `false`. User-defined types can also implement the `Neg` and `Not` traits with `@-` and `@!` methods and an associated `Output` type.
 
 ## Operator Sections
 
@@ -145,5 +145,7 @@ main = ->
 ```
 
 `+` has precedence `9`, so `double 2 + 2` means `double (2 + 2)` and prints `8`. Parentheses make `(double 2) + 2` apply addition to the call result and print `6`. `<&>` has precedence `8`, so it operates on `Option::Some 2`; the spaced dots then apply `unwrap_or` and `println!` to each complete result. A tight dot such as `value.method!` still binds directly to `value`.
+
+An adjacent `&` starts a borrowed call argument: `read &value` means `read (&value)`, whereas a spaced `&` can be an infix operator. A trailing `?` after that argument applies to the whole call: `read &value?` means `(read (&value))?`, not `read (&(value?))`. See the complete [borrowed-call example](../functional/error-handling.md#borrowed-call-arguments). Parenthesize an argument explicitly when propagation should happen inside it.
 
 Operators are library design. Use a symbol for a compact operation with a stable, documented reading direction; use a named function for a domain action whose meaning is not obvious from punctuation.

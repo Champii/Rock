@@ -21,6 +21,25 @@ main = ->
 
 The output is `42`. A successful `spawn` transfers the closure to the new thread; `join!` transfers its result back. Dropping an unjoined handle detaches the thread without blocking, and the worker cleans up its result when it finishes. A failed create or join is data in `ThreadError`, not an exception.
 
+## Detached tasks
+
+Use the explicitly imported `spawn_detached` when no join handle is needed. It accepts an owned `Send` task implementing `FnOnce (), ()` and returns `Result (), ThreadError`: success reports that the thread started, not that the task finished.
+
+```rock
+> stdlib::thread::spawn_detached
+
+main = ->
+    match spawn_detached (->
+        "background task".println!
+        return)
+        Result::Ok _ => 0
+        Result::Err _ =>
+            "spawn failed".println!
+            1
+```
+
+The explicit `return` makes the task return unit (`()`), rather than the result of `println!`. There is deliberately no expected worker output: returning from `main` does not wait for detached tasks, so the process can exit before the message is printed. Sleeping is not a completion guarantee; use `spawn` and `join!` when the work must finish before exit. Handle any recoverable task errors inside the task, since `spawn_detached` only reports startup failure.
+
 ## Owned captures
 
 A spawned closure cannot borrow a stack value that might end before the thread. Move owned data into the closure by using a consuming method or an owned container.
@@ -182,6 +201,6 @@ The first line is a host-specific pthread identifier; the program then yields an
 - The implementation is pthread-oriented and assumes a Linux-style ABI.
 - `Mutex` uses an atomic word plus `sched_yield`, not a platform blocking primitive.
 - There are no channels, condition variables, thread pools, async functions, or executors.
-- Dropping a `JoinHandle` detaches the thread; detached results and failures cannot be observed.
+- Dropping a `JoinHandle` detaches the thread; `spawn_detached` starts a unit task without returning a handle. Neither makes process exit wait for completion.
 - Closure-environment cleanup still has incomplete cases; treat concurrency as a prototype runtime feature.
 - Do not capture a reference, a `MutexGuard`, or an owned struct that contains a reference in a spawned closure.

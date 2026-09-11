@@ -108,7 +108,9 @@ main = ->
 
 Use a file-backed module instead, with `inline.rk` beside `main.rk`, and import
 its exported names explicitly. Macro diagnostics and indentation recovery are
-also incomplete, and editor and language-server support remains early.
+also incomplete. The project-aware language server and Neovim integration
+provide source diagnostics; see [Editors and Diagnostics](../getting-started/editor-and-diagnostics.md)
+for setup and the current analysis boundaries.
 
 ## Language surface
 
@@ -160,7 +162,7 @@ main = ->
 Incomplete enum matches are not diagnosed in every path, so list every
 variant or end with `_` even when the checker accepts less source.
 
-### Tail effects and unit arrows
+### Tail conditional effects
 
 A side-effecting call in a helper's tail conditional can be dropped when the
 caller ignores the helper's result. This complete program should not be used
@@ -207,16 +209,21 @@ main = ->
 
 ### Operators, generic carriers, and text
 
-Custom infix operators work when the program declares them. Custom unary
-authoring is less complete; use a named function for a new prefix operation:
+Custom infix operators and trait-defined unary `-` and `!` are supported.
+For example, a user-defined type can select its own unary result type:
 
 ```rock
-negate: I64 -> I64
-negate = value -> 0 - value
+struct Wrapper
+    < value: I64
+
+impl Neg for Wrapper
+    type Output = I64
+    @- = -> @value
 
 main = ->
-    result: I64 = negate 3
-    result.println!
+    value = Wrapper
+        value: 7
+    -value .println!
     0
 ```
 
@@ -224,10 +231,10 @@ main = ->
 carrier that implements matching `Try` and `FromResidual` contracts. The
 complete custom `MyFlow` implementation in [Option, Result, and
 `?`](../functional/error-handling.md#defining-a-custom--carrier) shows both
-success and early propagation. What remains limited is automatic conversion
-between unrelated custom residual families; use an explicit `match`, implement
-the exact `FromResidual` conversion, or convert into `Result T, E` at the
-boundary.
+success and early propagation. Different source and return carriers also work
+when the return carrier implements `FromResidual` for the source residual.
+Missing conversions are not synthesized: implement that exact conversion or
+handle the failure with an explicit `match`.
 
 Strings, characters, and Unicode text handling are byte-oriented and escaped
 literal behavior is not mature. This complete program measures encoded bytes,
@@ -257,9 +264,10 @@ that a Rock struct has a C representation.
 
 ### Strings and `Vec`
 
-`String` length and indexing are byte-oriented. `Vec` has no general iterator
-API and no `pop` method. This complete program uses the available length and
-index operations to inspect the final element:
+`String` length and indexing are byte-oriented. `Vec` has eager traversal
+methods such as `for_each` and `map`, but no general lazy iterator API or
+`pop` method. Use `swap_remove` at the last index to remove the final element
+without changing the order of the remaining elements:
 
 ```rock
 main = ->
@@ -267,14 +275,15 @@ main = ->
     values.push 10
     values.push 20
     length: I64 = values.len!
-    last: I64 = values[length - 1]
-    last.println!
+    match values.swap_remove (length - 1)
+        Option::Some last => last.println!
+        Option::None => "empty".println!
     0
 ```
 
-The workaround for removing the final element is to track the logical length
-and use a supported operation such as `swap_remove` when order does not matter.
-If order matters, copy the retained values into a new vector.
+Removing an interior element with `swap_remove` moves the last element into
+its slot. If interior removal must preserve order, copy the retained values
+into a new vector.
 
 ### `HashMap`
 
@@ -284,12 +293,12 @@ hashing. Its intended lookup surface is `new`, `len`, `insert`, `get`, and
 
 ```rock
 main = ->
-    mut scores: HashMap String, I64 = HashMap::new!
-    scores.insert String::from_str "Ada", 10
-    key: String = String::from_str "Ada"
-    present: Bool = scores.contains_key (& key)
+    mut scores: HashMap &Str, I64 = HashMap::new!
+    scores.insert "Ada", 10
+    key: &Str = "Ada"
+    present: Bool = scores.contains_key (&key)
     if present
-        score: Option &I64 = scores.get (& key)
+        score: Option &I64 = scores.get (&key)
         match score
             Option::Some value => value.println!
             Option::None => 0.println!
@@ -302,13 +311,20 @@ An installed toolchain must contain the standard library built from the same
 revision as the compiler. If these calls fail after switching revisions,
 repackage and reinstall the development toolchain before diagnosing the source.
 
+Keys must implement both `Hash` and `Eq`. The example uses static string
+literals: the shipped implementations support `&Str`, not owned `String`
+keys. An owned string's dereference support does not satisfy a generic trait
+bound on `String` itself. Use supported key types or define a key wrapper
+with the required implementations.
+
 The workaround for removal or traversal is to rebuild a new map from known
 keys, or maintain a separate owned list of keys while the map is in use.
 
-Complete generic element dropping in every `Vec` and `HashMap` storage path is
-still active work, and some zero-sized generic allocations are rejected. Keep
-long-lived resource-heavy containers concrete and test cleanup behavior before
-using them in a service.
+Regression tests cover initialized `Vec` element destruction, replacement and
+growth, and `HashMap` key/value destruction, overwrite and growth. This does
+not establish cleanup correctness for every program. Zero-sized `Vec` elements
+and `HashMap` keys or values are still rejected on insertion; use a non-zero-sized
+representation when storing such values.
 
 ### Environment, networking, and concurrency
 
@@ -349,6 +365,9 @@ Use a thread around a blocking operation when limited concurrency is enough,
 and design shutdown explicitly. There are no channels, condition variables,
 thread pools, or async executors. Dropping a `JoinHandle` detaches the thread;
 call `join!` before dropping it when the result or completion matters.
+`spawn_detached` is available for owned unit-returning tasks, but returning
+from `main` does not wait for them; see the complete
+[detached-task example](../stdlib/concurrency.md#detached-tasks).
 
 Thread and atomic implementations rely on platform ABI assumptions. Treat
 long-running, memory-intensive, and concurrent applications as experiments

@@ -219,4 +219,4 @@ The output is `shared` twice. Both `Arc` values point at the same owned string; 
 
 ## Current resource limits
 
-The collection implementation is still evolving. Complete generic element-drop behavior for every `Vec` and `HashMap` storage path remains active work, and zero-sized element allocations have restrictions. Treat the prototype's resource behavior as an explicit current limit, not as a production boundary for long-running memory-heavy programs.
+Regression tests cover `Vec` and `HashMap` element cleanup during destruction, replacement, and growth. Zero-sized `Vec` elements and `HashMap` keys or values are still rejected on insertion. Treat the prototype's resource behavior as an explicit current limit, not as a production boundary for long-running memory-heavy programs.
