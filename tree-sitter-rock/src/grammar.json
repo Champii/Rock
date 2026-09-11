@@ -2544,6 +2544,57 @@
         {
           "type": "SYMBOL",
           "name": "postfix_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "unary_assignment_target"
+        }
+      ]
+    },
+    "unary_assignment_target": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "operator",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "stuck_operator"
+            },
+            "named": true,
+            "value": "operator"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "operand",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "identifier"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "self_expression"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "parenthesized_expression"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "tuple_expression"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "dereference_postfix_operand"
+              }
+            ]
+          }
         }
       ]
     },
@@ -2597,41 +2648,41 @@
       ]
     },
     "lambda_expression": {
-      "type": "PREC_DYNAMIC",
-      "value": 20,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "CHOICE",
-            "members": [
-              {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "PREC_DYNAMIC",
+              "value": 40,
+              "content": {
                 "type": "SYMBOL",
                 "name": "parameter_list"
-              },
-              {
-                "type": "BLANK"
               }
-            ]
-          },
-          {
-            "type": "FIELD",
-            "name": "arrow",
-            "content": {
-              "type": "SYMBOL",
-              "name": "function_arrow"
+            },
+            {
+              "type": "BLANK"
             }
-          },
-          {
-            "type": "FIELD",
-            "name": "body",
-            "content": {
-              "type": "SYMBOL",
-              "name": "block"
-            }
+          ]
+        },
+        {
+          "type": "FIELD",
+          "name": "arrow",
+          "content": {
+            "type": "SYMBOL",
+            "name": "function_arrow"
           }
-        ]
-      }
+        },
+        {
+          "type": "FIELD",
+          "name": "body",
+          "content": {
+            "type": "SYMBOL",
+            "name": "block"
+          }
+        }
+      ]
     },
     "binary_expression": {
       "type": "PREC_DYNAMIC",
@@ -2654,8 +2705,13 @@
               "type": "FIELD",
               "name": "operator",
               "content": {
-                "type": "SYMBOL",
-                "name": "operator"
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "spaced_operator"
+                },
+                "named": true,
+                "value": "operator"
               }
             },
             {
@@ -2684,8 +2740,13 @@
                     "type": "FIELD",
                     "name": "operator",
                     "content": {
-                      "type": "SYMBOL",
-                      "name": "operator"
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "spaced_operator"
+                      },
+                      "named": true,
+                      "value": "operator"
                     }
                   },
                   {
@@ -3049,10 +3110,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "operator"
-        },
-        {
-          "type": "SYMBOL",
           "name": "_postfix_expression"
         },
         {
@@ -3216,10 +3273,6 @@
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "STRING",
-                  "value": "&"
-                },
-                {
                   "type": "SEQ",
                   "members": [
                     {
@@ -3242,8 +3295,13 @@
                   ]
                 },
                 {
-                  "type": "SYMBOL",
-                  "name": "operator"
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "stuck_operator"
+                  },
+                  "named": true,
+                  "value": "operator"
                 }
               ]
             }
@@ -5622,6 +5680,10 @@
     [
       "assignment_target",
       "_postfix_expression"
+    ],
+    [
+      "dereference_postfix_operand",
+      "_atom"
     ],
     [
       "path_expression"

@@ -60,6 +60,66 @@ test("nested chapters use nohighlight and leave other Markdown untouched", () =>
         /<pre><code class="language-rock nohighlight" data-rock-highlight="tree-sitter">/);
 });
 
+test("arguments retain their role in expressions, calls, closures, and reassignment", () => {
+    const source = `compute = value, callback ->
+    local = value + 1
+    callback value
+    value.println!
+    value = value + local
+    inner = extra -> value + extra
+    value
+
+other = ->
+    value = 3
+    value + 1
+`;
+    const [html] = highlightSources([source]);
+    assert.equal(htmlSource(html), source);
+    const spans = [...html.matchAll(/<span class='([^']+)'>([^<]*)<\/span>/g)];
+    const classes = (name) => spans.filter((span) => span[2] === name).map((span) => span[1]);
+    assert.deepEqual(classes("value"), [...Array(8).fill("variable parameter"), "variable", "variable"]);
+    assert.deepEqual(classes("callback"), ["variable parameter", "variable parameter"]);
+    assert.deepEqual(classes("extra"), ["variable parameter", "variable parameter"]);
+    assert.deepEqual(classes("local"), ["variable", "variable"]);
+    assert.deepEqual(classes("println"), ["function"]);
+});
+
+test("member names and pattern binders do not inherit an unrelated argument color", () => {
+    const source = `inspect = value, object ->
+    object.value
+    object.value!
+    match object
+        Some value => value
+        _ => value
+    value
+`;
+    const [html] = highlightSources([source]);
+    const values = [...html.matchAll(/<span class='([^']+)'>value<\/span>/g)].map((span) => span[1]);
+    assert.deepEqual(values, ["variable parameter", "property", "function", "variable", "variable",
+        "variable parameter", "variable parameter"]);
+});
+
+test("spaced operators keep operands out of the function category", () => {
+    const source = `main = ->
+    left = 2
+    right = 3
+    left + right
+    left * right
+    left & right
+    left <+> right
+    object.field + right
+    consume -left
+    consume &left
+    consume &mut left
+    consume left
+    0
+`;
+    const [html] = highlightSources([source]);
+    const functions = [...html.matchAll(/<span class='function'>([^<]*)<\/span>/g)].map((span) => span[1]);
+    assert.deepEqual(functions, ["main", "consume", "consume", "consume", "consume"]);
+    assert.match(html, /class='property'>field<\/span>/);
+});
+
 test("CLI failures are helpful, leave stdout empty, and clean temporary files", () => {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "rock-book-test-"));
     try {

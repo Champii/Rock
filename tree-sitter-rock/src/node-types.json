@@ -395,6 +395,10 @@
         {
           "type": "tuple_pattern",
           "named": true
+        },
+        {
+          "type": "unary_assignment_target",
+          "named": true
         }
       ]
     }
@@ -848,10 +852,6 @@
           },
           {
             "type": "number",
-            "named": true
-          },
-          {
-            "type": "operator",
             "named": true
           },
           {
@@ -2580,10 +2580,6 @@
             "named": true
           },
           {
-            "type": "operator",
-            "named": true
-          },
-          {
             "type": "parenthesized_expression",
             "named": true
           },
@@ -3038,10 +3034,6 @@
           },
           {
             "type": "number",
-            "named": true
-          },
-          {
-            "type": "operator",
             "named": true
           },
           {
@@ -4158,6 +4150,48 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "unary_assignment_target",
+    "named": true,
+    "fields": {
+      "operand": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "dereference_postfix_operand",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "parenthesized_expression",
+            "named": true
+          },
+          {
+            "type": "self_expression",
+            "named": true
+          },
+          {
+            "type": "tuple_expression",
+            "named": true
+          }
+        ]
+      },
+      "operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "operator",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {

@@ -66,6 +66,7 @@ module.exports = grammar({
     [$.assignment_target, $._atom],
     [$.block],
     [$.assignment_target, $._postfix_expression],
+    [$.dereference_postfix_operand, $._atom],
     [$.path_expression],
     [$._type_atom, $.associated_type, $.type_path],
     [$.qualified_expression],
@@ -490,6 +491,18 @@ module.exports = grammar({
       $.tuple_pattern,
       $.array_pattern,
       $.postfix_expression,
+      $.unary_assignment_target,
+    ),
+
+    unary_assignment_target: $ => seq(
+      field('operator', alias($.stuck_operator, $.operator)),
+      field('operand', choice(
+        $.identifier,
+        $.self_expression,
+        $.parenthesized_expression,
+        $.tuple_expression,
+        $.dereference_postfix_operand,
+      )),
     ),
 
     expression: $ => choice(
@@ -506,18 +519,19 @@ module.exports = grammar({
       $._call_expression,
     ),
 
-    lambda_expression: $ => prec.dynamic(20, seq(
-      optional($.parameter_list),
+    lambda_expression: $ => seq(
+      // Prefer `x -> body` over calling x with a parameterless lambda.
+      optional(prec.dynamic(40, $.parameter_list)),
       field('arrow', $.function_arrow),
       field('body', $.block),
-    )),
+    ),
 
     binary_expression: $ => prec.dynamic(20, prec.left(1, seq(
       field('left', $._call_expression),
-      field('operator', $.operator),
+      field('operator', alias($.spaced_operator, $.operator)),
       field('right', choice($._call_expression, $.indented_binary_operand)),
       repeat(seq(
-        field('operator', $.operator),
+        field('operator', alias($.spaced_operator, $.operator)),
         field('right', choice($._call_expression, $.indented_binary_operand)),
       )),
     ))),
@@ -574,7 +588,6 @@ module.exports = grammar({
 
     _call_argument: $ => choice(
       $.call_hole,
-      $.operator,
       $._postfix_expression,
       $.lambda_expression,
     ),
@@ -604,7 +617,10 @@ module.exports = grammar({
     bang_call_suffix: _ => '!',
 
     unary_expression: $ => prec.right(9, seq(
-      field('operator', choice('&', seq('&', choice('mut', '^')), $.operator)),
+      field('operator', choice(
+        seq('&', choice('mut', '^')),
+        alias($.stuck_operator, $.operator),
+      )),
       field('operand', $._postfix_expression),
     )),
 

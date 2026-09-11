@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 enum TokenType {
     NEWLINE,
@@ -153,6 +154,58 @@ bool tree_sitter_rock_external_scanner_scan(
     }
 
     if (!found_newline) {
+        // A prefix operator must touch its operand. Spaced operators belong to
+        // binary expressions, not to a call's unary argument (`x + 1`).
+        if ((valid_symbols[STUCK_OPERATOR] || valid_symbols[SPACED_OPERATOR]) &&
+            lexer->lookahead &&
+            strchr("+-*/%=!<>$|&;^~", lexer->lookahead)) {
+            char prefix[4] = {0};
+            unsigned length = 0;
+            do {
+                if (length < sizeof(prefix) - 1) {
+                    prefix[length] = (char)lexer->lookahead;
+                }
+                length++;
+                advance(lexer);
+            } while (lexer->lookahead && strchr("+-*/%=!<>$|&;^~", lexer->lookahead));
+            if ((length <= 3 && (strcmp(prefix, "=") == 0 ||
+                                 strcmp(prefix, ";") == 0 ||
+                                 strcmp(prefix, "->") == 0 ||
+                                 strcmp(prefix, "!->") == 0 ||
+                                 strcmp(prefix, "~>") == 0 ||
+                                 strcmp(prefix, "=>") == 0)) ||
+                (length == 1 && prefix[0] == '!' && valid_symbols[SPACED_OPERATOR]) ||
+                ((strcmp(prefix, "~") == 0 || strcmp(prefix, "!~") == 0) &&
+                 lexer->lookahead >= 'A' && lexer->lookahead <= 'Z')) {
+                return false;
+            }
+            lexer->mark_end(lexer);
+            if (lexer->eof(lexer) || strchr(" \t\r\n\f", lexer->lookahead)) {
+                if (!valid_symbols[SPACED_OPERATOR] || (length == 1 && prefix[0] == '!')) {
+                    return false;
+                }
+                lexer->result_symbol = SPACED_OPERATOR;
+                return true;
+            }
+            if (!valid_symbols[STUCK_OPERATOR]) {
+                return false;
+            }
+            // Leave the mutable-borrow keyword to the grammar's `&mut` branch.
+            if (length == 1 && prefix[0] == '&' && lexer->lookahead == 'm') {
+                advance(lexer);
+                if (lexer->lookahead == 'u') {
+                    advance(lexer);
+                    if (lexer->lookahead == 't') {
+                        advance(lexer);
+                        if (lexer->lookahead && strchr(" \t\r\n", lexer->lookahead)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            lexer->result_symbol = STUCK_OPERATOR;
+            return true;
+        }
         return false;
     }
 

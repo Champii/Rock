@@ -6,6 +6,7 @@ const { execFileSync } = require("node:child_process");
 const repoRoot = path.resolve(__dirname, "../..");
 const grammarRoot = path.join(repoRoot, "tree-sitter-rock");
 const queryPath = path.join(repoRoot, "docs/theme/highlights.scm");
+const localsPath = path.join(repoRoot, "docs/theme/locals.scm");
 
 // Only Markdown fence boundaries are scanned here; Rock tokens come from the AST query.
 function rockFences(markdown) {
@@ -55,7 +56,9 @@ function htmlSource(html) {
 
 function highlightSources(sources) {
     if (!sources.length) return [];
-    if (!fs.existsSync(queryPath)) throw new Error(`Missing Rock AST highlight query: ${queryPath}`);
+    for (const file of [queryPath, localsPath]) {
+        if (!fs.existsSync(file)) throw new Error(`Missing Rock AST highlight query: ${file}`);
+    }
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "rock-book-"));
     try {
         // The CLI's default theme collapses custom captures (operator.assignment -> operator).
@@ -77,7 +80,7 @@ function highlightSources(sources) {
                 output = execFileSync("tree-sitter", [
                     "highlight", "--html", "--css-classes", "--scope", "source.rock",
                     "--config-path", configPath,
-                    "--query-paths", queryPath, "--", ...files,
+                    "--query-paths", queryPath, localsPath, "--", ...files,
                 ], { cwd: grammarRoot, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
             } catch (error) {
                 throw new Error(`Tree-sitter highlighting failed. Install tree-sitter-cli 0.26.9, run \`tree-sitter generate\` in ${grammarRoot}, and check ${queryPath}.\n${error.stderr || error.message}`);
