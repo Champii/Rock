@@ -4108,7 +4108,7 @@ emit_value = ->
     9.println!
     42
 
-main = ->
+main = !->
     discard 99
     f = value !->
         8.println!
@@ -4116,11 +4116,26 @@ main = ->
     f 9
     run_effect = !-> emit_value!
     run_effect!
-    0
+    emit_value!
 "#,
     );
 
-    assert_eq!(output.trim().lines().collect::<Vec<_>>(), ["7", "8", "9"]);
+    assert_eq!(
+        output.trim().lines().collect::<Vec<_>>(),
+        ["7", "8", "9", "9"]
+    );
+}
+
+#[test]
+fn unit_arrow_main_exits_zero_without_stdlib() {
+    for source in [
+        "main = !-> 42\n",
+        "main = !-> (42, 7)\n",
+        "main = !-> return\n",
+    ] {
+        assert_eq!(compile_and_run_without_stdlib(source), 0);
+    }
+    assert_eq!(compile_and_run_without_stdlib("main = -> 7\n"), 7);
 }
 
 #[test]

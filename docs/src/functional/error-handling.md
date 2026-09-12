@@ -14,7 +14,7 @@ find_even = value ->
     else
         Option::None
 
-main = ->
+main = !->
     present: Option I64 = find_even 6
     absent: Option I64 = find_even 7
     match present
@@ -23,7 +23,6 @@ main = ->
     match absent
         Option::Some value => value.println!
         Option::None => -1 .println!
-    0
 ```
 
 `present` has type `Option I64` and contains `Some 6`; `absent` has the same type and contains `None`. The output is `6` and `-1`. Matching makes both paths explicit.
@@ -40,7 +39,7 @@ divide = numerator, denominator ->
     else
         Result::Ok numerator / denominator
 
-main = ->
+main = !->
     successful: Result I64, I64 = divide 10, 2
     failed: Result I64, I64 = divide 10, 0
     match successful
@@ -49,7 +48,6 @@ main = ->
     match failed
         Result::Ok value => value.println!
         Result::Err error => error.println!
-    0
 ```
 
 The success path is `Ok 5`, and the failure path is `Err 1`; the output is `5` and `1`. The error is data that the caller can inspect, transform, or return.
@@ -74,12 +72,11 @@ parse_nonnegative = value ->
     else
         Result::Ok value
 
-main = ->
+main = !->
     result: Result I64, ParseError = parse_nonnegative 0 - 3
     match result
         Result::Ok value => value.println!
         Result::Err error => error.show!.println!
-    0
 ```
 
 `parse_nonnegative` returns `Err ParseError::Negative`; the `Show` implementation turns that structured error into `negative input`, which is the output.
@@ -94,7 +91,7 @@ twice_present = value ->
     number: I64 = value?
     Option::Some number * 2
 
-main = ->
+main = !->
     present: Option I64 = twice_present Option::Some 4
     absent: Option I64 = twice_present Option::None
     match present
@@ -103,7 +100,6 @@ main = ->
     match absent
         Option::Some value => value.println!
         Option::None => -1 .println!
-    0
 ```
 
 For the first call, `value?` produces `4` and the function returns `Some 8`. For the second, it returns `None` before the multiplication. The output is `8` and `-1`.
@@ -123,12 +119,11 @@ double_positive = value ->
     number: I64 = positive value?
     Result::Ok number * 2
 
-main = ->
+main = !->
     success: Result I64, I64 = double_positive 4
     failure: Result I64, I64 = double_positive 0 - 4
     success.unwrap_or 0 |> value -> value.println!
     failure.unwrap_or 0 |> value -> value.println!
-    0
 ```
 
 The successful path returns `Ok 8`; the failing path returns `Err 1`, and both are handled with `unwrap_or 0`, so the output is `8` and `0`. Ownership follows ordinary return control flow: a value moved into a failed operation is not restored by `?`.
@@ -147,9 +142,8 @@ compute = ->
     number = read &value?
     Result::Ok number * 2
 
-main = ->
+main = !->
     compute! .unwrap_or 0 .println!
-    0
 ```
 
 `read &value?` means `(read (&value))?`: it borrows `value`, calls `read`, then propagates the returned `Result`. It does not apply `?` to the integer. Keep `&` adjacent to the borrowed operand to distinguish it from a spaced infix `&`. This program prints `42`.
@@ -169,14 +163,13 @@ keep_even = value ->
     else
         Option::None
 
-main = ->
+main = !->
     mapped: Option I64 = Option::Some 4 .map increment
     chained: Option I64 = Option::Some 4 .and_then keep_even
     flattened: Option I64 = Option::Some Option::Some 9 .flatten!
     mapped.unwrap_or 0 |> value -> value.println!
     chained.unwrap_or 0 |> value -> value.println!
     flattened.unwrap_or 0 |> value -> value.println!
-    0
 ```
 
 `mapped` is `Some 5`, `chained` is `Some 4`, and `flattened` is `Some 9`; the output is `5`, `4`, and `9`. The three source `Option` values are consumed independently and are not reused afterward.
@@ -184,10 +177,9 @@ main = ->
 `ok_or` converts an `Option T` into a `Result T, E` by supplying the error for the `None` case:
 
 ```rock
-main = ->
+main = !->
     result: Result I64, I64 = Option::Some 4 .ok_or 1
     result.unwrap_or 0 |> value -> value.println!
-    0
 ```
 
 `Result` has the same shape for successful values and preserves the concrete error type.
@@ -196,14 +188,13 @@ main = ->
 increment: I64 -> I64
 increment = value -> value + 1
 
-main = ->
+main = !->
     mapped: Result I64, I64 = Result::Ok 4 .map increment
     chained: Result I64, I64 = Result::Ok 4 .and_then value -> Result::Ok value * 2
     failed: Result I64, I64 = Result::Err 7 .map increment
     mapped.unwrap_or 0 |> value -> value.println!
     chained.unwrap_or 0 |> value -> value.println!
     failed.unwrap_or 0 |> value -> value.println!
-    0
 ```
 
 The output is `5`, `8`, and `0`; the error `7` is preserved in `failed` even though `unwrap_or` chooses the fallback for printing.
@@ -223,7 +214,7 @@ keep_even_option = value ->
     else
         Option::None
 
-main = ->
+main = !->
     mapped: Option I64 = Option::Some 4 <&> increment
     chained: Option I64 = Option::Some 4 >>= keep_even_option
     fallback: Option I64 = Option::None <|> Option::Some 9
@@ -232,7 +223,6 @@ main = ->
     chained.unwrap_or 0 |> value -> value.println!
     fallback.unwrap_or 0 |> value -> value.println!
     converted.unwrap_or 0 |> value -> value.println!
-    0
 ```
 
 `<&>` maps, `>>=` binds, `<|>` chooses a fallback, `!>` converts an `Option` to a `Result`, and `|>` passes a value to a function. The output is `5`, `4`, `9`, and `4`. These meanings are standard-library definitions, not compiler-owned special cases.
@@ -275,14 +265,13 @@ compute = should_continue ->
     value: I64 = next should_continue?
     MyFlow::Value value + 1
 
-main = ->
+main = !->
     match compute true
         MyFlow::Value value => value.println!
         MyFlow::Stop code => code.println!
     match compute false
         MyFlow::Value value => value.println!
         MyFlow::Stop code => code.println!
-    0
 ```
 
 The successful call unwraps `Value 41`, adds one, and prints `42`. The failing call turns `Stop 7` into `ControlFlow::Break`, reconstructs `MyFlow::Stop 7`, returns early from `compute`, and prints `7`. Both implementations are ordinary public trait contracts; application code does not need compiler-only declarations.

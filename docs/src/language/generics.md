@@ -14,7 +14,7 @@ enum Choice A, B
     First A
     Second B
 
-main = ->
+main = !->
     number: Wrapper I64 = Wrapper
         value: 7
     text: Choice I64, &Str = Choice::Second "rock"
@@ -22,7 +22,6 @@ main = ->
     match text
         Choice::First value => value.println!
         Choice::Second value => value.println!
-    0
 ```
 
 The concrete type of `number` is `Wrapper I64`, so `number.value` is `I64`. The concrete type of `text` is `Choice I64, &Str`, and its selected payload is `&Str`. The output is `7` and `rock`.
@@ -37,12 +36,11 @@ An unconstrained type parameter can be passed through a function without the fun
 identity: T -> T
 identity = value -> value
 
-main = ->
+main = !->
     number: I64 = identity 42
     flag: Bool = identity true
     number.println!
     flag.println!
-    0
 ```
 
 At the first call, inference chooses `T = I64`; at the second, it chooses `T = Bool`. The output is `42` and `true`. The signature says that the result has exactly the same type as the argument.
@@ -58,7 +56,7 @@ struct Box T
 same_box: Box T -> Box T -> Bool where T: Eq
 same_box = left, right -> left.value == right.value
 
-main = ->
+main = !->
     left = Box
         value: 7
     left_again = Box
@@ -69,7 +67,6 @@ main = ->
         value: 9
     same_box left, equal .println!
     same_box left_again, different .println!
-    0
 ```
 
 The body uses `==`, so `T: Eq` is required. In both calls inference chooses `T = I64`; the output is `true` and `false`. Without the bound, the generic body would have no promise that `==` exists.
@@ -80,11 +77,10 @@ Multiple bounds are comma-separated. Each named capability needs a concrete impl
 show_value: &T -> String where T: Show
 show_value = value -> value.show!
 
-main = ->
+main = !->
     number: I64 = 42
     text: String = show_value &number
     text.println!
-    0
 ```
 
 Here `T` is inferred as `I64`; `I64` implements `Show`, and `show_value` returns a `String` containing `42`.
@@ -100,11 +96,10 @@ trait EchoArray
 impl EchoArray for [T; 3]
     @echo = value -> value
 
-main = ->
+main = !->
     values: [I64; 3] = [7, 8, 9]
     echoed: I64 = values.echo 7
     echoed.println!
-    0
 ```
 
 The receiver establishes `T = I64`, so `echoed` is `I64` and the output is `7`. A generic implementation is not a promise that every possible instantiation works; its own bounds and receiver shape still have to match.
@@ -119,10 +114,9 @@ type Number = I64
 identity: Number -> Number
 identity = value -> value
 
-main = ->
+main = !->
     value: Number = identity 42
     value.println!
-    0
 ```
 
 `Number` is an alias for `I64`, so `identity` accepts and returns `I64`. The output is `42`. Use a struct or enum when a distinct type is required.
@@ -142,11 +136,10 @@ impl Projector for Identity
     type Output = I64
     @project = value -> value
 
-main = ->
+main = !->
     identity = Identity
     value: I64 = identity.project 13
     value.println!
-    0
 ```
 
 The implementation fixes `Identity::Output` to `I64`, so the argument and result of `project` are both `I64`. The output is `13`. An implementation must define every associated type required by its trait.

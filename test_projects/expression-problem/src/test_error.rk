@@ -1,6 +1,0 @@
-main = ->
-    x = 42
-
-bad syntax here
-
-

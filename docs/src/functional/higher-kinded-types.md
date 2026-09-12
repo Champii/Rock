@@ -37,12 +37,11 @@ make_values = ->
     values.push 3
     values
 
-main = ->
+main = !->
     option_result: Option I64 = map_any increment, Option::Some 4
     vector_result: Vec I64 = map_any double, make_values!
     option_result.show!.println!
     vector_result.show!.println!
-    0
 ```
 
 At the first call, `F = Option`, `A = I64`, and `B = I64`; at the second, `F = Vec`. `map_any` calls the selected constructor's `Functor::fmap`, not a compiler special case. The output is `Some(5)` and `[2, 4, 6]`. Both input carriers are consumed by their mapping operation.
@@ -56,12 +55,11 @@ map_result = mapper, value -> (Result _, I64)::Functor::fmap mapper, value
 increment: I64 -> I64
 increment = value -> value + 1
 
-main = ->
+main = !->
     success: Result I64, I64 = map_result increment, Result::Ok 4
     failure: Result I64, I64 = map_result increment, Result::Err 9
     success.show!.println!
     failure.show!.println!
-    0
 ```
 
 `Result _, I64` has the required unary kind, while bare `Result` would still require two arguments. The output is `Ok(5)` and `Err(9)`.
@@ -81,12 +79,11 @@ apply_any = wrapped_function, wrapped_value ->
 increment: I64 -> I64
 increment = value -> value + 1
 
-main = ->
+main = !->
     lifted: Option I64 = repure_any Option::Some 0
     wrapped: Option (I64 -> I64) = Option::Some increment
     applied: Option I64 = apply_any wrapped, lifted
     applied.show!.println!
-    0
 ```
 
 The inferred constructor is `F = Option`; `pure` ignores the input carrier's payload and produces `Some 2`, then `ap` applies `increment`, producing `Some 3`. The output is `Some(3)`.
@@ -102,11 +99,10 @@ bind_any = value, callback -> F::Monad::bind value, callback
 add_two: I64 -> Option I64
 add_two = value -> Option::Some value + 2
 
-main = ->
+main = !->
     start: Option I64 = Option::Some 3
     result: Option I64 = bind_any start, add_two
     result.show!.println!
-    0
 ```
 
 Here `F = Option` and `M` is the callback type `I64 -> Option I64`. `bind` unwraps `Some 3`, calls `add_two`, and returns `Some 5`. The output is `Some(5)`; a `None` input would skip the callback.
@@ -130,14 +126,13 @@ make_values = ->
     values.push 3
     values
 
-main = ->
+main = !->
     option_total: I64 = Option::Foldable::foldl fold_digits, 0, Option::Some 4
     vector_total: I64 = Vec::Foldable::foldl fold_digits, 0, make_values!
     traversed: Option (Vec I64) = Vec::Traversable::traverse increment_effect, make_values!
     option_total.println!
     vector_total.println!
     traversed.show!.println!
-    0
 ```
 
 The fold over `Some 4` returns `4`; the vector fold computes `123`; and traversal produces `Some([2, 3, 4])`. The output is `4`, `123`, and `Some([2, 3, 4])`. `Vec` supplies `Functor`, `Foldable`, and `Traversable`; its traversal consumes the input vector while constructing a new vector.
@@ -160,10 +155,9 @@ make_values = ->
     values.push 3
     values
 
-main = ->
+main = !->
     result: Option (Vec I64) = Vec::Traversable::traverse_m stop_at_two, make_values!
     result.show!.println!
-    0
 ```
 
 The second callback returns `None`, so traversal stops and the output is `None`.
@@ -173,7 +167,7 @@ The second callback returns `None`, so traversal stops and the output is `None`.
 `sequence` is the standard `Traversable` operation for turning `T (G A)` into `G (T A)`. The following exact stdlib pattern sequences a vector of options.
 
 ```rock
-main = ->
+main = !->
     mut effects: Vec (Option I64) = Vec::new!
     effects.push Option::Some 4
     effects.push Option::Some 5
@@ -194,7 +188,6 @@ main = ->
     match failed
         Option::Some values => values.len!.println!
         Option::None => -1 .println!
-    0
 ```
 
 The successful sequence prints `2` and `4`. The sequence containing `None` prints `-1`, because one missing effect makes the whole `Option` result absent. `sequence` consumes both input vectors.

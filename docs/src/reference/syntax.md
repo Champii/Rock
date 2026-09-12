@@ -55,23 +55,21 @@ IF_EXPRESSION ::= "if" EXPRESSION BLOCK ("else" (BLOCK | IF_EXPRESSION))?
 This is a complete layout example:
 
 ```rock
-main = ->
+main = !->
     if true
         "the condition is true".println!
     else
         "the condition is false".println!
-    0
 ```
 
 Line comments begin with `//`. Block comments begin with `/*` and end with
 `*/`; both forms are ignored by the parser.
 
 ```rock
-main = ->
+main = !->
     // This comment ends at the line break.
     /* This comment spans one complete comment token. */
     "comments do not produce values".println!
-    0
 ```
 
 ## Names and keywords
@@ -112,7 +110,7 @@ This program constructs each literal family and gives the compound values
 explicit types where that makes their shape clearer:
 
 ```rock
-main = ->
+main = !->
     count: I64 = 42
     ratio: F64 = 3.5
     enabled: Bool = true
@@ -130,7 +128,6 @@ main = ->
     repeated.println!
     pair.0.println!
     pair.1.println!
-    0
 ```
 
 Strings and characters are byte-oriented in the current implementation. Use
@@ -151,7 +148,7 @@ The following complete program declares every place before assigning through
 it:
 
 ```rock
-main = ->
+main = !->
     mut first: I64 = 1
     second: I64 = 2
     first = second + 3
@@ -159,7 +156,6 @@ main = ->
     values[1] = first
     first.println!
     values[1].println!
-    0
 ```
 
 `mut` permits mutable borrowing and mutable receiver calls. Ordinary local
@@ -188,11 +184,10 @@ announce: &Str -> ()
 announce = message !->
     message.println!
 
-main = ->
+main = !->
     total: I64 = add 2, 3
     announce "five"
     total.println!
-    0
 ```
 
 Arguments are separated by commas, and each argument consumes a complete
@@ -207,10 +202,9 @@ add = left, right -> left + right
 double: I64 -> I64
 double = value -> value * 2
 
-main = ->
+main = !->
     result: I64 = double add 2, 3
     result.println!
-    0
 ```
 
 The postfix `!` calls a function or method with no explicit arguments. A
@@ -252,11 +246,10 @@ describe = shape ->
         Shape::Dot point => "dot"
         Shape::Empty => "empty"
 
-main = ->
+main = !->
     point: Point = Point::new 3, 4
     shape: Shape = Shape::Dot point
     describe shape .println!
-    0
 ```
 
 All required fields must be initialized. An enum constructor is qualified by
@@ -293,7 +286,7 @@ impl Counter
     ~@finish: I64
     ~@finish = -> self.value
 
-main = ->
+main = !->
     mut counter: Counter = Counter
         value: 4
     counter.add 3
@@ -301,7 +294,6 @@ main = ->
     total: I64 = counter.finish!
     current.println!
     total.println!
-    0
 ```
 
 `@read` observes, `^@add` mutates, and `~@finish` consumes. A consuming call
@@ -328,8 +320,8 @@ impl Combiner I64 for AddOne
     type Output = I64
     @combine = value -> value + 1
 
-main = ->
-    0
+main = !->
+    ()
 ```
 
 Trait syntax and generic specialization are still evolving; prefer the tested
@@ -367,13 +359,12 @@ identity = value -> value
 borrow_first: &Pair I64, &Str -> &Str
 borrow_first = pair -> pair.second
 
-main = ->
+main = !->
     pair: Pair I64, &Str = Pair
         first: 7
         second: "seven"
     text: &Str = borrow_first &pair
     text.println!
-    0
 ```
 
 `_` is a type hole for inference, `Self::Output` is an associated type
@@ -395,7 +386,7 @@ MATCH_ARM ::= PATTERN ("if" EXPRESSION)? "=>" EXPRESSION
 This complete program uses a `while`, a `for`, `break`, and `continue`:
 
 ```rock
-main = ->
+main = !->
     mut number: I64 = 0
     while number < 3
         number = number + 1
@@ -408,7 +399,6 @@ main = ->
 
     loop
         break
-    0
 ```
 
 Patterns include bindings, literals, tuple shapes, constructor payloads, and
@@ -437,12 +427,11 @@ label = message ->
         Message::Number number if number > 0 => "positive"
         Message::Number _ => "nonpositive"
 
-main = ->
+main = !->
     first: &Str = label Message::Quit
     second: &Str = label Message::Number 4
     first.println!
     second.println!
-    0
 ```
 
 An arm guard runs only after its structural pattern matches. The current
@@ -474,10 +463,9 @@ and the imported function is declared before its use in the consumer file.
 mod math
 > math::square
 
-main = ->
+main = !->
     result: I64 = square 6
     result.println!
-    0
 ```
 
 Inline module syntax is parsed by some tools but is not a supported compiled
@@ -504,11 +492,10 @@ expression on its left:
 double: I64 -> I64
 double = value -> value * 2
 
-main = ->
+main = !->
     value: I64 = 3
     double value + 1 .println!
     Option::Some value <&> double .unwrap_or 0 .println!
-    0
 ```
 
 Use parentheses when an operator above application precedence must instead
@@ -532,11 +519,10 @@ infix 1 |>
 double: I64 -> I64
 double = value -> value * 2
 
-main = ->
+main = !->
     value: I64 = 7 |> double
     text: String = String::from_i64 value
     text.println!
-    0
 ```
 
 The standard library supplies common arithmetic and comparison meanings, but
@@ -564,10 +550,9 @@ macro make_value
 
 %make_value answer
 
-main = ->
+main = !->
     value: I64 = answer!
     value.println!
-    0
 ```
 
 Macro facilities are experimental. Keep macro definitions small, and test the

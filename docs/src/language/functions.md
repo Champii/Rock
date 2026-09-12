@@ -6,10 +6,9 @@ Functions are the main unit of behavior in Rock. A declaration has a name, an eq
 add = left, right ->
     left + right
 
-main = ->
+main = !->
     result = add 2, 3
     result.println!
-    0
 ```
 
 The parameter names are introduced before the body is evaluated. The final expression of `add` is its result.
@@ -28,10 +27,9 @@ clamp = value, low, high ->
     else
         value
 
-main = ->
+main = !->
     result = clamp 120, 0, 100
     result.println!
-    0
 ```
 
 The signature lists three parameter types followed by the return type. The branches of `clamp` all produce `I64`, so the definition satisfies the contract.
@@ -47,10 +45,9 @@ add = left, right ->
 double = value ->
     value * 2
 
-main = ->
+main = !->
     result = double add 2, 3
     result.println!
-    0
 ```
 
 The inner call owns the arguments `2, 3` and produces `5`; the outer call receives that complete result and produces `10`. Neither call needs grouping.
@@ -58,12 +55,11 @@ The inner call owns the arguments `2, 3` and produces `5`; the outer call receiv
 Use `!` for a zero-argument call:
 
 ```rock
-main = ->
+main = !->
     mut values: Vec I64 = Vec::new!
     values.push 10
     length = values.len!
     length.println!
-    0
 ```
 
 `Vec::new!` calls an associated function through the type path. `values.push 10` passes one argument to a method, while `values.len!` calls a method with no explicit arguments. The `mut` binding is required because `push` uses a mutable receiver.
@@ -73,14 +69,13 @@ main = ->
 `::` selects an item through a type or module path. Associated functions do not receive an existing instance:
 
 ```rock
-main = ->
+main = !->
     some = Option::Some 5
     text = String::from_i64 42
     some_text = match some
         Option::Some value => text
         Option::None => String::from_str "missing"
     some_text.println!
-    0
 ```
 
 `Option::Some` constructs a prelude enum variant, and `String::from_i64` constructs an owned string through an associated function. A method would instead use a receiver and dot syntax, as `some_text.println!` does.
@@ -102,7 +97,7 @@ impl Counter
 
     ~@finish = -> self.value
 
-main = ->
+main = !->
     mut counter = Counter
         value: 4
     current = counter.read!
@@ -110,14 +105,13 @@ main = ->
     total = counter.finish!
     current.println!
     total.println!
-    0
 ```
 
 The first call borrows `counter` shared. The second needs a mutable receiver, so the binding is marked `mut`. The final call consumes `counter`; after it returns, that value is no longer available for another use. The markers are part of the method's type-level contract, not decoration.
 
 ## Return values and early exit
 
-The final expression is returned:
+With an ordinary `->` body, the final expression is returned:
 
 ```rock
 sign = value ->
@@ -126,10 +120,9 @@ sign = value ->
     else
         1
 
-main = ->
+main = !->
     sign 0 - 8 .println!
     sign 8 .println!
-    0
 ```
 
 Use `return` when a condition should leave the function immediately:
@@ -140,10 +133,9 @@ first_nonzero = left, right ->
         return left
     right
 
-main = ->
+main = !->
     first_nonzero 3, 9 .println!
     first_nonzero 0, 9 .println!
-    0
 ```
 
 For `(3, 9)`, the first branch returns `3` and skips `right`. For `(0, 9)`, execution reaches the final expression and returns `9`.
@@ -157,12 +149,28 @@ greet: &Str -> ()
 greet = name !->
     "Hello, " + name .println!
 
-main = ->
+main: () -> ()
+main = !->
     greet "Ada"
-    0
 ```
 
-The trailing expression still runs, but its value is discarded and the function returns `()` automatically. An ordinary `->` body returns its trailing value instead.
+The trailing expression still runs, but its value is discarded and the function returns `()` automatically. An ordinary `->` body returns its trailing value instead. The signature of this `main` is `() -> ()`: it takes no arguments and returns unit. The runtime maps unit to process exit status `0`, so ordinary programs should use `main = !->` without a trailing `0`.
+
+Keep `->` when `main` intentionally chooses an integer exit status:
+
+```rock
+> stdlib::env::args
+
+main: () -> I64
+main = ->
+    if args!.len! > 1
+        0
+    else
+        "expected at least one argument".println!
+        1
+```
+
+This program exits with status `0` when given a user argument and `1` otherwise. Both integers are meaningful results here; `!->` would discard the selected status.
 
 ## Recursion
 
@@ -176,9 +184,8 @@ factorial = n ->
     else
         n * factorial n - 1
 
-main = ->
+main = !->
     factorial 5 .println!
-    0
 ```
 
 The recursive call decreases `n`, so the base case `n <= 1` is eventually reached. Rock does not promise tail-call optimization; use a loop when unbounded recursion could exhaust the stack.
@@ -194,10 +201,9 @@ total = base, tax, shipping ->
         + tax
         + shipping
 
-main = ->
+main = !->
     result = total 100, 8, 2
     result.println!
-    0
 ```
 
 The continuation lines remain one expression. Binding intermediate values is often clearer for complicated calls because each type and ownership boundary gets a name.

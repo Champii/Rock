@@ -59,13 +59,12 @@ print_value = value ->
         FizzBuzzValue::Text text => text.println!
         FizzBuzzValue::Number number => number.println!
 
-main = ->
+main = !->
     mut number: I64 = 1
     while number <= 30
         value: FizzBuzzValue = fizzbuzz_value number
         print_value value
         number = number + 1
-    0
 ```
 
 Run it from the project directory:

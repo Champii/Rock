@@ -3,29 +3,27 @@
 A binding gives a value a name. Rock does not use a `let` keyword; an assignment-shaped statement introduces a local when the name has not been seen in the current scope.
 
 ```rock
-main = ->
+main = !->
     answer = 42
     name = "Ada"
     answer.println!
     name.println!
-    0
 ```
 
-The compiler infers `answer` as `I64` and `name` as `&Str`. The names are available only after their declarations. The final `0` is still the result of `main`; the earlier `println!` calls are evaluated for effects.
+The compiler infers `answer` as `I64` and `name` as `&Str`. The names are available only after their declarations. The `println!` calls are evaluated for effects; `!->` discards the trailing value and makes `main` return unit (`()`), which maps to process exit status `0`.
 
 ## Type annotations
 
 Put an annotation after the name and before `=`:
 
 ```rock
-main = ->
+main = !->
     answer: I64 = 42
     ratio: F64 = 0.75
     enabled: Bool = true
     answer.println!
     ratio.println!
     enabled.println!
-    0
 ```
 
 An annotation documents the intended type and gives inference an expected type. It is not a conversion: `0.75` already has a floating-point type in this example.
@@ -35,12 +33,11 @@ An annotation documents the intended type and gives inference an expected type. 
 The current compiler permits a later assignment to an existing local without requiring `mut`:
 
 ```rock
-main = ->
+main = !->
     count = 0
     count = count + 1
     count = count + 1
     count.println!
-    0
 ```
 
 The first `count = 0` establishes the local. The next two assignments target that local and update its value. This is current observed behavior, not a promise that every future mutability rule will be identical.
@@ -48,12 +45,11 @@ The first `count = 0` establishes the local. The next two assignments target tha
 `mut` is required where the operation explicitly requests a mutable place. A mutable borrow is the clearest example:
 
 ```rock
-main = ->
+main = !->
     mut value = 1
     reference = &mut value
     *reference = 2
     value.println!
-    0
 ```
 
 `value` must be marked `mut` because `&mut value` creates a mutable reference. The assignment through `*reference` changes the original place, so the output is `2`.
@@ -69,12 +65,11 @@ impl Counter
         self.value = self.value + amount
         return
 
-main = ->
+main = !->
     mut counter = Counter
         value: 3
     counter.increment 4
     counter.value.println!
-    0
 ```
 
 `counter` is marked `mut` because `increment` needs a mutable receiver. The method changes the field from `3` to `7`. Ordinary reassignment and mutable borrowing are separate checks: the former currently works without `mut`, while the latter requires it.
@@ -89,10 +84,9 @@ increment_and_print = value ->
     value.println!
     value
 
-main = ->
+main = !->
     result = increment_and_print 4
     result.println!
-    0
 ```
 
 The assignment changes the current value of `value`; it does not introduce a second parameter. Keeping the same name is useful when the old representation is no longer needed, but a new descriptive name is clearer when both values remain meaningful.
@@ -102,12 +96,11 @@ The assignment changes the current value of `value`; it does not introduce a sec
 A pattern on the left can bind several parts of a tuple:
 
 ```rock
-main = ->
+main = !->
     pair = (10, "ten")
     (number, word) = pair
     number.println!
     word.println!
-    0
 ```
 
 The right side creates one tuple. The pattern then binds its first element to `number` and its second element to `word`. The pattern must have a shape compatible with the value.
@@ -115,11 +108,10 @@ The right side creates one tuple. The pattern then binds its first element to `n
 Patterns can mark an individual binding as mutable. This is useful when the binding will be passed to a mutable operation:
 
 ```rock
-main = ->
+main = !->
     (mut left, right) = (1, 2)
     left = left + right
     left.println!
-    0
 ```
 
 Enum and struct patterns use the same mechanism; the matching chapter shows how a pattern can both check a shape and bind its fields.
@@ -133,14 +125,13 @@ struct Point
     < x: I64
     < y: I64
 
-main = ->
+main = !->
     point = Point
         x: 1
         y: 2
     point.x = 5
     point.x.println!
     point.y.println!
-    0
 ```
 
 The first assignment constructs `point`; `point.x = 5` updates its existing field. Indexing and mutable receiver calls use the same general idea of selecting a place, but their trait and receiver contracts can impose additional requirements.
@@ -154,9 +145,8 @@ log_value: I64 -> ()
 log_value = value !->
     value.println!
 
-main = ->
+main = !->
     log_value 9
-    0
 ```
 
 A `!->` body evaluates every statement, including its trailing expression, then discards the trailing value and returns `()` automatically. Use an ordinary `->` body when the trailing value should become the function result.

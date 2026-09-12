@@ -10,7 +10,7 @@ The current networking module provides safe ownership wrappers around blocking I
 > stdlib::net::Ipv4Addr
 > stdlib::net::SocketAddrV4
 
-main = ->
+main = !->
     loopback: Ipv4Addr = Ipv4Addr::new 127, 0, 0, 1
     address: SocketAddrV4 = SocketAddrV4::new loopback, 8080
     local: SocketAddrV4 = SocketAddrV4::localhost 9000
@@ -19,7 +19,6 @@ main = ->
     address.port.println!
     local.ip.d.println!
     wildcard.ip.a.println!
-    0
 ```
 
 The output is `127`, `8080`, `1`, and `0`. Ports are checked to fit the valid range `0..=65535` when a listener or stream is created. A port of `0` asks the operating system to select an available port for a listener.

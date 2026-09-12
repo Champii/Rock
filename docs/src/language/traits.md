@@ -23,7 +23,7 @@ impl Shape for Circle
 impl Shape for Rectangle
     @area = -> @width * @height
 
-main = ->
+main = !->
     circle = Circle
         radius: 5
     rectangle = Rectangle
@@ -31,7 +31,6 @@ main = ->
         height: 6
     circle.area!.println!
     rectangle.area!.println!
-    0
 ```
 
 `circle.area!` selects the `Circle` implementation and returns `75`; `rectangle.area!` selects the `Rectangle` implementation and returns `24`. The output is `75` and `24`.
@@ -61,7 +60,7 @@ impl Animal for Dog
 impl Animal for Cat
     @speak = -> 2
 
-main = ->
+main = !->
     dog = Dog
         name: 10
     cat = Cat
@@ -70,7 +69,6 @@ main = ->
     cat.speak!.println!
     dog.legs!.println!
     cat.legs!.println!
-    0
 ```
 
 `Dog` and `Cat` override `speak!` but inherit `legs!`. The output is `1`, `2`, `4`, and `4`.
@@ -94,10 +92,9 @@ impl Point
     @sum: I64
     @sum = -> @x + @y
 
-main = ->
+main = !->
     point = Point::new 3, 4
     point.sum!.println!
-    0
 ```
 
 `Point::new` is an associated function and returns a `Point`; `sum!` is a shared method. The output is `7`.
@@ -122,14 +119,13 @@ impl Counter
     ~@take: I64
     ~@take = -> self.value
 
-main = ->
+main = !->
     mut counter = Counter
         value: 1
     counter.read!.println!
     counter.set 9
     counter.read!.println!
     counter.take!.println!
-    0
 ```
 
 `@read` shared-borrows, `^@set` requires a mutable binding and writes in place, and `~@take` consumes the receiver. The output is `1`, `9`, and `9`; `counter` cannot be used after `take!`.
@@ -149,11 +145,10 @@ impl Projector for Identity
     type Output = I64
     @project = value -> value
 
-main = ->
+main = !->
     identity = Identity
     result: I64 = identity.project 13
     result.println!
-    0
 ```
 
 The implementation defines `Identity::Output = I64`, so `project` accepts and returns `I64`. Omitting the required associated type is a compile-time error.
@@ -169,13 +164,12 @@ struct Box T
 same_box: Box T -> Box T -> Bool where T: Eq
 same_box = left, right -> left.value == right.value
 
-main = ->
+main = !->
     first = Box
         value: 7
     second = Box
         value: 7
     same_box first, second .println!
-    0
 ```
 
 The call specializes `T` to `I64`, and the `Eq` implementation for `I64` supplies `==`. The output is `true`. A bound is checked at the call site as well as in the generic body.
@@ -198,13 +192,12 @@ impl Clone for Label
         Label
             text: @text.clone!
 
-main = ->
+main = !->
     original = Label
         text: String::from_str "Rock"
     copy = original.clone!
     original.println!
     copy.println!
-    0
 ```
 
 The output is `Rock` twice. Cloning the `String` gives each `Label` its own allocation, while `Show` borrows the receiver. Other focused standard traits follow the same selection model: [Arrays, Slices, and Tuples](arrays-slices-tuples.md) demonstrates `Index` and `IndexMut`, and [Functions as Values](../functional/function-values.md) demonstrates `Fn`, `FnMut`, and `FnOnce` with complete callbacks. Keep a trait small; combine bounds only when one operation genuinely needs several capabilities.
@@ -225,10 +218,9 @@ impl Named for Tag
 impl Named for Tag
     @name = -> "second"
 
-main = ->
+main = !->
     tag = Tag
     tag.name!.println!
-    0
 ```
 
 Rock does not choose `first` or `second` by declaration order; remove one implementation to make the call coherent. Missing associated type definitions are rejected for the same reason that missing methods are rejected: an implementation must satisfy its complete trait contract. Trait selection also preserves ownership, so it cannot turn a borrowed receiver into an owned value or make an owned value copyable.

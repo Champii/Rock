@@ -9,14 +9,13 @@ The standard library provides owned POSIX threads, atomic reference counting, a 
 ```rock
 > stdlib::thread::spawn
 
-main = ->
+main = !->
     match spawn (-> 42)
         Result::Ok handle =>
             match handle.join!
                 Result::Ok value => value.println!
                 Result::Err _ => "join failed".println!
         Result::Err _ => "spawn failed".println!
-    0
 ```
 
 The output is `42`. A successful `spawn` transfers the closure to the new thread; `join!` transfers its result back. Dropping an unjoined handle detaches the thread without blocking, and the worker cleans up its result when it finishes. A failed create or join is data in `ThreadError`, not an exception.
@@ -54,7 +53,7 @@ impl Owned
     ~@take: I64
     ~@take = -> self.value
 
-main = ->
+main = !->
     owned = Owned
         value: 73
     match spawn (-> owned.take!)
@@ -63,7 +62,6 @@ main = ->
                 Result::Ok value => value.println!
                 Result::Err _ => "join failed".println!
         Result::Err _ => "spawn failed".println!
-    0
 ```
 
 The output is `73`. `owned` is moved into the closure through `take!`, so there is no borrowed stack reference for the worker to retain. A closure that captures `value` by shared borrow is rejected because the closure type does not satisfy the required thread-safety bounds.
@@ -100,7 +98,7 @@ impl Worker
             index = index + 1
         index
 
-main = ->
+main = !->
     counter: Arc (Mutex Counter) = Arc::new (Mutex::new (Counter
         value: 0))
     first = Worker
@@ -125,7 +123,6 @@ main = ->
         Result::Err _ => 1
     guard = counter.lock!
     guard.get!.value.println!
-    0
 ```
 
 Both workers own a cloned `Arc`, but only one guard can update the `Counter` at a time. The final output is `2000` when both threads start and join successfully. Keep lock scopes short, never call unknown code while holding a guard, and establish one order before acquiring several mutexes. `Arc` supplies ownership; it does not supply mutation or synchronization by itself.
@@ -145,13 +142,12 @@ lock_once = mutex ->
         Option::None => "locked".println!
     return
 
-main = ->
+main = !->
     mutex: Mutex I64 = Mutex::new 9
     lock_once (&mutex)
     match mutex.try_lock!
         Option::Some guard => guard.get!.println!
         Option::None => "still locked".println!
-    0
 ```
 
 The output is `locked` and `9`. `guard` leaves scope before `lock_once` returns, so the later `try_lock!` succeeds. A guard is not `Send`; moving it into a spawned closure is rejected, which prevents a worker from unlocking a mutex through a guard created on another thread.
@@ -163,7 +159,7 @@ The output is `locked` and `9`. `guard` leaves scope before `lock_once` returns,
 ```rock
 > stdlib::atomic::AtomicU64
 
-main = ->
+main = !->
     counter: AtomicU64 = AtomicU64::new 0 as U64
     exchanged: U64 = counter.exchange 3 as U64
     previous: U64 = counter.fetch_add 1 as U64
@@ -172,7 +168,6 @@ main = ->
     exchanged as I64 .println!
     previous as I64 .println!
     next as I64 .println!
-    0
 ```
 
 The output is `0`, `3`, and `5`: `exchange` observes zero and writes three, `fetch_add` observes three, `store` writes five, and `fetch_sub` observes five before subtracting two. Atomics are appropriate for counters and simple protocols, not for a compound invariant that requires several reads and writes to change together.
@@ -186,12 +181,11 @@ The thread module also exports `current_id`, `yield_now`, and `sleep_ms`. They a
 > stdlib::thread::sleep_ms
 > stdlib::thread::yield_now
 
-main = ->
+main = !->
     thread_id: U64 = current_id!
     thread_id as I64 .println!
     yield_now!
     sleep_ms 1
-    0
 ```
 
 The first line is a host-specific pthread identifier; the program then yields and sleeps for approximately one millisecond. Neither helper creates parallel work or guarantees a scheduling order.

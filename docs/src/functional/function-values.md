@@ -10,10 +10,9 @@ A lambda has parameters, an arrow, and a body. The following binding has inferre
 double: I64 -> I64
 double = value -> value * 2
 
-main = ->
+main = !->
     result: I64 = double 5
     result.println!
-    0
 ```
 
 The output is `10`. `double` is a named function value; the expression after the equals sign is still a lambda-shaped function body.
@@ -21,14 +20,13 @@ The output is `10`. `double` is a named function value; the expression after the
 Pass a lambda directly when its purpose is local.
 
 ```rock
-main = ->
+main = !->
     mut values: Vec I64 = Vec::new!
     values.push 1
     values.push 2
     mapped: Vec I64 = values.map value -> value + 10
     mapped[0].println!
     mapped[1].println!
-    0
 ```
 
 `Vec::map` consumes `values`, moves each `I64` into the callback, and returns a new `Vec I64`. The output is `11` and `12`.
@@ -44,10 +42,9 @@ apply = function, value -> function value
 increment: I64 -> I64
 increment = value -> value + 1
 
-main = ->
+main = !->
     result: I64 = apply increment, 4
     result.println!
-    0
 ```
 
 The parameter `function` has type `I64 -> I64`, `value` has type `I64`, and the result is `I64`. The output is `5`.
@@ -58,12 +55,11 @@ Applying a capturing lambda uses the same function type at the call site, but th
 apply: (I64 -> I64) -> I64 -> I64
 apply = function, value -> function value
 
-main = ->
+main = !->
     offset: I64 = 10
     add_offset: I64 -> I64 = value -> value + offset
     result: I64 = apply add_offset, 5
     result.println!
-    0
 ```
 
 `add_offset` captures `offset` by shared access because it only reads it. The output is `15`. The capture cannot outlive the value it refers to.
@@ -76,7 +72,7 @@ The standard library expresses callback requirements with callable traits. `FnMu
 apply_mut: M -> I64 -> I64 where M: FnMut I64, I64
 apply_mut = mut function, value -> function.call_mut value
 
-main = ->
+main = !->
     mut calls: I64 = 0
     callback: I64 -> I64 = value ->
         calls = calls + 1
@@ -84,7 +80,6 @@ main = ->
     first: I64 = apply_mut callback, 10
     first.println!
     calls.println!
-    0
 ```
 
 The callback's capture is mutable, so `apply_mut` calls it through `FnMut`. The outputs are `11` and `1`. `apply_mut` receives the callback by value, so this callback value is consumed by the call; create a new callback or pass a mutable reference when an API's signature explicitly supports repeated calls. A callback that consumes a captured owned value has a stronger one-call ownership requirement.
@@ -97,14 +92,13 @@ An underscore in a call argument creates a function waiting for that argument. T
 combine: I64 -> I64 -> I64 -> I64
 combine = first, middle, last -> first + middle + last
 
-main = ->
+main = !->
     add_ends: I64 -> I64 = combine 10, _, 30
     answer: I64 = add_ends 2
     fill_middle: I64 -> I64 -> I64 = combine _, 5, _
     second_answer: I64 = fill_middle 1, 9
     answer.println!
     second_answer.println!
-    0
 ```
 
 `combine 10, _, 30` creates `middle -> 10 + middle + 30`, so `answer` is `42`. `combine _, 5, _` creates a two-argument function, so `second_answer` is `15`. Use a named lambda when the hole order would obscure ownership or evaluation order.
@@ -117,13 +111,12 @@ main = ->
 add: I64 -> I64 -> I64
 add = left, right ~> left + right
 
-main = ->
+main = !->
     increment: I64 -> I64 = add 1
     first: I64 = increment 2
     second: I64 = add 1, 2
     first.println!
     second.println!
-    0
 ```
 
 `add 1` owns the captured `left = 1` in the returned function; `increment 2` supplies the remaining argument and returns `3`. The direct two-argument call also returns `3`, so the output is `3` and `3`.
@@ -136,10 +129,9 @@ An operator section is another compact function value. `(+ 2)` creates a functio
 increment: I64 -> I64
 increment = (+ 2)
 
-main = ->
+main = !->
     result: I64 = increment 5
     result.println!
-    0
 ```
 
 The output is `7`. Use an explicit lambda such as `value -> 2 - value` when the direction of the operation is not visually obvious.
@@ -156,7 +148,7 @@ impl Counter
     @get: I64
     @get = -> @value
 
-main = ->
+main = !->
     counter = Counter
         value: 21
     get = counter.get
@@ -164,7 +156,6 @@ main = ->
     second: I64 = counter.get!
     first.println!
     second.println!
-    0
 ```
 
 `get` is a callable value with a shared receiver. Both calls return `21`, and the output is `21` and `21`; the receiver remains available because `get` is shared. A mutable or consuming method value carries the corresponding borrow or move restriction.

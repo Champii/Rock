@@ -10,7 +10,7 @@ enum Message
     Move I64, I64
     Write &Str
 
-main = ->
+main = !->
     stop = Message::Quit
     movement = Message::Move 4, -2
     text = Message::Write "hello"
@@ -29,7 +29,6 @@ main = ->
         Message::Move x, y => "move"
         Message::Write value => value
     text_text.println!
-    0
 ```
 
 `Message::Quit` has no payload, `Message::Move` has two `I64` payloads, and `Message::Write` has one `&Str` payload. Construction qualifies the variant with the enum path so the compiler knows which type owns it.
@@ -41,13 +40,12 @@ enum Choice Left, Right
     First Left
     Second Right
 
-main = ->
+main = !->
     choice: Choice &Str, &Str = Choice::First "left"
     label = match choice
         Choice::First value => value
         Choice::Second value => "right"
     label.println!
-    0
 ```
 
 The prelude's `Option T` and `Result T, E` are ordinary generic enums of this kind. `Option` has `Some T` and `None`; `Result` has `Ok T` and `Err E`.
@@ -69,10 +67,9 @@ describe = message ->
         Message::Move x, y => "move"
         Message::Write text => text
 
-main = ->
+main = !->
     describe Message::Move 4, -2 .println!
     describe Message::Write "hello" .println!
-    0
 ```
 
 For a `Move`, `x` and `y` are introduced only in that arm and have type `I64`. For a `Write`, `text` has type `&Str`. Every arm returns `&Str`, which satisfies the function signature.
@@ -91,10 +88,9 @@ is_quit = message ->
         Message::Quit => true
         _ => false
 
-main = ->
+main = !->
     is_quit Message::Quit .println!
     is_quit Message::Write "hello" .println!
-    0
 ```
 
 Qualified patterns such as `Message::Quit` are clearer than unqualified variant names and avoid collisions when several enums have similarly named variants.
@@ -111,11 +107,10 @@ classify = value ->
         0 => "zero"
         _ => "positive"
 
-main = ->
+main = !->
     classify 0 - 3 .println!
     classify 0 .println!
     classify 8 .println!
-    0
 ```
 
 The first arm binds `number`, then checks its guard. If the guard is false, matching continues with the next arm. Guards may use names introduced by their pattern.
@@ -138,11 +133,10 @@ describe = packet ->
         Packet::Data _, _ => "nonpositive data"
         Packet::Empty => "empty"
 
-main = ->
+main = !->
     describe Packet::Data 3, "three" .println!
     describe Packet::Data 0 - 1, "negative" .println!
     describe Packet::Empty .println!
-    0
 ```
 
 The first arm binds both payloads and checks the guard. If the guard is false, the second arm matches any `Data` payload without introducing names. Tuple and array destructuring assignments are covered in the bindings chapter; the current compiler does not yet execute refutable tuple matches.
@@ -163,10 +157,9 @@ show_message = message ->
         Message::Quit => "quit".println!
     return
 
-main = ->
+main = !->
     message = Message::Write "borrowed payload"
     show_message &message
-    0
 ```
 
 The `*message` scrutinee is a borrowed match. The original `message` remains available after `show_message` returns because the match did not consume the enum.
@@ -188,9 +181,8 @@ name = color ->
         Color::Green => "green"
         Color::Blue => "blue"
 
-main = ->
+main = !->
     name Color::Blue .println!
-    0
 ```
 
 The current compiler does not diagnose every incomplete enum match, so exhaustive source is an important programmer responsibility. Put specific patterns before broad ones; a wildcard first would make later arms unreachable in intent even where the compiler does not report it.

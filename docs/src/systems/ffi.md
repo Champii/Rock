@@ -11,10 +11,9 @@ This complete program declares the foreign symbol before using it:
 ```rock
 extern sqrt: F64 -> F64
 
-main = ->
+main = !->
     result: F64 = sqrt 144.0
     result.println!
-    0
 ```
 
 The target C library must export `sqrt` with the declared calling convention.
@@ -39,11 +38,10 @@ read_i64 = reference ->
     pointer: *I64 = reference as *I64
     unsafe *pointer
 
-main = ->
+main = !->
     mut value: I64 = 41
     result: I64 = unsafe read_i64 &mut value
     result.println!
-    0
 ```
 
 The caller contract is: `reference` points to the live `value` for the whole
@@ -70,11 +68,10 @@ c_string_length = text ->
     pointer: *U8 = text.as_ptr!
     strlen pointer
 
-main = ->
+main = !->
     text: String = String::from_str "Rock"
     length: I64 = unsafe c_string_length text
     length.println!
-    0
 ```
 
 The imported declaration is equivalent to `extern strlen: *U8 -> I64` in the
@@ -107,10 +104,9 @@ allocate_and_release = size ->
             free pointer
             size
 
-main = ->
+main = !->
     result: I64 = unsafe allocate_and_release 16
     result.println!
-    0
 ```
 
 The `malloc` and `free` declarations are exported by the POSIX-oriented stdlib

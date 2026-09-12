@@ -115,9 +115,8 @@ The manifest names the package and its entry file. The package version is your a
 Put this in `main.rk`:
 
 ```haskell
-main = ->
+main = !->
     "Hello, Rock!".println!
-    0
 ```
 
 Run it:
@@ -127,7 +126,9 @@ $ rock run
 Hello, Rock!
 ```
 
-`main = ->` defines a function with no arguments. Indentation forms its body, `.println!` calls a method with no arguments, and the final `0` is the program's exit status. There are no statement-ending semicolons.
+`main = !->` defines a function with no arguments that evaluates its body for effects, discards its result, and returns unit (`()`). When `main` returns unit, the process exits with status `0`, so no final `0` is needed. Indentation forms the body, and `.println!` calls a method with no arguments. There are no statement-ending semicolons.
+
+Prefer `main = !->` for ordinary programs. Use `main = ->` when you intentionally return an integer process exit status instead; the discard form does not turn a discarded error value into a failure status.
 
 **Trying the tour:** each Rock code block below is a complete replacement for `main.rk`, independent of earlier blocks. The modules section shows its complete two-file project separately. Standard prelude names such as `Option`, `Vec`, and `println` are available through the installed stdlib; non-prelude imports are shown explicitly. In the examples, `|>` passes a result to the next function, and `(.println!)` is a function that prints its input.
 
@@ -146,9 +147,8 @@ category = temperature ->
     else
         "warm"
 
-main = ->
+main = !->
     category 12 .println!
-    0
 ```
 
 This prints `cool`. The comparison and call supply enough information to infer the numeric input and borrowed string result. The `if` expression produces the function's result: there is no separate `return` on each branch.
@@ -158,7 +158,7 @@ This prints `cool`. The comparison and call supply enough information to infer t
 An array has a fixed length; a tuple groups values that can have different types. Index arrays with `[index]` and tuple fields with `.0`, `.1`, and so on.
 
 ```haskell
-main = ->
+main = !->
     values = [10, 20, 30]
     label = ("total", 3)
     mut total = 0
@@ -169,7 +169,6 @@ main = ->
     label.0.println!
     total.println!
     &values[..2] .println!
-    0
 ```
 
 This prints `total`, `60`, and `[10, 20]`. The range `0..3` visits indices `0`, `1`, and `2`, excluding its upper bound. `&values[..2]` borrows the first two elements as a slice; it does not create a new owned array. `mut` makes mutable access explicit. Rock also has `while`, `loop`, `break`, and `continue`; see [Control Flow](https://champii.github.io/Rock/language/control-flow.html).
@@ -185,12 +184,11 @@ double = value -> value * 2
 
 add_one = value -> value + 1
 
-main = ->
+main = !->
     20
         |> double
         |> add_one
         |> (.println!)
-    0
 ```
 
 This prints `41`. Each step receives the previous step's result, so there is no need to name an intermediate answer. `(.println!)` is a method section: a function that calls `println!` on its input. Use `|> (.println!)` to finish an existing multiline operator chain; otherwise, append `.println!` directly, with a space before the dot when it should apply to the whole call or expression. Each named function remains an ordinary function you can call directly.
@@ -204,7 +202,7 @@ add = left, right ~> left + right
 
 multiply = left, right -> left * right
 
-main = ->
+main = !->
     5
         |> add 10
         |> multiply _, 2
@@ -214,7 +212,6 @@ main = ->
         |> (* 2)
         |> (value -> value + 1)
         |> (.println!)
-    0
 ```
 
 This prints `30` and `11`.
@@ -244,14 +241,13 @@ value_or = fallback, answer ~>
         Answer::Value value => value
         Answer::Missing => fallback
 
-main = ->
+main = !->
     Answer::Value 42
         |> value_or 0
         |> (.println!)
     Answer::Missing
         |> value_or 7
         |> (.println!)
-    0
 ```
 
 This prints `42` and `7`. `Answer T` is one definition; its element type is inferred from the payload and fallback. `match` checks the variant and binds its payload. Currying lets each pipeline supply the answer after choosing a fallback.
@@ -275,13 +271,12 @@ impl Counter
 
     ~@finish = -> self.value
 
-main = ->
+main = !->
     mut counter = Counter
         value: 41
     counter.increment!
     counter.read!.println!
     counter.finish!.println!
-    0
 ```
 
 This prints `42` twice. `< value` makes the field public. `return` without a value returns unit, written `()` in a type.
@@ -301,12 +296,11 @@ After `finish!`, `counter` has moved and cannot be used again. Ownership also ap
 ```haskell
 length = text -> text.len!
 
-main = ->
+main = !->
     text = String::from_str "Rock"
     length &text .println!
     text.println!
     text.clone!.println!
-    0
 ```
 
 This prints `4`, then `Rock` twice. Borrowing does not copy the allocation; cloning does. Owned values are cleaned up deterministically through `Drop`. See [Ownership](https://champii.github.io/Rock/language/ownership.html) for moves, mutable references, and lifetime constraints.
@@ -316,7 +310,7 @@ This prints `4`, then `Rock` twice. Borrowing does not copy the allocation; clon
 `Vec T` is a growable owned sequence. Its methods make a useful starting point before the more general functional traits.
 
 ```haskell
-main = ->
+main = !->
     mut numbers = Vec::new!
     for value in [1, 2, 3, 4]
         numbers.push value
@@ -324,7 +318,6 @@ main = ->
     numbers.filter (value -> *value % 2 == 0)
         <&> (* 10)
         |> (.println!)
-    0
 ```
 
 This prints `[20, 40]`. The filter callback borrows each element, so `*value` reads through that reference. `<&>` maps over the remaining elements by value; the [functional operators](#functional-operators) section explains it in detail. Both transformations consume their source vector and return a new vector, without needing a name for each intermediate collection.
@@ -346,12 +339,11 @@ impl Area for Rectangle
 
 area_of = shape -> shape.area!
 
-main = ->
+main = !->
     rectangle = Rectangle
         width: 6
         height: 7
     area_of &rectangle .println!
-    0
 ```
 
 This prints `42`. The trait declares the `area` capability; the implementation supplies it for `Rectangle`. The helper's types are inferred from the method call and its use. Passing `&rectangle` borrows the value, so calculating an area does not consume it.
@@ -374,11 +366,10 @@ impl Source for Number
     type Item = I64
     @read = -> self.value
 
-main = ->
+main = !->
     source = Number
         value: 42
     source.read!.println!
-    0
 ```
 
 This prints `42`. `Source` does not require every implementation to return `I64`; this implementation chooses it with `type Item = I64`. More trait examples, including default methods, are in [Traits and Methods](https://champii.github.io/Rock/language/traits.html).
@@ -394,7 +385,7 @@ These operators are ordinary library-defined operations. You can learn them one 
 ```haskell
 double = value -> value * 2
 
-main = ->
+main = !->
     double
         <$> Option::Some 21
         |> (.println!)
@@ -404,7 +395,6 @@ main = ->
     Option::None
         <&> double
         |> (.println!)
-    0
 ```
 
 This prints `Some(42)`, `Some(42)`, and `None`. The function sees the integer, not the `Option`. When the value is absent, the function is not called.
@@ -416,11 +406,10 @@ This operation is called **mapping**, and the trait behind it is **Functor**. It
 `<|>` chooses the first present option:
 
 ```haskell
-main = ->
+main = !->
     Option::None
         <|> Option::Some 7
         |> (.println!)
-    0
 ```
 
 This prints `Some(7)`. The fallback is another option, unlike `unwrap_or`, which supplies a plain value. Both operands are evaluated before the operator runs; `<|>` is not a lazy conditional.
@@ -436,7 +425,7 @@ half_even = value ->
     else
         Option::None
 
-main = ->
+main = !->
     Option::Some 84
         >>= half_even
         >>= half_even
@@ -444,7 +433,6 @@ main = ->
     Option::Some 3
         >>= half_even
         |> (.println!)
-    0
 ```
 
 This prints `Some(21)` and `None`. Each successful step passes its payload to the next function; `None` skips subsequent callbacks. This operation is called **binding**, and its trait is **Monad**.
@@ -464,12 +452,11 @@ quarter = value -> divide (divide value, 2)?, 2
 
 describe_error = message -> "calculation: " + String::from_str message
 
-main = ->
+main = !->
     quarter 84 .println!
     divide 12, 0
         <!> describe_error
         |> (.println!)
-    0
 ```
 
 This prints `Ok(21)` and `Err(calculation: division by zero)`. In `quarter`, the parentheses group the inner call so `?` applies to its result before the outer division. The error mapper changes the error type from a borrowed `&Str` to an owned `String`.
@@ -483,7 +470,7 @@ This prints `Ok(21)` and `Err(calculation: division by zero)`. In `quarter`, the
 ```haskell
 add = left, right ~> left + right
 
-main = ->
+main = !->
     add
         <$> Option::Some 20
         <*> Option::Some 22
@@ -491,7 +478,6 @@ main = ->
     Option::Some (+ 20)
         <*> Option::None
         |> (.println!)
-    0
 ```
 
 This prints `Some(42)` and `None`. Mapping the curried `add` over `Some 20` creates an optional function waiting for one more number. `<*>` supplies that number only if both the function and argument are present.
@@ -533,7 +519,7 @@ You do not need a separate mapping helper for each container. `<&>` is one gener
 ```haskell
 double = value -> value * 2
 
-main = ->
+main = !->
     mut values = Vec::new!
     for value in [1, 2, 3]
         values.push value
@@ -545,7 +531,6 @@ main = ->
         <&> double
         |> (.println!)
     (Result _, &Str)::Functor::fmap double, Result::Ok 5 .println!
-    0
 ```
 
 This prints `Some(8)`, `[2, 4, 6]`, and `Ok(10)`.
@@ -572,12 +557,11 @@ impl Wrap T
         match self
             Wrap::Value value => value
 
-main = ->
+main = !->
     Wrap::Value 41
         <&> (+ 1)
         |> (.unwrap!)
         |> (.println!)
-    0
 ```
 
 This prints `42`. `impl Functor for Wrap` implements the trait for the constructor, not just for `Wrap I64`. Once that implementation exists, the existing `<&>` operator works with it. `unwrap!` consumes this single-variant wrapper and returns its payload; there is no missing-value case to handle.
@@ -603,10 +587,9 @@ append_digit = pair -> pair.0 * 10 + pair.1
 positive = value ->
     if value > 0 then Option::Some value else Option::None
 
-main = ->
+main = !->
     Vec::Foldable::foldl append_digit, 0, make_values! .println!
     Vec::Traversable::traverse positive, make_values! .println!
-    0
 ```
 
 This prints `123` and `Some([1, 2, 3])`. The fold callback receives one tuple containing the accumulator and current element. Traversal turns individual `Option I64` results into one `Option (Vec I64)`; if an element produces `None`, the overall result is `None`.
@@ -618,14 +601,13 @@ Use `traverse_m` when later callbacks should be skipped after failure. Ordinary 
 `sequence` is traversal without another transformation: it turns a container of wrapped values into a wrapped container.
 
 ```haskell
-main = ->
+main = !->
     mut values = Vec::new!
     values.push Option::Some 4
     values.push Option::Some 5
     values
         |> sequence
         |> (.println!)
-    0
 ```
 
 This prints `Some([4, 5])`. Adding a `None` entry would make the result `None`.
@@ -647,9 +629,8 @@ square = value -> value * value
 mod math
 > math::square
 
-main = ->
+main = !->
     square 6 .println!
-    0
 ```
 
 `rock run` prints `36`. Exported names also have qualified paths such as `math::square`. Larger programs can use directory modules and path dependencies; see [Modules](https://champii.github.io/Rock/programs/modules.html) and [Packages](https://champii.github.io/Rock/programs/packages.html).
@@ -663,9 +644,8 @@ infix 9 %%
 
 %% = left, right -> left * 10 + right
 
-main = ->
+main = !->
     4 %% 2 .println!
-    0
 ```
 
 This prints `42`. `infix 9 %%` declares the operator's precedence; the `%%` function defines what it does. Prefer named functions when a new symbol would make an API harder to learn.
@@ -681,9 +661,8 @@ macro make_constant
 
 %make_constant answer 6 * 7
 
-main = ->
+main = !->
     answer!.println!
-    0
 ```
 
 This prints `42`. `$name:ident` captures an identifier and `$value:expr` captures an expression. Macro invocation arguments are token patterns, not the comma-separated argument list of an ordinary function call. Use `rock expand` to inspect generated code; macro support is still experimental.
@@ -699,12 +678,11 @@ Threads use the same `Result` operators as other fallible operations. A single c
 ```haskell
 > stdlib::thread::spawn
 
-main = ->
+main = !->
     spawn (-> 42)
         >>= (.join!)
         <&> (.println!)
         <!> _ !-> "thread failed".println!
-    0
 ```
 
 On success this prints `42`. `>>=` joins the successfully created thread, `<&>` prints its successful result, and `<!>` prints a message if either creation or joining fails. The `!->` callback discards the print operation's return value and returns unit. Captured data must satisfy the thread API's ownership and `Send` requirements.
@@ -716,9 +694,8 @@ On success this prints `42`. `>>=` joins the successfully created thread, `<&>` 
 ```haskell
 extern abs: I32 -> I32
 
-main = ->
+main = !->
     abs -7 .println!
-    0
 ```
 
 This prints `7` using C's integer `abs`. Rock also exposes raw pointers and explicit `unsafe` operations; read the [FFI](https://champii.github.io/Rock/systems/ffi.html) and [Unsafe Code](https://champii.github.io/Rock/systems/unsafe.html) chapters before working with memory at that boundary.
@@ -750,10 +727,10 @@ Without arguments it starts a language server over standard input/output, not an
 
 ### Neovim
 
-The repository includes a plugin using Neovim's built-in LSP client, without requiring `nvim-lspconfig`. On Neovim 0.12, add this to `init.lua`:
+The [`neovim/`](neovim/) directory contains a plugin using Neovim's built-in LSP client, without requiring `nvim-lspconfig`. It requires Neovim 0.11 or newer. Clone this repository, then add its `neovim/` directory to `runtimepath` in `init.lua` (replace the path with your checkout):
 
 ```lua
-vim.pack.add({ { src = "https://github.com/Champii/Rock", version = "v0.5.1" } })
+vim.opt.runtimepath:prepend("/absolute/path/to/Rock/neovim")
 require("rock").setup()
 ```
 

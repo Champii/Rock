@@ -12,9 +12,10 @@ CONTENTS                                                     *rock-contents*
 SETUP                                                           *rock-setup*
 
 rock.nvim uses Neovim's native LSP configuration API and requires Neovim
-0.11 or newer. Configure it from init.lua:
+0.11 or newer. Add the checkout's neovim directory in init.lua:
 
 >lua
+    vim.opt.runtimepath:prepend("/absolute/path/to/Rock/neovim")
     require("rock").setup()
 <
 
@@ -39,7 +40,8 @@ OPTIONS                                                       *rock-options*
 
 cmd ~
     String or list used to start the server. By default the plugin checks
-    target/release/rock-lsp, target/debug/rock-lsp, and then $PATH.
+    target/release/rock-lsp and target/debug/rock-lsp in the repository root,
+    and then $PATH.
 
 extern_artifacts ~
     Table mapping crate names to .rkca artifact paths. Each entry becomes an

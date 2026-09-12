@@ -14,9 +14,8 @@ path = "main.rk"
 Create `main.rk` beside it with this complete program:
 
 ```rock
-main = ->
+main = !->
     "Hello, Rock!".println!
-    0
 ```
 
 Run it from the project directory:
@@ -30,17 +29,17 @@ The output contains one line, and the process exits with status zero.
 
 ## Reading the program
 
-`main = ->` declares a function named `main` with no parameters. The arrow separates its parameter list from its body. The extra indentation makes the next two lines part of that body.
+`main = !->` declares a function named `main` with no parameters. The arrow separates its parameter list from its body. The extra indentation makes the next line part of that body.
 
-The string literal is borrowed string data. `.println!` calls the prelude's printing method with no explicit arguments. The final `0` is the value returned by `main` and is conventionally the success status of a command-line program.
+The string literal is borrowed string data. `.println!` calls the prelude's printing method with no explicit arguments. The `!->` body evaluates that call, discards its result, and returns unit (`()`). The runtime maps a unit-returning `main` to process exit status `0`, so no final `0` expression is needed.
+
+Use `main = !->` for ordinary programs. Keep `main = ->` when you intentionally return an integer exit status, such as `1` to report failure; that arrow returns the body's trailing value instead of discarding it.
 
 Calls with arguments use spaces and commas:
 
 ```rock
-main = ->
-    maximum = max 10, 20
-    maximum.println!
-    0
+main = !->
+    max 10, 20 .println!
 ```
 
 `max` is a prelude function. The first argument is `10`, the second is `20`, and the result is bound to `maximum` before it is printed.
@@ -53,9 +52,8 @@ A one-expression function can stay on one line or use an indented body:
 square = number ->
     number * number
 
-main = ->
+main = !->
     square 5 .println!
-    0
 ```
 
 The final expression of `square` is its return value. Earlier expressions can perform effects before the final value:
@@ -65,9 +63,8 @@ announce_square = number ->
     "squaring a number".println!
     number * number
 
-main = ->
+main = !->
     announce_square 5 .println!
-    0
 ```
 
 An explicit `return` exits before the end of the block:
@@ -78,9 +75,8 @@ absolute = number ->
         return number
     0 - number
 
-main = ->
+main = !->
     absolute 0 - 5 .println!
-    0
 ```
 
 For `-5`, the condition is false, so execution reaches `0 - number` and produces `5`. For a nonnegative value, `return number` skips the remaining expression.
@@ -90,19 +86,18 @@ For `-5`, the condition is false, so execution reaches `0 - number` and produces
 Rock supports line and block comments:
 
 ```rock
-main = ->
+main = !->
     // This line explains why the next value is printed.
     /* A block comment can
        cover several source lines. */
     "comments do not produce values".println!
-    0
 ```
 
 Comments are ignored by the compiler. Use them for intent, constraints, or a non-obvious reason, not as a translation of every line.
 
 ## Common mistakes
 
-- Leaving out the final `0` from `main` when the body otherwise returns `()`.
+- Using `!->` when you intend to return a custom integer exit status; use `->` instead.
 - Writing `println("text")`; the current call form is `"text".println!`.
-- Indenting a statement at the same level as `main = ->`; that makes it a separate top-level item instead of part of `main`.
+- Indenting a statement at the same level as `main = !->`; that makes it a separate top-level item instead of part of `main`.
 - Running `rock` outside the directory containing `rock.toml`.

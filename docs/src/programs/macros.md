@@ -11,14 +11,13 @@ The simplest matcher has no captures. The invocation is a top-level `%name` line
 ```rock
 macro make_main
     =>
-        main = ->
+        main = !->
             42.println!
-            0
 
 %make_main
 ```
 
-The expansion produces a normal `main` function, which prints `42` and returns `0`. The macro itself is not a runtime function and has no runtime ownership effect; only the generated declarations participate in type checking and cleanup. Keep generated names unique because two expansions that emit the same top-level name create the same conflict as handwritten declarations.
+The expansion produces a normal unit-returning `main` function, which prints `42` and exits with status `0`. The macro itself is not a runtime function and has no runtime ownership effect; only the generated declarations participate in type checking and cleanup. Keep generated names unique because two expansions that emit the same top-level name create the same conflict as handwritten declarations.
 
 ## Capturing identifiers and expressions
 
@@ -33,9 +32,8 @@ macro make_constant
 
 %make_constant answer 6 * 7
 
-main = ->
+main = !->
     answer! .println!
-    0
 ```
 
 The generated `answer` returns `42`, so this executable example prints `42`. A macro invocation always starts with `%`, while an ordinary declaration would not be expanded.
@@ -66,11 +64,10 @@ macro define_values
 
 %define_values first second third
 
-main = ->
+main = !->
     first! .println!
     second! .println!
     third! .println!
-    0
 ```
 
 The matcher captures three identifiers and the template emits three functions. The output is `9`, `9`, and `9`. Repetition consumes the captured tokens into generated declarations; it does not clone a runtime value and does not create a runtime loop. Captures in one repeated group must have the same number of elements.
@@ -85,10 +82,9 @@ macro define_aliases
 source = -> 7
 %define_aliases source left right
 
-main = ->
+main = !->
     left! .println!
     right! .println!
-    0
 ```
 
 The output is `7` and `7`. The source declaration appears before the invocation, so the generated functions have a real target and no placeholder value. Do not nest another repetition inside either matcher or template; nested repetition is a known unsupported area even though the token grammar accepts repetition groups.
@@ -107,10 +103,9 @@ macro make_value
 %make_value explicit 8
 %make_value fallback
 
-main = ->
+main = !->
     explicit! .println!
     fallback! .println!
-    0
 ```
 
 The output is `8` and `0`. Put the more specific arm first; a broad arm can consume input before a later arm gets a chance. Invalid input is reported near the invocation, but expansion-origin labels and indentation diagnostics are still being improved.

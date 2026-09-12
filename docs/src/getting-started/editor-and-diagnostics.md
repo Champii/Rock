@@ -23,10 +23,8 @@ path = "main.rk"
 add: I64 -> I64 -> I64
 add = left, right -> left + right
 
-main = ->
-    answer = add 20, 22
-    answer.println!
-    0
+main = !->
+    add 20, 22 .println!
 ```
 
 From the directory containing `rock.toml`, run:
@@ -40,19 +38,18 @@ The manifest lets the editor and build command agree on the program entry, path 
 
 ## Connect Neovim
 
-The Rock repository doubles as a Neovim plugin. It uses Neovim's native LSP APIs and requires Neovim 0.11 or newer; no `nvim-lspconfig` dependency is needed. Choose one of the following installation methods.
+The Rock repository contains a Neovim plugin under `neovim/`. It uses Neovim's native LSP APIs and requires Neovim 0.11 or newer; no `nvim-lspconfig` dependency is needed.
 
-With Neovim 0.12's built-in package manager, put this in `init.lua`:
+Clone the repository if you do not already have a checkout:
 
-```lua
-vim.pack.add({ "https://github.com/Champii/Rock" })
-require("rock").setup()
+```console
+$ git clone https://github.com/Champii/Rock.git
 ```
 
-For an existing local checkout, including on Neovim 0.11, add the repository root to `runtimepath` before setup instead. Replace the path with your checkout's absolute path:
+Add the checkout's `neovim/` directory, not the repository root, to `runtimepath` in `init.lua` before setup. Replace the path with your checkout's absolute path:
 
 ```lua
-vim.opt.runtimepath:prepend("/absolute/path/to/Rock")
+vim.opt.runtimepath:prepend("/absolute/path/to/Rock/neovim")
 require("rock").setup()
 ```
 
@@ -97,10 +94,9 @@ Tree-sitter highlighting is separate. The repository's `tree-sitter-rock/` proje
 **Intentional error: an integer annotation with a Boolean value.**
 
 ```rock
-main = ->
+main = !->
     count: I64 = true
     count.println!
-    0
 ```
 
 Replace `main.rk` with this example and save it, then run `rock build`. Compilation should fail: `true` has type `Bool`, but the binding requires `I64`. The following reading order applies even as exact diagnostic wording and terminal layout evolve:
@@ -116,10 +112,9 @@ For this example, compare the annotation with the initializer. If `count` is mea
 **Corrected program:**
 
 ```rock
-main = ->
+main = !->
     count: I64 = 3
     count.println!
-    0
 ```
 
 `rock run` prints `3`. If the intended value were a flag instead, a `Bool` annotation and a suitable binding name would express that different intent. A compiler error tells you which constraints disagree; it cannot choose the intended design for you.
@@ -139,12 +134,11 @@ Some errors concern the relationship between two operations. Here is a complete 
 **Intentional error: changing a value while it is borrowed.**
 
 ```rock
-main = ->
+main = !->
     mut number: I64 = 1
     view = &number
     number = 2
     *view .println!
-    0
 ```
 
 Run `rock build` to check this example. The assignment conflicts with the shared borrow: `view` is used afterward, so its access must remain valid across the assignment. A borrow-conflict report can label both the conflicting access and where the borrow was introduced. Read those labels together rather than deleting the highlighted assignment without considering the later use.
@@ -152,13 +146,12 @@ Run `rock build` to check this example. The assignment conflicts with the shared
 **Corrected program: finish using the reference before assigning.**
 
 ```rock
-main = ->
+main = !->
     mut number: I64 = 1
     view = &number
     *view .println!
     number = 2
     number.println!
-    0
 ```
 
 This version prints `1` and then `2`. The last use of `view` now precedes the assignment. See [References and Borrowing](../language/references.md) for the ownership rules behind this correction.

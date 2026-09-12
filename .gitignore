@@ -5,6 +5,14 @@
 coverage/
 .worktrees/
 
+# Local agent context, scratch projects, and editor state
+[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
+MEMORY.md
+/test_project*
+/dist/
+/.beads/
+/.vscode/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db

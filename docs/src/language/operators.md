@@ -7,7 +7,7 @@ Rock does not assign permanent meanings to punctuation. The current source progr
 With the standard library prelude, ordinary operators are selected from the operand types.
 
 ```rock
-main = ->
+main = !->
     sum: I64 = 2 + 3
     same: Bool = sum == 5
     low: I64 = 2
@@ -16,7 +16,6 @@ main = ->
     sum.println!
     same.println!
     inside.println!
-    0
 ```
 
 The declared result types are `I64`, `Bool`, and `Bool`; the output is `5`, `true`, and `true`. Removing those local annotations would let the same operand and operator constraints infer the types. If no implementation matches the operand types, compilation fails instead of applying a hidden built-in conversion.
@@ -31,10 +30,9 @@ infix 9 %%
 %%: I64 -> I64 -> I64
 %% = left, right -> left - right
 
-main = ->
+main = !->
     result: I64 = 40 %% 2
     result.println!
-    0
 ```
 
 The declaration makes `%%` parse as an infix operator at precedence `9`; the function returns `left - right`, so the output is `38`. A dependency can transport its declarations, which is why two dependencies should not assign conflicting precedence to the same symbol.
@@ -55,14 +53,13 @@ trait Combine Rhs
 impl Combine Boxed for Boxed
     @%% = other -> @value + other.value
 
-main = ->
+main = !->
     left = Boxed
         value: 40
     right = Boxed
         value: 2
     result: I64 = left %% right
     result.println!
-    0
 ```
 
 The receiver is `Boxed`, the right operand is `Boxed`, and the selected implementation returns `42`. The compiler does not need to know a special meaning for `%%`; the trait declaration and implementation provide it.
@@ -72,14 +69,13 @@ The receiver is `Boxed`, the right operand is `Boxed`, and the selected implemen
 Prefix operators use the same type-directed model. The standard library provides negation for numeric values and logical not for booleans where an implementation exists.
 
 ```rock
-main = ->
+main = !->
     value: I64 = 7
     condition: Bool = true
     negative: I64 = -value
     opposite: Bool = !condition
     negative.println!
     opposite.println!
-    0
 ```
 
 The output is `-7` and `false`. User-defined types can also implement the `Neg` and `Not` traits with `@-` and `@!` methods and an associated `Output` type.
@@ -92,10 +88,9 @@ Parenthesized operator sections create functions. `(+ 2)` waits for its left ope
 increment: I64 -> I64
 increment = (+ 2)
 
-main = ->
+main = !->
     result: I64 = increment 5
     result.println!
-    0
 ```
 
 `increment` has type `I64 -> I64`, and the output is `7`. Use an explicit lambda when the missing side or ownership is not obvious.
@@ -115,14 +110,13 @@ keep_even = value ->
     else
         Option::None
 
-main = ->
+main = !->
     mapped: Option I64 = Option::Some 4 <&> increment
     bound: Option I64 = Option::Some 4 >>= keep_even
     fallback: Option I64 = Option::None <|> Option::Some 9
     mapped.unwrap_or 0 |> value -> value.println!
     bound.unwrap_or 0 |> value -> value.println!
     fallback.unwrap_or 0 |> value -> value.println!
-    0
 ```
 
 The output is `5`, `4`, and `9`. `<&>` maps a function over `Option`, `>>=` calls a function that returns another `Option`, `<|>` chooses the first present value, and `|>` passes a value to a function. These meanings are standard-library definitions, not compiler fallbacks.
@@ -135,13 +129,12 @@ Function application has precedence `8`. Operators above that precedence become 
 double: I64 -> I64
 double = value -> value * 2
 
-main = ->
+main = !->
     doubled_sum: I64 = double 2 + 2
     adjusted_result: I64 = (double 2) + 2
     doubled_sum .println!
     adjusted_result .println!
     Option::Some 2 <&> (+ 2) .unwrap_or 0 .println!
-    0
 ```
 
 `+` has precedence `9`, so `double 2 + 2` means `double (2 + 2)` and prints `8`. Parentheses make `(double 2) + 2` apply addition to the call result and print `6`. `<&>` has precedence `8`, so it operates on `Option::Some 2`; the spaced dots then apply `unwrap_or` and `println!` to each complete result. A tight dot such as `value.method!` still binds directly to `value`.

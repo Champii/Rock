@@ -60,10 +60,9 @@ geometry = { path = "../geometry" }
 /tmp/rock-path-project/app/main.rk
 > geometry::square
 
-main = ->
+main = !->
     result: I64 = square 6
     result.println!
-    0
 ```
 
 The workaround is to keep the dependency local and compile from
@@ -91,11 +90,10 @@ increment = value ->
     *value = *value + 1
     return
 
-main = ->
+main = !->
     mut number: I64 = 4
     increment &mut number
     number.println!
-    0
 ```
 
 Format it, inspect the resulting diff, and compile the formatted file. The
@@ -111,8 +109,8 @@ not a supported compiled project:
 main.rk
 mod inline
 
-main = ->
-    0
+main = !->
+    ()
 ```
 
 Use a file-backed module instead, with `inline.rk` beside `main.rk`, and import
@@ -140,11 +138,10 @@ has_text = message ->
         Message::Text _ => false
         Message::Empty => false
 
-main = ->
+main = !->
     message: Message = Message::Text String::from_str "hello"
     result: Bool = has_text message
     result.println!
-    0
 ```
 
 The workaround is to match without the guard and perform the condition inside
@@ -161,11 +158,10 @@ has_text = message ->
         Message::Text text => text.len! > 0
         Message::Empty => false
 
-main = ->
+main = !->
     message: Message = Message::Text String::from_str "hello"
     result: Bool = has_text message
     result.println!
-    0
 ```
 
 Incomplete enum matches are not diagnosed in every path, so list every
@@ -190,9 +186,8 @@ choose = flag ->
     else
         0
 
-main = ->
+main = !->
     choose true
-    0
 ```
 
 Return data from the helper and consume it in the caller instead:
@@ -210,10 +205,9 @@ choose = flag ->
     else
         0
 
-main = ->
+main = !->
     chosen: I64 = choose true
     chosen.println!
-    0
 ```
 
 ### Operators, generic carriers, and text
@@ -229,11 +223,10 @@ impl Neg for Wrapper
     type Output = I64
     @- = -> @value
 
-main = ->
+main = !->
     value = Wrapper
         value: 7
     -value .println!
-    0
 ```
 
 `?` works with the standard `Option` and `Result` carriers and with a custom
@@ -253,11 +246,10 @@ not user-perceived characters:
 > stdlib::eq::Eq
 > stdlib::hash::Hash
 
-main = ->
+main = !->
     text: String = String::from_str "cafe"
     length: I64 = text.len!
     length.println!
-    0
 ```
 
 Use ASCII protocol data or process a deliberately specified byte encoding until
@@ -279,7 +271,7 @@ methods such as `for_each` and `map`, but no general lazy iterator API or
 without changing the order of the remaining elements:
 
 ```rock
-main = ->
+main = !->
     mut values: Vec I64 = Vec::new!
     values.push 10
     values.push 20
@@ -287,7 +279,6 @@ main = ->
     match values.swap_remove (length - 1)
         Option::Some last => last.println!
         Option::None => "empty".println!
-    0
 ```
 
 Removing an interior element with `swap_remove` moves the last element into
@@ -301,7 +292,7 @@ hashing. Its intended lookup surface is `new`, `len`, `insert`, `get`, and
 `contains_key`:
 
 ```rock
-main = ->
+main = !->
     mut scores: HashMap &Str, I64 = HashMap::new!
     scores.insert "Ada", 10
     key: &Str = "Ada"
@@ -313,7 +304,6 @@ main = ->
             Option::None => 0.println!
     else
         "missing".println!
-    0
 ```
 
 An installed toolchain must contain the standard library built from the same
@@ -343,10 +333,9 @@ arguments instead:
 ```rock
 > stdlib::env::args
 
-main = ->
+main = !->
     arguments: Vec String = args!
     arguments.len!.println!
-    0
 ```
 
 Networking is blocking IPv4 TCP only. It has no TLS, UDP, IPv6, or timeout
@@ -362,12 +351,11 @@ bind_local = ->
     address: SocketAddrV4 = SocketAddrV4::new Ipv4Addr::localhost!, 0
     TcpListener::bind address
 
-main = ->
+main = !->
     result: Result TcpListener, IoError = bind_local!
     match result
         Result::Ok _ => 1.println!
         Result::Err error => error.println!
-    0
 ```
 
 Use a thread around a blocking operation when limited concurrency is enough,

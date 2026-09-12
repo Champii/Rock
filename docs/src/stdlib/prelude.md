@@ -20,11 +20,10 @@ The prelude does not turn a missing implementation into a compiler fallback: an 
 `Show` converts a value to an owned `String`, and `println!` writes that representation. Literal values have prelude implementations, so this complete program needs no imports.
 
 ```rock
-main = ->
+main = !->
     42.println!
     true.println!
     "Rock".println!
-    0
 ```
 
 The output is `42`, `true`, and `Rock`. Printing inspects a value where possible; it does not consume an owned value merely to display it.
@@ -41,12 +40,11 @@ impl Show for Point
     @show = ->
         "Point(" + @x.show! + ", " + @y.show! + ")"
 
-main = ->
+main = !->
     point = Point
         x: 3
         y: 4
     point.println!
-    0
 ```
 
 The output is `Point(3, 4)`. The fields are exported here so the complete fence can construct the value at the program boundary; a private field would require a public constructor or factory function.
@@ -59,10 +57,9 @@ Primitive arithmetic is supplied by stdlib trait implementations. A concrete fun
 sum: I64 -> I64 -> I64
 sum = left, right -> left + right
 
-main = ->
+main = !->
     integer: I64 = sum 20, 22
     integer.println!
-    0
 ```
 
 The output is `42`. Without a matching `Add` implementation and operator declaration, `+` has no fallback meaning. Equality, ordering, negation, bitwise operations, and indexing follow the same library-owned design.
@@ -72,7 +69,7 @@ The output is `42`. Without a matching `Add` implementation and operator declara
 The `From` family expresses reusable conversions, while primitive casts use `as`. The common `String` constructors are prelude-accessible.
 
 ```rock
-main = ->
+main = !->
     from_text: String = String::from_str "hello"
     from_integer: String = String::from_i64 42
     from_float: String = String::from_f64 3.5
@@ -81,7 +78,6 @@ main = ->
     from_integer.println!
     from_float.println!
     from_character.println!
-    0
 ```
 
 The output is `hello`, `42`, `3.5`, and `R`. Use an explicit constructor or trait conversion when ownership and failure behavior matter; use `as` for a primitive representation cast whose validity is already understood by the caller.
@@ -91,13 +87,12 @@ The output is `hello`, `42`, `3.5`, and `R`. Use an explicit constructor or trai
 `Clone` explicitly creates another owner, `Drop` supplies deterministic cleanup, and `Deref` forwards access through wrappers such as `Box` and `Arc`. `Fn`, `FnMut`, and `FnOnce` describe callable ownership; `Send` and `Sync` are checked when values cross a spawned thread. This example demonstrates clone and dereference without hiding the declarations involved.
 
 ```rock
-main = ->
+main = !->
     original: String = String::from_str "owned"
     duplicate: String = original.clone!
     shared: Arc String = Arc::new duplicate
     *shared .println!
     original.println!
-    0
 ```
 
 The output is `owned` twice. `duplicate` moves into `Arc`, while `original` remains independent because `clone!` created a second allocation. A shared reference is cheaper than `Clone` when a second owner is not required.
@@ -117,7 +112,7 @@ write_marker = path ->
     mut file = File::create path?
     file.write_str "marker"
 
-main = ->
+main = !->
     match write_marker "rock-prelude-marker.txt"
         Result::Ok count => count.println!
         Result::Err _ => 1
@@ -127,7 +122,6 @@ main = ->
                 Result::Ok value => value.println!
                 Result::Err _ => 1
         Result::Err _ => 1
-    0
 ```
 
 The output is `6` and `7`, and the marker file contains `marker`. The imports document the module boundary even though `Result`, `String`, and numeric operators come from the prelude. Keep specialized imports at the top of the fence or source file so a reader can see the dependency without searching another chapter.

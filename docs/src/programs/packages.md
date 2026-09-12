@@ -28,12 +28,11 @@ path = "main.rk"
 ### `main.rk`
 
 ```rock
-main = ->
+main = !->
     "project entry point".println!
-    0
 ```
 
-From `hello-package/`, `rock build` compiles the entry and writes products below `build/`; `rock run` builds and executes the linked program. The output is `project entry point` and the program returns `0`. The manifest key is called `lib.path` even when the selected source contains an executable `main` function.
+From `hello-package/`, `rock build` compiles the entry and writes products below `build/`; `rock run` builds and executes the linked program. The output is `project entry point` and the program exits with status `0` because `main` returns unit. The manifest key is called `lib.path` even when the selected source contains an executable `main` function.
 
 ## A path dependency
 
@@ -95,12 +94,11 @@ geometry = { path = "../geometry" }
 > geometry::Point
 > geometry::distance_squared
 
-main = ->
+main = !->
     point = Point
         x: 3
         y: 4
     distance_squared point .println!
-    0
 ```
 
 `rock build` builds `geometry` before `geometry-app`, then passes the fresh dependency artifact to the root compilation. The application prints `25`. The dependency name in the manifest is also the crate path used by `> geometry::Point` and `> geometry::distance_squared`; the imported names must have been exported by `geometry/main.rk`.
@@ -115,7 +113,7 @@ The package graph still remains explicit. Declare each dependency in `rock.toml`
 
 ## Prelude and `no_std`
 
-Passing the `stdlib` artifact makes its prelude available automatically. A low-level package can opt out in its manifest. The complete no-stdlib source uses only a primitive return value, so it does not rely on prelude operators or types.
+Passing the `stdlib` artifact makes its prelude available automatically. A low-level package can opt out in its manifest. The complete no-stdlib source returns unit (`()`), so it does not rely on prelude operators or types.
 
 Project tree:
 
@@ -140,8 +138,8 @@ path = "lib.rk"
 ### `lib.rk`
 
 ```rock
-main = ->
-    0
+main = !->
+    ()
 ```
 
 Without the prelude, `String`, `Option`, familiar methods, and standard operator implementations are not injected. This is intentional: primitive operator meanings are supplied by explicit library declarations and implementations rather than by compiler-owned fallbacks. Add an explicit dependency and import when a low-level package needs a particular capability.

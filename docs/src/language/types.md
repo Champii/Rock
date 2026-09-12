@@ -19,7 +19,7 @@ The primitive families used in ordinary programs are:
 This complete program gives each of the commonly encountered literal forms an explicit type:
 
 ```rock
-main = ->
+main = !->
     signed: I64 = -5
     unsigned: U64 = 255
     fraction: F64 = 3.5
@@ -32,7 +32,6 @@ main = ->
     enabled.println!
     letter.println!
     text.println!
-    0
 ```
 
 Numeric literals receive an expected type from an annotation or a function signature. When no expected type is available, the compiler applies its numeric defaulting rules. Use fixed-width names in public signatures so callers do not have to guess.
@@ -50,12 +49,11 @@ show_default_float = value ->
     value.println!
     return
 
-main = ->
+main = !->
     whole = 42
     decimal = 2.5
     show_default_integer whole
     show_default_float decimal
-    0
 ```
 
 The unannotated bindings are already defaulted before the calls are checked. The functions make those inferred types explicit to the reader, and the program prints `42` and `2.5`. A surrounding annotation can choose another numeric type before defaulting occurs.
@@ -65,12 +63,11 @@ The unannotated bindings are already defaulted before the calls are checked. The
 A string literal is borrowed string data with type `&Str`. `String` is a separate prelude type that owns a heap allocation:
 
 ```rock
-main = ->
+main = !->
     borrowed: &Str = "hello"
     owned = String::from_str borrowed
     borrowed.println!
     owned.println!
-    0
 ```
 
 The literal can be used while its source is available; `String::from_str` copies the bytes into owned storage. Current string helpers operate on bytes, so an index or offset is not automatically a Unicode scalar-value position.
@@ -80,12 +77,11 @@ The literal can be used while its source is available; `String::from_str` copies
 Local annotations use a colon:
 
 ```rock
-main = ->
+main = !->
     enabled: Bool = true
     distance: F64 = 12.5
     enabled.println!
     distance.println!
-    0
 ```
 
 Function signatures use arrows. The following declaration and definition agree on two `F64` parameters and an `F64` result:
@@ -95,10 +91,9 @@ hypotenuse: F64 -> F64 -> F64
 hypotenuse = a, b ->
     a * a + b * b as F64
 
-main = ->
+main = !->
     result = hypotenuse 3.0, 4.0
     result.println!
-    0
 ```
 
 The arrows are read left to right as the function's parameter types followed by its return type. Calls still use spaces and commas.
@@ -123,7 +118,7 @@ apply: (I64 -> I64) -> I64 -> I64
 apply = function, value ->
     function value
 
-main = ->
+main = !->
     pair: (I64, Bool) = (7, true)
     array: [I64; 4] = [1, 2, 3, 4]
     maybe: Option I64 = Option::Some 5
@@ -139,7 +134,6 @@ main = ->
     array[0].println!
     shared_value.println!
     doubled.println!
-    0
 ```
 
 The tuple has two elements, the fixed array has four `I64` elements, and `Option` and `Result` are generic prelude enums. `[I64]` is an unsized slice type, so a borrowed slice is written `&[I64]`. `&T` and `&mut T` are shared and mutable references. `*I64` is a raw pointer type; the dereference and assignment in the example are inside `unsafe` because the compiler cannot prove a raw pointer's validity.
@@ -151,12 +145,11 @@ Generic applications use spaces and commas rather than angle brackets. For examp
 Use `as` for an explicit primitive or pointer conversion:
 
 ```rock
-main = ->
+main = !->
     byte: U8 = 7
     count: I64 = byte as I64
     fraction: F64 = count as F64
     fraction.println!
-    0
 ```
 
 The cast applies to the expression immediately on its left. These parentheses are required so each operand is converted before division:
@@ -166,10 +159,9 @@ average: I64 -> I64 -> F64
 average = total, count ->
     (total as F64) / (count as F64)
 
-main = ->
+main = !->
     result = average 9, 2
     result.println!
-    0
 ```
 
 A cast is still checked against the supported conversion rules; it is not a general escape from type checking. Pointer casts deserve the same care as raw-pointer dereferences.

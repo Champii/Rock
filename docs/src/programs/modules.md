@@ -33,10 +33,9 @@ square-app/
 mod math
 > math::square
 
-main = ->
+main = !->
     square 6 .println!
     math::square 4 .println!
-    0
 ```
 
 ### `math.rk`
@@ -74,9 +73,8 @@ answer-app/
 mod tools
 > tools::answer
 
-main = ->
+main = !->
     answer!.println!
-    0
 ```
 
 ### `tools/mod.rk`
@@ -109,10 +107,9 @@ facade-app/
 mod api
 > api::*
 
-main = ->
+main = !->
     add 2, 5 .println!
     double 9 .println!
-    0
 ```
 
 ### `api.rk`
@@ -158,12 +155,11 @@ mod geometry
 > geometry::make_point
 > geometry::distance_squared
 
-main = ->
+main = !->
     point = make_point 3, 4
     point.x.println!
     point.y.println!
     distance_squared point .println!
-    0
 ```
 
 ### `geometry.rk`
@@ -207,9 +203,8 @@ qualified-app/
 mod left
 mod right
 
-main = ->
+main = !->
     left::value! + right::value! .println!
-    0
 ```
 
 ### `left.rk`

@@ -85,7 +85,7 @@ enum Result T, E
     Ok T
     Err E
 
-main = ->
+main = !->
     point = Point
         x: 10
         y: 20

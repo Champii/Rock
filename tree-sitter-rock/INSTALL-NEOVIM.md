@@ -143,7 +143,7 @@ struct Point
     x: Int
     y: Int
 
-main = ->
+main = !->
     point = Point
         x: 10
         y: 20
@@ -155,7 +155,7 @@ You should see:
 - `Point` highlighted as a type
 - `x` and `y` highlighted as properties
 - `main` highlighted as a function
-- `->` highlighted as an operator
+- `!->` highlighted as an operator
 - Comments in a different color
 
 If you see this, it's working! ✅

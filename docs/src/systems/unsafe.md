@@ -26,11 +26,10 @@ set_i64 = reference ->
     unsafe *pointer = 7
     return
 
-main = ->
+main = !->
     mut value: I64 = 42
     unsafe set_i64 &mut value
     value.println!
-    0
 ```
 
 The contract for `set_i64` is that the argument is aligned and initialized for
@@ -49,11 +48,10 @@ read_i64 = reference ->
     pointer: *I64 = reference as *I64
     unsafe *pointer
 
-main = ->
+main = !->
     value: I64 = 8
     result: I64 = unsafe read_i64 &value
     result.println!
-    0
 ```
 
 The contract states validity, alignment, initialization, aliasing, and lifetime
@@ -75,11 +73,10 @@ increment_i64 = reference ->
     unsafe *pointer = current + 1
     return
 
-main = ->
+main = !->
     mut value: I64 = 4
     unsafe increment_i64 &mut value
     value.println!
-    0
 ```
 
 Do not cast a pointer merely to bypass a failed borrow. A cast is justified
@@ -109,10 +106,9 @@ allocate_and_release = size ->
             free pointer
             size
 
-main = ->
+main = !->
     result: I64 = unsafe allocate_and_release 8
     result.println!
-    0
 ```
 
 Its contract is that positive `size` is a byte count, `malloc` and `free` are

@@ -363,6 +363,23 @@ process = data ->
     finalize step2
 ```
 
+#### Unit-Returning Functions and Entry Points
+
+The discard arrow `!->` evaluates a function or lambda body for effects, discards its result, and returns unit (`()`). Prefer it for an ordinary program's entry point:
+
+```haskell
+main = !->
+    "Hello, Rock!".println!
+```
+
+When `main` returns unit, normal completion maps to process exit status `0`; no final `0` expression is needed. Discarding a value does not inspect it for errors or produce a failure exit status. Use the ordinary `->` arrow when intentionally returning an integer exit status:
+
+```haskell
+main = ->
+    "This program intentionally reports failure.".println!
+    1
+```
+
 ### 6.2 Lambda Expressions
 ```haskell
 // Lambda syntax
@@ -586,7 +603,7 @@ A tight dot binds directly to its receiver: `value.method!`. A spaced dot has lo
 
 ### 12.1 Unsafe Blocks
 ```haskell
-main = ->
+main = !->
     unsafe
         ptr: *Int = get_raw_pointer!
         value = *ptr  // dereference raw pointer

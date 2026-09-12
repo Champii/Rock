@@ -49,6 +49,12 @@ main = ->
 `Server::serve` shares the handler safely and detaches one owned worker per
 connection. A request or response failure closes only that connection.
 
+Ordinary programs should prefer `main = !->`: it evaluates the body for effects,
+discards its result, and returns unit (`()`), which maps to process exit status
+`0` without a final `0`. This example intentionally keeps `main = ->` to return
+status `1` if binding fails and `0` if serving returns. Changing it to the discard
+arrow would discard those statuses, not propagate failure to the process.
+
 ## Protocol Scope
 
 The initial release supports:

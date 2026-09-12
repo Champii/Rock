@@ -14,19 +14,19 @@ message = greeting ->
         Greeting::Hello name => "Hello, " + name
         Greeting::Goodbye => "See you soon"
 
-main = ->
-    greeting = Greeting::Hello "Rock"
-    message greeting .println!
-    0
+main = !->
+    Greeting::Hello "Rock"
+        |> message
+        |> (.println!)
 ```
 
 The program has three top-level declarations:
 
 1. `Greeting` is an enum. A value is either `Hello` with a borrowed string payload or `Goodbye` with no payload.
 2. `message` is a function. Its parameter is `greeting`, and its body is the indented expression after `->`.
-3. `main` is the executable entry point. Its final expression, `0`, is the process status.
+3. `main` is the executable entry point. Its `!->` body runs for effects and returns unit (`()`).
 
-The execution order is explicit. `main` constructs a `Greeting::Hello`, passes it to `message`, prints the returned string, and then returns zero. The `match` expression chooses the first arm whose pattern fits the value. Because the `Hello` arm binds `name`, the body can concatenate that payload with another string.
+The execution order is explicit. `main` constructs a `Greeting::Hello`, passes it to `message`, and prints the returned string. Its `!->` body discards the trailing value and returns unit (`()`), which the runtime maps to process exit status `0`. The `match` expression chooses the first arm whose pattern fits the value. Because the `Hello` arm binds `name`, the body can concatenate that payload with another string.
 
 ## The visual grammar
 
@@ -35,13 +35,8 @@ Rock uses indentation instead of braces. Every line indented farther than its he
 Function declarations use `name = parameters -> body`. Calls put arguments after the callee and separate multiple arguments with commas:
 
 ```rock
-add = left, right ->
-    left + right
-
-main = ->
-    sum = add 20, 22
-    sum.println!
-    0
+add = left, right -> left + right
+main = !-> add 20, 22 .println!
 ```
 
 The call `add 20, 22` has two arguments. Each argument is a complete expression, so `add 2 + 3, 4` passes `5` and `4` without extra grouping. Parentheses remain useful when they change precedence or delimit a nested call containing commas; they do not replace the space-and-comma call syntax. A trailing `!` invokes a zero-argument function or method, so `println!` means “call `println` with no explicit arguments.”
@@ -52,13 +47,11 @@ Blocks are expressions. A block evaluates each earlier expression for its effect
 square = number ->
     number * number
 
-main = ->
-    result = square 6
-    result.println!
-    0
+main = !->
+    square 6 .println!
 ```
 
-The function `square` returns `36` because its final expression is `number * number`. In `main`, `result.println!` runs for its effect and `0` supplies the enclosing function's result.
+The function `square` returns `36` because its final expression is `number * number`. In `main`, `.println!` runs for its effect, and `!->` discards its value and returns unit.
 
 ## Types without ceremony
 
@@ -69,10 +62,9 @@ double: I64 -> I64
 double = value ->
     value * 2
 
-main = ->
+main = !->
     answer: I64 = double 21
     answer.println!
-    0
 ```
 
 `double` accepts an `I64` and returns an `I64`. The annotation does not change the call syntax or create a runtime conversion. It gives the compiler a contract to check.

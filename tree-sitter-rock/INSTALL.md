@@ -71,7 +71,7 @@ struct Point
     x: Int
     y: Int
 
-main = ->
+main = !->
     point = Point
         x: 10
         y: 20

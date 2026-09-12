@@ -1,5 +1,0 @@
-// Comment at start
-main = ->
-    x = 42
-
-

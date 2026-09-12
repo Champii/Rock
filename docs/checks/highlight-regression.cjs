@@ -7,11 +7,10 @@ const resourceSource = `struct Resource
 impl Drop for Resource
     ~@drop = -> return
 
-main = ->
+main = !->
     resource = Resource
         id: 7
     resource.id.println!
-    0
 `;
 
 function verifyResourceHighlight(html) {
@@ -23,6 +22,7 @@ function verifyResourceHighlight(html) {
         ["id", "property"], [":", "punctuation.annotation"], ["I64", "type"],
         ["Drop", "type"], ["~@", "variable.builtin"], ["drop", "function"],
         ["=", "operator.assignment"], ["->", "operator.arrow"], ["println", "function"],
+        ["!->", "operator.arrow"],
         ["!", "punctuation.special"], ["resource", "variable"], ["7", "number"],
     ]) {
         assert.ok(spans.some((span) => span.text === text && span.classes.join(".") === capture),

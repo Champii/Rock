@@ -45,13 +45,12 @@ print_value = value ->
         FizzBuzzValue::Text text => text.println!
         FizzBuzzValue::Number number => number.println!
 
-main = ->
+main = !->
     number = 1
     while number <= 30
         value = fizzbuzz_value number
         print_value value
         number = number + 1
-    0
 ```
 
 Run it from the project directory:
@@ -112,7 +111,7 @@ enum FizzBuzzValue
     Text &Str
     Number I64
 
-main = ->
+main = !->
     word = FizzBuzzValue::Text "Fizz"
     number = FizzBuzzValue::Number 7
     word_text = match word
@@ -123,7 +122,6 @@ main = ->
         FizzBuzzValue::Text text => text
         FizzBuzzValue::Number value => "number"
     number_text.println!
-    0
 ```
 
 Both local bindings have the same enum type even though their payloads differ. The matches make the payload types visible: `text` is `&Str` in its arm and `value` is `I64` in its arm.
@@ -208,11 +206,10 @@ print_value = value ->
         FizzBuzzValue::Text text => text.println!
         FizzBuzzValue::Number number => number.println!
 
-main = ->
+main = !->
     for number in 1..31
         value = fizzbuzz_value number
         print_value value
-    0
 ```
 
 The loop pattern `number` receives each range element. There is no explicit increment because the range iterator advances it.

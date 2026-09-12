@@ -1,8 +1,0 @@
-main = ->
-    [a]: Lol = 2
-
-trait A
-
-impl A for Lol
-    a = -> 1
-

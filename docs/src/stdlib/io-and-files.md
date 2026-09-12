@@ -33,11 +33,10 @@ write_demo = path ->
     file = File::create path?
     write_text &file, "hello"
 
-main = ->
+main = !->
     match write_demo "rock-io-traits.txt"
         Result::Ok count => count.println!
         Result::Err _ => -1 .println!
-    0
 ```
 
 This example writes five bytes and prints `5`; `read_text_prefix` demonstrates the reader signature even though `main` only uses the write path. `read` needs exclusive access to both the reader and buffer. Writing needs only a shared handle, so the file does not need a mutable binding. The file closes automatically when its owner is dropped.
@@ -173,11 +172,10 @@ read_stdin = ->
     mut buffer: [U8; 16] = [0; 16]
     input.read &mut buffer
 
-main = ->
+main = !->
     match read_stdin!
         Result::Ok count => count.println!
         Result::Err _ => -1 .println!
-    0
 ```
 
 ## Copying and the `|>>` operator
@@ -219,10 +217,9 @@ The output is `20`, and the destination contains the same 20 bytes. The source `
 ```rock
 > stdlib::env::args
 
-main = ->
+main = !->
     values: Vec String = args!
     values.len!.println!
-    0
 ```
 
 With no user arguments the output is `1`; with `first second` after the run separator it is `3`. The vector owns each argument string, and there is currently no standard environment-variable API.

@@ -10,7 +10,7 @@ The standard library supplies owned strings and heap-backed containers. Their AP
 describe: &Str -> String
 describe = value -> String::from_str value
 
-main = ->
+main = !->
     name: &Str = "Rock"
     owned: String = describe name
     empty: String = String::new!
@@ -26,7 +26,6 @@ main = ->
     view.println!
     combined.println!
     message.println!
-    0
 ```
 
 The output is `0`, `Rock`, `4`, `Rock`, `Rock42`, and `Hello, Rock!`. `from_str`, `new`, `from_i64`, `len`, and `as_str!` are explicit constructors or shared views. `clone!` makes a second owner. `concat` consumes the two `String` operands and returns a new owner, so `owned` and `number` are not used after that expression. The `+` implementations cover `String` and `&Str` combinations and also return a new `String`.
@@ -44,7 +43,7 @@ The search helpers live in `stdlib::string` and are not prelude names. This fenc
 > stdlib::string::string_find
 > stdlib::string::string_len
 
-main = ->
+main = !->
     text: &Str = "rock"
     length: I64 = string_len text
     offset: I64 = string_find text, "oc"
@@ -57,7 +56,6 @@ main = ->
     contains.println!
     middle.len!.println!
     second as I64 .println!
-    0
 ```
 
 The output is `4`, `1`, `1`, `2`, and `111`. `string_find` returns a byte offset or `-1`; `string_contains` returns `1` or `0`; `byte_substr` returns an owned `Vec U8`; and `byte_at` reads one byte from a byte slice. Out-of-range behavior is not a Unicode-aware character operation, so validate byte boundaries in the caller.
@@ -67,7 +65,7 @@ The output is `4`, `1`, `1`, `2`, and `111`. `string_find` returns a byte offset
 `Vec T` is a growable owned sequence. A mutable receiver method requires a mutable binding. `get` returns `Option &T` for a checked lookup; `set` replaces an existing element; `swap_remove` removes an element by moving the last element into its position.
 
 ```rock
-main = ->
+main = !->
     mut values: Vec I64 = Vec::new!
     values.push 10
     values.push 20
@@ -82,7 +80,6 @@ main = ->
         Option::Some value => value.println!
         Option::None => -1 .println!
     values.len!.println!
-    0
 ```
 
 The output is `[10, 20, 30]`, `99`, `10`, and `2`. `as_slice!` borrows the vector, so do not keep that borrow live across `push`, `set`, or `swap_remove`. `swap_remove` does not preserve order: after removing index `0`, the old final element occupies that position.
@@ -92,7 +89,7 @@ The output is `[10, 20, 30]`, `99`, `10`, and `2`. `as_slice!` borrows the vecto
 The callback type tells you whether an operation moves elements or borrows them. `map`, `filter`, and `filter_map` consume the source; `map_ref`, `for_each`, and `retain` borrow elements while processing them. `try_map` consumes the source and stops at the first `Result::Err`.
 
 ```rock
-main = ->
+main = !->
     mut source: Vec I64 = Vec::new!
     source.push 1
     source.push 2
@@ -144,7 +141,6 @@ main = ->
     retained_source.println!
     positives.println!
     checked.unwrap_or Vec::new! .println!
-    0
 ```
 
 The callback forms are intentionally explicit: the first `map` moves `source`, while `map_ref` leaves `borrowed_source` available after the callback. The output is `4`, `5`, `[2, 3, 4]`, `[5, 6]`, `[2]`, `[2]`, `[2, 3]`, and `[4, 5]`; the first two lines come from `for_each`. `try_map` returns `Ok` here. If a callback returns `Err 1`, later source elements are not mapped and the original source is consumed.
@@ -156,7 +152,7 @@ The concrete methods above are the supported everyday `Vec` surface. Higher-kind
 `HashMap K, V` requires `Hash` and `Eq` for keys. The current map supports construction, length, insertion, checked lookup, and key containment.
 
 ```rock
-main = ->
+main = !->
     mut scores = HashMap::new!
     scores.insert 10, 100
     scores.insert 20, 200
@@ -172,7 +168,6 @@ main = ->
         Option::Some score => score.println!
         Option::None => -1 .println!
     scores.len!.println!
-    0
 ```
 
 The output is `true`, `false`, `100`, `200`, and `2`. `ten`, `twenty`, and `thirty` are borrowed as probe keys, so the caller retains ownership. The implementation uses open addressing and grows near a 75 percent load factor. Removal, iteration, entry APIs, and configurable hashers are not currently public.
@@ -186,7 +181,7 @@ struct Point
     < x: I64
     < y: I64
 
-main = ->
+main = !->
     point = Point
         x: 3
         y: 4
@@ -197,7 +192,6 @@ main = ->
     view.x.println!
     view.y.println!
     (*boxed).x.println!
-    0
 ```
 
 The output is `5`, `4`, and `5`. `point` is moved into `boxed`; `as_mut!` changes the owned value through an exclusive borrow, `as_ref!` creates a shared view, and `*boxed` uses `Deref`. The box drops its value and allocation when `boxed` leaves scope.
@@ -207,12 +201,11 @@ The output is `5`, `4`, and `5`. `point` is moved into `boxed`; `as_mut!` change
 `Arc::new` creates atomic shared ownership. `clone!` increments the reference count, but `Arc` does not make the contained value mutable. Combine it with `Mutex T` when multiple owners must update shared state.
 
 ```rock
-main = ->
+main = !->
     state: Arc String = Arc::new String::from_str "shared"
     worker_copy: Arc String = state.clone!
     *state .println!
     *worker_copy .println!
-    0
 ```
 
 The output is `shared` twice. Both `Arc` values point at the same owned string; dropping the final owner releases the allocation. A mutable `String` cannot be obtained from an `Arc String` without a separate synchronization design.

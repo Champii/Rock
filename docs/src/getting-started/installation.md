@@ -162,10 +162,10 @@ It also contains `rock-lsp`, the language server used by editors. `rockup` insta
 
 ## Optional editor setup
 
-The repository includes a Neovim plugin that uses Neovim's built-in LSP client; it does not require `nvim-lspconfig`. The plugin requires Neovim 0.11 or newer. With Neovim 0.12, add this to `init.lua` to install it with the built-in package manager:
+The repository's `neovim/` directory contains a plugin that uses Neovim's built-in LSP client; it does not require `nvim-lspconfig`. The plugin requires Neovim 0.11 or newer. Clone the repository, then add this to `init.lua`, replacing the path with your checkout:
 
 ```lua
-vim.pack.add({ "https://github.com/Champii/Rock" })
+vim.opt.runtimepath:prepend("/absolute/path/to/Rock/neovim")
 require("rock").setup()
 ```
 

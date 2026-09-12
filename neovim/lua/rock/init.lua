@@ -2,9 +2,9 @@ local M = {}
 
 M.config = nil
 
-local function plugin_root()
+local function repository_root()
   local source = debug.getinfo(1, "S").source:sub(2)
-  return vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(source)))
+  return vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(source))))
 end
 
 local function executable(path)
@@ -12,7 +12,7 @@ local function executable(path)
 end
 
 local function default_server()
-  local root = plugin_root()
+  local root = repository_root()
   for _, profile in ipairs({ "release", "debug" }) do
     local candidate = vim.fs.joinpath(root, "target", profile, "rock-lsp")
     if executable(candidate) then

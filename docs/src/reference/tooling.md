@@ -18,9 +18,8 @@ path = "main.rk"
 Create `main.rk` beside it:
 
 ```rock
-main = ->
+main = !->
     "rock-book-project".println!
-    0
 ```
 
 The manifest's `[lib].path` selects the source entry even when that source contains an executable `main` function.
@@ -106,10 +105,10 @@ These options are for standalone or compiler-development workflows, not normal a
 
 ## Neovim plugin
 
-The repository itself is the plugin. It requires Neovim 0.11 or newer and uses `vim.lsp.config` and `vim.lsp.enable`, without an additional Lua dependency. Neovim 0.12 users can install it with:
+The plugin lives under `neovim/`, not at the repository root. It requires Neovim 0.11 or newer and uses `vim.lsp.config` and `vim.lsp.enable`, without an additional Lua dependency. Clone the repository, then add its plugin directory in `init.lua` (replace the path with your checkout):
 
 ```lua
-vim.pack.add({ "https://github.com/Champii/Rock" })
+vim.opt.runtimepath:prepend("/absolute/path/to/Rock/neovim")
 require("rock").setup()
 ```
 

@@ -1,7 +1,0 @@
-// Math utility functions
-
-// Square a number
-square = x -> x * x
-
-// Cube a number
-cube = x -> x * x * x

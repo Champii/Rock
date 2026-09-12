@@ -18,9 +18,8 @@ path = "main.rk"
 Put a complete Rock program in `main.rk`:
 
 ```rock
-main = ->
+main = !->
     "project entry point".println!
-    0
 ```
 
 Rock currently calls the source entry a library path even when it contains the executable `main` function. From the project directory, build and run it:
