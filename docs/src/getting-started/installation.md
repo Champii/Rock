@@ -35,14 +35,16 @@ Rockup verifies the toolchain archive before unpacking it. Checksums detect corr
 `rockup install` defaults to `stable`, meaning GitHub's latest published non-prerelease release, not a promise that this experimental language has a stable API. To pin only the manager version when bootstrapping, use a published `vVERSION` tag:
 
 ```console
-$ sh scripts/install.sh v0.5.0
+$ sh scripts/install.sh v0.5.1
 ```
 
-That command uses the bootstrap from a checkout and does not install a toolchain. Install a pinned toolchain separately with `rockup install v0.5.0` after activating the shell. Stable bootstrap assets come from `releases/latest/download`; pinned manager assets come from `releases/download/vVERSION`.
+That command uses the bootstrap from a checkout and does not install a toolchain. Install a pinned toolchain separately with `rockup install v0.5.1` after activating the shell. Stable bootstrap assets come from `releases/latest/download`; pinned manager assets come from `releases/download/vVERSION`.
 
 ### Home and shell setup
 
 The bootstrap persists rockup as `~/.rockup/bin/rockup` and creates `rock`, `rockc`, and `rock-lsp` shims in `~/.rockup/bin`. The shims require a toolchain, installed separately by `rockup install` under `~/.rockup/toolchains`. Set `ROCKUP_HOME` to a nonempty absolute path before installation to use another location; keep using that value in later shells.
+
+An installed toolchain uses the standard library beside its own binaries, even when you run it inside a compiler checkout with a `target/` directory. `CARGO_TARGET_DIR` affects development sysroot discovery, not installed toolchains. `ROCK_SYSROOT` remains an explicit override; leave it unset for normal rockup-managed use.
 
 The bootstrap refuses to overwrite an existing `ROCKUP_HOME/bin/rockup`, including a dangling symlink. Use that installed manager's `install`, `update`, or `self update` command instead of rerunning the bootstrap. Installing a release does not delete an installed local `dev` toolchain or replace an existing default; the first toolchain in an empty home becomes the default.
 
@@ -75,14 +77,14 @@ Both commands default to `stable`. Use `update` when that toolchain is already i
 Install a version without changing an existing default:
 
 ```console
-$ rockup install v0.5.0
+$ rockup install v0.5.1
 ```
 
-The bare spelling `rockup install 0.5.0` selects the same release and stores it as `v0.5.0`; do not run both installation commands for the same version. To choose it globally or run a single command explicitly:
+The bare spelling `rockup install 0.5.1` selects the same release and stores it as `v0.5.1`; do not run both installation commands for the same version. To choose it globally or run a single command explicitly:
 
 ```console
-$ rockup default v0.5.0
-$ rockup run v0.5.0 rock --version
+$ rockup default v0.5.1
+$ rockup run v0.5.1 rock --version
 ```
 
 `rockup default NAME` selects an installed toolchain, including local `dev`, and automatically installs a missing stable or versioned release. Arbitrary local names must first be installed with `--path`.
@@ -91,7 +93,7 @@ For a project pin, create `rock-toolchain.toml` in the project directory with th
 
 ```toml
 [toolchain]
-channel = "v0.5.0"
+channel = "v0.5.1"
 ```
 
 Install that version first. The shims select a toolchain using `ROCKUP_TOOLCHAIN` first, then the nearest `rock-toolchain.toml` in the current directory or its ancestors, then the global default. A project pin selects an installed toolchain; it does not automatically download one. Use the canonical `v` spelling for version pins, or an installed local name such as `dev`.
@@ -109,7 +111,7 @@ The first two commands are equivalent. Updating `stable` leaves separately insta
 
 ```console
 $ rockup default stable
-$ rockup remove v0.5.0
+$ rockup remove v0.5.1
 ```
 
 Rockup is not a full Rustup replacement. Release downloads do not support Windows, macOS, musl, other CPU architectures, a nightly channel, or automatic cross-target installation. The local `target add --path` component workflow does not imply downloadable cross-target releases.

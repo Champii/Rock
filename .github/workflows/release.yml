@@ -34,6 +34,7 @@ jobs:
           LLVM_SYS_180_PREFIX: /usr/lib/llvm-18
         run: |
           test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
+          cargo test --locked -p rock-shared --all-features
           cargo test --locked -p rockup
           sh scripts/tests/install.sh
           bash scripts/release.sh "$RELEASE_TAG"

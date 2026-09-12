@@ -79,7 +79,11 @@ pub(crate) fn ensure_sysroot_stdlib_available() -> Result<SysrootLayout, String>
         ));
     }
 
-    let workspace_stdlib_root = workspace_stdlib_root()?;
+    let workspace_stdlib_root = if resolution.source == SysrootSource::CurrentDirTarget {
+        workspace_stdlib_root()?
+    } else {
+        None
+    };
 
     if sysroot_stdlib_is_fresh(&layout, workspace_stdlib_root.as_deref())? {
         return Ok(layout);

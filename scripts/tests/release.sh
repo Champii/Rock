@@ -55,5 +55,20 @@ manager=$ROCKUP_HOME/bin/rockup
 printf '[crate]\nname = "release_smoke"\nversion = "0.1.0"\n\n[lib]\npath = "main.rk"\n' > rock.toml
 printf 'main = ->\n    "Hello, Rock!".println!\n    0\n' > main.rk
 "$ROCKUP_HOME/bin/rock" run | grep -Fx 'Hello, Rock!'
+# An installed compiler must ignore an unrelated checkout's stale dev sysroot.
+workspace=$stage/workspace
+target=x86_64-unknown-linux-gnu
+decoy=$workspace/target/lib/rocklib/$target
+mkdir -p "$decoy" "$workspace/test_projects/app"
+cp rock.toml main.rk "$workspace/test_projects/app/"
+cp "$ROCKUP_HOME/toolchains/$RELEASE_TEST_TAG/lib/rocklib/$target/"{manifest,components}.json "$decoy/"
+printf 'stale checkout artifact\n' > "$decoy/stdlib.rkca"
+printf 'stale checkout object\n' > "$decoy/stdlib.o"
+(
+    cd "$workspace/test_projects/app"
+    "$ROCKUP_HOME/bin/rock" run | grep -Fx 'Hello, Rock!'
+    CARGO_TARGET_DIR="$workspace/target" "$ROCKUP_HOME/bin/rock" run | grep -Fx 'Hello, Rock!'
+)
+grep -Fx 'stale checkout artifact' "$decoy/stdlib.rkca"
 "$manager" remove stable
 printf 'Release bootstrap, update, pin, self-update, shims and compile passed.\n'

@@ -72,10 +72,6 @@ impl SysrootLayout {
             target_libdir,
         }
     }
-
-    fn source_stdlib_root(&self) -> PathBuf {
-        self.sysroot.join("src").join(STDLIB_CRATE_NAME)
-    }
 }
 
 pub fn resolve_sysroot(cli_sysroot: Option<&Path>) -> Result<SysrootResolution, String> {
@@ -84,30 +80,13 @@ pub fn resolve_sysroot(cli_sysroot: Option<&Path>) -> Result<SysrootResolution, 
     let current_dir = env::current_dir()
         .map_err(|e| format!("Failed to resolve current working directory: {}", e))?;
 
-    let resolution = resolve_sysroot_from(
+    resolve_sysroot_from(
         cli_sysroot,
         env::var_os(ROCK_SYSROOT_ENV).map(PathBuf::from),
         env::var_os(CARGO_TARGET_DIR_ENV).map(PathBuf::from),
         sysroot_from_current_dir(&current_dir),
         &current_exe,
-    )?;
-
-    if !resolution.is_explicit() {
-        let layout = resolution.clone().into_layout();
-        let needs_fallback = layout.sysroot == Path::new("/")
-            || (!layout.stdlib_artifact.exists() && !layout.source_stdlib_root().exists());
-
-        if needs_fallback {
-            if let Some(workspace_sysroot) = sysroot_from_current_dir(&current_dir) {
-                return Ok(SysrootResolution {
-                    path: workspace_sysroot,
-                    source: SysrootSource::CurrentDirTarget,
-                });
-            }
-        }
-    }
-
-    Ok(resolution)
+    )
 }
 
 pub fn resolve_sysroot_from(
@@ -128,6 +107,18 @@ pub fn resolve_sysroot_from(
         return Ok(SysrootResolution {
             path,
             source: SysrootSource::Env,
+        });
+    }
+
+    // Installed toolchains use <sysroot>/bin. Their stdlib must not come
+    // from a checkout or Cargo's build directory, even if the bundle is missing.
+    if executable
+        .parent()
+        .is_some_and(|parent| parent.ends_with("bin"))
+    {
+        return Ok(SysrootResolution {
+            path: sysroot_from_executable(executable)?,
+            source: SysrootSource::ExecutableRelative,
         });
     }
 
@@ -281,6 +272,55 @@ mod tests {
     }
 
     #[test]
+    fn test_installed_toolchain_ignores_workspace_and_cargo_target_dirs() {
+        for binary in ["rock", "rockc", "rock-lsp"] {
+            for cargo_target in [None, Some(PathBuf::from("/cargo-target"))] {
+                let resolution = resolve_sysroot_from(
+                    None,
+                    None,
+                    cargo_target,
+                    Some(PathBuf::from("/workspace/target")),
+                    &PathBuf::from("/toolchains/stable/bin").join(binary),
+                )
+                .unwrap();
+
+                assert_eq!(resolution.path, PathBuf::from("/toolchains/stable"));
+                assert_eq!(resolution.source, SysrootSource::ExecutableRelative);
+            }
+        }
+    }
+
+    #[test]
+    fn test_explicit_env_sysroot_overrides_installed_toolchain() {
+        let resolution = resolve_sysroot_from(
+            None,
+            Some(PathBuf::from("/explicit")),
+            Some(PathBuf::from("/cargo-target")),
+            Some(PathBuf::from("/workspace/target")),
+            &PathBuf::from("/toolchains/stable/bin/rock"),
+        )
+        .unwrap();
+
+        assert_eq!(resolution.path, PathBuf::from("/explicit"));
+        assert_eq!(resolution.source, SysrootSource::Env);
+    }
+
+    #[test]
+    fn test_dev_binary_preserves_cargo_target_override() {
+        let resolution = resolve_sysroot_from(
+            None,
+            None,
+            Some(PathBuf::from("/cargo-target")),
+            Some(PathBuf::from("/workspace/target")),
+            &PathBuf::from("/workspace/target/debug/rock"),
+        )
+        .unwrap();
+
+        assert_eq!(resolution.path, PathBuf::from("/cargo-target"));
+        assert_eq!(resolution.source, SysrootSource::CargoTargetDir);
+    }
+
+    #[test]
     fn test_sysroot_from_executable_uses_parent_of_bin_dir() {
         let sysroot =
             sysroot_from_executable(PathBuf::from("/toolchains/stable/bin/rockc").as_path())
@@ -331,7 +371,7 @@ mod tests {
             None,
             None,
             Some(target.clone()),
-            PathBuf::from("/toolchains/stable/bin/rockc").as_path(),
+            base.join("target/debug/rockc").as_path(),
         )
         .unwrap();
         assert_eq!(resolution.path, target);
