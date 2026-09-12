@@ -1,6 +1,6 @@
 # Introduction
 
-Rock is a small, expression-oriented language. Its surface syntax is compact, but the compiler still checks types, ownership, and the contracts of method receivers. Indentation forms blocks, function calls use spaces and commas, and operators are supplied by the program and its explicit dependencies.
+Rock is a full-fledged, expression-oriented programming language designed to make powerful programs easy to read. Like Rust, it embraces a rich syntax while keeping structure visible and understandable. It provides the foundations expected of a modern systems language, including type checking, ownership, and contracts for method receivers. Indentation forms blocks, function calls use spaces and commas, and operators are supplied by the program and its explicit dependencies.
 
 This is a complete program. It uses only names supplied by the standard-library prelude and can be read from top to bottom.
 
@@ -16,8 +16,7 @@ message = greeting ->
 
 main = ->
     greeting = Greeting::Hello "Rock"
-    text = message greeting
-    text.println!
+    message greeting .println!
     0
 ```
 
