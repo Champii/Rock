@@ -11,11 +11,11 @@ or newer) and statically link LLVM 18; end users do not need to install LLVM.
 They are not fully static executables: system libraries and a C linker remain
 required. On Ubuntu 24.04, install `build-essential`, `curl`, and
 `ca-certificates`; GNU tar, gzip, and `sha256sum` must also be available.
-The FFI-backed standard library is POSIX- and Linux-oriented. The new rockup
-release assets are not yet published, and there is no public package registry
+The FFI-backed standard library is POSIX- and Linux-oriented. Rockup supports
+binary releases starting with `v0.5.0`; there is no public package registry
 workflow.
 
-Until those assets are published, prepare a toolchain from a checkout using the
+To prepare a development toolchain from a checkout, use the
 [source installation prerequisites](../getting-started/installation.md#build-from-source).
 Contributors need LLVM 18 development files and static archives, with no dynamic
 fallback. From this repository, use:

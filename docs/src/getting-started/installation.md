@@ -2,7 +2,7 @@
 
 Rock's release toolchain supports only Linux x86_64 with GNU glibc (`x86_64-unknown-linux-gnu`). The binary baseline is Ubuntu 24.04, requiring glibc 2.39 or newer and a C linker available as `cc`. LLVM 18 is statically linked, so end users do not need to install LLVM. The executables are not fully static: system-library dependencies remain.
 
-> **Availability:** historical GitHub releases exist, but no release with the new rockup bootstrap and toolchain assets is published yet. Until then, use the source installation below. Version `v0.1.0` in this chapter is an example, not an available release promise.
+> **Release format:** rockup requires `v0.5.0` or later. Historical releases use a different asset layout and cannot be installed through this bootstrap.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ GNU tar, gzip, and `sha256sum` must also be installed (normally already present 
 
 ## Install a release
 
-Once the first release with bootstrap assets is published, install the manager with this one-liner. It executes a script from the official `Champii/Rock` release publisher; only run it if you trust that publisher. You can inspect [`install.sh`](https://github.com/Champii/Rock/releases/latest/download/install.sh) separately first.
+Install the manager with this one-liner. It executes a script from the official `Champii/Rock` release publisher; only run it if you trust that publisher. You can inspect [`install.sh`](https://github.com/Champii/Rock/releases/latest/download/install.sh) separately first.
 
 ```sh
 curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh | sh
@@ -35,10 +35,10 @@ Rockup verifies the toolchain archive before unpacking it. Checksums detect corr
 `rockup install` defaults to `stable`, meaning GitHub's latest published non-prerelease release, not a promise that this experimental language has a stable API. To pin only the manager version when bootstrapping, use a published `vVERSION` tag:
 
 ```console
-$ sh scripts/install.sh v0.1.0
+$ sh scripts/install.sh v0.5.0
 ```
 
-That command uses the bootstrap from a checkout and does not install a toolchain. Install a pinned toolchain separately with `rockup install v0.1.0` after activating the shell. Stable bootstrap assets come from `releases/latest/download`; pinned manager assets come from `releases/download/vVERSION`.
+That command uses the bootstrap from a checkout and does not install a toolchain. Install a pinned toolchain separately with `rockup install v0.5.0` after activating the shell. Stable bootstrap assets come from `releases/latest/download`; pinned manager assets come from `releases/download/vVERSION`.
 
 ### Home and shell setup
 
@@ -75,14 +75,14 @@ Both commands default to `stable`. Use `update` when that toolchain is already i
 Install a version without changing an existing default:
 
 ```console
-$ rockup install v0.1.0
+$ rockup install v0.5.0
 ```
 
-The bare spelling `rockup install 0.1.0` selects the same release and stores it as `v0.1.0`; do not run both installation commands for the same version. To choose it globally or run a single command explicitly:
+The bare spelling `rockup install 0.5.0` selects the same release and stores it as `v0.5.0`; do not run both installation commands for the same version. To choose it globally or run a single command explicitly:
 
 ```console
-$ rockup default v0.1.0
-$ rockup run v0.1.0 rock --version
+$ rockup default v0.5.0
+$ rockup run v0.5.0 rock --version
 ```
 
 `rockup default NAME` selects an installed toolchain, including local `dev`, and automatically installs a missing stable or versioned release. Arbitrary local names must first be installed with `--path`.
@@ -91,7 +91,7 @@ For a project pin, create `rock-toolchain.toml` in the project directory with th
 
 ```toml
 [toolchain]
-channel = "v0.1.0"
+channel = "v0.5.0"
 ```
 
 Install that version first. The shims select a toolchain using `ROCKUP_TOOLCHAIN` first, then the nearest `rock-toolchain.toml` in the current directory or its ancestors, then the global default. A project pin selects an installed toolchain; it does not automatically download one. Use the canonical `v` spelling for version pins, or an installed local name such as `dev`.
@@ -109,14 +109,14 @@ The first two commands are equivalent. Updating `stable` leaves separately insta
 
 ```console
 $ rockup default stable
-$ rockup remove v0.1.0
+$ rockup remove v0.5.0
 ```
 
 Rockup is not a full Rustup replacement. Release downloads do not support Windows, macOS, musl, other CPU architectures, a nightly channel, or automatic cross-target installation. The local `target add --path` component workflow does not imply downloadable cross-target releases.
 
 ## Build from source
 
-For compiler development or before binary assets are published, install these additional tools through your operating system:
+For compiler development or a local source build, install these additional tools through your operating system:
 
 - Git
 - A Rust toolchain with Cargo
@@ -187,7 +187,7 @@ $ cargo test -p rock-lib
 
 ## Common setup failures
 
-- HTTP 404 for bootstrap assets means the selected release does not provide the new assets; use the source workflow until a compatible release is published.
+- HTTP 404 for bootstrap assets means the selected release does not provide the required assets; select `v0.5.0` or later, or use the source workflow.
 - A checksum mismatch or malformed sidecar stops installation before the downloaded manager executes. Do not bypass verification; retry or report the release asset problem.
 - `GLIBC_2.39` errors mean the host is older than the release baseline. Use Ubuntu 24.04 or a compatible newer GNU system, or build from source on your host.
 - Source-build `llvm-config` or missing static-archive errors mean you should check the LLVM 18 development packages above and `LLVM_SYS_180_PREFIX=/usr/lib/llvm-18`; do not switch to dynamic linking. Binary releases do not require an LLVM installation.

@@ -2,17 +2,17 @@
 
 This guide defines the Linux release contract for `Champii/Rock`. Releases use tags named `vVERSION`. Only `x86_64-unknown-linux-gnu` is supported, built on Ubuntu 24.04 (glibc 2.39 baseline) with statically linked LLVM 18. End users do not need to install LLVM, but still need a C linker, curl, and CA certificates (`build-essential curl ca-certificates` on Ubuntu 24.04), plus GNU tar, gzip, and `sha256sum`. These are not fully static executables: system-library dependencies remain, and archives do not bundle the operating-system runtime.
 
-Historical GitHub releases exist, but the new rockup asset format has not yet been published. A read-only GitHub API check on 2026-09-12 found historical releases with a standalone `rock` asset, not the assets below. Do not advertise the new bootstrap as usable until a compatible release is publicly available. `v0.1.0` below is illustrative; choose an unused tag appropriate for the project.
+The rockup asset format starts with `v0.5.0`. Earlier releases provide historical standalone assets and are not supported by the bootstrap. This guide uses `v0.5.0` as its example; choose a new, unused tag when preparing subsequent releases.
 
 ## Asset Contract
 
-For `VERSION=0.1.0` and `TARGET=x86_64-unknown-linux-gnu`, attach:
+For `VERSION=0.5.0` and `TARGET=x86_64-unknown-linux-gnu`, attach:
 
 | Asset | Contents or purpose |
 | --- | --- |
-| `rock-v0.1.0-x86_64-unknown-linux-gnu.tar.gz` | Complete toolchain, extracted directly into its toolchain root |
+| `rock-v0.5.0-x86_64-unknown-linux-gnu.tar.gz` | Complete toolchain, extracted directly into its toolchain root |
 | `rockup-x86_64-unknown-linux-gnu` | Standalone executable, not an archive |
-| `stdlib-v0.1.0-x86_64-unknown-linux-gnu.tar.gz` | Matching standard-library component archive |
+| `stdlib-v0.5.0-x86_64-unknown-linux-gnu.tar.gz` | Matching standard-library component archive |
 | Each binary/archive name followed by `.sha256` | SHA-256 sidecar for that exact asset |
 | `install.sh` | POSIX bootstrap from `scripts/install.sh` |
 
@@ -33,10 +33,10 @@ Stable standalone-manager downloads use `releases/latest/download/rockup-TARGET`
 The maintainer entry point is:
 
 ```sh
-bash scripts/release.sh v0.1.0
+bash scripts/release.sh v0.5.0
 ```
 
-Its contract is to build, package, and smoke-test locally, writing output to `dist/v0.1.0`. This default mode must not create tags, upload assets, or publish releases. Use Ubuntu 24.04 x86_64 with Rust/Cargo, LLVM 18 development files and static archives, a C toolchain, GNU tar, gzip, curl, CA certificates, and sha256sum. A build on a newer distribution can accidentally raise the glibc baseline; use the baseline environment for distributable artifacts.
+Its contract is to build, package, and smoke-test locally, writing output to `dist/v0.5.0`. This default mode must not create tags, upload assets, or publish releases. Use Ubuntu 24.04 x86_64 with Rust/Cargo, LLVM 18 development files and static archives, a C toolchain, GNU tar, gzip, curl, CA certificates, and sha256sum. A build on a newer distribution can accidentally raise the glibc baseline; use the baseline environment for distributable artifacts.
 
 Install the source-build dependencies and select LLVM 18 before packaging:
 
@@ -56,7 +56,7 @@ Run the bootstrap checks without network access:
 ```sh
 sh -n scripts/install.sh
 sh scripts/tests/install.sh
-bash scripts/tests/release.sh dist/v0.1.0
+bash scripts/tests/release.sh dist/v0.5.0
 ```
 
 The final check uses the real packaged binaries and archives with an offline HTTP fixture to exercise bootstrap cleanup, stable updates, pinned installation, self-update, shims, and compilation. The new CI contract requires running package smoke tests before draft creation in a clean Ubuntu 24.04 container with the runtime packages listed above and no LLVM installation. A successful build on an LLVM-equipped runner alone does not validate the runtime contract.
@@ -66,7 +66,7 @@ The final check uses the real packaged binaries and archives with an offline HTT
 Uploading is explicitly opt-in:
 
 ```sh
-bash scripts/release.sh v0.1.0 --publish
+bash scripts/release.sh v0.5.0 --publish
 ```
 
 Despite the option name, this creates a **draft only**, using authenticated `gh`. It requires the existing tag to point at local `HEAD` and to exist on GitHub; it must not create or move a tag. Arrange the reviewed commit and remote tag separately through the project's normal maintainer process. Do not use this option merely to test packaging.

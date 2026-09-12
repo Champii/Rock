@@ -1,6 +1,6 @@
 # Rock
 
-[![Book](https://github.com/Champii/Rock/actions/workflows/book.yml/badge.svg?branch=develop)](https://github.com/Champii/Rock/actions/workflows/book.yml)
+[![Book](https://github.com/Champii/Rock/actions/workflows/book.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/book.yml)
 [![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
 
 [Read the Book](https://champii.github.io/Rock/) | [GitHub Releases](https://github.com/Champii/Rock/releases) | [Examples](examples/)
@@ -35,7 +35,7 @@ Rock is experimental. Version `0.5.0` is not a stability promise: syntax, APIs, 
 
 **Binary releases do not require Rust or an LLVM installation.** LLVM 18 is linked into the compiler. The initial release target is **x86_64 Linux GNU**, with **Ubuntu 24.04 / glibc 2.39** as its baseline. A C linker and standard system libraries are still required; these are not fully static executables.
 
-> **Release availability:** the new rockup-format release assets have not been published yet. The binary installation below becomes usable after the first compatible release is published; until then, use [Build From Source](#build-from-source). A local version bump alone does not publish `v0.5.0` to GitHub.
+> **Release format:** rockup requires `v0.5.0` or later. Historical releases use a different asset layout and cannot be installed through this bootstrap.
 
 ### Install the Toolchain
 
@@ -80,7 +80,7 @@ Once rockup is installed, the everyday commands are short:
 | `rockup update` | Install or update the stable toolchain |
 | `rockup self update` | Update the rockup manager itself |
 | `rockup list` | List installed toolchains and mark the active one |
-| `rockup install v0.5.0` | Install that specific release, once published |
+| `rockup install v0.5.0` | Install that specific release |
 | `rockup default v0.5.0` | Select that version, installing it if needed |
 | `rockup run v0.5.0 rock --version` | Run one command with a chosen version |
 | `rockup remove v0.5.0` | Remove an installed version |
@@ -759,7 +759,7 @@ Without arguments it starts a language server over standard input/output, not an
 The repository includes a plugin using Neovim's built-in LSP client, without requiring `nvim-lspconfig`. On Neovim 0.12, add this to `init.lua`:
 
 ```lua
-vim.pack.add({ { src = "https://github.com/Champii/Rock", version = "develop" } })
+vim.pack.add({ { src = "https://github.com/Champii/Rock", version = "v0.5.0" } })
 require("rock").setup()
 ```
 
@@ -767,7 +767,7 @@ The plugin does not install the compiler: complete rockup installation first, th
 
 ## Build From Source
 
-This section is for compiler contributors and for use before the first new-format binary release. Binary-release users can skip it.
+This section is for compiler contributors and users who want to build their own toolchain. Binary-release users can skip it.
 
 Source builds need Git, Rust/Cargo, LLVM 18 development files and **static archives**, and a C toolchain. On Ubuntu 24.04:
 
@@ -776,14 +776,14 @@ sudo apt install git llvm-18-dev libpolly-18-dev libzstd-dev libxml2-dev zlib1g-
 export LLVM_SYS_180_PREFIX=/usr/lib/llvm-18
 ```
 
-Use a checkout of the revision you want to build, not the historical default branch. After the `v0.5.0` tag is published, you can obtain that exact revision with:
+Use a checkout of the revision you want to build. For the `v0.5.0` release:
 
 ```sh
 git clone --branch v0.5.0 https://github.com/Champii/Rock.git
 cd Rock
 ```
 
-Before that tag exists, use your existing release-preparation checkout. From the repository root, with Rust and Cargo installed, build the workspace and package the matching standard library:
+From the repository root, with Rust and Cargo installed, build the workspace and package the matching standard library:
 
 ```sh
 cargo build --release

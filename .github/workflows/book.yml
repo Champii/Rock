@@ -2,7 +2,7 @@ name: Publish Rock Book
 
 on:
   push:
-    branches: [develop]
+    branches: [master]
     paths:
       - "docs/**"
       - "tree-sitter-rock/**"
