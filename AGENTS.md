@@ -16,8 +16,10 @@
 - Workspace members are `lib`, `rock`, and `rockc`.
 
 ## Environment
-- LLVM 18 is required for code generation via `inkwell`.
-- The workspace uses `inkwell` with `llvm18-0-force-dynamic`.
+- Source builds require LLVM 18 development files and static archives for code generation via `inkwell`.
+- The workspace uses `inkwell` with `llvm18-0-force-static`; there is no dynamic-linking fallback.
+- On Ubuntu 24.04, install `llvm-18-dev libpolly-18-dev libzstd-dev libxml2-dev zlib1g-dev libffi-dev libedit-dev libncurses-dev build-essential` and set `LLVM_SYS_180_PREFIX=/usr/lib/llvm-18`.
+- Release binaries statically link LLVM 18, so end users need no LLVM installation. They are not fully static executables: system libraries remain, with an Ubuntu 24.04 / glibc 2.39 baseline and runtime prerequisites `build-essential` (C linker), `curl`, and `ca-certificates`.
 - The default Rock entry point is `./src/main.rk`.
 - Rock `main` functions should return an integer, usually `0`.
 

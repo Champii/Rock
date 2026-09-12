@@ -6,13 +6,22 @@ programmer can encounter today, not promises about a final language design.
 ## Platform and distribution
 
 The supported code-generation target is currently
-`x86_64-unknown-linux-gnu`, and code generation requires LLVM 18 plus a C
-linker. The FFI-backed standard library is POSIX- and Linux-oriented. There is
-no stable binary installer or public package registry workflow.
+`x86_64-unknown-linux-gnu`. Binary releases target Ubuntu 24.04 (glibc 2.39
+or newer) and statically link LLVM 18; end users do not need to install LLVM.
+They are not fully static executables: system libraries and a C linker remain
+required. On Ubuntu 24.04, install `build-essential`, `curl`, and
+`ca-certificates`; GNU tar, gzip, and `sha256sum` must also be available.
+The FFI-backed standard library is POSIX- and Linux-oriented. The new rockup
+release assets are not yet published, and there is no public package registry
+workflow.
 
-Builds therefore need an installed toolchain prepared from a checkout. From this repository, use:
+Until those assets are published, prepare a toolchain from a checkout using the
+[source installation prerequisites](../getting-started/installation.md#build-from-source).
+Contributors need LLVM 18 development files and static archives, with no dynamic
+fallback. From this repository, use:
 
 ```console
+$ export LLVM_SYS_180_PREFIX=/usr/lib/llvm-18
 $ cargo build --release
 $ target/release/rockup dev stdlib package \
     --path stdlib \

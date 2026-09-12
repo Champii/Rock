@@ -63,12 +63,12 @@ Rock is experimental. The language, compiler, and tooling can change or break at
 
 ## Install
 
-Binary releases support only `x86_64-unknown-linux-gnu`, with an Ubuntu 24.04 baseline (glibc 2.39 or newer). LLVM 18 shared libraries and a C linker are required; the installer does not install system packages or run `sudo`.
+Binary releases support only `x86_64-unknown-linux-gnu`, with an Ubuntu 24.04 baseline (glibc 2.39 or newer). LLVM 18 is statically linked, so end users do not need to install LLVM. These are not fully static executables: system libraries and a C linker are still required. The installer does not install system packages or run `sudo`.
 
 On Ubuntu 24.04, install the runtime prerequisites yourself:
 
 ```console
-$ sudo apt install libllvm18 build-essential curl ca-certificates
+$ sudo apt install build-essential curl ca-certificates
 ```
 
 GNU tar, gzip, and `sha256sum` must also be available. Once the first release with the new rockup assets is published, download the bootstrap to a private temporary directory and run it:
@@ -88,7 +88,12 @@ The bootstrap verifies the standalone rockup download against its exact SHA-256 
 
 ### Build From Source
 
-Building from source requires Git, Rust with Cargo, LLVM 18 development tools and shared libraries, and a C linker available as `cc`.
+Building from source requires Git, Rust with Cargo, LLVM 18 development files and static archives, and a C linker available as `cc`. On Ubuntu 24.04, install the build dependencies and select LLVM 18 explicitly; there is no dynamic-linking fallback:
+
+```console
+$ sudo apt install llvm-18-dev libpolly-18-dev libzstd-dev libxml2-dev zlib1g-dev libffi-dev libedit-dev libncurses-dev build-essential
+$ export LLVM_SYS_180_PREFIX=/usr/lib/llvm-18
+```
 
 ```console
 $ git clone https://github.com/Champii/Rock.git

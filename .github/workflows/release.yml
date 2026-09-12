@@ -26,8 +26,8 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install LLVM 18 and linker
-        run: sudo apt-get update && sudo apt-get install -y llvm-18-dev libpolly-18-dev libllvm18 build-essential
+      - name: Install LLVM 18 static build dependencies
+        run: sudo apt-get update && sudo apt-get install -y llvm-18-dev libpolly-18-dev libzstd-dev libxml2-dev zlib1g-dev libffi-dev libedit-dev libncurses-dev build-essential
       - name: Test and package
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -44,8 +44,30 @@ jobs:
           path: dist/${{ inputs.tag || github.ref_name }}/*
           if-no-files-found: error
 
-  draft:
+  runtime:
     needs: package
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    steps:
+      - name: Install end-user prerequisites only
+        run: apt-get update && apt-get install -y --no-install-recommends build-essential curl ca-certificates
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: dist/${{ inputs.tag || github.ref_name }}
+      - name: Install and compile without LLVM
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          test -z "$(find /usr/lib -name 'libLLVM*.so*' -print -quit)"
+          ! command -v llvm-config
+          bash scripts/tests/release.sh "dist/$RELEASE_TAG"
+
+  draft:
+    needs: runtime
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -61,4 +83,4 @@ jobs:
         run: |
           gh release create "$RELEASE_TAG" assets/* --repo Champii/Rock --verify-tag --draft \
             --title "Rock $RELEASE_TAG" --generate-notes \
-            --notes 'Linux x86_64 GNU only. Requires glibc 2.39+, LLVM 18 shared libraries, and a C linker (Ubuntu 24.04: apt install libllvm18 build-essential curl ca-certificates). Install with the attached install.sh. Experimental release; review before publishing.'
+            --notes 'Linux x86_64 GNU only. LLVM 18 is statically linked; no LLVM installation required. Requires glibc 2.39+ and a C linker (Ubuntu 24.04: apt install build-essential curl ca-certificates). Install with the attached install.sh. Experimental release; review before publishing.'

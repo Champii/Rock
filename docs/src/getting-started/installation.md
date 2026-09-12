@@ -1,6 +1,6 @@
 # Installation
 
-Rock's release toolchain supports only Linux x86_64 with GNU glibc (`x86_64-unknown-linux-gnu`). The binary baseline is Ubuntu 24.04, requiring glibc 2.39 or newer, LLVM 18 shared libraries, and a C linker available as `cc`.
+Rock's release toolchain supports only Linux x86_64 with GNU glibc (`x86_64-unknown-linux-gnu`). The binary baseline is Ubuntu 24.04, requiring glibc 2.39 or newer and a C linker available as `cc`. LLVM 18 is statically linked, so end users do not need to install LLVM. The executables are not fully static: system-library dependencies remain.
 
 > **Availability:** historical GitHub releases exist, but no release with the new rockup bootstrap and toolchain assets is published yet. Until then, use the source installation below. Version `v0.1.0` in this chapter is an example, not an available release promise.
 
@@ -9,10 +9,10 @@ Rock's release toolchain supports only Linux x86_64 with GNU glibc (`x86_64-unkn
 For binary installation on Ubuntu 24.04, install the runtime requirements yourself:
 
 ```console
-$ sudo apt install libllvm18 build-essential curl ca-certificates
+$ sudo apt install build-essential curl ca-certificates
 ```
 
-GNU tar, gzip, and `sha256sum` must also be installed (normally already present on Ubuntu). Rockup uses curl for HTTPS downloads and those tools to verify and unpack archives. The installer never invokes `sudo` or installs operating-system packages. Rust and LLVM development headers are not required to use a binary release.
+GNU tar, gzip, and `sha256sum` must also be installed (normally already present on Ubuntu). Rockup uses curl for HTTPS downloads and those tools to verify and unpack archives. The installer never invokes `sudo` or installs operating-system packages. Neither Rust nor LLVM is required to use a binary release.
 
 ## Install a release
 
@@ -112,8 +112,17 @@ For compiler development or before binary assets are published, install these ad
 
 - Git
 - A Rust toolchain with Cargo
-- LLVM 18 development tools (including `llvm-config`), headers, and shared libraries
+- LLVM 18 development tools (including `llvm-config`), headers, and static archives
 - A C linker available as `cc`
+
+On Ubuntu 24.04, install the build dependencies and select LLVM 18 explicitly:
+
+```console
+$ sudo apt install llvm-18-dev libpolly-18-dev libzstd-dev libxml2-dev zlib1g-dev libffi-dev libedit-dev libncurses-dev build-essential
+$ export LLVM_SYS_180_PREFIX=/usr/lib/llvm-18
+```
+
+Source builds require static LLVM archives; there is no dynamic-linking fallback.
 
 Clone the repository and build the release toolchain:
 
@@ -173,7 +182,7 @@ $ cargo test -p rock-lib
 - HTTP 404 for bootstrap assets means the selected release does not provide the new assets; use the source workflow until a compatible release is published.
 - A checksum mismatch or malformed sidecar stops installation before the downloaded manager executes. Do not bypass verification; retry or report the release asset problem.
 - `GLIBC_2.39` errors mean the host is older than the release baseline. Use Ubuntu 24.04 or a compatible newer GNU system, or build from source on your host.
-- `llvm-config` or shared-library errors usually mean LLVM 18 is missing or its library path is not configured.
+- Source-build `llvm-config` or missing static-archive errors mean you should check the LLVM 18 development packages above and `LLVM_SYS_180_PREFIX=/usr/lib/llvm-18`; do not switch to dynamic linking. Binary releases do not require an LLVM installation.
 - A missing standard-library component means the packaging step did not complete or the installed toolchain does not match the checkout.
 - If `rock` is not found after installation, restart the shell or apply the activation command printed by `rockup`.
 - If `rock-lsp` is missing from a toolchain built from an older checkout, rebuild and package the current workspace before installing it; a current toolchain installation requires the server binary too.

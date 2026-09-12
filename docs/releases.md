@@ -1,6 +1,6 @@
 # Release Maintainer Guide
 
-This guide defines the Linux release contract for `Champii/Rock`. Releases use tags named `vVERSION`. Only `x86_64-unknown-linux-gnu` is supported, built on Ubuntu 24.04 (glibc 2.39 baseline) with dynamically linked LLVM 18. Users need LLVM 18 shared libraries and a C linker; archives do not bundle the operating-system runtime.
+This guide defines the Linux release contract for `Champii/Rock`. Releases use tags named `vVERSION`. Only `x86_64-unknown-linux-gnu` is supported, built on Ubuntu 24.04 (glibc 2.39 baseline) with statically linked LLVM 18. End users do not need to install LLVM, but still need a C linker, curl, and CA certificates (`build-essential curl ca-certificates` on Ubuntu 24.04), plus GNU tar, gzip, and `sha256sum`. These are not fully static executables: system-library dependencies remain, and archives do not bundle the operating-system runtime.
 
 Historical GitHub releases exist, but the new rockup asset format has not yet been published. A read-only GitHub API check on 2026-09-12 found historical releases with a standalone `rock` asset, not the assets below. Do not advertise the new bootstrap as usable until a compatible release is publicly available. `v0.1.0` below is illustrative; choose an unused tag appropriate for the project.
 
@@ -16,7 +16,7 @@ For `VERSION=0.1.0` and `TARGET=x86_64-unknown-linux-gnu`, attach:
 | Each binary/archive name followed by `.sha256` | SHA-256 sidecar for that exact asset |
 | `install.sh` | POSIX bootstrap from `scripts/install.sh` |
 
-The complete toolchain contains `bin/rock`, `bin/rockc`, `bin/rock-lsp`, the matching standard-library artifacts and component metadata under `lib/rocklib/TARGET/`, and standard-library sources under `src/stdlib/`. Keep the compiler, object files, serialized artifacts, and metadata from the same build. Do not add an enclosing version directory inside the archive.
+The complete toolchain contains `bin/rock`, `bin/rockc`, `bin/rock-lsp`, the matching standard-library artifacts and component metadata under `lib/rocklib/TARGET/`, standard-library sources under `src/stdlib/`, and LLVM license notices under `share/licenses/llvm/`. Keep the compiler, object files, serialized artifacts, and metadata from the same build. Do not add an enclosing version directory inside the archive.
 
 Generate sidecars from the asset directory using `sha256sum ASSET > ASSET.sha256`. Each sidecar must contain exactly one checksum line naming the asset's basename, not a local path. The bootstrap accepts the standard text or binary sha256sum separator; unrelated filenames, extra lines, and mismatched hashes are rejected. These are integrity checks, not signed provenance.
 
@@ -36,7 +36,16 @@ The maintainer entry point is:
 bash scripts/release.sh v0.1.0
 ```
 
-Its contract is to build, package, and smoke-test locally, writing output to `dist/v0.1.0`. This default mode must not create tags, upload assets, or publish releases. Use Ubuntu 24.04 x86_64 with Rust/Cargo, LLVM 18 development tools and shared libraries, a C toolchain, GNU tar, gzip, curl, and sha256sum. A build on a newer distribution can accidentally raise the glibc baseline; use the baseline environment for distributable artifacts.
+Its contract is to build, package, and smoke-test locally, writing output to `dist/v0.1.0`. This default mode must not create tags, upload assets, or publish releases. Use Ubuntu 24.04 x86_64 with Rust/Cargo, LLVM 18 development files and static archives, a C toolchain, GNU tar, gzip, curl, CA certificates, and sha256sum. A build on a newer distribution can accidentally raise the glibc baseline; use the baseline environment for distributable artifacts.
+
+Install the source-build dependencies and select LLVM 18 before packaging:
+
+```sh
+sudo apt install llvm-18-dev libpolly-18-dev libzstd-dev libxml2-dev zlib1g-dev libffi-dev libedit-dev libncurses-dev build-essential
+export LLVM_SYS_180_PREFIX=/usr/lib/llvm-18
+```
+
+Static LLVM archives are mandatory; there is no dynamic-linking fallback. The new packaging contract requires rejecting shared LLVM dependencies via `ldd` and including LLVM license notices under `share/licenses/llvm/`.
 
 Before tagging, set the package versions in `rock/Cargo.toml`, `rockc/Cargo.toml`, `rockup/Cargo.toml`, and `rock-lsp/Cargo.toml` to the release version and refresh `Cargo.lock`; the script rejects mismatched versions. Existing output directories are never overwritten. The separate stdlib archive extracts directly to a target component directory and includes its manifests, artifact, and object file.
 
@@ -50,7 +59,7 @@ sh scripts/tests/install.sh
 bash scripts/tests/release.sh dist/v0.1.0
 ```
 
-The final check uses the real packaged binaries and archives with an offline HTTP fixture to exercise bootstrap cleanup, stable updates, pinned installation, self-update, shims, and compilation. The release workflow runs it before creating a draft.
+The final check uses the real packaged binaries and archives with an offline HTTP fixture to exercise bootstrap cleanup, stable updates, pinned installation, self-update, shims, and compilation. The new CI contract requires running package smoke tests before draft creation in a clean Ubuntu 24.04 container with the runtime packages listed above and no LLVM installation. A successful build on an LLVM-equipped runner alone does not validate the runtime contract.
 
 ## Draft Creation
 

@@ -14,9 +14,18 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 target=x86_64-unknown-linux-gnu
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || die "Only $target is supported"
-for tool in cargo cc tar gzip sha256sum git; do
+for tool in cargo cc tar gzip sha256sum git ldd; do
     command -v "$tool" >/dev/null || die "Missing command: $tool"
 done
+if [[ -n ${LLVM_SYS_180_PREFIX:-} ]]; then
+    llvm_config=$LLVM_SYS_180_PREFIX/bin/llvm-config
+else
+    llvm_config=$(command -v llvm-config-18 || command -v llvm-config) || die 'Install LLVM 18 development files and set LLVM_SYS_180_PREFIX'
+fi
+[[ $("$llvm_config" --version) == 18.* ]] || die 'Release builds require LLVM 18; set LLVM_SYS_180_PREFIX to its installation'
+"$llvm_config" --link-static --libfiles >/dev/null || die 'LLVM 18 static archives are required (Ubuntu: llvm-18-dev libpolly-18-dev)'
+export LLVM_SYS_180_PREFIX
+LLVM_SYS_180_PREFIX=$("$llvm_config" --prefix)
 # Keep --version output consistent with the release tag.
 for package in rock rockc rockup rock-lsp; do
     version=$(sed -n 's/^version = "\([^"]*\)"$/\1/p' "$package/Cargo.toml" | head -n 1)
@@ -41,8 +50,17 @@ trap 'rm -rf -- "$stage"' EXIT
 export CARGO_TARGET_DIR=$root/target
 cargo build --locked --release --target "$target" -p rock -p rockc -p rockup -p rock-lsp
 build=$CARGO_TARGET_DIR/$target/release
+# Check transitive dependencies too: a build-host LLVM must never hide a
+# missing end-user dependency in a release that appears to run locally.
+for binary in rock rockc rockup rock-lsp; do
+    dependencies=$(ldd "$build/$binary") || die "Cannot inspect runtime dependencies of $binary"
+    if grep -Ei 'lib(LLVM|clang)|not found' <<< "$dependencies"; then
+        die "$binary has a shared LLVM dependency or an unresolved runtime library"
+    fi
+done
 toolchain=$stage/toolchain
-mkdir -p "$toolchain/bin" "$stage/assets"
+mkdir -p "$toolchain/bin" "$toolchain/share/licenses/llvm" "$stage/assets"
+install -m 644 "$root"/licenses/llvm/*.txt "$toolchain/share/licenses/llvm/"
 for binary in rock rockc rock-lsp; do
     install -m 755 "$build/$binary" "$toolchain/bin/$binary"
 done
@@ -70,7 +88,7 @@ printf 'main = ->\n    "Hello, Rock!".println!\n    0\n' > "$stage/project/main.
 )
 
 assets=$stage/assets
-tar --format=ustar -czf "$assets/rock-$tag-$target.tar.gz" -C "$toolchain" bin lib src
+tar --format=ustar -czf "$assets/rock-$tag-$target.tar.gz" -C "$toolchain" bin lib src share
 tar --format=ustar -czf "$assets/stdlib-$tag-$target.tar.gz" -C "$toolchain/lib/rocklib/$target" .
 install -m 755 "$build/rockup" "$assets/rockup-$target"
 install -m 644 scripts/install.sh "$assets/install.sh"
@@ -86,5 +104,5 @@ printf 'Packaged and smoke-tested %s\n' "$out"
 if [[ $publish == --publish ]]; then
     gh release create "$tag" "$out"/* --repo Champii/Rock --verify-tag --draft \
         --title "Rock $tag" --generate-notes \
-        --notes 'Linux x86_64 GNU only. Requires glibc 2.39+, LLVM 18 shared libraries, and a C linker (Ubuntu 24.04: apt install libllvm18 build-essential curl ca-certificates). Install with the attached install.sh. Experimental release; review before publishing.'
+        --notes 'Linux x86_64 GNU only. LLVM 18 is statically linked; no LLVM installation required. Requires glibc 2.39+ and a C linker (Ubuntu 24.04: apt install build-essential curl ca-certificates). Install with the attached install.sh. Experimental release; review before publishing.'
 fi
