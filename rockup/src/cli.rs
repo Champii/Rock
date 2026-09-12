@@ -89,6 +89,14 @@ pub(crate) fn run() -> Result<Exit, String> {
             Ok(Exit::Success)
         }
         CommandConfig::SelfCommand {
+            command: SelfCommand::Install,
+        } => {
+            ensure_shims(&home)?;
+            ensure_shell_setup(&home)?;
+            print_current_shell_activation_hint()?;
+            Ok(Exit::Success)
+        }
+        CommandConfig::SelfCommand {
             command: SelfCommand::Update,
         } => {
             crate::release::self_update()?;
@@ -174,6 +182,8 @@ pub(crate) enum CommandConfig {
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum SelfCommand {
+    /// Install this manager and shell setup without downloading a toolchain.
+    Install,
     /// Replace this executable with rockup from the latest stable GitHub release.
     Update,
 }

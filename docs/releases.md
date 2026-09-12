@@ -26,7 +26,7 @@ The public bootstrap URL is:
 https://github.com/Champii/Rock/releases/latest/download/install.sh
 ```
 
-Stable standalone-manager downloads use `releases/latest/download/rockup-TARGET` and its `.sha256` sidecar. Pinned downloads use `releases/download/vVERSION/rockup-TARGET` and its sidecar. Rockup resolves stable to the latest non-prerelease tag and downloads the matching `rock-vVERSION-TARGET.tar.gz`. Keep all required assets together before publishing.
+Stable standalone-manager downloads use `releases/latest/download/rockup-TARGET` and its `.sha256` sidecar. Pinned downloads use `releases/download/vVERSION/rockup-TARGET` and its sidecar. The bootstrap verifies the standalone manager and runs `rockup self install`, which copies only the manager and command shims and adds shell setup. It does not download a toolchain; an optional `vVERSION` script argument pins only the manager. After restarting the shell, users run `rockup install` separately to resolve stable to the latest non-prerelease tag and download the matching `rock-vVERSION-TARGET.tar.gz`, or `rockup install vVERSION` to pin the toolchain. Keep all required assets together before publishing.
 
 ## Local Packaging
 
@@ -49,7 +49,7 @@ Static LLVM archives are mandatory; there is no dynamic-linking fallback. The ne
 
 Before tagging, set the package versions in `rock/Cargo.toml`, `rockc/Cargo.toml`, `rockup/Cargo.toml`, and `rock-lsp/Cargo.toml` to the release version and refresh `Cargo.lock`; the script rejects mismatched versions. Existing output directories are never overwritten. The separate stdlib archive extracts directly to a target component directory and includes its manifests, artifact, and object file.
 
-Before accepting the output, inspect archive layouts, verify every sidecar from the output directory, and smoke-test with a disposable `HOME` and `ROCKUP_HOME`. Check `rock --version`, `rock-lsp --help`, and compilation/execution of a small application with the packaged stdlib. Test the bootstrap with temporary downloads removed afterward: `ensure_shims` must persist the downloaded manager at `ROCKUP_HOME/bin/rockup`, and all three shims must continue to work after the bootstrap staging directory disappears. A shim pointing into the build or download staging directory is a release blocker.
+Before accepting the output, inspect archive layouts, verify every sidecar from the output directory, and smoke-test with a disposable `HOME` and `ROCKUP_HOME`. Test that the bootstrap installs only the manager, shims, and shell setup, with no toolchain download. Remove temporary downloads afterward: `rockup self install` must persist the downloaded manager at `ROCKUP_HOME/bin/rockup`. Activate the shell and run `rockup install` separately, then check `rock --version`, `rock-lsp --help`, and compilation/execution of a small application with the packaged stdlib. All three shims must work after toolchain installation even though the bootstrap staging directory is gone. A shim pointing into the build or download staging directory is a release blocker.
 
 Run the bootstrap checks without network access:
 

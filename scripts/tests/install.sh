@@ -49,7 +49,7 @@ run_case() {
         [ "$status" = 0 ] || { printf 'FAIL %s (see %s)\n' "$name" "$TEST_ROOT/log"; exit 1; }
         [ -x "${ROCKUP_HOME-$HOME/.rockup}/bin/rockup" ]
         [ "$(wc -l < "$TEST_ROOT/urls")" -eq 2 ]
-        [ "$(cat "$TEST_ROOT/invocation")" = "install $EXPECTED_CHANNEL" ]
+        [ "$(cat "$TEST_ROOT/invocation")" = "self install" ]
     else
         [ "$status" != 0 ] || { printf 'FAIL %s unexpectedly succeeded\n' "$name"; exit 1; }
         if [ "$TEST_MODE" != install-failure ]; then
@@ -65,15 +65,12 @@ run_case() {
 }
 
 TEST_MODE=valid
-EXPECTED_CHANNEL=stable
 EXPECTED_RELEASE_PATH=latest/download
-export TEST_MODE EXPECTED_CHANNEL EXPECTED_RELEASE_PATH
+export TEST_MODE EXPECTED_RELEASE_PATH
 run_case stable success
 run_case default-home success
-EXPECTED_CHANNEL=v0.1.0
 EXPECTED_RELEASE_PATH=download/v0.1.0
 run_case pinned success v0.1.0
-EXPECTED_CHANNEL=stable
 EXPECTED_RELEASE_PATH=latest/download
 for TEST_MODE in download-failure missing-sidecar mismatch wrong-name traversal extra-line install-failure; do
     run_case "$TEST_MODE" failure

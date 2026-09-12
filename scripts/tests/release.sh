@@ -14,7 +14,11 @@ if [[ ${0##*/} == curl ]]; then
     case $url in
         "$base/latest") printf '%s/tag/%s' "$base" "$RELEASE_TEST_TAG"; exit 0 ;;
         "$base/download/$RELEASE_TEST_TAG/"*|"$base/latest/download/"*)
-            cp -- "$RELEASE_TEST_ASSETS/${url##*/}" "$output" ;;
+            if [[ -n $output ]]; then
+                cp -- "$RELEASE_TEST_ASSETS/${url##*/}" "$output"
+            else
+                cat -- "$RELEASE_TEST_ASSETS/${url##*/}"
+            fi ;;
         *) printf 'Unexpected offline request: %s\n' "$url" >&2; exit 1 ;;
     esac
     exit 0
@@ -33,10 +37,13 @@ unset CARGO_TARGET_DIR ROCK_SYSROOT ROCKC ROCKUP_TOOLCHAIN
 export HOME=$stage/home ROCKUP_HOME=$stage/home/.rockup SHELL=/bin/sh
 export PATH=$stage/bin:$PATH TMPDIR=$stage/downloads
 cd "$stage/project"
-sh "$RELEASE_TEST_ASSETS/install.sh"
+curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh | sh
 # The bootstrap's temporary manager must be gone before invoking any shim.
 [[ -z $(ls -A "$stage/downloads") ]]
 manager=$ROCKUP_HOME/bin/rockup
+[[ -z $("$manager" list) ]]
+[[ ! -e "$ROCKUP_HOME/default-toolchain" ]]
+"$manager" install
 "$manager" list
 "$manager" update
 "$manager" install "$RELEASE_TEST_TAG"

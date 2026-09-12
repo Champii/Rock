@@ -16,30 +16,33 @@ GNU tar, gzip, and `sha256sum` must also be installed (normally already present 
 
 ## Install a release
 
-Once the first release with bootstrap assets is published, download `install.sh` from the official `Champii/Rock` release into a private temporary directory:
+Once the first release with bootstrap assets is published, install the manager with this one-liner. It executes a script from the official `Champii/Rock` release publisher; only run it if you trust that publisher. You can inspect [`install.sh`](https://github.com/Champii/Rock/releases/latest/download/install.sh) separately first.
 
 ```sh
-install_dir=$(mktemp -d)
-if curl -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh -o "$install_dir/install.sh"; then
-    # Optionally inspect "$install_dir/install.sh" before executing it.
-    sh "$install_dir/install.sh"
-fi
-rm -r "$install_dir"
+curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh | sh
 ```
 
-Downloading a file first lets you inspect it rather than piping a network response into a shell. Only run the script if curl succeeds. The bootstrap downloads the standalone `rockup-x86_64-unknown-linux-gnu` and its exact `.sha256` sidecar over HTTPS, checks that the sidecar names that asset and that its checksum matches, then executes `rockup install stable`. Checksums detect corruption; they are not independent signatures, so you still trust the official release publisher and HTTPS.
+The bootstrap downloads the standalone `rockup-x86_64-unknown-linux-gnu` and its exact `.sha256` sidecar over HTTPS, checks that the sidecar names that asset and that its checksum matches, then executes `rockup self install`. This copies only the manager and command shims and adds shell setup; no toolchain is downloaded.
 
-`stable` means GitHub's latest published non-prerelease release, not a promise that this experimental language has a stable API. To select a specific published release, use its `vVERSION` tag:
+Restart your shell, then install the remaining toolchain (compiler, project command, language server, and standard library):
+
+```sh
+rockup install
+```
+
+Rockup verifies the toolchain archive before unpacking it. Checksums detect corruption; they are not independent signatures, so you still trust the official release publisher and HTTPS.
+
+`rockup install` defaults to `stable`, meaning GitHub's latest published non-prerelease release, not a promise that this experimental language has a stable API. To pin only the manager version when bootstrapping, use a published `vVERSION` tag:
 
 ```console
 $ sh scripts/install.sh v0.1.0
 ```
 
-That command uses the bootstrap from a checkout. With the downloaded script, pass the same version to `sh "$install_dir/install.sh"` before removing the temporary directory. Stable bootstrap assets come from `releases/latest/download`; pinned assets come from `releases/download/vVERSION`.
+That command uses the bootstrap from a checkout and does not install a toolchain. Install a pinned toolchain separately with `rockup install v0.1.0` after activating the shell. Stable bootstrap assets come from `releases/latest/download`; pinned manager assets come from `releases/download/vVERSION`.
 
 ### Home and shell setup
 
-Rockup persists itself as `~/.rockup/bin/rockup`, installs toolchains under `~/.rockup/toolchains`, and creates `rock`, `rockc`, and `rock-lsp` shims in `~/.rockup/bin`. Set `ROCKUP_HOME` to a nonempty absolute path before installation to use another location; keep using that value in later shells.
+The bootstrap persists rockup as `~/.rockup/bin/rockup` and creates `rock`, `rockc`, and `rock-lsp` shims in `~/.rockup/bin`. The shims require a toolchain, installed separately by `rockup install` under `~/.rockup/toolchains`. Set `ROCKUP_HOME` to a nonempty absolute path before installation to use another location; keep using that value in later shells.
 
 The bootstrap refuses to overwrite an existing `ROCKUP_HOME/bin/rockup`, including a dangling symlink. Use that installed manager's `install`, `update`, or `self update` command instead of rerunning the bootstrap. Installing a release does not delete an installed local `dev` toolchain or replace an existing default; the first toolchain in an empty home becomes the default.
 
@@ -47,6 +50,11 @@ Rockup writes an `env` file and a managed activation block to `.bashrc` for Bash
 
 ```sh
 . "${ROCKUP_HOME:-$HOME/.rockup}/env"
+```
+
+Then run `rockup install` if you have not already installed a toolchain. After installation, verify:
+
+```sh
 rock --version
 rock-lsp --help
 ```

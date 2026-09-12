@@ -1,5 +1,5 @@
 #!/bin/sh
-# Bootstrap the standalone rockup; toolchain installation owns shims and shell setup.
+# Bootstrap only the manager; `rockup install` downloads the toolchain separately.
 set -eu
 LC_ALL=C
 export LC_ALL
@@ -79,6 +79,6 @@ chmod 700 "$stage/$asset"
 if [ -e "$installed" ] || [ -L "$installed" ]; then
     die "rockup appeared at $installed during download; refusing to overwrite it"
 fi
-"$stage/$asset" install "$channel" || die 'rockup toolchain installation failed'
+"$stage/$asset" self install || die 'rockup manager installation failed'
 [ -x "$installed" ] || die "rockup did not persist itself at $installed"
-printf '\nRock installed. Restart your shell, or run:\n  . "%s/env"\n' "$ROCKUP_HOME"
+printf '\nRockup installed. Restart your shell, or run:\n  . "%s/env"\n\nThen install the toolchain:\n  rockup install\n' "$ROCKUP_HOME"

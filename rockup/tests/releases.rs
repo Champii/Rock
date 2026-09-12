@@ -177,6 +177,43 @@ fn success(output: Output) {
 }
 
 #[test]
+fn self_install_persists_only_manager_then_install_fetches_toolchain() {
+    let fixture = Fixture::new();
+    let downloaded = fixture.root.join("downloaded-rockup");
+    fs::copy(env!("CARGO_BIN_EXE_rockup"), &downloaded).unwrap();
+    success(
+        fixture
+            .command_for(&downloaded)
+            .args(["self", "install"])
+            .output()
+            .unwrap(),
+    );
+    fs::remove_file(downloaded).unwrap();
+    let manager = fixture.root.join("home/bin/rockup");
+    let list = fixture.command_for(&manager).arg("list").output().unwrap();
+    assert!(list.stdout.is_empty());
+    success(list);
+    for binary in ["rock", "rockc", "rock-lsp"] {
+        let shim = fs::read_to_string(fixture.root.join("home/bin").join(binary)).unwrap();
+        assert!(shim.contains(manager.to_str().unwrap()));
+    }
+    assert!(fixture.root.join("home/env").is_file());
+    assert!(fixture.root.join("user/.profile").is_file());
+    assert!(!fixture.root.join("home/default-toolchain").exists());
+    assert!(!fixture.root.join("requests").exists());
+    let source = fixture.source("old");
+    fixture.pack(&source, &[]);
+    success(
+        fixture
+            .command_for(&manager)
+            .arg("install")
+            .output()
+            .unwrap(),
+    );
+    fixture.assert_old();
+}
+
+#[test]
 fn install_update_default_and_local_path() {
     let fixture = Fixture::new();
     let source = fixture.source("old");

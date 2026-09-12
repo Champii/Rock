@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 printf '%s\n' "$*" > "$TEST_ROOT/invocation"
-[ "$*" = "install $EXPECTED_CHANNEL" ]
+[ "$*" = "self install" ]
 [ "$TEST_MODE" != install-failure ] || exit 17
 # Model the release manager's persistence contract, not its Rust implementation.
 mkdir -p "$ROCKUP_HOME/bin"
