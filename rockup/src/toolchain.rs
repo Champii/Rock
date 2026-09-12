@@ -41,6 +41,7 @@ pub(crate) fn install_toolchain(
     name: &str,
     source: &Path,
 ) -> Result<PathBuf, String> {
+    let destination = home.toolchain_dir(name)?;
     let should_set_default =
         !home.default_toolchain_file().exists() && installed_toolchain_names(home)?.is_empty();
     let source = source.canonicalize().map_err(|e| {
@@ -51,7 +52,6 @@ pub(crate) fn install_toolchain(
         )
     })?;
     let install_source = detect_install_source(&source)?;
-    let destination = home.toolchain_dir(name);
 
     if destination.exists() {
         return Err(format!(
@@ -88,7 +88,7 @@ pub(crate) fn install_toolchain(
 }
 
 pub(crate) fn remove_toolchain(home: &RockupHome, name: &str) -> Result<PathBuf, String> {
-    let toolchain_dir = home.toolchain_dir(name);
+    let toolchain_dir = home.toolchain_dir(name)?;
     if !toolchain_dir.exists() {
         return Err(format!(
             "Toolchain '{}' is not installed at {}",
@@ -142,7 +142,7 @@ pub(crate) fn list_toolchains(home: &RockupHome) -> Result<Vec<ToolchainListEntr
 }
 
 pub(crate) fn set_default_toolchain(home: &RockupHome, name: &str) -> Result<(), String> {
-    validate_toolchain_layout(&ToolchainLayout::new(home.toolchain_dir(name)))?;
+    validate_toolchain_layout(&ToolchainLayout::new(home.toolchain_dir(name)?))?;
     fs::create_dir_all(&home.root).map_err(|e| {
         format!(
             "Failed to create rockup home directory {}: {}",
@@ -168,7 +168,7 @@ pub(crate) fn run_toolchain_command(
         return Err("Missing command to run".to_string());
     }
 
-    let layout = ToolchainLayout::new(home.toolchain_dir(toolchain_name));
+    let layout = ToolchainLayout::new(home.toolchain_dir(toolchain_name)?);
     validate_toolchain_layout(&layout)?;
 
     let mut child = Command::new(&command[0]);
@@ -202,7 +202,7 @@ pub(crate) fn proxy_toolchain_command_from_dir(
     current_dir: &Path,
 ) -> Result<ExitStatus, String> {
     let toolchain = resolve_active_toolchain(home, current_env_toolchain(), Some(current_dir))?;
-    let layout = ToolchainLayout::new(home.toolchain_dir(&toolchain.name));
+    let layout = ToolchainLayout::new(home.toolchain_dir(&toolchain.name)?);
     validate_toolchain_layout(&layout)?;
 
     let binary_path = match binary {
@@ -263,7 +263,7 @@ pub(crate) fn validate_toolchain_layout(layout: &ToolchainLayout) -> Result<(), 
     ];
 
     for (path, label) in required_paths {
-        if !path.exists() {
+        if !path.is_file() {
             return Err(format!(
                 "Missing {} in toolchain layout at {}",
                 label,

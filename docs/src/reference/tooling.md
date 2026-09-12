@@ -72,9 +72,9 @@ $ cargo build --release
 $ target/release/rockup dev stdlib package \
     --path stdlib \
     --sysroot target/release
-$ target/release/rockup toolchain install dev --path target/release
+$ target/release/rockup install dev --path target/release
 $ target/release/rockup default dev
-$ target/release/rockup toolchain list
+$ target/release/rockup list
 ```
 
 The first installed toolchain becomes the default automatically; `rockup default` switches it explicitly. Toolchain shims keep the user workflow on `rock` while selecting matching compiler and standard-library components behind the project command.

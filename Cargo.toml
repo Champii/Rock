@@ -24,7 +24,7 @@ members = [
 clap = { version = "4.5.3", features = ["derive"] }
 ariadne = { version = "0.4.1", features = ["auto-color"] }
 paste = "1.0.15"
-inkwell = { version = "0.5", features = ["llvm18-0-force-dynamic"] }
+inkwell = { version = "0.5", features = ["llvm18-0-force-static"] }
 toml = "0.8"
 
 # default-members = ["rock"]

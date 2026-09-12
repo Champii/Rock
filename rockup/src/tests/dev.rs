@@ -33,14 +33,8 @@ fn test_package_dev_stdlib_writes_sysroot_layout() {
     .unwrap();
     fs::write(stdlib.join("lib.rk"), "< answer = -> 42\n").unwrap();
 
-    let packaged = package_dev_stdlib(
-        &stdlib,
-        &sysroot,
-        Some(target.clone()),
-        true,
-        Some(&rockc),
-    )
-    .unwrap();
+    let packaged =
+        package_dev_stdlib(&stdlib, &sysroot, Some(target.clone()), true, Some(&rockc)).unwrap();
 
     assert_eq!(
         packaged,

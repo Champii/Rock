@@ -2,41 +2,74 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
-use crate::cli::{
-    CommandConfig, Config, DevCommand, DevStdlibCommand, TargetCommand, ToolchainCommand,
-};
+use crate::cli::{CommandConfig, Config, DevCommand, DevStdlibCommand, TargetCommand};
 
 #[test]
-fn test_cli_parses_install_command() {
-    let config = Config::try_parse_from([
-        "rockup",
-        "toolchain",
-        "install",
-        "stable",
-        "--path",
-        "/tmp/toolchain",
-    ])
-    .unwrap();
+fn test_proxy_forwards_help_to_toolchain_binary() {
+    for flag in ["--help", "-h"] {
+        let config = Config::try_parse_from(["rockup", "proxy", "rock-lsp", flag]).unwrap();
+        match config.command {
+            CommandConfig::Proxy { binary, args } => {
+                assert_eq!(binary, "rock-lsp");
+                assert_eq!(args, [flag]);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+}
 
-    match config.command {
-        CommandConfig::Toolchain {
-            command: ToolchainCommand::Install { name, path },
-        } => {
-            assert_eq!(name, "stable");
-            assert_eq!(path, PathBuf::from("/tmp/toolchain"));
+#[test]
+fn test_install_and_update_default_to_stable() {
+    for args in [vec!["rockup", "install"], vec!["rockup", "update"]] {
+        match Config::try_parse_from(args).unwrap().command {
+            CommandConfig::Install { name, path } => {
+                assert_eq!(name, "stable");
+                assert_eq!(path, None);
+            }
+            CommandConfig::Update { name } => assert_eq!(name, "stable"),
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+}
+
+#[test]
+fn test_install_accepts_versions_and_local_paths() {
+    for name in ["stable", "v1.2.3", "1.2.3"] {
+        match Config::try_parse_from(["rockup", "install", name])
+            .unwrap()
+            .command
+        {
+            CommandConfig::Install { name: parsed, path } => {
+                assert_eq!(parsed, name);
+                assert_eq!(path, None);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+    match Config::try_parse_from(["rockup", "install", "dev", "--path", "/tmp/toolchain"])
+        .unwrap()
+        .command
+    {
+        CommandConfig::Install { name, path } => {
+            assert_eq!(name, "dev");
+            assert_eq!(path, Some(PathBuf::from("/tmp/toolchain")));
         }
         other => panic!("unexpected command: {:?}", other),
     }
 }
 
 #[test]
+fn test_cli_parses_list_command() {
+    let config = Config::try_parse_from(["rockup", "list"]).unwrap();
+    assert!(matches!(config.command, CommandConfig::List));
+}
+
+#[test]
 fn test_cli_parses_remove_command() {
-    let config = Config::try_parse_from(["rockup", "toolchain", "remove", "stable"]).unwrap();
+    let config = Config::try_parse_from(["rockup", "remove", "stable"]).unwrap();
 
     match config.command {
-        CommandConfig::Toolchain {
-            command: ToolchainCommand::Remove { name },
-        } => {
+        CommandConfig::Remove { name } => {
             assert_eq!(name, "stable");
         }
         other => panic!("unexpected command: {:?}", other),

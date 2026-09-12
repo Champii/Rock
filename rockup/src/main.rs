@@ -4,6 +4,7 @@ mod dev;
 mod fsutil;
 mod home;
 mod layout;
+mod release;
 mod selection;
 mod shell;
 mod target;

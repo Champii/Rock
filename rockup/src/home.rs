@@ -38,9 +38,35 @@ impl RockupHome {
         self.root.join(ENV_FILE_NAME)
     }
 
-    pub(crate) fn toolchain_dir(&self, name: &str) -> PathBuf {
-        self.toolchains_dir().join(name)
+    pub(crate) fn toolchain_dir(&self, name: &str) -> Result<PathBuf, String> {
+        validate_name(name)?;
+        let path = self.toolchains_dir().join(name);
+        match fs::symlink_metadata(&path) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(format!("Toolchain '{}' must not be a symlink", name));
+            }
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                return Err(format!("Failed to inspect {}: {}", path.display(), error));
+            }
+            _ => {}
+        }
+        Ok(path)
     }
+}
+
+pub(crate) fn validate_name(name: &str) -> Result<(), String> {
+    if name.len() > 128
+        || !name
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        || !name
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || b"._-+".contains(&c))
+    {
+        return Err(format!("Invalid toolchain name '{}'", name));
+    }
+    Ok(())
 }
 
 pub(crate) fn home_dir() -> Result<PathBuf, String> {
@@ -76,7 +102,10 @@ pub(crate) fn installed_toolchain_names(home: &RockupHome) -> Result<Vec<String>
             continue;
         }
 
-        names.push(entry.file_name().to_string_lossy().into_owned());
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if validate_name(&name).is_ok() {
+            names.push(name);
+        }
     }
 
     names.sort();

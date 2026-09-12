@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+printf '%s\n' "$*" > "$TEST_ROOT/invocation"
+[ "$*" = "self install" ]
+[ "$TEST_MODE" != install-failure ] || exit 17
+# Model the release manager's persistence contract, not its Rust implementation.
+mkdir -p "$ROCKUP_HOME/bin"
+cp "$0" "$ROCKUP_HOME/bin/rockup"
+chmod 700 "$ROCKUP_HOME/bin/rockup"

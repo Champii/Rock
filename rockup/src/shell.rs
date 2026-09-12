@@ -23,9 +23,48 @@ pub(crate) fn ensure_shims(home: &RockupHome) -> Result<(), String> {
         )
     })?;
 
-    write_shim(home, ROCK_BIN_NAME)?;
-    write_shim(home, ROCKC_BIN_NAME)?;
-    write_shim(home, ROCK_LSP_BIN_NAME)?;
+    let rockup_path = home.bin_dir().join("rockup");
+    match fs::symlink_metadata(&rockup_path) {
+        Ok(metadata) if !metadata.is_file() => {
+            return Err(format!(
+                "Refusing to use a non-regular rockup executable at {}",
+                rockup_path.display()
+            ));
+        }
+        Ok(_) => {} // Existing managers are replaced only by explicit self update.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let executable = env::current_exe()
+                .map_err(|e| format!("Failed to resolve rockup executable: {}", e))?;
+            let mut source = fs::File::open(&executable)
+                .map_err(|e| format!("Failed to open {}: {}", executable.display(), e))?;
+            let mut destination = fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&rockup_path)
+                .map_err(|e| format!("Failed to create {}: {}", rockup_path.display(), e))?;
+            // Never leave shims pointing at a temporary bootstrap download.
+            let result = std::io::copy(&mut source, &mut destination)
+                .map_err(|e| format!("Failed to copy rockup: {}", e))
+                .and_then(|_| make_executable(&rockup_path));
+            if let Err(error) = result {
+                let _ = fs::remove_file(&rockup_path);
+                return Err(error);
+            }
+        }
+        Err(error) => {
+            return Err(format!(
+                "Failed to inspect {}: {}",
+                rockup_path.display(),
+                error
+            ));
+        }
+    }
+    let rockup_path = rockup_path
+        .canonicalize()
+        .map_err(|e| format!("Failed to canonicalize installed rockup: {}", e))?;
+    write_shim(home, ROCK_BIN_NAME, &rockup_path)?;
+    write_shim(home, ROCKC_BIN_NAME, &rockup_path)?;
+    write_shim(home, ROCK_LSP_BIN_NAME, &rockup_path)?;
     Ok(())
 }
 
@@ -202,11 +241,7 @@ fn upsert_shell_init_block(existing: &str, block: &str) -> String {
     format!("{}\n\n{}", trimmed, block)
 }
 
-fn write_shim(home: &RockupHome, binary: &str) -> Result<(), String> {
-    let rockup_path = env::current_exe()
-        .map_err(|e| format!("Failed to resolve rockup executable path: {}", e))?
-        .canonicalize()
-        .map_err(|e| format!("Failed to canonicalize rockup executable path: {}", e))?;
+fn write_shim(home: &RockupHome, binary: &str, rockup_path: &Path) -> Result<(), String> {
     let shim_path = home.bin_dir().join(binary);
     let script = format!(
         "#!/bin/sh\nexec {} proxy {} \"$@\"\n",
@@ -241,8 +276,9 @@ fn shell_double_quote_escape(value: &str) -> String {
 }
 
 pub(crate) fn print_current_shell_activation_hint() -> Result<(), String> {
-    let executable = env::current_exe()
-        .map_err(|e| format!("Failed to resolve rockup executable path: {}", e))?
+    let executable = RockupHome::resolve()?
+        .bin_dir()
+        .join("rockup")
         .canonicalize()
         .map_err(|e| format!("Failed to canonicalize rockup executable path: {}", e))?;
     eprintln!(
