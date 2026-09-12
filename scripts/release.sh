@@ -35,7 +35,7 @@ if [[ $publish == --publish ]]; then
     command -v gh >/dev/null || die 'Publishing requires authenticated GitHub CLI (gh)'
     [[ -z $(git status --porcelain --untracked-files=normal) ]] || die 'Publishing requires a clean checkout'
     [[ $(git rev-parse "refs/tags/$tag^{commit}") == "$(git rev-parse HEAD)" ]] || die 'Release tag must point at HEAD'
-    remote_tag=$(git ls-remote https://github.com/Champii/Rock.git "refs/tags/$tag" "refs/tags/$tag^{}")
+    remote_tag=$(git ls-remote https://github.com/Rock-lang-org/Rock.git "refs/tags/$tag" "refs/tags/$tag^{}")
     remote_commit=$(printf '%s\n' "$remote_tag" | awk 'NR == 1 { commit = $1 } /\^\{\}$/ { commit = $1 } END { print commit }')
     [[ $remote_commit == "$(git rev-parse HEAD)" ]] || die 'Tag must already exist at HEAD on GitHub'
 fi
@@ -102,7 +102,7 @@ install -m 644 scripts/install.sh "$assets/install.sh"
 mv "$assets" "$out"
 printf 'Packaged and smoke-tested %s\n' "$out"
 if [[ $publish == --publish ]]; then
-    gh release create "$tag" "$out"/* --repo Champii/Rock --verify-tag --draft \
+    gh release create "$tag" "$out"/* --repo Rock-lang-org/Rock --verify-tag --draft \
         --title "Rock $tag" --generate-notes \
         --notes 'Linux x86_64 GNU only. LLVM 18 is statically linked; no LLVM installation required. Requires glibc 2.39+ and a C linker (Ubuntu 24.04: apt install build-essential curl ca-certificates). Install with the attached install.sh. Experimental release; review before publishing.'
 fi

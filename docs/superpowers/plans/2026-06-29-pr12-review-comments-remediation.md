@@ -19,7 +19,7 @@ Use REST replies for inline comments:
 ```bash
 gh api \
   --method POST \
-  repos/Champii/new_lang/pulls/12/comments/<comment-id>/replies \
+  repos/Rock-lang-org/Rock/pulls/12/comments/<comment-id>/replies \
   -f body='<short factual fix summary>'
 ```
 
@@ -119,27 +119,27 @@ Reply with short factual messages and resolve:
 
 ```bash
 # Holder workaround removed.
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453226069/replies -f body='Verified: the Holder wrapper is gone; this regression now uses a moved String directly and remains covered by the borrow-after-move failure test.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453226069/replies -f body='Verified: the Holder wrapper is gone; this regression now uses a moved String directly and remains covered by the borrow-after-move failure test.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LTTb8'
 
 # Conformance spans.
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453312095/replies -f body='Verified: this diagnostic now uses the impl method span via method_span.clone().'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453312095/replies -f body='Verified: this diagnostic now uses the impl method span via method_span.clone().'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LTiXV'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453313508/replies -f body='Verified: this diagnostic now uses the impl method span via method_span.clone().'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453313508/replies -f body='Verified: this diagnostic now uses the impl method span via method_span.clone().'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LTim-'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453314391/replies -f body='Verified: the return-type mismatch diagnostic now uses the impl method span.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453314391/replies -f body='Verified: the return-type mismatch diagnostic now uses the impl method span.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LTixP'
 
 # Direct parse return helpers.
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453435287/replies -f body='Verified: string_to_int now directly returns atol owned.as_ptr!.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453435287/replies -f body='Verified: string_to_int now directly returns atol owned.as_ptr!.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LT3y9'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453436695/replies -f body='Verified: string_to_float now directly returns atof owned.as_ptr!.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453436695/replies -f body='Verified: string_to_float now directly returns atof owned.as_ptr!.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LT4Cs'
 
 # Eq byte casts and reference impl duplication.
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453462092/replies -f body='Verified: &Str equality compares U8 bytes directly; the I64 casts are gone.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453462092/replies -f body='Verified: &Str equality compares U8 bytes directly; the I64 casts are gone.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LT8b-'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453489214/replies -f body='Verified: the duplicate primitive reference Eq impls are gone; autoref handles these calls through the base impls.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453489214/replies -f body='Verified: the duplicate primitive reference Eq impls are gone; autoref handles these calls through the base impls.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUBLs'
 ```
 
@@ -275,13 +275,13 @@ cargo run -p rockc -- --entry-file examples/string_utils.rk --extern-artifact st
 - [ ] **Step 6: Reply and resolve string-concat threads**
 
 ```bash
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453239060/replies -f body='Implemented: String concatenation now supports + for &Str/String combinations, and matrix output uses the concise + form.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453239060/replies -f body='Implemented: String concatenation now supports + for &Str/String combinations, and matrix output uses the concise + form.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LTVqo'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453245117/replies -f body='Implemented with the same string + cleanup in matrix.rk.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453245117/replies -f body='Implemented with the same string + cleanup in matrix.rk.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LTWrc'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453245857/replies -f body='Implemented: showcase.rk now uses &Str + String instead of the verbose concat chain.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453245857/replies -f body='Implemented: showcase.rk now uses &Str + String instead of the verbose concat chain.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LTWz3'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453247200/replies -f body='Implemented: string_utils.rk now uses + for &Str/String concatenation.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453247200/replies -f body='Implemented: string_utils.rk now uses + for &Str/String concatenation.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LTXDJ'
 ```
 
@@ -390,9 +390,9 @@ cargo test -p rock-lib --test integration test_stdlib_hash_map_get_and_contains_
 - [ ] **Step 6: Reply and resolve Eq threads**
 
 ```bash
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453464109/replies -f body='Implemented: &Str now uses the trait default !=, and its equality path keeps direct U8 byte comparisons.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453464109/replies -f body='Implemented: &Str now uses the trait default !=, and its equality path keeps direct U8 byte comparisons.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LT8zk'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453479123/replies -f body='Implemented: Eq now defines a default != in terms of ==, so impls only provide == unless they need specialization.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453479123/replies -f body='Implemented: Eq now defines a default != in terms of ==, so impls only provide == unless they need specialization.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LT_dJ'
 ```
 
@@ -505,13 +505,13 @@ cargo test -p rock-lib --test integration test_stdlib_result_show_owned_string_i
 - [ ] **Step 7: Reply and resolve Show/println threads**
 
 ```bash
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453515072/replies -f body='Implemented: Option no longer overrides println; it uses the Show trait default.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453515072/replies -f body='Implemented: Option no longer overrides println; it uses the Show trait default.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUF2M'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453528091/replies -f body='Implemented: Result no longer overrides println; it uses the Show trait default.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453528091/replies -f body='Implemented: Result no longer overrides println; it uses the Show trait default.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUIJT'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453543534/replies -f body='Implemented: Show now defines the default println method, and redundant impl-level println methods were removed.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453543534/replies -f body='Implemented: Show now defines the default println method, and redundant impl-level println methods were removed.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUK5B'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3492445021/replies -f body='Implemented: Show.println is now a trait default instead of being redefined by each impl.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3492445021/replies -f body='Implemented: Show.println is now a trait default instead of being redefined by each impl.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6NAA2S'
 ```
 
@@ -594,17 +594,17 @@ Expected: no matches. Any remaining match means this task is incomplete and must
 - [ ] **Step 5: Reply and resolve deref-parentheses threads**
 
 ```bash
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453448829/replies -f body='Implemented: removed unnecessary dereference parentheses across the stdlib where the parser accepts the cleaner form.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453448829/replies -f body='Implemented: removed unnecessary dereference parentheses across the stdlib where the parser accepts the cleaner form.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LT6H7'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453491888/replies -f body='Implemented: removed the unnecessary dereference parentheses in hash.rk.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453491888/replies -f body='Implemented: removed the unnecessary dereference parentheses in hash.rk.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUBpn'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453508305/replies -f body='Implemented: removed unnecessary dereference parentheses in num.rk.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453508305/replies -f body='Implemented: removed unnecessary dereference parentheses in num.rk.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUEn9'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453513416/replies -f body='Implemented: removed the unnecessary parentheses around the borrowed inspect payload where parser syntax allows it.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453513416/replies -f body='Implemented: removed the unnecessary parentheses around the borrowed inspect payload where parser syntax allows it.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUFih'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453517430/replies -f body='Implemented: removed unnecessary dereference parentheses in ord.rk.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453517430/replies -f body='Implemented: removed unnecessary dereference parentheses in ord.rk.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUGSd'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3492401617/replies -f body='Implemented: removed unnecessary dereference parentheses across stdlib, including bitwise.rk.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3492401617/replies -f body='Implemented: removed unnecessary dereference parentheses across stdlib, including bitwise.rk.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6M_5AQ'
 ```
 
@@ -654,9 +654,9 @@ cargo test -p rock-lib --test integration test_stdlib_string_helpers_return_owne
 - [ ] **Step 4: Reply and resolve convert temporary threads**
 
 ```bash
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3492407632/replies -f body='Implemented: int_to_string now directly returns String::from_i64 x.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3492407632/replies -f body='Implemented: int_to_string now directly returns String::from_i64 x.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6M_6HN'
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3492408322/replies -f body='Implemented: float_to_string now directly returns String::from_f64 x.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3492408322/replies -f body='Implemented: float_to_string now directly returns String::from_f64 x.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6M_6PV'
 ```
 
@@ -721,7 +721,7 @@ cargo test -p rock-lib --test integration test_stdlib_hash_map_rejects_zero_size
 - [ ] **Step 4: Reply and resolve raw-buffer thread**
 
 ```bash
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453521440/replies -f body='Implemented: RawBuffer::with_capacity now guards negative capacity before allocation and no longer has a fake pointer expression after exit.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453521440/replies -f body='Implemented: RawBuffer::with_capacity now guards negative capacity before allocation and no longer has a fake pointer expression after exit.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUG_V'
 ```
 
@@ -799,7 +799,7 @@ cargo test -p rock-lib --test integration test_stdlib_vec_set_drops_replaced_ele
 - [ ] **Step 5: Reply and resolve PtrOffset thread**
 
 ```bash
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3492427120/replies -f body='Implemented: stdlib call sites now use pointer + syntax instead of ~PtrOffset. The intrinsic remains only inside the pointer + operator implementation to avoid recursion.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3492427120/replies -f body='Implemented: stdlib call sites now use pointer + syntax instead of ~PtrOffset. The intrinsic remains only inside the pointer + operator implementation to avoid recursion.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6M_9q_'
 ```
 
@@ -849,7 +849,7 @@ cargo test -p rock-lib --test integration test_stdlib_string_helpers_return_owne
 - [ ] **Step 4: Reply and resolve string formatter thread**
 
 ```bash
-gh api --method POST repos/Champii/new_lang/pulls/12/comments/3453553760/replies -f body='Verified: from_f64 already uses gcvt. For I64 there is no portable non-printf libc formatter like itoa/ltoa, so the manual formatter stays to honor the no-printf-family constraint.'
+gh api --method POST repos/Rock-lang-org/Rock/pulls/12/comments/3453553760/replies -f body='Verified: from_f64 already uses gcvt. For I64 there is no portable non-printf libc formatter like itoa/ltoa, so the manual formatter stays to honor the no-printf-family constraint.'
 gh api graphql -f query='mutation($id:ID!) { resolveReviewThread(input:{threadId:$id}) { thread { id isResolved } } }' -f id='PRRT_kwDOKw_Lbc6LUMuW'
 ```
 
@@ -901,8 +901,8 @@ cargo test -p rock-lib
 ```bash
 gh api graphql \
   -f query='query($owner:String!, $repo:String!, $number:Int!) { repository(owner:$owner, name:$repo) { pullRequest(number:$number) { reviewThreads(first:100) { nodes { id isResolved comments(first:1) { nodes { databaseId path url body } } } } } } }' \
-  -F owner=Champii \
-  -F repo=new_lang \
+  -F owner=Rock-lang-org \
+  -F repo=Rock \
   -F number=12 \
   --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | {thread_id:.id, comment_id:.comments.nodes[0].databaseId, path:.comments.nodes[0].path, url:.comments.nodes[0].url, body:.comments.nodes[0].body}'
 ```

@@ -46,10 +46,11 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 if [ "$latest" = yes ]; then
-    printf 'https://github.com/Champii/Rock/releases/tag/v1.2.3'
+    [ "$url" = https://github.com/Rock-lang-org/Rock/releases/latest ] || exit 93
+    printf 'https://github.com/Rock-lang-org/Rock/releases/tag/v1.2.3'
 else
     case "$url" in
-        https://github.com/Champii/Rock/releases/download/v1.2.3/*) ;;
+        https://github.com/Rock-lang-org/Rock/releases/download/v1.2.3/*) ;;
         *) exit 93 ;;
     esac
     cp "$FIXTURE/assets/${url##*/}" "$output"

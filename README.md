@@ -1,9 +1,9 @@
 # Rock
 
-[![Book](https://github.com/Champii/Rock/actions/workflows/book.yml/badge.svg?branch=master)](https://github.com/Champii/Rock/actions/workflows/book.yml)
+[![Book](https://github.com/Rock-lang-org/Rock/actions/workflows/book.yml/badge.svg?branch=master)](https://github.com/Rock-lang-org/Rock/actions/workflows/book.yml)
 [![Discord](https://img.shields.io/discord/990627124236939314.svg)](https://discord.gg/f6skPNB96J)
 
-[Read the Book](https://champii.github.io/Rock/) | [GitHub Releases](https://github.com/Champii/Rock/releases) | [Examples](examples/)
+[Read the Book](https://rock-lang-org.github.io/Rock/) | [GitHub Releases](https://github.com/Rock-lang-org/Rock/releases) | [Examples](examples/)
 
 **A native language with a functional style and explicit ownership.**
 
@@ -11,7 +11,7 @@ Rock combines type inference, pattern matching, traits, and higher-kinded types 
 
 The syntax takes inspiration from [LiveScript](https://livescript.net/), [Haskell](https://www.haskell.org/), and [Rust](https://www.rust-lang.org/). You do not need to know those languages to follow this tour. It starts with small programs and introduces the functional vocabulary through examples.
 
-Rock is experimental. Version `0.5.1` is not a stability promise: syntax, APIs, and tooling can change, and compiler bugs remain. Use it to explore, build small programs, and help shape the language.
+Rock is experimental. Version `0.5.2` is not a stability promise: syntax, APIs, and tooling can change, and compiler bugs remain. Use it to explore, build small programs, and help shape the language.
 
 ## Contents
 
@@ -47,10 +47,10 @@ sudo apt install build-essential curl ca-certificates
 
 GNU tar, gzip, and `sha256sum` must also be available; they are normally already installed on Ubuntu. The installer does not run `sudo` or install system packages for you.
 
-Install Rock in one step. This executes a script from the release publisher, so only run it if you trust that publisher; you can inspect [`install.sh`](https://github.com/Champii/Rock/releases/latest/download/install.sh) separately first.
+Install Rock in one step. This executes a script from the release publisher, so only run it if you trust that publisher; you can inspect [`install.sh`](https://github.com/Rock-lang-org/Rock/releases/latest/download/install.sh) separately first.
 
 ```sh
-curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh | sh
+curl --proto '=https' -fsSL https://github.com/Rock-lang-org/Rock/releases/latest/download/install.sh | sh
 ```
 
 The bootstrap downloads and verifies the standalone rockup manager, then runs `rockup self install` to copy it and command shims into `~/.rockup/bin` and add shell setup. It then runs the installed manager's `rockup install stable` automatically to install the compiler, project command, language server, and standard library. No separate install command is needed.
@@ -74,10 +74,10 @@ Once rockup is installed, the everyday commands are short:
 | `rockup update` | Install or update the stable toolchain |
 | `rockup self update` | Update the rockup manager itself |
 | `rockup list` | List installed toolchains and mark the active one |
-| `rockup install v0.5.1` | Install that specific release |
-| `rockup default v0.5.1` | Select that version, installing it if needed |
-| `rockup run v0.5.1 rock --version` | Run one command with a chosen version |
-| `rockup remove v0.5.1` | Remove an installed version |
+| `rockup install v0.5.2` | Install that specific release |
+| `rockup default v0.5.2` | Select that version, installing it if needed |
+| `rockup run v0.5.2 rock --version` | Run one command with a chosen version |
+| `rockup remove v0.5.2` | Remove an installed version |
 
 `install` and `update` default to `stable`, meaning GitHub's latest non-prerelease release. The channel name does not mean Rock's language or APIs are stable. Use `update`, rather than another `install`, when a toolchain is already present.
 
@@ -85,10 +85,10 @@ To pin a project, install its version first and add a `rock-toolchain.toml` besi
 
 ```toml
 [toolchain]
-channel = "v0.5.1"
+channel = "v0.5.2"
 ```
 
-A project pin selects an installed toolchain; it does not download one automatically. See the [installation guide](https://champii.github.io/Rock/getting-started/installation.html) for custom `ROCKUP_HOME` locations, shell setup, and troubleshooting. Windows, macOS, musl, and other CPU architectures are not release targets yet.
+A project pin selects an installed toolchain; it does not download one automatically. See the [installation guide](https://rock-lang-org.github.io/Rock/getting-started/installation.html) for custom `ROCKUP_HOME` locations, shell setup, and troubleshooting. Windows, macOS, musl, and other CPU architectures are not release targets yet.
 
 ## Your First Program
 
@@ -171,7 +171,7 @@ main = !->
     &values[..2] .println!
 ```
 
-This prints `total`, `60`, and `[10, 20]`. The range `0..3` visits indices `0`, `1`, and `2`, excluding its upper bound. `&values[..2]` borrows the first two elements as a slice; it does not create a new owned array. `mut` makes mutable access explicit. Rock also has `while`, `loop`, `break`, and `continue`; see [Control Flow](https://champii.github.io/Rock/language/control-flow.html).
+This prints `total`, `60`, and `[10, 20]`. The range `0..3` visits indices `0`, `1`, and `2`, excluding its upper bound. `&values[..2]` borrows the first two elements as a slice; it does not create a new owned array. `mut` makes mutable access explicit. Rock also has `while`, `loop`, `break`, and `continue`; see [Control Flow](https://rock-lang-org.github.io/Rock/language/control-flow.html).
 
 ## Functions and Pipelines
 
@@ -303,7 +303,7 @@ main = !->
     text.clone!.println!
 ```
 
-This prints `4`, then `Rock` twice. Borrowing does not copy the allocation; cloning does. Owned values are cleaned up deterministically through `Drop`. See [Ownership](https://champii.github.io/Rock/language/ownership.html) for moves, mutable references, and lifetime constraints.
+This prints `4`, then `Rock` twice. Borrowing does not copy the allocation; cloning does. Owned values are cleaned up deterministically through `Drop`. See [Ownership](https://rock-lang-org.github.io/Rock/language/ownership.html) for moves, mutable references, and lifetime constraints.
 
 ### Transforming Collections
 
@@ -372,7 +372,7 @@ main = !->
     source.read!.println!
 ```
 
-This prints `42`. `Source` does not require every implementation to return `I64`; this implementation chooses it with `type Item = I64`. More trait examples, including default methods, are in [Traits and Methods](https://champii.github.io/Rock/language/traits.html).
+This prints `42`. `Source` does not require every implementation to return `I64`; this implementation chooses it with `type Item = I64`. More trait examples, including default methods, are in [Traits and Methods](https://rock-lang-org.github.io/Rock/language/traits.html).
 
 ## Functional Operators
 
@@ -461,7 +461,7 @@ main = !->
 
 This prints `Ok(21)` and `Err(calculation: division by zero)`. In `quarter`, the parentheses group the inner call so `?` applies to its result before the outer division. The error mapper changes the error type from a borrowed `&Str` to an owned `String`.
 
-`<!>` is supplied through **Bifunctor**, a trait for constructors with two type parameters. `?` also works with `Option`; its general behavior is described by the `Try` and `FromResidual` traits. See [Error Handling](https://champii.github.io/Rock/functional/error-handling.html) for propagation across function boundaries.
+`<!>` is supplied through **Bifunctor**, a trait for constructors with two type parameters. `?` also works with `Option`; its general behavior is described by the `Try` and `FromResidual` traits. See [Error Handling](https://rock-lang-org.github.io/Rock/functional/error-handling.html) for propagation across function boundaries.
 
 ### Apply a Wrapped Function
 
@@ -612,7 +612,7 @@ main = !->
 
 This prints `Some([4, 5])`. Adding a `None` entry would make the result `None`.
 
-Not every container supports every abstraction. `Option` and partially applied `Result` implement `Applicative` and `Monad`; `Vec` currently does not. Its supported HKT operations include mapping, folding, and traversal. See [Higher-Kinded Types](https://champii.github.io/Rock/functional/higher-kinded-types.html) for the fuller contracts and current limits.
+Not every container supports every abstraction. `Option` and partially applied `Result` implement `Applicative` and `Monad`; `Vec` currently does not. Its supported HKT operations include mapping, folding, and traversal. See [Higher-Kinded Types](https://rock-lang-org.github.io/Rock/functional/higher-kinded-types.html) for the fuller contracts and current limits.
 
 ## Modules and Macros
 
@@ -633,7 +633,7 @@ main = !->
     square 6 .println!
 ```
 
-`rock run` prints `36`. Exported names also have qualified paths such as `math::square`. Larger programs can use directory modules and path dependencies; see [Modules](https://champii.github.io/Rock/programs/modules.html) and [Packages](https://champii.github.io/Rock/programs/packages.html).
+`rock run` prints `36`. Exported names also have qualified paths such as `math::square`. Larger programs can use directory modules and path dependencies; see [Modules](https://rock-lang-org.github.io/Rock/programs/modules.html) and [Packages](https://rock-lang-org.github.io/Rock/programs/packages.html).
 
 ### Define an Operator
 
@@ -698,9 +698,9 @@ main = !->
     abs -7 .println!
 ```
 
-This prints `7` using C's integer `abs`. Rock also exposes raw pointers and explicit `unsafe` operations; read the [FFI](https://champii.github.io/Rock/systems/ffi.html) and [Unsafe Code](https://champii.github.io/Rock/systems/unsafe.html) chapters before working with memory at that boundary.
+This prints `7` using C's integer `abs`. Rock also exposes raw pointers and explicit `unsafe` operations; read the [FFI](https://rock-lang-org.github.io/Rock/systems/ffi.html) and [Unsafe Code](https://rock-lang-org.github.io/Rock/systems/unsafe.html) chapters before working with memory at that boundary.
 
-For larger examples, explore the [TCP chat program](test_projects/new_new/main.rk), [file I/O guide](https://champii.github.io/Rock/stdlib/io-and-files.html), and [concurrency guide](https://champii.github.io/Rock/stdlib/concurrency.html). They combine these small building blocks rather than introducing a separate style of language.
+For larger examples, explore the [TCP chat program](test_projects/new_new/main.rk), [file I/O guide](https://rock-lang-org.github.io/Rock/stdlib/io-and-files.html), and [concurrency guide](https://rock-lang-org.github.io/Rock/stdlib/concurrency.html). They combine these small building blocks rather than introducing a separate style of language.
 
 ## Tools and Editors
 
@@ -734,7 +734,7 @@ vim.opt.runtimepath:prepend("/absolute/path/to/Rock/neovim")
 require("rock").setup()
 ```
 
-The plugin does not install the compiler: complete rockup installation first, then open a Rock project and run `:checkhealth rock`. The [editor guide](https://champii.github.io/Rock/getting-started/editor-and-diagnostics.html) covers local checkouts, other clients, and diagnostics. Tree-sitter highlighting is provided by [tree-sitter-rock](tree-sitter-rock/).
+The plugin does not install the compiler: complete rockup installation first, then open a Rock project and run `:checkhealth rock`. The [editor guide](https://rock-lang-org.github.io/Rock/getting-started/editor-and-diagnostics.html) covers local checkouts, other clients, and diagnostics. Tree-sitter highlighting is provided by [tree-sitter-rock](tree-sitter-rock/).
 
 ## Build From Source
 
@@ -747,10 +747,10 @@ sudo apt install git llvm-18-dev libpolly-18-dev libzstd-dev libxml2-dev zlib1g-
 export LLVM_SYS_180_PREFIX=/usr/lib/llvm-18
 ```
 
-Use a checkout of the revision you want to build. For the `v0.5.1` release:
+Use a checkout of the revision you want to build. For the `v0.5.2` release:
 
 ```sh
-git clone --branch v0.5.1 https://github.com/Champii/Rock.git
+git clone --branch v0.5.2 https://github.com/Rock-lang-org/Rock.git
 cd Rock
 ```
 
@@ -772,15 +772,15 @@ cargo test -p rock-lib
 cargo test -p rockup
 ```
 
-See the [release maintainer guide](docs/releases.md) for packaging `v0.5.1`, verifying assets, and creating a draft GitHub release. Publishing a release is a separate maintainer action, not a side effect of building the workspace.
+See the [release maintainer guide](docs/releases.md) for packaging `v0.5.2`, verifying assets, and creating a draft GitHub release. Publishing a release is a separate maintainer action, not a side effect of building the workspace.
 
 ## Keep Exploring
 
-- [The Rock Programming Language](https://champii.github.io/Rock/): the complete beginner's guide and reference.
-- [Functions as Values](https://champii.github.io/Rock/functional/function-values.html): closures, callable traits, and partial application.
-- [Higher-Kinded Types](https://champii.github.io/Rock/functional/higher-kinded-types.html): generic constructor operations in more depth.
-- [Current Limitations](https://champii.github.io/Rock/reference/limitations.html): important prototype constraints and known gaps.
+- [The Rock Programming Language](https://rock-lang-org.github.io/Rock/): the complete beginner's guide and reference.
+- [Functions as Values](https://rock-lang-org.github.io/Rock/functional/function-values.html): closures, callable traits, and partial application.
+- [Higher-Kinded Types](https://rock-lang-org.github.io/Rock/functional/higher-kinded-types.html): generic constructor operations in more depth.
+- [Current Limitations](https://rock-lang-org.github.io/Rock/reference/limitations.html): important prototype constraints and known gaps.
 - [Examples](examples/) and [test projects](test_projects/): larger programs and language experiments.
 - [Contributing documentation](docs/checks/README.md): book build and syntax-highlighting checks.
 
-Questions, small reproductions, and contributions are welcome through [GitHub issues](https://github.com/Champii/Rock/issues) and [Discord](https://discord.gg/f6skPNB96J).
+Questions, small reproductions, and contributions are welcome through [GitHub issues](https://github.com/Rock-lang-org/Rock/issues) and [Discord](https://discord.gg/f6skPNB96J).

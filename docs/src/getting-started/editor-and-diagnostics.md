@@ -43,7 +43,7 @@ The Rock repository contains a Neovim plugin under `neovim/`. It uses Neovim's n
 Clone the repository if you do not already have a checkout:
 
 ```console
-$ git clone https://github.com/Champii/Rock.git
+$ git clone https://github.com/Rock-lang-org/Rock.git
 ```
 
 Add the checkout's `neovim/` directory, not the repository root, to `runtimepath` in `init.lua` before setup. Replace the path with your checkout's absolute path:

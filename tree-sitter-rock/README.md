@@ -6,19 +6,21 @@ Tree-sitter grammar for the Rock programming language.
 
 ### For Neovim
 
-1. Clone this repository:
+1. Clone the Rock repository:
 ```bash
-git clone https://github.com/yourusername/tree-sitter-rock ~/.local/share/nvim/site/pack/parser/start/tree-sitter-rock
+git clone https://github.com/Rock-lang-org/Rock.git ~/Rock
 ```
 
 2. Compile the grammar:
 ```bash
-cd tree-sitter-rock
+cd ~/Rock/tree-sitter-rock
 make
 ```
 
 3. Add to your Neovim config (init.lua):
 ```lua
+vim.opt.runtimepath:append(vim.fn.expand("~/Rock/tree-sitter-rock"))
+
 vim.filetype.add({
   extension = {
     rk = 'rock',
@@ -28,7 +30,7 @@ vim.filetype.add({
 local parser_config = require("nvim-treesitter.parsers").get_parser_configs()
 parser_config.rock = {
   install_info = {
-    url = "~/.local/share/nvim/site/pack/parser/start/tree-sitter-rock",
+    url = vim.fn.expand("~/Rock/tree-sitter-rock"),
     files = {"src/parser.c"},
     require_generate = true,
   },

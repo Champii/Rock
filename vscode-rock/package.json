@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "publisher": "champii",
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/Champii/Rock.git" },
+  "repository": { "type": "git", "url": "https://github.com/Rock-lang-org/Rock.git" },
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Programming Languages"],
   "extensionKind": ["workspace"],

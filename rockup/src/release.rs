@@ -12,7 +12,7 @@ use crate::{
     toolchain::validate_toolchain_layout,
 };
 
-const RELEASES: &str = "https://github.com/Champii/Rock/releases";
+const RELEASES: &str = "https://github.com/Rock-lang-org/Rock/releases";
 const TARGET: &str = "x86_64-unknown-linux-gnu";
 
 fn check_platform() -> Result<(), String> {
@@ -446,10 +446,10 @@ mod tests {
             "v1.2.3"
         );
         for url in [
-            "http://github.com/Champii/Rock/releases/tag/v1.2.3",
+            "http://github.com/Rock-lang-org/Rock/releases/tag/v1.2.3",
             "https://evil.test/tag/v1.2.3",
-            "https://github.com/Champii/Rock/releases/latest",
-            "https://github.com/Champii/Rock/releases/tag/1.2.3",
+            "https://github.com/Rock-lang-org/Rock/releases/latest",
+            "https://github.com/Rock-lang-org/Rock/releases/tag/1.2.3",
         ] {
             assert!(latest_tag_from_url(url).is_err());
         }

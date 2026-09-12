@@ -80,8 +80,9 @@ jobs:
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" assets/* --repo Champii/Rock --verify-tag --draft \
+          gh release create "$RELEASE_TAG" assets/* --repo "$GH_REPO" --verify-tag --draft \
             --title "Rock $RELEASE_TAG" --generate-notes \
             --notes 'Linux x86_64 GNU only. LLVM 18 is statically linked; no LLVM installation required. Requires glibc 2.39+ and a C linker (Ubuntu 24.04: apt install build-essential curl ca-certificates). Install with the attached install.sh. Experimental release; review before publishing.'

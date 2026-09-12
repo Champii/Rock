@@ -10,7 +10,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/tree-sitter-rock"
+    "url": "https://github.com/Rock-lang-org/Rock.git",
+    "directory": "tree-sitter-rock"
   },
   "license": "MIT",
   "dependencies": {

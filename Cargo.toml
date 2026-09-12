@@ -20,6 +20,10 @@ members = [
   "rock-lsp",
 ]
 
+[workspace.package]
+repository = "https://github.com/Rock-lang-org/Rock"
+homepage = "https://rock-lang-org.github.io/Rock/"
+
 [workspace.dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
 ariadne = { version = "0.4.1", features = ["auto-color"] }

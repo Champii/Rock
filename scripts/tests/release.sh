@@ -10,7 +10,7 @@ if [[ ${0##*/} == curl ]]; then
         esac
         shift
     done
-    base=https://github.com/Champii/Rock/releases
+    base=https://github.com/Rock-lang-org/Rock/releases
     case $url in
         "$base/latest") printf '%s/tag/%s' "$base" "$RELEASE_TEST_TAG"; exit 0 ;;
         "$base/download/$RELEASE_TEST_TAG/"*|"$base/latest/download/"*)
@@ -37,7 +37,7 @@ unset CARGO_TARGET_DIR ROCK_SYSROOT ROCKC ROCKUP_TOOLCHAIN
 export HOME=$stage/home ROCKUP_HOME=$stage/home/.rockup SHELL=/bin/sh
 export PATH=$stage/bin:$PATH TMPDIR=$stage/downloads
 cd "$stage/project"
-curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh | sh
+curl --proto '=https' -fsSL https://github.com/Rock-lang-org/Rock/releases/latest/download/install.sh | sh
 # The bootstrap's temporary manager must be gone before invoking any shim.
 [[ -z $(ls -A "$stage/downloads") ]]
 manager=$ROCKUP_HOME/bin/rockup

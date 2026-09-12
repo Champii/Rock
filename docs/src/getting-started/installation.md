@@ -16,10 +16,10 @@ GNU tar, gzip, and `sha256sum` must also be installed (normally already present 
 
 ## Install a release
 
-Install the manager and complete Rock toolchain with this one-liner. It executes a script from the official `Champii/Rock` release publisher; only run it if you trust that publisher. You can inspect [`install.sh`](https://github.com/Champii/Rock/releases/latest/download/install.sh) separately first.
+Install the manager and complete Rock toolchain with this one-liner. It executes a script from the official `Rock-lang-org/Rock` release publisher; only run it if you trust that publisher. You can inspect [`install.sh`](https://github.com/Rock-lang-org/Rock/releases/latest/download/install.sh) separately first.
 
 ```sh
-curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh | sh
+curl --proto '=https' -fsSL https://github.com/Rock-lang-org/Rock/releases/latest/download/install.sh | sh
 ```
 
 The bootstrap downloads the standalone `rockup-x86_64-unknown-linux-gnu` and its exact `.sha256` sidecar over HTTPS, checks that the sidecar names that asset and that its checksum matches, then executes `rockup self install`. This copies the manager and command shims and adds shell setup. The script then invokes the installed manager's `rockup install stable` automatically to download and install the compiler, project command, language server, and standard library. No shell restart or separate command is needed between these steps.
@@ -29,10 +29,10 @@ Rockup verifies the toolchain archive before unpacking it. Checksums detect corr
 The bootstrap defaults to `stable`, meaning GitHub's latest published non-prerelease release, not a promise that this experimental language has a stable API. To pin both the manager and toolchain versions when bootstrapping, pass a published `vVERSION` tag:
 
 ```console
-$ curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh | sh -s -- v0.5.1
+$ curl --proto '=https' -fsSL https://github.com/Rock-lang-org/Rock/releases/latest/download/install.sh | sh -s -- v0.5.2
 ```
 
-That command installs both rockup and the `v0.5.1` toolchain. From a checkout, `sh scripts/install.sh v0.5.1` does the same. Stable manager assets come from `releases/latest/download`; pinned manager assets come from `releases/download/vVERSION`.
+That command installs both rockup and the `v0.5.2` toolchain. From a checkout, `sh scripts/install.sh v0.5.2` does the same. Stable manager assets come from `releases/latest/download`; pinned manager assets come from `releases/download/vVERSION`.
 
 ### Home and shell setup
 
@@ -71,14 +71,14 @@ Both commands default to `stable`. Use `update` when that toolchain is already i
 Install a version without changing an existing default:
 
 ```console
-$ rockup install v0.5.1
+$ rockup install v0.5.2
 ```
 
-The bare spelling `rockup install 0.5.1` selects the same release and stores it as `v0.5.1`; do not run both installation commands for the same version. To choose it globally or run a single command explicitly:
+The bare spelling `rockup install 0.5.2` selects the same release and stores it as `v0.5.2`; do not run both installation commands for the same version. To choose it globally or run a single command explicitly:
 
 ```console
-$ rockup default v0.5.1
-$ rockup run v0.5.1 rock --version
+$ rockup default v0.5.2
+$ rockup run v0.5.2 rock --version
 ```
 
 `rockup default NAME` selects an installed toolchain, including local `dev`, and automatically installs a missing stable or versioned release. Arbitrary local names must first be installed with `--path`.
@@ -87,7 +87,7 @@ For a project pin, create `rock-toolchain.toml` in the project directory with th
 
 ```toml
 [toolchain]
-channel = "v0.5.1"
+channel = "v0.5.2"
 ```
 
 Install that version first. The shims select a toolchain using `ROCKUP_TOOLCHAIN` first, then the nearest `rock-toolchain.toml` in the current directory or its ancestors, then the global default. A project pin selects an installed toolchain; it does not automatically download one. Use the canonical `v` spelling for version pins, or an installed local name such as `dev`.
@@ -105,7 +105,7 @@ The first two commands are equivalent. Updating `stable` leaves separately insta
 
 ```console
 $ rockup default stable
-$ rockup remove v0.5.1
+$ rockup remove v0.5.2
 ```
 
 Rockup is not a full Rustup replacement. Release downloads do not support Windows, macOS, musl, other CPU architectures, a nightly channel, or automatic cross-target installation. The local `target add --path` component workflow does not imply downloadable cross-target releases.
@@ -131,7 +131,7 @@ Source builds require static LLVM archives; there is no dynamic-linking fallback
 Clone the repository and build the release toolchain:
 
 ```console
-$ git clone https://github.com/Champii/Rock.git
+$ git clone https://github.com/Rock-lang-org/Rock.git
 $ cd Rock
 $ cargo build --release
 ```

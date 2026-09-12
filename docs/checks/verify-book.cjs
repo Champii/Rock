@@ -50,7 +50,8 @@ let rockFenceCount = 0;
 let resourceVerified = false;
 for (const file of markdownFiles) {
     const source = fs.readFileSync(file, "utf8");
-    if (/\blang\b/.test(source)) {
+    // Hyphenated names such as Rock-lang-org are not the standalone keyword.
+    if (/(?<![\w-])lang(?![\w-])/.test(source)) {
         fail(`Compiler-internal \`lang\` syntax is not allowed in the user book: ${file}`);
     }
     if (/--debug-print|\bHIR\b|\bMIR\b|ast-full/.test(source)) {

@@ -54,7 +54,7 @@ stage=$(mktemp -d "${TMPDIR:-/tmp}/rock-install.XXXXXXXXXX") || die 'Cannot crea
 trap 'rm -rf -- "$stage"' 0
 trap 'exit 1' HUP INT TERM
 asset=rockup-x86_64-unknown-linux-gnu
-base=https://github.com/Champii/Rock/releases/$release_path
+base=https://github.com/Rock-lang-org/Rock/releases/$release_path
 for file in "$asset" "$asset.sha256"; do
     curl --disable --fail --silent --show-error --location \
         --proto '=https' --proto-redir '=https' \

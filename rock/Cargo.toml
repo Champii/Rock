@@ -1,7 +1,9 @@
 [package]
 name = "rock"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 rock-shared = { path = "../rock-shared", features = ["manifest", "sysroot", "fs", "process"] }
