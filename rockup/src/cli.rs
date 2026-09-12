@@ -21,27 +21,31 @@ pub(crate) fn run() -> Result<Exit, String> {
     let home = RockupHome::resolve()?;
 
     match config.command {
-        CommandConfig::Toolchain { command } => match command {
-            ToolchainCommand::Install { name, path } => {
-                let installed_path = install_toolchain(&home, &name, &path)?;
-                ensure_shell_setup(&home)?;
-                print_current_shell_activation_hint()?;
-                println!("{}", installed_path.display());
-                Ok(Exit::Success)
-            }
-            ToolchainCommand::Remove { name } => {
-                let removed_path = remove_toolchain(&home, &name)?;
-                println!("{}", removed_path.display());
-                Ok(Exit::Success)
-            }
-            ToolchainCommand::List => {
-                for toolchain in list_toolchains(&home)? {
-                    let prefix = if toolchain.is_active { "*" } else { " " };
-                    println!("{} {}", prefix, toolchain.name);
+        CommandConfig::Install { name, path } => {
+            let installed_path = match path {
+                Some(path) => {
+                    let installed = install_toolchain(&home, &name, &path)?;
+                    ensure_shell_setup(&home)?;
+                    installed
                 }
-                Ok(Exit::Success)
+                None => crate::release::install_release(&home, &name, false)?,
+            };
+            print_current_shell_activation_hint()?;
+            println!("{}", installed_path.display());
+            Ok(Exit::Success)
+        }
+        CommandConfig::Remove { name } => {
+            let removed_path = remove_toolchain(&home, &name)?;
+            println!("{}", removed_path.display());
+            Ok(Exit::Success)
+        }
+        CommandConfig::List => {
+            for toolchain in list_toolchains(&home)? {
+                let prefix = if toolchain.is_active { "*" } else { " " };
+                println!("{} {}", prefix, toolchain.name);
             }
-        },
+            Ok(Exit::Success)
+        }
         CommandConfig::Target { command } => match command {
             TargetCommand::Add {
                 triple,
@@ -71,10 +75,23 @@ pub(crate) fn run() -> Result<Exit, String> {
             },
         },
         CommandConfig::Default { name } => {
+            let name = crate::release::ensure_default_installed(&home, &name)?;
             set_default_toolchain(&home, &name)?;
             ensure_shims(&home)?;
             ensure_shell_setup(&home)?;
             print_current_shell_activation_hint()?;
+            Ok(Exit::Success)
+        }
+        CommandConfig::Update { name } => {
+            let path = crate::release::install_release(&home, &name, true)?;
+            print_current_shell_activation_hint()?;
+            println!("{}", path.display());
+            Ok(Exit::Success)
+        }
+        CommandConfig::SelfCommand {
+            command: SelfCommand::Update,
+        } => {
+            crate::release::self_update()?;
             Ok(Exit::Success)
         }
         CommandConfig::Env => {
@@ -106,10 +123,19 @@ pub(crate) struct Config {
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum CommandConfig {
-    Toolchain {
-        #[command(subcommand)]
-        command: ToolchainCommand,
+    /// Install the latest stable release, a specific version, or a local toolchain.
+    Install {
+        #[arg(default_value = "stable", help = "stable, vVERSION, or bare VERSION")]
+        name: String,
+        #[arg(long, help = "Use a local toolchain root or Cargo build directory")]
+        path: Option<PathBuf>,
     },
+    /// Remove an installed toolchain.
+    Remove {
+        name: String,
+    },
+    /// List installed toolchains, marking the active one with *.
+    List,
     Target {
         #[command(subcommand)]
         command: TargetCommand,
@@ -118,8 +144,19 @@ pub(crate) enum CommandConfig {
         #[command(subcommand)]
         command: DevCommand,
     },
+    /// Select a toolchain, installing a missing stable or versioned release.
     Default {
         name: String,
+    },
+    /// Install or replace a GitHub release toolchain.
+    Update {
+        #[arg(default_value = "stable", help = "stable, vVERSION, or bare VERSION")]
+        name: String,
+    },
+    #[command(name = "self")]
+    SelfCommand {
+        #[command(subcommand)]
+        command: SelfCommand,
     },
     Env,
     Run {
@@ -127,7 +164,7 @@ pub(crate) enum CommandConfig {
         #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
         command: Vec<String>,
     },
-    #[command(hide = true)]
+    #[command(hide = true, disable_help_flag = true)]
     Proxy {
         binary: String,
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -136,16 +173,9 @@ pub(crate) enum CommandConfig {
 }
 
 #[derive(Subcommand, Debug)]
-pub(crate) enum ToolchainCommand {
-    Install {
-        name: String,
-        #[arg(long)]
-        path: PathBuf,
-    },
-    Remove {
-        name: String,
-    },
-    List,
+pub(crate) enum SelfCommand {
+    /// Replace this executable with rockup from the latest stable GitHub release.
+    Update,
 }
 
 #[derive(Subcommand, Debug)]

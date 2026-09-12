@@ -63,7 +63,32 @@ Rock is experimental. The language, compiler, and tooling can change or break at
 
 ## Install
 
-Rock currently targets `x86_64-unknown-linux-gnu`. Building from source requires Git, Rust with Cargo, LLVM 18 with shared libraries, and a C linker available as `cc`.
+Binary releases support only `x86_64-unknown-linux-gnu`, with an Ubuntu 24.04 baseline (glibc 2.39 or newer). LLVM 18 shared libraries and a C linker are required; the installer does not install system packages or run `sudo`.
+
+On Ubuntu 24.04, install the runtime prerequisites yourself:
+
+```console
+$ sudo apt install libllvm18 build-essential curl ca-certificates
+```
+
+GNU tar, gzip, and `sha256sum` must also be available. Once the first release with the new rockup assets is published, download the bootstrap to a private temporary directory and run it:
+
+```sh
+install_dir=$(mktemp -d)
+if curl -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh -o "$install_dir/install.sh"; then
+    # Optionally inspect "$install_dir/install.sh" before running it.
+    sh "$install_dir/install.sh"
+fi
+rm -r "$install_dir"
+```
+
+The bootstrap verifies the standalone rockup download against its exact SHA-256 sidecar, then asks it to install `stable`, the latest non-prerelease release. Pass `vVERSION` to pin a published release instead. Rockup installs under `~/.rockup` (or an absolute `ROCKUP_HOME`) and sets up command shims and shell activation. Restart your shell, then run `rock --version`.
+
+**Availability:** historical GitHub releases exist, but the new bootstrap/toolchain assets are not yet published; use the source installation below until they are. The example version `v0.1.0` is illustrative, not a claim of availability.
+
+### Build From Source
+
+Building from source requires Git, Rust with Cargo, LLVM 18 development tools and shared libraries, and a C linker available as `cc`.
 
 ```console
 $ git clone https://github.com/Champii/Rock.git
@@ -72,13 +97,28 @@ $ cargo build --release
 $ target/release/rockup dev stdlib package \
     --path stdlib \
     --sysroot target/release
-$ target/release/rockup toolchain install dev --path target/release
+$ target/release/rockup install dev --path target/release
 $ target/release/rockup default dev
 ```
 
-Restart the shell when prompted so the installed `rock` command is available. Rock does not yet ship through a package registry or stable binary installer.
+Restart the shell when prompted so the installed `rock` command is available. Local `dev` toolchains remain supported alongside release toolchains.
 
-See the [installation guide](https://champii.github.io/Rock/getting-started/installation.html) for setup details and troubleshooting.
+### Manage Toolchains
+
+```console
+$ rockup install
+$ rockup update
+$ rockup install v0.1.0
+$ rockup default v0.1.0
+$ rockup run v0.1.0 rock --version
+$ rockup self update
+$ rockup list
+$ rockup remove v0.1.0
+```
+
+`install` and `update` default to the latest stable release; pass a version to select a specific release. `install` also accepts a bare version such as `0.1.0`; `default NAME` installs a missing stable or versioned release before selecting it. `self update` updates rockup itself. Project pins and shell setup are explained in the installation guide. This is a small toolchain manager, not full Rustup parity: no Windows, macOS, nightly channel, or automatic cross-target downloads.
+
+See the [installation guide](https://champii.github.io/Rock/getting-started/installation.html) for setup details and troubleshooting, and the [release maintainer guide](docs/releases.md) for packaging and draft publication.
 
 ---
 

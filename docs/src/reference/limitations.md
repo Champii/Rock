@@ -17,7 +17,7 @@ $ cargo build --release
 $ target/release/rockup dev stdlib package \
     --path stdlib \
     --sysroot target/release
-$ target/release/rockup toolchain install dev --path target/release
+$ target/release/rockup install dev --path target/release
 ```
 
 Use path dependencies rather than registry-only dependencies. A complete

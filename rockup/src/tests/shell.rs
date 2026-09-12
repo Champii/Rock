@@ -3,10 +3,42 @@ use std::fs;
 use crate::{
     constants::ENV_FILE_NAME,
     home::default_rockup_home,
-    shell::{ensure_env_file_with, ensure_shell_config_with, shell_config_path},
+    shell::{ensure_env_file_with, ensure_shell_config_with, ensure_shims, shell_config_path},
 };
 
 use super::support::{fake_home, temp_test_dir};
+
+#[test]
+fn test_ensure_shims_persists_manager_and_preserves_existing_binary() {
+    let temp_dir = temp_test_dir("persistent_manager");
+    let home = fake_home(temp_dir.join("custom home"));
+    ensure_shims(&home).unwrap();
+    let installed = home.bin_dir().join("rockup");
+    assert_eq!(
+        fs::read(&installed).unwrap(),
+        fs::read(std::env::current_exe().unwrap()).unwrap()
+    );
+    for binary in ["rock", "rockc", "rock-lsp"] {
+        let shim = fs::read_to_string(home.bin_dir().join(binary)).unwrap();
+        assert!(shim.contains(installed.canonicalize().unwrap().to_str().unwrap()));
+    }
+    fs::write(&installed, b"existing manager").unwrap();
+    ensure_shims(&home).unwrap();
+    assert_eq!(fs::read(&installed).unwrap(), b"existing manager");
+    fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn test_ensure_shims_rejects_manager_symlink() {
+    let temp_dir = temp_test_dir("manager_symlink");
+    let home = fake_home(temp_dir.join("home"));
+    fs::create_dir_all(home.bin_dir()).unwrap();
+    std::os::unix::fs::symlink("missing", home.bin_dir().join("rockup")).unwrap();
+    assert!(ensure_shims(&home).is_err());
+    assert!(!home.bin_dir().join("rock").exists());
+    fs::remove_dir_all(temp_dir).unwrap();
+}
 
 #[test]
 fn test_ensure_env_file_writes_default_home_setup() {

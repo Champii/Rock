@@ -32,6 +32,7 @@ pub(crate) fn add_target_component_from_dir(
     source: &Path,
     current_dir: &Path,
 ) -> Result<PathBuf, String> {
+    crate::home::validate_name(triple)?;
     let toolchain_name = match toolchain_override {
         Some(name) if !name.trim().is_empty() => name.to_string(),
         _ => active_toolchain_name(
@@ -40,7 +41,7 @@ pub(crate) fn add_target_component_from_dir(
             Some(current_dir),
         )?,
     };
-    let toolchain_root = home.toolchain_dir(&toolchain_name);
+    let toolchain_root = home.toolchain_dir(&toolchain_name)?;
     validate_toolchain_layout(&ToolchainLayout::new(toolchain_root.clone()))?;
 
     let source_dir = detect_target_component_source(source, triple)?;
@@ -101,7 +102,7 @@ pub(crate) fn validate_target_component_paths(
     ];
 
     for (path, label) in required_paths {
-        if !path.exists() {
+        if !path.is_file() {
             return Err(format!(
                 "Missing {} in target component at {}",
                 label,

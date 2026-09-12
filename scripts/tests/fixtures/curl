@@ -1,0 +1,38 @@
+#!/bin/sh
+set -eu
+[ "$1" = --disable ]
+shift
+[ "$1 $2 $3 $4" = '--fail --silent --show-error --location' ]
+shift 4
+[ "$1 $2 $3 $4" = '--proto =https --proto-redir =https' ]
+shift 4
+[ "$1 $2 $3 $4 $5 $6" = '--retry 3 --connect-timeout 30 --max-time 1800' ]
+shift 6
+[ "$1" = --output ]
+output=$2
+url=$3
+[ "$#" = 3 ]
+printf '%s\n' "$url" >> "$TEST_ROOT/urls"
+asset=rockup-x86_64-unknown-linux-gnu
+base=https://github.com/Champii/Rock/releases/$EXPECTED_RELEASE_PATH
+case "$url" in
+    "$base/$asset")
+        [ "$TEST_MODE" != download-failure ] || exit 22
+        cp "$FIXTURES/rockup" "$output"
+        ;;
+    "$base/$asset.sha256")
+        [ "$TEST_MODE" != missing-sidecar ] || exit 22
+        hash=$(sha256sum "$FIXTURES/rockup")
+        hash=${hash%% *}
+        case "$TEST_MODE" in
+            mismatch) hash=0000000000000000000000000000000000000000000000000000000000000000 ;;
+            wrong-name) asset=other-rockup ;;
+            traversal) asset=../rockup ;;
+        esac
+        printf '%s  %s\n' "$hash" "$asset" > "$output"
+        if [ "$TEST_MODE" = extra-line ]; then
+            printf '%s  %s\n' "$hash" "$asset" >> "$output"
+        fi
+        ;;
+    *) exit 99 ;;
+esac
