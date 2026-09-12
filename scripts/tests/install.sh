@@ -49,12 +49,20 @@ run_case() {
         [ "$status" = 0 ] || { printf 'FAIL %s (see %s)\n' "$name" "$TEST_ROOT/log"; exit 1; }
         [ -x "${ROCKUP_HOME-$HOME/.rockup}/bin/rockup" ]
         [ "$(wc -l < "$TEST_ROOT/urls")" -eq 2 ]
-        [ "$(cat "$TEST_ROOT/invocation")" = "self install" ]
+        [ "$(cat "$TEST_ROOT/invocation")" = "$(printf 'self install\ninstall %s' "$EXPECTED_CHANNEL")" ]
+        grep -F 'Rock installed.' "$TEST_ROOT/log" >/dev/null
     else
         [ "$status" != 0 ] || { printf 'FAIL %s unexpectedly succeeded\n' "$name"; exit 1; }
-        if [ "$TEST_MODE" != install-failure ]; then
-            [ ! -e "$TEST_ROOT/invocation" ]
-        fi
+        case "$TEST_MODE" in
+            install-failure) [ "$(cat "$TEST_ROOT/invocation")" = 'self install' ] ;;
+            toolchain-failure)
+                [ "$(cat "$TEST_ROOT/invocation")" = "$(printf 'self install\ninstall %s' "$EXPECTED_CHANNEL")" ]
+                [ -x "$ROCKUP_HOME/bin/rockup" ]
+                grep -F 'toolchain installation failed' "$TEST_ROOT/log" >/dev/null
+                ! grep -F 'Rock installed.' "$TEST_ROOT/log" >/dev/null
+                ;;
+            *) [ ! -e "$TEST_ROOT/invocation" ] ;;
+        esac
     fi
     [ -z "$(find "$TMPDIR" -mindepth 1 -print)" ]
     case "$name" in
@@ -65,14 +73,17 @@ run_case() {
 }
 
 TEST_MODE=valid
+EXPECTED_CHANNEL=stable
 EXPECTED_RELEASE_PATH=latest/download
-export TEST_MODE EXPECTED_RELEASE_PATH
+export TEST_MODE EXPECTED_CHANNEL EXPECTED_RELEASE_PATH
 run_case stable success
 run_case default-home success
 EXPECTED_RELEASE_PATH=download/v0.1.0
+EXPECTED_CHANNEL=v0.1.0
 run_case pinned success v0.1.0
 EXPECTED_RELEASE_PATH=latest/download
-for TEST_MODE in download-failure missing-sidecar mismatch wrong-name traversal extra-line install-failure; do
+EXPECTED_CHANNEL=stable
+for TEST_MODE in download-failure missing-sidecar mismatch wrong-name traversal extra-line install-failure toolchain-failure; do
     run_case "$TEST_MODE" failure
 done
 TEST_MODE=valid

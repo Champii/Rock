@@ -47,23 +47,17 @@ sudo apt install build-essential curl ca-certificates
 
 GNU tar, gzip, and `sha256sum` must also be available; they are normally already installed on Ubuntu. The installer does not run `sudo` or install system packages for you.
 
-First, install the manager. This executes a script from the release publisher, so only run it if you trust that publisher; you can inspect [`install.sh`](https://github.com/Champii/Rock/releases/latest/download/install.sh) separately first.
+Install Rock in one step. This executes a script from the release publisher, so only run it if you trust that publisher; you can inspect [`install.sh`](https://github.com/Champii/Rock/releases/latest/download/install.sh) separately first.
 
 ```sh
 curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/download/install.sh | sh
 ```
 
-The bootstrap downloads and verifies the standalone rockup manager, then runs `rockup self install` to copy it and command shims into `~/.rockup/bin` and add shell setup. It does not download a toolchain.
+The bootstrap downloads and verifies the standalone rockup manager, then runs `rockup self install` to copy it and command shims into `~/.rockup/bin` and add shell setup. It then runs the installed manager's `rockup install stable` automatically to install the compiler, project command, language server, and standard library. No separate install command is needed.
 
-Restart your shell, then install the remaining toolchain (compiler, project command, language server, and standard library):
+Rockup verifies the toolchain archive before unpacking it. Checksums detect corrupted downloads; they are not independent signatures of the release publisher. An optional `vVERSION` argument to the bootstrap pins both the manager and the toolchain.
 
-```sh
-rockup install
-```
-
-Rockup verifies the toolchain archive before unpacking it. Checksums detect corrupted downloads; they are not independent signatures of the release publisher. An optional `vVERSION` argument to the bootstrap pins only the manager; use `rockup install vVERSION` separately to pin the toolchain.
-
-Instead of restarting, you can activate a POSIX-compatible shell with `. "${ROCKUP_HOME:-$HOME/.rockup}/env"` before running `rockup install`. After toolchain installation, check:
+Restart your shell, or activate a POSIX-compatible shell with `. "${ROCKUP_HOME:-$HOME/.rockup}/env"`, then check:
 
 ```sh
 rock --version

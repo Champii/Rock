@@ -41,9 +41,8 @@ curl --proto '=https' -fsSL https://github.com/Champii/Rock/releases/latest/down
 # The bootstrap's temporary manager must be gone before invoking any shim.
 [[ -z $(ls -A "$stage/downloads") ]]
 manager=$ROCKUP_HOME/bin/rockup
-[[ -z $("$manager" list) ]]
-[[ ! -e "$ROCKUP_HOME/default-toolchain" ]]
-"$manager" install
+[[ -d "$ROCKUP_HOME/toolchains/stable" ]]
+[[ $(cat "$ROCKUP_HOME/default-toolchain") == stable ]]
 "$manager" list
 "$manager" update
 "$manager" install "$RELEASE_TEST_TAG"

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Bootstrap only the manager; `rockup install` downloads the toolchain separately.
+# Bootstrap the manager, then use it to install the selected toolchain.
 set -eu
 LC_ALL=C
 export LC_ALL
@@ -81,4 +81,6 @@ if [ -e "$installed" ] || [ -L "$installed" ]; then
 fi
 "$stage/$asset" self install || die 'rockup manager installation failed'
 [ -x "$installed" ] || die "rockup did not persist itself at $installed"
-printf '\nRockup installed. Restart your shell, or run:\n  . "%s/env"\n\nThen install the toolchain:\n  rockup install\n' "$ROCKUP_HOME"
+"$installed" install "$channel" ||
+    die "toolchain installation failed; retry with: \"$installed\" install $channel"
+printf '\nRock installed. Restart your shell, or run:\n  . "%s/env"\n\nThen try:\n  rock --version\n' "$ROCKUP_HOME"

@@ -1,9 +1,17 @@
 #!/bin/sh
 set -eu
-printf '%s\n' "$*" > "$TEST_ROOT/invocation"
-[ "$*" = "self install" ]
-[ "$TEST_MODE" != install-failure ] || exit 17
-# Model the release manager's persistence contract, not its Rust implementation.
-mkdir -p "$ROCKUP_HOME/bin"
-cp "$0" "$ROCKUP_HOME/bin/rockup"
-chmod 700 "$ROCKUP_HOME/bin/rockup"
+printf '%s\n' "$*" >> "$TEST_ROOT/invocation"
+case "$*" in
+    'self install')
+        [ "$TEST_MODE" != install-failure ] || exit 17
+        # Model the release manager's persistence contract, not its Rust implementation.
+        mkdir -p "$ROCKUP_HOME/bin"
+        cp "$0" "$ROCKUP_HOME/bin/rockup"
+        chmod 700 "$ROCKUP_HOME/bin/rockup"
+        ;;
+    "install $EXPECTED_CHANNEL")
+        [ "$0" = "$ROCKUP_HOME/bin/rockup" ]
+        [ "$TEST_MODE" != toolchain-failure ] || exit 18
+        ;;
+    *) exit 19 ;;
+esac
