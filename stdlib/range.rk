@@ -1,0 +1,16 @@
+// First-class range values used by native range syntax and indexing.
+
+lang range
+< enum Range
+    lang range_full
+    Full
+    lang range_from
+    From I64
+    lang range_to
+    To I64
+    lang range_to_inclusive
+    ToInclusive I64
+    lang range_exclusive
+    Exclusive I64, I64
+    lang range_inclusive
+    Inclusive I64, I64

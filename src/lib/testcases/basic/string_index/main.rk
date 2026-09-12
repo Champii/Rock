@@ -1,3 +1,0 @@
-f: -> "hell* world"
-main: -> f![4]
-

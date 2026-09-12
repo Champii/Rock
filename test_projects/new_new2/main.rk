@@ -1,0 +1,17 @@
+> stdlib::net::TcpStream
+> stdlib::net::Ipv4Addr
+> stdlib::net::SocketAddrV4
+
+main = ->
+    listen!
+    0
+
+listen = ->
+    addr = Ipv4Addr::localhost!
+    addr2 = SocketAddrV4::new addr, 3000
+    mut buf = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    slice = &mut buf
+
+    TcpStream::connect addr2
+        >>= (.read slice)
+    buf.println!

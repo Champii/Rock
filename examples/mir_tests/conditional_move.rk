@@ -1,0 +1,12 @@
+// Test conditional move - variable moved in one branch
+// This should NOT error because the move only happens conditionally
+
+main = ->
+    x = String::from_str "hello"
+    y = 0
+    if y > 0
+        z = x
+        z.println!
+    else
+        x.println!
+    0

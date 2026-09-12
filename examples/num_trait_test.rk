@@ -1,0 +1,8 @@
+// Test Num trait implementation
+
+main = ->
+    a = ~I64Add 1, 2
+    a.println!
+    b = 1.add 2
+    b.println!
+    0

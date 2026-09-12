@@ -1,0 +1,8 @@
+mod test_lambda_shortcut_space_requirement;
+mod test_parse_function_decl;
+mod test_parse_function_decl_monoline;
+mod test_parse_function_decl_multiline;
+mod test_parse_function_decl_self_receiver;
+mod test_parse_function_shorthand;
+mod test_parse_function_shorthand_2;
+mod test_parse_operator_function;

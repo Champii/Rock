@@ -1,0 +1,28 @@
+// Data models for the data library
+
+// User model
+struct User
+    name: String
+    age: I64
+
+// Product model
+struct Product
+    id: I64
+    name: String
+    price: I64
+
+// Order model
+struct Order
+    id: I64
+    user_id: I64
+    product_id: I64
+    quantity: I64
+
+// Create a default user
+default_user = -> User "Guest" 0
+
+// Create a guest user
+guest_user = -> User "Guest" 0
+
+// Calculate total price for an order
+order_total = order, product -> order.quantity * product.price

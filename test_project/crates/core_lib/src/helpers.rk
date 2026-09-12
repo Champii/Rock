@@ -1,0 +1,25 @@
+// Helper functions for core library
+
+// Double a number
+double = x -> x * 2
+
+// Triple a number
+triple = x -> x * 3
+
+// Check if number is even
+is_even = x -> x % 2 == 0
+
+// Check if number is odd
+is_odd = x -> x % 2 != 0
+
+// Clamp a value between min and max
+clamp = val, min_val, max_val ->
+    if val < min_val
+        min_val
+    else if val > max_val
+        max_val
+    else
+        val
+
+// Linear interpolation
+lerp = a, b, t -> a + (b - a) * t / 100

@@ -1,0 +1,12 @@
+// Drop trait - provides RAII cleanup
+//
+// Types that implement this trait will have `~@drop` called automatically
+// when they go out of scope.
+
+lang drop
+< trait Drop
+    lang method
+    ~@drop: ()
+
+unsafe drop_in_place: *T -> ()
+< unsafe drop_in_place = ptr -> unsafe ~DropInPlace ptr

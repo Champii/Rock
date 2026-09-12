@@ -1,0 +1,64 @@
+// Comprehensive intrinsic tests with printing
+
+main = ->
+    // Test I64Add: 5 + 7 = 12
+    result1 = ~I64Add 5, 7
+    result1.println!
+
+    // Test I64Sub: 20 - 8 = 12
+    result2 = ~I64Sub 20, 8
+    result2.println!
+
+    // Test I64Mul: 3 * 4 = 12
+    result3 = ~I64Mul 3, 4
+    result3.println!
+
+    // Test I64Div: 48 / 4 = 12
+    result4 = ~I64Div 48, 4
+    result4.println!
+
+    // Test I64Mod: 17 % 5 = 2
+    result5 = ~I64Mod 17, 5
+    result5.println!
+
+    // Test I64Neg: -(-12) = 12
+    result6 = ~I64Neg (~I64Neg 12)
+    result6.println!
+
+    // Test I64And: 12 & 10 = 8 (1100 & 1010 = 1000)
+    result7 = ~I64And 12, 10
+    result7.println!
+
+    // Test I64Or: 12 | 10 = 14 (1100 | 1010 = 1110)
+    result8 = ~I64Or 12, 10
+    result8.println!
+
+    // Test I64Xor: 12 ^ 10 = 6 (1100 ^ 1010 = 0110)
+    result9 = ~I64Xor 12, 10
+    result9.println!
+
+    // Test I64Shl: 3 << 2 = 12
+    result10 = ~I64Shl 3, 2
+    result10.println!
+
+    // Test I64Shr: 48 >> 2 = 12
+    result11 = ~I64Shr 48, 2
+    result11.println!
+
+    // Test I64Lt: 5 < 10 = true (1)
+    result12 = ~I64Lt 5, 10
+    result12.println!
+
+    // Test I64Gt: 10 > 5 = true (1)
+    result13 = ~I64Gt 10, 5
+    result13.println!
+
+    // Test I64Eq: 12 == 12 = true (1)
+    result14 = ~I64Eq 12, 12
+    result14.println!
+
+    // Test I64Ne: 12 != 10 = true (1)
+    result15 = ~I64Ne 12, 10
+    result15.println!
+
+    0

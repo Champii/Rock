@@ -1,0 +1,18 @@
+==================
+function call argument holes
+==================
+
+main = -> combine 1, _, 3
+
+---
+
+(program
+  (function_declaration
+    (identifier)
+    (function_arrow)
+    (block
+      (call_expression
+        (identifier)
+        (number)
+        (call_hole)
+        (number)))))

@@ -1,0 +1,3 @@
+main = ->
+    "Hello, Rock!".println!
+    0

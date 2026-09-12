@@ -1,0 +1,29 @@
+// start a tcp server
+
+> std::net::TcpListener
+> std::env::args
+
+main : () -> ()
+main = ->
+  if Err e = run()
+  then print "Error: {e}"
+  else print "Server started successfully!"
+
+run : () -> Result TcpServer, Error
+run = ->
+  server = TcpListener::bind?!
+
+  server.on_connect socket ->
+    socket.write display_html!
+    socket.close!
+
+  server.listen!
+
+  Ok server
+
+display_html : () -> String
+display_html = ->
+  div
+    h1 "Hello, World!"
+    p "This is a paragraph."
+

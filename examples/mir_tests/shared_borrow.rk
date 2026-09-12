@@ -1,0 +1,9 @@
+// Multiple shared borrows should be allowed
+
+main = ->
+    x = 42
+    r1 = &x
+    r2 = &x
+    r1.println!
+    r2.println!
+    0

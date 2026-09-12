@@ -1,0 +1,14 @@
+==================
+unit-returning lambda arrow
+==================
+
+discard = !-> 0
+
+---
+
+(program
+  (function_declaration
+    (identifier)
+    (function_arrow)
+    (block
+      (number))))

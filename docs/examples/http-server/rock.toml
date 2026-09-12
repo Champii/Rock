@@ -1,0 +1,9 @@
+[crate]
+name = "book_http_server"
+version = "0.1.0"
+
+[lib]
+path = "src/main.rk"
+
+[dependencies]
+rock_http = { path = "../../../rock_http" }

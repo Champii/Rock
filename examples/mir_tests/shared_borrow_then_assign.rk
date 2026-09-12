@@ -1,0 +1,6 @@
+main = ->
+    mut x = 1
+    r = &x
+    x = 2
+    r.println!
+    0

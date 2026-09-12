@@ -1,0 +1,12 @@
+# Build artifacts
+src/parser.c
+src/tree_sitter
+
+# Build directory
+build/
+
+# Node modules
+node_modules/
+
+# Test output
+*.log

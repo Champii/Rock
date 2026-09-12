@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+case "${0##*/}" in
+    uname)
+        case "$1" in
+            -s) printf '%s\n' "${TEST_OS:-Linux}" ;;
+            -m) printf '%s\n' "${TEST_ARCH:-x86_64}" ;;
+            *) exit 1 ;;
+        esac
+        ;;
+    getconf) printf '%s\n' "${TEST_LIBC:-glibc 2.39}" ;;
+    tar) printf '%s\n' "${TEST_TAR:-tar (GNU tar) 1.35}" ;;
+esac

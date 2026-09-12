@@ -1,0 +1,14 @@
+use crate::parser::items::*;
+use crate::parser::*;
+use crate::Config;
+
+#[test]
+fn test_parse_if_else_multiline_3() {
+    let input = "if true\n    1\nelse\n    2";
+    let tokens = lex_test(input);
+    let config = Config::default();
+
+    let (rest, _if_) = parse_if.process(ParseCtx::from(&tokens, &config)).unwrap();
+
+    assert_eq!(rest.len(), 0);
+}

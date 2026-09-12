@@ -1,0 +1,18 @@
+// Core library - main module
+// Provides basic computation utilities
+
+mod types
+mod helpers
+
+// Simple compute function (uses double from helpers module)
+compute = a, b -> a + b + (a * 2)
+
+// Multiply two numbers
+multiply = a, b -> a * b
+
+// Subtract with floor at 0
+safe_subtract = a, b ->
+    if a > b
+        a - b
+    else
+        0

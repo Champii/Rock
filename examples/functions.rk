@@ -1,0 +1,14 @@
+add = a, b ->
+    a + b
+
+square = n ->
+    n * n
+
+main = ->
+    x = add 3, 4
+    x.println!
+    y = square 5
+    y.println!
+    z = add (square 3), (square 4)
+    z.println!
+    0

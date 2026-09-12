@@ -1,0 +1,16 @@
+// First-class citizen test for println
+// Note: println is now a trait method (Show trait), not a standalone function
+
+// This works: println method is called directly
+test1 = ->
+    "Direct call works!".println!
+
+// This also works: println is called directly
+test2 = ->
+    42.println!
+    "Hello".println!
+
+main = ->
+    test1()
+    test2()
+    0

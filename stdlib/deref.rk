@@ -1,0 +1,9 @@
+// Deref trait - provides `*value` through an associated target type.
+
+< trait Deref
+    type Target
+    @*: &Self::Target
+
+< trait DerefMut
+    type Target
+    ^@*: &mut Self::Target

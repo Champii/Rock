@@ -1,0 +1,6 @@
+main = ->
+    mut x = 1
+    f = -> x.println!
+    x = 2
+    f!
+    0

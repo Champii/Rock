@@ -1,0 +1,6 @@
+main = ->
+    mut x = String::from_str "held"
+    r = &x
+    y = x
+    r.println!
+    0

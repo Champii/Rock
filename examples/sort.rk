@@ -1,0 +1,29 @@
+bubble_sort = arr ->
+    len = ~ArrayLen arr
+    i = 0
+    while i < len
+        j = 0
+        while j < len - 1 - i
+            if arr[j] > arr[j + 1]
+                temp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = temp
+            j = j + 1
+        i = i + 1
+    arr
+
+print_array = arr ->
+    i = 0
+    len = ~ArrayLen arr
+    while i < len
+        arr[i].println!
+        i = i + 1
+
+main = ->
+    arr = [64, 34, 25, 12, 22, 11, 90]
+    "Before sort:".println!
+    print_array arr
+    sorted = bubble_sort arr
+    "After sort:".println!
+    print_array sorted
+    0

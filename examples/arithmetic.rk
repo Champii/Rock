@@ -1,0 +1,12 @@
+add: I64 -> I64 -> I64
+add = a, b ->
+    a + b
+
+main = ->
+    x = 10
+    y = 20
+    result = add x, y
+    result.println!
+    result2 = x * y + 5
+    result2.println!
+    0

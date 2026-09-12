@@ -1,0 +1,9 @@
+[package]
+name = "rock"
+version = "0.5.0"
+edition = "2021"
+
+[dependencies]
+rock-shared = { path = "../rock-shared", features = ["manifest", "sysroot", "fs", "process"] }
+
+clap = { workspace = true }

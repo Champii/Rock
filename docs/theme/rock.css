@@ -1,0 +1,140 @@
+:root {
+    --rock-accent: #9a5500;
+    --rock-accent-soft: rgba(217, 119, 6, 0.14);
+}
+
+html.navy,
+html.coal,
+html.ayu,
+html.rust {
+    --rock-accent: #f59e0b;
+}
+
+.menu-title {
+    letter-spacing: 0.02em;
+}
+
+.content main {
+    max-width: 850px;
+}
+
+.content main h1,
+.content main h2,
+.content main h3 {
+    letter-spacing: -0.018em;
+}
+
+.content main h2 {
+    border-bottom: 1px solid var(--table-border-color);
+    padding-bottom: 0.25em;
+}
+
+.content main a,
+.sidebar a.active {
+    text-decoration-color: var(--rock-accent);
+}
+
+.sidebar a.active {
+    color: var(--rock-accent);
+}
+
+blockquote {
+    border-left-color: var(--rock-accent);
+    background: var(--rock-accent-soft);
+    padding: 0.7em 1em;
+}
+
+/* Warm declarations and calls, cool fields: a colorful palette on quiet surfaces.
+   Syntax text exceeds 5.5:1 contrast; softer comments still meet WCAG AA. */
+:root {
+    --rock-code-bg: #fffaf2;
+    --rock-code-fg: #302d36;
+    --rock-code-border: #e5d2bb;
+    --rock-code-keyword: #ac292d;
+    --rock-code-type: #805000;
+    --rock-code-variant: #4059a8;
+    --rock-code-function: #9b431c;
+    --rock-code-property: #14704d;
+    --rock-code-receiver: #ad246e;
+    --rock-code-operator: #8c4b19;
+    --rock-code-assignment: #6843ad;
+    --rock-code-arrow: #006775;
+    --rock-code-punctuation: #64616e;
+    --rock-code-annotation: #795915;
+    --rock-code-string: #426b18;
+    --rock-code-number: #7943a8;
+    --rock-code-comment: #786c65;
+    --rock-code-meta: #91388b;
+    --rock-code-module: #006b66;
+}
+
+html.navy,
+html.coal,
+html.ayu {
+    --rock-code-bg: #211e24;
+    --rock-code-fg: #f1e7db;
+    --rock-code-border: #48404e;
+    --rock-code-keyword: #ff887a;
+    --rock-code-type: #ffd070;
+    --rock-code-variant: #9daeff;
+    --rock-code-function: #ffb78f;
+    --rock-code-property: #79dda5;
+    --rock-code-receiver: #ff8ac5;
+    --rock-code-operator: #efbd81;
+    --rock-code-assignment: #bba7ff;
+    --rock-code-arrow: #67d9e8;
+    --rock-code-punctuation: #b3bcca;
+    --rock-code-annotation: #d6c49a;
+    --rock-code-string: #b5df79;
+    --rock-code-number: #c8a0ff;
+    --rock-code-comment: #aa9b90;
+    --rock-code-meta: #eea1ed;
+    --rock-code-module: #74d4cf;
+}
+
+pre:has(> code.language-rock) {
+    background: var(--rock-code-bg);
+    border: 1px solid var(--rock-code-border);
+    border-radius: 8px;
+}
+
+pre > code.language-rock {
+    display: block;
+    padding: 1.15em 1.3em;
+    background: var(--rock-code-bg);
+    color: var(--rock-code-fg);
+    line-height: 1.65;
+    tab-size: 4;
+    font-variant-ligatures: none;
+}
+
+code.language-rock .keyword { color: var(--rock-code-keyword); }
+code.language-rock .type { color: var(--rock-code-type); }
+code.language-rock .function { color: var(--rock-code-function); }
+code.language-rock .property { color: var(--rock-code-property); }
+code.language-rock .variable { color: var(--rock-code-fg); }
+code.language-rock .variable.parameter { color: var(--rock-code-property); }
+code.language-rock .variable.builtin { color: var(--rock-code-receiver); }
+code.language-rock .operator { color: var(--rock-code-operator); }
+code.language-rock .operator.assignment { color: var(--rock-code-assignment); }
+code.language-rock .operator.arrow { color: var(--rock-code-arrow); }
+code.language-rock .punctuation { color: var(--rock-code-punctuation); }
+code.language-rock .punctuation.annotation { color: var(--rock-code-annotation); }
+code.language-rock .punctuation.special { color: var(--rock-code-receiver); }
+code.language-rock .string { color: var(--rock-code-string); }
+code.language-rock .number,
+code.language-rock .constant { color: var(--rock-code-number); }
+code.language-rock .constant.variant { color: var(--rock-code-variant); }
+code.language-rock .comment { color: var(--rock-code-comment); font-style: italic; }
+code.language-rock .function.builtin,
+code.language-rock .function.macro,
+code.language-rock .attribute { color: var(--rock-code-meta); }
+code.language-rock .module { color: var(--rock-code-module); }
+
+@media (max-width: 600px) {
+    pre > code.language-rock { padding: 0.9em; }
+}
+
+table {
+    width: 100%;
+}

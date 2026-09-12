@@ -1,0 +1,24 @@
+enum FizzBuzzValue
+    Text &Str
+    Number I64
+
+fizzbuzz_value: I64 -> FizzBuzzValue
+fizzbuzz_value = number ->
+    if number % 15 == 0
+        FizzBuzzValue::Text "FizzBuzz"
+    else if number % 3 == 0
+        FizzBuzzValue::Text "Fizz"
+    else if number % 5 == 0
+        FizzBuzzValue::Text "Buzz"
+    else
+        FizzBuzzValue::Number number
+
+main = ->
+    mut current = 1
+    while current <= 30
+        value = fizzbuzz_value current
+        match value
+            FizzBuzzValue::Text text => text.println!
+            FizzBuzzValue::Number number => number.println!
+        current = current + 1
+    0

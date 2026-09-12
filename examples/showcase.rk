@@ -1,0 +1,90 @@
+struct Vec2
+    < x: I64
+    < y: I64
+
+impl Vec2
+    @add = other ->
+        Vec2
+            x: @x + other.x
+            y: @y + other.y
+    @scale = factor ->
+        Vec2
+            x: @x * factor
+            y: @y * factor
+    @dot = other -> @x * other.x + @y * other.y
+    @magnitude_sq = -> @x * @x + @y * @y
+
+enum Shape
+    Circle I64
+    Square I64
+
+area = s ->
+    match s
+        Shape::Circle r => r * r * 3
+        Shape::Square side => side * side
+
+factorial = n ->
+    if n <= 1
+        1
+    else
+        n * (factorial (n - 1))
+
+is_prime = n ->
+    if n < 2
+        0
+    else
+        i = 2
+        result = 1
+        while i * i <= n
+            if n % i == 0
+                result = 0
+            i = i + 1
+        result
+
+sum_array: &[I64] -> I64
+sum_array = arr ->
+    total = 0
+    i = 0
+    len = ~ArrayLen arr
+    while i < len
+        total = total + arr[i]
+        i = i + 1
+    total
+
+main = ->
+    v1 = Vec2
+        x: 3
+        y: 4
+    v2 = Vec2
+        x: 1
+        y: 2
+    v2_for_dot = Vec2
+        x: 1
+        y: 2
+    v3 = v1.add v2
+    v3.x.println!
+    v3.y.println!
+    dot = v1.dot v2_for_dot
+    dot.println!
+    v1.magnitude_sq!.println!
+
+    c = Shape::Circle 5
+    s = Shape::Square 4
+    area c .println!
+    area s .println!
+
+    factorial 10 .println!
+    is_prime 97 .println!
+
+    arr = [10, 20, 30, 40, 50]
+    sum_array &arr .println!
+    ~ArrayLen arr .println!
+
+    num_str = int_to_string dot
+    msg = "Result: " + num_str
+    msg.println!
+
+    abs (0 - 42) .println!
+    min 5, 10 .println!
+    max 5, 10 .println!
+    0

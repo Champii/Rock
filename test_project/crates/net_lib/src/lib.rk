@@ -1,0 +1,23 @@
+// Network library - main module
+// Provides networking utilities
+
+mod http
+mod url
+
+// Configuration for network requests
+struct NetConfig
+    timeout: I64
+    retries: I64
+
+// Default configuration
+default_config = -> NetConfig 30 3
+
+// Make a URL from host and path
+make_url = host, path -> "https://" + host + path
+
+// Check if URL is secure (simplified)
+is_secure = url ->
+    if string_len url > 8
+        1
+    else
+        0

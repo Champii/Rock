@@ -1,0 +1,7 @@
+mod test_parse_match;
+mod test_parse_match_empty_lines;
+mod test_parse_match_with_array_patterns;
+mod test_parse_match_with_binding_and_guard;
+mod test_parse_match_with_complex_guard;
+mod test_parse_match_with_condition;
+mod test_parse_match_with_literal_patterns;

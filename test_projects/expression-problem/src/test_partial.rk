@@ -1,0 +1,17 @@
+struct Point
+    x: Int
+    y: Int
+    z: Int = 0
+
+main = ->
+    num = 42
+    nested_array = [
+        1 + 2,
+        [3, 4, [5, 6]],
+        if true then 7 else 8,
+        match 9
+            x if x > 5 => x * 2
+            _ => 0
+    ]
+
+

@@ -1,0 +1,5 @@
+mod test_parse_enum_instance;
+mod test_parse_struct_instance_empty_args;
+mod test_parse_struct_instance_empty_lines;
+mod test_parse_struct_instance_inline;
+mod test_parse_struct_instance_multiline;

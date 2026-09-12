@@ -1,0 +1,6 @@
+// Test net_lib
+
+main = ->
+    url = net_lib::make_url "example.com", "/api"
+    url.println!
+    0

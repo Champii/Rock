@@ -1,0 +1,5 @@
+main = ->
+    for item in [10, 20, 30, 40, 50]
+        item.println!
+    "done".println!
+    0

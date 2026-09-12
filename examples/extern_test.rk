@@ -1,0 +1,8 @@
+extern sqrt: F64 -> F64
+
+main = ->
+    x = sqrt 144.0
+    x.println!
+    y = sqrt 2.0
+    y.println!
+    0

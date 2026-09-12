@@ -1,0 +1,13 @@
+struct Boxed
+    < value: I64
+
+impl Boxed
+    ~@take = -> @value
+
+main = ->
+    b = Boxed
+        value: 7
+    f = -> b.take!
+    y = b
+    f!
+    0

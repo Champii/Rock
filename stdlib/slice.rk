@@ -1,0 +1,4 @@
+// Safe borrowed-slice operations.
+
+slice_len: &[T] -> I64
+< slice_len = value -> ~ArrayLen value

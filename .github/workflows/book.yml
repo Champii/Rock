@@ -1,0 +1,50 @@
+name: Publish Rock Book
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "docs/**"
+      - "tree-sitter-rock/**"
+      - ".github/workflows/book.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook@0.5.4,tree-sitter-cli@0.26.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate Rock parser
+        working-directory: tree-sitter-rock
+        run: tree-sitter generate
+      - name: Test book highlighting
+        run: node --test docs/checks/rock-highlight.test.cjs
+      - name: Build book
+        run: mdbook build docs
+      - name: Verify book
+        run: node docs/checks/verify-book.cjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

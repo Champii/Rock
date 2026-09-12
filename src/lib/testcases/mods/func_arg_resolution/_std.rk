@@ -1,6 +1,0 @@
-infix |> 1
-infix + 4
-
-|>: a, b -> b a
-+: a, b -> ~IAdd a b
-

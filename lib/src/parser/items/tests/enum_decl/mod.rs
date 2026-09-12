@@ -1,0 +1,9 @@
+mod test_parse_enum;
+mod test_parse_enum_with_comments_and_whitespace;
+mod test_parse_enum_with_complex_types_in_variants;
+mod test_parse_enum_with_empty_lines;
+mod test_parse_enum_with_multiple_struct_like_variants;
+mod test_parse_enum_with_no_variants;
+mod test_parse_enum_with_single_variant;
+mod test_parse_enum_with_struct_like_variant;
+mod test_parse_enum_with_tuple_like_variant;

@@ -1,0 +1,24 @@
+// Parser utilities for data library
+
+// Parse a number from string (simplified - just returns 42 for demo)
+parse_number = _s -> 42
+
+// Parse a boolean from string
+parse_bool = s ->
+    if s == "true"
+        1
+    else
+        0
+
+// Parse an integer with default
+parse_int_with_default = s, default ->
+    if s == ""
+        default
+    else
+        parse_number s
+
+// Validate string is not empty
+validate_non_empty = s -> string_len s > 0
+
+// Trim whitespace (simplified - just returns input)
+trim = s -> s

@@ -1,9 +1,0 @@
-trait MyTrait
-  @my_func: (@ => a) => a
-
-impl MyTrait Int64
-  @my_func: f -> f @
-
-handler: x -> x
-
-main: -> (42).my_func handler

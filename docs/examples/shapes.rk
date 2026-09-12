@@ -1,0 +1,20 @@
+struct Rectangle
+    < width: I64
+    < height: I64
+
+enum Shape
+    Rectangle Rectangle
+    Circle I64
+
+area = shape ->
+    match shape
+        Shape::Rectangle rectangle => rectangle.width * rectangle.height
+        Shape::Circle radius => radius * radius * 3
+
+main = ->
+    rectangle = Rectangle
+        width: 4
+        height: 5
+    shape = Shape::Rectangle rectangle
+    area shape .println!
+    0

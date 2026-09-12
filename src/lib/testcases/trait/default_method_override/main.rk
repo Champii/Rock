@@ -1,7 +1,0 @@
-trait Test
-  @test: -> @
-
-impl Test Int64
-  @test: -> 42
-
-main: -> (21).test!

@@ -1,0 +1,405 @@
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+
+use crate::collect::item_index::{ItemIndex, ItemKind, ModuleKind};
+use crate::ids::{DefId, ModuleId};
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolverTables {
+    pub module_paths: HashMap<String, ModuleId>,
+    pub module_names_by_id: HashMap<ModuleId, String>,
+    pub item_paths: HashMap<String, DefId>,
+    pub item_names_by_id: HashMap<DefId, String>,
+    pub import_aliases: HashMap<String, DefId>,
+    pub export_aliases: HashMap<String, DefId>,
+    pub scoped_module_aliases: HashMap<String, HashMap<String, DefId>>,
+    pub module_aliases: HashMap<String, DefId>,
+}
+
+impl ResolverTables {
+    pub fn resolve_item_or_alias(&self, name: &str) -> Option<DefId> {
+        self.item_paths
+            .get(name)
+            .copied()
+            .or_else(|| self.import_aliases.get(name).copied())
+            .or_else(|| self.export_aliases.get(name).copied())
+            .or_else(|| self.module_aliases.get(name).copied())
+    }
+
+    pub fn canonical_name(&self, id: DefId) -> Option<&str> {
+        self.item_names_by_id.get(&id).map(String::as_str)
+    }
+
+    pub fn resolve_module_local_alias(&self, module_path: &str, alias: &str) -> Option<DefId> {
+        self.scoped_module_aliases
+            .get(module_path)
+            .and_then(|aliases| aliases.get(alias))
+            .copied()
+    }
+
+    pub fn insert_import_alias_with_name(&mut self, alias: String, source: String, id: DefId) {
+        self.import_aliases.insert(alias, id);
+        self.item_names_by_id.entry(id).or_insert(source);
+    }
+
+    pub fn insert_export_alias_with_name(&mut self, alias: String, source: String, id: DefId) {
+        self.export_aliases.insert(alias, id);
+        self.item_names_by_id.entry(id).or_insert(source);
+    }
+
+    pub fn insert_module_alias_with_name(&mut self, alias: String, source: String, id: DefId) {
+        self.module_aliases.insert(alias, id);
+        self.item_names_by_id.entry(id).or_insert(source);
+    }
+
+    pub fn merge_global_inputs(&mut self, other: &ResolverTables) {
+        self.module_paths.extend(other.module_paths.clone());
+        self.module_names_by_id
+            .extend(other.module_names_by_id.clone());
+        self.item_paths.extend(
+            other
+                .item_paths
+                .iter()
+                .filter(|(path, _)| path.contains("::"))
+                .map(|(path, id)| (path.clone(), *id)),
+        );
+        self.item_names_by_id.extend(other.item_names_by_id.clone());
+        self.import_aliases.extend(
+            other
+                .import_aliases
+                .iter()
+                .filter(|(alias, _)| alias.contains("::"))
+                .map(|(alias, id)| (alias.clone(), *id)),
+        );
+        self.export_aliases.extend(
+            other
+                .export_aliases
+                .iter()
+                .filter(|(alias, _)| alias.contains("::"))
+                .map(|(alias, id)| (alias.clone(), *id)),
+        );
+        for (module, aliases) in &other.scoped_module_aliases {
+            self.scoped_module_aliases
+                .entry(module.clone())
+                .or_default()
+                .extend(aliases.clone());
+        }
+        self.module_aliases.extend(other.module_aliases.clone());
+    }
+}
+
+pub fn build_resolver_tables(
+    item_index: &ItemIndex,
+    root_module_id: ModuleId,
+    current_crate_name: Option<&str>,
+    import_aliases: &HashMap<String, String>,
+    export_aliases: &HashMap<String, String>,
+    _export_function_aliases: &HashMap<String, String>,
+) -> ResolverTables {
+    let mut canonical_module_paths = HashMap::new();
+    let mut canonical_module_names_by_id = HashMap::new();
+    let mut module_segments = HashMap::new();
+
+    for module in item_index.modules() {
+        let segments = canonical_module_segments(
+            item_index,
+            root_module_id,
+            module.module_id,
+            current_crate_name,
+        );
+
+        if module.module_id != root_module_id && !segments.is_empty() {
+            let canonical_path = segments.join("::");
+            canonical_module_paths.insert(canonical_path.clone(), module.module_id);
+            if let Some(alias) = crate_qualified_path_alias(current_crate_name, &canonical_path) {
+                canonical_module_paths.insert(alias, module.module_id);
+            }
+            canonical_module_names_by_id.insert(module.module_id, canonical_path);
+        }
+
+        module_segments.insert(module.module_id, segments);
+    }
+
+    let mut canonical_item_paths = HashMap::new();
+    let mut canonical_item_names_by_id = HashMap::new();
+    let mut scoped_module_aliases: HashMap<String, HashMap<String, DefId>> = HashMap::new();
+    for item in item_index.items() {
+        if item.kind == ItemKind::Impl {
+            continue;
+        }
+
+        let canonical_path = if item.kind == ItemKind::Module {
+            let Some(canonical_path) = canonical_module_path_for_shell(
+                item_index,
+                root_module_id,
+                current_crate_name,
+                item.module_id,
+                &item.name,
+            ) else {
+                continue;
+            };
+
+            canonical_path
+        } else {
+            let mut path = module_segments
+                .get(&item.module_id)
+                .cloned()
+                .unwrap_or_default();
+            path.push(item.name.clone());
+            path.join("::")
+        };
+
+        if item.kind != ItemKind::Module {
+            if let Some(module_name) = canonical_module_names_by_id.get(&item.module_id) {
+                scoped_module_aliases
+                    .entry(module_name.clone())
+                    .or_default()
+                    .insert(item.name.clone(), item.def_id);
+            }
+        }
+
+        canonical_item_paths.insert(canonical_path.clone(), item.def_id);
+        if let Some(alias) = crate_qualified_path_alias(current_crate_name, &canonical_path) {
+            canonical_item_paths.insert(alias, item.def_id);
+        }
+        canonical_item_names_by_id.insert(item.def_id, canonical_path);
+    }
+
+    let resolved_import_aliases = import_aliases
+        .iter()
+        .filter_map(|(alias, target_path)| {
+            canonical_item_paths
+                .get(target_path)
+                .copied()
+                .map(|def_id| (alias.clone(), def_id))
+        })
+        .collect();
+
+    let resolved_export_aliases = export_aliases
+        .iter()
+        .filter_map(|(alias_path, source_path)| {
+            canonical_item_paths
+                .get(source_path)
+                .copied()
+                .map(|def_id| (alias_path.clone(), def_id))
+        })
+        .collect();
+
+    ResolverTables {
+        module_paths: canonical_module_paths,
+        module_names_by_id: canonical_module_names_by_id,
+        item_paths: canonical_item_paths,
+        item_names_by_id: canonical_item_names_by_id,
+        import_aliases: resolved_import_aliases,
+        export_aliases: resolved_export_aliases,
+        scoped_module_aliases,
+        module_aliases: HashMap::new(),
+    }
+}
+
+fn crate_qualified_path_alias(
+    current_crate_name: Option<&str>,
+    canonical_path: &str,
+) -> Option<String> {
+    let crate_name = current_crate_name?;
+    if canonical_path.is_empty()
+        || canonical_path == crate_name
+        || canonical_path.starts_with(&format!("{}::", crate_name))
+    {
+        return None;
+    }
+
+    Some(format!("{}::{}", crate_name, canonical_path))
+}
+
+fn canonical_module_segments(
+    item_index: &ItemIndex,
+    root_module_id: ModuleId,
+    module_id: ModuleId,
+    current_crate_name: Option<&str>,
+) -> Vec<String> {
+    if module_id == root_module_id {
+        return Vec::new();
+    }
+
+    let mut lineage = Vec::new();
+    let mut current = Some(module_id);
+
+    while let Some(current_id) = current {
+        let module = item_index
+            .get_module(current_id)
+            .expect("indexed module IDs should resolve");
+        if module.module_id == root_module_id {
+            break;
+        }
+
+        lineage.push((module.kind, module.name.clone()));
+        current = module.parent;
+    }
+
+    lineage.reverse();
+
+    let mut segments = Vec::new();
+    if matches!(lineage.first(), Some((ModuleKind::SourceBacked, _))) {
+        if let Some(crate_name) = current_crate_name {
+            segments.push(crate_name.to_string());
+        }
+    }
+
+    for (_, name) in lineage {
+        if let Some(name) = name {
+            segments.push(name);
+        }
+    }
+
+    segments
+}
+
+fn canonical_module_path_for_shell(
+    item_index: &ItemIndex,
+    root_module_id: ModuleId,
+    current_crate_name: Option<&str>,
+    parent_module_id: ModuleId,
+    module_name: &str,
+) -> Option<String> {
+    item_index
+        .modules()
+        .iter()
+        .find(|module| {
+            module.parent == Some(parent_module_id) && module.name.as_deref() == Some(module_name)
+        })
+        .map(|module| {
+            canonical_module_segments(
+                item_index,
+                root_module_id,
+                module.module_id,
+                current_crate_name,
+            )
+            .join("::")
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::ids::{CrateId, DefId, LocalDefId};
+
+    fn def_id(index: u32) -> DefId {
+        DefId::new(CrateId(0), LocalDefId(index))
+    }
+
+    #[test]
+    fn resolver_tables_resolve_items_imports_and_exports_by_id() {
+        let item_id = def_id(1);
+        let import_id = def_id(2);
+        let export_id = def_id(3);
+        let mut resolver = ResolverTables::default();
+        resolver
+            .item_paths
+            .insert("crate::item".to_string(), item_id);
+        resolver
+            .import_aliases
+            .insert("imported".to_string(), import_id);
+        resolver
+            .export_aliases
+            .insert("crate::alias".to_string(), export_id);
+
+        assert_eq!(resolver.resolve_item_or_alias("crate::item"), Some(item_id));
+        assert_eq!(resolver.resolve_item_or_alias("imported"), Some(import_id));
+        assert_eq!(
+            resolver.resolve_item_or_alias("crate::alias"),
+            Some(export_id)
+        );
+        assert_eq!(resolver.resolve_item_or_alias("missing"), None);
+    }
+
+    #[test]
+    fn resolver_tables_insert_aliases_with_reverse_names() {
+        let import_id = def_id(10);
+        let export_id = def_id(11);
+        let mut resolver = ResolverTables::default();
+
+        resolver.insert_import_alias_with_name(
+            "short".to_string(),
+            "dep::long".to_string(),
+            import_id,
+        );
+        resolver.insert_export_alias_with_name(
+            "crate::public".to_string(),
+            "crate::private".to_string(),
+            export_id,
+        );
+
+        assert_eq!(resolver.import_aliases.get("short"), Some(&import_id));
+        assert_eq!(
+            resolver.export_aliases.get("crate::public"),
+            Some(&export_id)
+        );
+        assert_eq!(resolver.canonical_name(import_id), Some("dep::long"));
+        assert_eq!(resolver.canonical_name(export_id), Some("crate::private"));
+    }
+
+    #[test]
+    fn resolver_tables_resolve_distinct_alias_categories_by_id() {
+        let import_id = def_id(21);
+        let export_id = def_id(22);
+        let module_id = def_id(23);
+        let mut resolver = ResolverTables::default();
+
+        resolver.insert_import_alias_with_name(
+            "imported".to_string(),
+            "dep::internal::value".to_string(),
+            import_id,
+        );
+        resolver.insert_export_alias_with_name(
+            "demo::public".to_string(),
+            "demo::internal::value".to_string(),
+            export_id,
+        );
+        resolver.insert_module_alias_with_name(
+            "local".to_string(),
+            "demo::module::local".to_string(),
+            module_id,
+        );
+
+        assert_eq!(resolver.resolve_item_or_alias("imported"), Some(import_id));
+        assert_eq!(
+            resolver.resolve_item_or_alias("demo::public"),
+            Some(export_id)
+        );
+        assert_eq!(resolver.resolve_item_or_alias("local"), Some(module_id));
+        assert_eq!(
+            resolver.canonical_name(module_id),
+            Some("demo::module::local")
+        );
+    }
+
+    #[test]
+    fn resolver_tables_expose_scoped_module_local_aliases() {
+        let first_id = def_id(31);
+        let second_id = def_id(32);
+        let mut resolver = ResolverTables::default();
+
+        resolver
+            .scoped_module_aliases
+            .entry("demo::first".to_string())
+            .or_default()
+            .insert("answer".to_string(), first_id);
+        resolver
+            .scoped_module_aliases
+            .entry("demo::second".to_string())
+            .or_default()
+            .insert("answer".to_string(), second_id);
+
+        assert_eq!(
+            resolver.resolve_module_local_alias("demo::first", "answer"),
+            Some(first_id)
+        );
+        assert_eq!(
+            resolver.resolve_module_local_alias("demo::second", "answer"),
+            Some(second_id)
+        );
+    }
+}

@@ -1,4 +1,0 @@
-extern puts: String => Int64
-
-main: -> puts "hello"
-

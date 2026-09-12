@@ -1,0 +1,11 @@
+abs = n ->
+    if n < 0 then 0 - n else n
+
+main = ->
+    x = abs (0 - 5)
+    x.println!
+    y = abs 10
+    y.println!
+    z = if true then 42 else 0
+    z.println!
+    0

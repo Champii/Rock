@@ -1,5 +1,0 @@
-main: ->
-  let a = 'a'
-  let star = '*'
-  let bn = '\n'
-  star

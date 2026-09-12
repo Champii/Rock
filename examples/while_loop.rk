@@ -1,0 +1,7 @@
+main = ->
+    i = 0
+    while i < 10
+        i.println!
+        i = i + 1
+    "done".println!
+    0

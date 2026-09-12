@@ -1,0 +1,12 @@
+sum_to = limit ->
+    mut current = 1
+    mut total = 0
+    while current <= limit
+        total = total + current
+        current = current + 1
+    total
+
+main = ->
+    result = sum_to 10
+    result.println!
+    0

@@ -1,0 +1,10 @@
+[crate]
+name = "net_lib"
+version = "0.1.0"
+
+[lib]
+path = "src/lib.rk"
+
+[dependencies]
+core_lib = { path = "../core_lib" }
+data_lib = { path = "../data_lib" }

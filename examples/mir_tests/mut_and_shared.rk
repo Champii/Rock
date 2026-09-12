@@ -1,0 +1,5 @@
+main = ->
+    mut x = 42
+    shared = &x
+    mutable = &mut x
+    0

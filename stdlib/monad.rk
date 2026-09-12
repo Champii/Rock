@@ -1,0 +1,10 @@
+// Monad sequences constructor-valued callbacks.
+
+> stdlib::applicative::Applicative
+> stdlib::callable::FnMut
+
+< trait Monad for F _ where F _: Applicative
+    bind: F A -> M -> F B where M: FnMut A, (F B)
+
+>>=: F A -> (A -> F B) -> F B where F _: Monad
+>>= = value, callback -> F::Monad::bind value, callback

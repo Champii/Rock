@@ -1,5 +1,0 @@
-id: a -> a
-
-main: ->
-  id true
-  id 42

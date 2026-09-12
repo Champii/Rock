@@ -1,0 +1,11 @@
+double_option: Option I64 -> Option I64
+double_option = input ->
+    value = input?
+    Option::Some (value * 2)
+
+main = ->
+    result = double_option (Option::Some 21)
+    match result
+        Option::Some value => value.println!
+        Option::None => "missing".println!
+    0

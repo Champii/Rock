@@ -1,0 +1,10 @@
+mod array_pattern_with_rest;
+mod binding_pattern;
+mod instance_pattern_arguments_nested;
+mod instance_pattern_fields_nested;
+mod literal_pattern;
+mod mut_ident_pattern;
+mod reference_pattern;
+mod test_parse_patter_with_binding;
+mod tuple_pattern;
+mod wildcard_pattern;

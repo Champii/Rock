@@ -1,0 +1,18 @@
+// Data library - main module
+// Provides data structures and operations
+
+mod models
+mod parser
+
+// Simple data container
+struct DataItem
+    value: String
+
+// Create a data item
+create_data = val -> DataItem val
+
+// Process data with transformation
+process_data = item -> DataItem (item.value + "_processed")
+
+// Combine two data items
+combine_data = a, b -> DataItem (a.value + "+" + b.value)

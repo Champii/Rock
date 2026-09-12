@@ -1,0 +1,16 @@
+struct Point
+    x: Int
+    y: Int
+
+trait Display
+    display: () -> String
+
+impl Display for Point
+    display = ->
+        "Point"
+
+main = ->
+    // comment
+    x = 42
+
+
